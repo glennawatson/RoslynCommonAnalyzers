@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConstructor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.ConstructorSummaryCodeFixProvider>;
@@ -17,9 +18,10 @@ public class DocumentationEdgeCaseUnitTest
 {
     /// <summary>Verifies a positional record parameter without a &lt;param&gt; is reported (SST1611).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordParameterAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task RecordParameterAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <summary>A point.</summary>
             public record Point(int {|SST1611:X|});
@@ -59,9 +61,10 @@ public class DocumentationEdgeCaseUnitTest
 
     /// <summary>Verifies a period tucked inside a closing quote is accepted (no SST1629).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PeriodInsideQuoteAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task PeriodInsideQuoteAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <summary>Sets it to "true."</summary>
             public class Widget { }
@@ -69,9 +72,10 @@ public class DocumentationEdgeCaseUnitTest
 
     /// <summary>Verifies a non-generic Task return still requires a &lt;returns&gt; (SST1615).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonGenericTaskAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task NonGenericTaskAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -83,9 +87,10 @@ public class DocumentationEdgeCaseUnitTest
 
     /// <summary>Verifies a non-generic ValueTask return still requires a &lt;returns&gt; (SST1615).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonGenericValueTaskAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task NonGenericValueTaskAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -97,9 +102,10 @@ public class DocumentationEdgeCaseUnitTest
 
     /// <summary>Verifies a Task-returning member with conditional compilation is not treated as void-like (no SST1617).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalTaskExpressionBodyAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task ConditionalTaskExpressionBodyAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
             namespace N;
@@ -121,9 +127,10 @@ public class DocumentationEdgeCaseUnitTest
 
     /// <summary>Verifies a summary that inherits via &lt;inheritdoc&gt; is not flagged for casing or emptiness.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocSummaryAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task InheritDocSummaryAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C

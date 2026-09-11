@@ -95,16 +95,9 @@ public sealed class Sst1531InitializerOnSingleLineAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
-            int separator;
-            if (hasLineBreak)
-            {
-                separator = next.IsKind(SyntaxKind.CommaToken) ? 0 : 1;
-            }
-            else
-            {
-                separator = next.SpanStart - token.Span.End;
-            }
-
+            // A wrapped gap collapses to one space, except ahead of a comma, which joins with nothing between.
+            var wrappedSeparator = next.IsKind(SyntaxKind.CommaToken) ? 0 : 1;
+            var separator = hasLineBreak ? wrappedSeparator : next.SpanStart - token.Span.End;
             length += separator + next.Span.Length;
             if (next.Equals(close))
             {

@@ -95,7 +95,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1004 for a <c>Guid.NewGuid()</c> call whose value flows into a secret-named target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="guidType">The resolved <c>System.Guid</c> type used to confirm the factory call; never matches when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? guidType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? guidType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -186,14 +186,14 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The bound parameter's name, or <see langword="null"/> when the argument does not bind to one.</returns>
-    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
+    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
 
     /// <summary>Returns the simple name written on the left-hand side of an assignment, or <see langword="null"/>.</summary>
     /// <param name="left">The assignment target expression.</param>
     /// <returns>The identifier or member name assigned to, or <see langword="null"/> for a computed target.</returns>
-    private static string? GetAssignmentTargetName(ExpressionSyntax left)
-        => left switch
+    private static string? GetAssignmentTargetName(ExpressionSyntax left) =>
+        left switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
@@ -230,8 +230,8 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the supplied name when it matches the curated secret vocabulary, else <see langword="null"/>.</summary>
     /// <param name="name">The candidate target name (may be <see langword="null"/>).</param>
     /// <returns>The name when it is secret-shaped, otherwise <see langword="null"/>.</returns>
-    private static string? Match(string? name)
-        => name is not null && IsSecretName(name) ? name : null;
+    private static string? Match(string? name) =>
+        name is not null && IsSecretName(name) ? name : null;
 
     /// <summary>Returns whether an identifier reads as a secret under the curated word-boundary heuristic.</summary>
     /// <param name="name">The identifier to test.</param>
@@ -275,11 +275,13 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             var matched = true;
             for (var offset = 0; offset < run.Length; offset++)
             {
-                if (!string.Equals(words[start + offset], run[offset], StringComparison.Ordinal))
+                if (string.Equals(words[start + offset], run[offset], StringComparison.Ordinal))
                 {
-                    matched = false;
-                    break;
+                    continue;
                 }
+
+                matched = false;
+                break;
             }
 
             if (matched)
@@ -317,11 +319,13 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             }
 
             // aB -> a|B, and a1 / 1a digit boundaries.
-            if (IsWordBoundary(name, i))
+            if (!IsWordBoundary(name, i))
             {
-                FlushWord(words, name, start, i);
-                start = i;
+                continue;
             }
+
+            FlushWord(words, name, start, i);
+            start = i;
         }
 
         FlushWord(words, name, start, name.Length);

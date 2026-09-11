@@ -52,8 +52,8 @@ public sealed class NullableSyntaxCleanupCodeFixProvider : CodeFixProvider
         Document document,
         SyntaxNode root,
         Diagnostic diagnostic,
-        CancellationToken cancellationToken)
-        => diagnostic.Id switch
+        CancellationToken cancellationToken) =>
+        diagnostic.Id switch
         {
             "SST2209" => ApplyNullForgiving(document, root, diagnostic),
             "SST2210" or "SST2211" => await RemoveDirectiveAsync(document, diagnostic, cancellationToken).ConfigureAwait(false),
@@ -68,12 +68,7 @@ public sealed class NullableSyntaxCleanupCodeFixProvider : CodeFixProvider
     private static Document ApplyNullForgiving(Document document, SyntaxNode root, Diagnostic diagnostic)
     {
         var suppression = FindAncestor<PostfixUnaryExpressionSyntax>(root, diagnostic.Location.SourceSpan);
-        if (suppression is null)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(suppression, suppression.Operand.WithTriviaFrom(suppression)));
+        return suppression is null ? document : document.WithSyntaxRoot(root.ReplaceNode(suppression, suppression.Operand.WithTriviaFrom(suppression)));
     }
 
     /// <summary>Removes the whole line containing a nullable directive.</summary>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -88,7 +90,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The invoked method name.</param>
     /// <param name="receiverType">The receiver's static type.</param>
     private static void ReportNativePredicate(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         MemberAccessExpressionSyntax memberAccess,
         IdentifierNameSyntax name,
         ITypeSymbol receiverType)
@@ -194,7 +196,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
         }
 
         var state = (ParameterName: parameterName, Found: false);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string ParameterName, bool Found)>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             expression,
             ref state,
             static (IdentifierNameSyntax candidate, ref (string ParameterName, bool Found) current) =>
@@ -278,8 +280,8 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="ns">The namespace to test.</param>
     /// <param name="leafName">The innermost namespace name.</param>
     /// <returns><see langword="true"/> for the requested System.Collections namespace.</returns>
-    private static bool IsSystemCollectionsNamespace(INamespaceSymbol? ns, string leafName)
-        => ns?.Name == leafName
+    private static bool IsSystemCollectionsNamespace(INamespaceSymbol? ns, string leafName) =>
+        ns?.Name == leafName
             && ns.ContainingNamespace?.Name == "Collections"
             && ns.ContainingNamespace.ContainingNamespace?.Name == "System"
             && ns.ContainingNamespace.ContainingNamespace.ContainingNamespace.IsGlobalNamespace;
@@ -294,8 +296,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
         {
             switch (current)
             {
-                case IdentifierNameSyntax:
-                case ThisExpressionSyntax:
+                case IdentifierNameSyntax or ThisExpressionSyntax:
                     {
                         return true;
                     }
@@ -317,8 +318,8 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>Maps a LINQ predicate method to the List/ImmutableList native method name.</summary>
     /// <param name="methodName">The invoked method name.</param>
     /// <returns>The native method name.</returns>
-    private static string GetListTargetName(string methodName)
-        => methodName switch
+    private static string GetListTargetName(string methodName) =>
+        methodName switch
         {
             "FirstOrDefault" => "Find",
             "Any" => "Exists",
@@ -328,8 +329,8 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>Maps a LINQ predicate method to the static <c>System.Array</c> helper name.</summary>
     /// <param name="methodName">The invoked method name.</param>
     /// <returns>The static helper name.</returns>
-    private static string GetArrayTargetName(string methodName)
-        => methodName switch
+    private static string GetArrayTargetName(string methodName) =>
+        methodName switch
         {
             "FirstOrDefault" => "Array.Find",
             "Any" => "Array.Exists",
@@ -339,8 +340,8 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the cached diagnostic properties carrying a replacement target name.</summary>
     /// <param name="target">The replacement target name.</param>
     /// <returns>The cached properties.</returns>
-    private static ImmutableDictionary<string, string?> GetTargetProperties(string target)
-        => target switch
+    private static ImmutableDictionary<string, string?> GetTargetProperties(string target) =>
+        target switch
         {
             "Find" => FindProperties,
             "Exists" => ExistsProperties,
@@ -353,6 +354,7 @@ public sealed class CollectionNativeMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>Creates the diagnostic properties carrying a replacement target name.</summary>
     /// <param name="target">The replacement target name.</param>
     /// <returns>The properties dictionary.</returns>
-    private static ImmutableDictionary<string, string?> CreateTargetProperties(string target)
-        => ImmutableDictionary<string, string?>.Empty.Add(TargetNameKey, target);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ImmutableDictionary<string, string?> CreateTargetProperties(string target) =>
+        ImmutableDictionary<string, string?>.Empty.Add(TargetNameKey, target);
 }

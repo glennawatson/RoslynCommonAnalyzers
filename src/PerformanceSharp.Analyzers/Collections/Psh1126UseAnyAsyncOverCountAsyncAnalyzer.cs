@@ -107,7 +107,7 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <summary>Reports PSH1126 for an emptiness comparison of an awaited CountAsync() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="awaitables">The awaitable types resolved for the compilation.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context, AwaitableTypes awaitables)
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, AwaitableTypes awaitables)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)

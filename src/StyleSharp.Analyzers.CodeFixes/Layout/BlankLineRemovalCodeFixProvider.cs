@@ -64,12 +64,7 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider, ITextChan
     internal static async Task<Document> RemoveBlankLinesAsync(Document document, TextSpan braceSpan, bool after, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (!TryBuildChange(text, braceSpan, after, out var change))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return !TryBuildChange(text, braceSpan, after, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that deletes the run of blank lines directly above or below the brace line.</summary>
@@ -116,7 +111,7 @@ public sealed class BlankLineRemovalCodeFixProvider : CodeFixProvider, ITextChan
         }
 
         var span = TextSpan.FromBounds(text.Lines[first].Start, text.Lines[last].EndIncludingLineBreak);
-        change = new TextChange(span, string.Empty);
+        change = new(span, string.Empty);
         return true;
     }
 }

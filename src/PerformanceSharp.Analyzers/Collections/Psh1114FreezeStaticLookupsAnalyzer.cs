@@ -96,7 +96,7 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dictionaryType">The dictionary type definition.</param>
     /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeField(SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, INamedTypeSymbol hashSetType)
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, INamedTypeSymbol hashSetType)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!HasCandidateShape(field)
@@ -111,7 +111,7 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
         // the common clean shape — bails here without ever touching the semantic model.
         var variable = field.Declaration.Variables[0];
         var scan = new UsageScan(variable.Identifier.ValueText, variable.Identifier.SpanStart);
-        DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
         if (!scan.OnlyReads)
         {
             return;
@@ -136,8 +136,8 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a field is a private static readonly single variable with an initializer.</summary>
     /// <param name="field">The field declaration.</param>
     /// <returns><see langword="true"/> when the candidate shape matches.</returns>
-    private static bool HasCandidateShape(FieldDeclarationSyntax field)
-        => field.Declaration.Variables.Count == 1
+    private static bool HasCandidateShape(FieldDeclarationSyntax field) =>
+        field.Declaration.Variables.Count == 1
             && field.Declaration.Variables[0].Initializer is not null
             && HasPrivateStaticReadonlyShape(field);
 
@@ -241,12 +241,9 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
-            if (member.Parent is InvocationExpressionSyntax)
-            {
-                return member.Name.Identifier.ValueText is "ContainsKey" or "TryGetValue" or "Contains" or "GetEnumerator";
-            }
-
-            return member.Name.Identifier.ValueText == "Count";
+            return member.Parent is InvocationExpressionSyntax
+                ? member.Name.Identifier.ValueText is "ContainsKey" or "TryGetValue" or "Contains" or "GetEnumerator"
+                : member.Name.Identifier.ValueText == "Count";
         }
     }
 }

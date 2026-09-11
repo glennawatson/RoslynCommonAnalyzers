@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1315UnionMemberNamingAnalyzer,
     StyleSharp.Analyzers.NamingRenameCodeFixProvider>;
@@ -23,21 +24,24 @@ public class UnionMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a PascalCase union case produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidAsync()
-        => await Verify.VerifyAnalyzerAsync($$"""{{Marker}}{{UnionBase}}public sealed class Circle : Shape { }""");
+    public Task ValidAsync() =>
+        Verify.VerifyAnalyzerAsync($$"""{{Marker}}{{UnionBase}}public sealed class Circle : Shape { }""");
 
     /// <summary>Verifies a lower-case union case is reported and renamed to PascalCase.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnionCaseAsync()
-        => await Verify.VerifyCodeFixAsync(
+    public Task UnionCaseAsync() =>
+        Verify.VerifyCodeFixAsync(
             $$"""{{Marker}}{{UnionBase}}public sealed class {|SST1315:circle|} : Shape { }""",
             $$"""{{Marker}}{{UnionBase}}public sealed class Circle : Shape { }""");
 
     /// <summary>Verifies the rule does not fire when no IUnion marker is present in the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoMarkerNoDiagnosticAsync()
-        => await Verify.VerifyAnalyzerAsync("public sealed class circle { }");
+    public Task NoMarkerNoDiagnosticAsync() =>
+        Verify.VerifyAnalyzerAsync("public sealed class circle { }");
 }

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for SST1316 tuple-element naming analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1316TupleElementNamingBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1316TupleElementNamingBenchmarks
@@ -24,11 +26,13 @@ public class Sst1316TupleElementNamingBenchmarks
 
     /// <summary>Benchmarks the clean tuple-element naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1316TupleElementNaming_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating tuple-element naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1316TupleElementNaming_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

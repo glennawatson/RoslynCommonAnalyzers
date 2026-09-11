@@ -85,8 +85,7 @@ public sealed class Psh1105AvoidDoubleLookupAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeIfStatement(SyntaxNodeAnalysisContext context)
     {
-        var ifStatement = (IfStatementSyntax)context.Node;
-        if (!TryGetShape(ifStatement, out var shape)
+        if (!TryGetShape((IfStatementSyntax)context.Node, out var shape)
             || !IsRedundantGuard(context.SemanticModel, shape, context.CancellationToken))
         {
             return;
@@ -102,8 +101,8 @@ public sealed class Psh1105AvoidDoubleLookupAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the mutator name to suggest in the diagnostic message.</summary>
     /// <param name="shape">The validated shape.</param>
     /// <returns><c>TryAdd</c> for the guarded two-argument Add pairing, otherwise the body's own method name.</returns>
-    private static string GetSuggestedMutatorName(in DoubleLookupShape shape)
-        => shape.RequiresTryAdd ? TryAddMethodName : shape.MutationName.Identifier.ValueText;
+    private static string GetSuggestedMutatorName(in DoubleLookupShape shape) =>
+        shape.RequiresTryAdd ? TryAddMethodName : shape.MutationName.Identifier.ValueText;
 
     /// <summary>Returns the single expression statement forming an if statement's body, if any.</summary>
     /// <param name="statement">The if statement's embedded statement.</param>

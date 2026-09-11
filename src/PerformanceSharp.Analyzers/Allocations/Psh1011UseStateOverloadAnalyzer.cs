@@ -107,8 +107,8 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns a delegate type's Invoke method.</summary>
     /// <param name="type">The candidate delegate type.</param>
     /// <returns>The Invoke method, or <see langword="null"/> for non-delegates.</returns>
-    private static IMethodSymbol? GetDelegateInvoke(ITypeSymbol type)
-        => type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke }
+    private static IMethodSymbol? GetDelegateInvoke(ITypeSymbol type) =>
+        type is INamedTypeSymbol { TypeKind: TypeKind.Delegate, DelegateInvokeMethod: { } invoke }
             ? invoke
             : null;
 
@@ -190,13 +190,10 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
     {
         var siblingParameters = siblingInvoke.Parameters;
         var callbackParameters = callbackInvoke.Parameters;
-        if (siblingParameters.Length == callbackParameters.Length + 1)
-        {
-            return PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 0)
-                || PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 1);
-        }
-
-        return siblingParameters.Length == callbackParameters.Length
+        return siblingParameters.Length == callbackParameters.Length + 1
+            ? PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 0)
+                || PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 1)
+            : siblingParameters.Length == callbackParameters.Length
             && PreservesCallbackParameters(siblingParameters, callbackParameters, stateOffset: 0);
     }
 
@@ -242,7 +239,7 @@ public sealed class Psh1011UseStateOverloadAnalyzer : DiagnosticAnalyzer
 
         foreach (var symbol in dataFlow.CapturedInside)
         {
-            if (symbol.Locations.Length == 0 || !lambda.Span.Contains(symbol.Locations[0].SourceSpan))
+            if (symbol.Locations.IsEmpty || !lambda.Span.Contains(symbol.Locations[0].SourceSpan))
             {
                 return true;
             }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedeclaredFieldLikeEvent = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2456RedeclaredFieldLikeEventAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 {
     /// <summary>Verifies a field-like override of a virtual event is reported on the override.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideOfVirtualEventIsReportedAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task OverrideOfVirtualEventIsReportedAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -34,9 +36,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a field-like override of an abstract event is reported on the override.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideOfAbstractEventIsReportedAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task OverrideOfAbstractEventIsReportedAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -55,9 +58,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies the generic handler override form is reported the same way.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericHandlerOverrideIsReportedAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task GenericHandlerOverrideIsReportedAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -78,9 +82,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies every event a single override declaration declares is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EachEventInOverrideDeclarationIsReportedAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task EachEventInOverrideDeclarationIsReportedAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -109,9 +114,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a field-like <c>new</c> event that hides an inherited event is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewFieldLikeEventHidingInheritedEventIsReportedAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task NewFieldLikeEventHidingInheritedEventIsReportedAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -132,9 +138,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a plain field-like event keeps its single backing field and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainFieldLikeEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task PlainFieldLikeEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -148,9 +155,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a virtual field-like event with no override or new is left to the other rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualFieldLikeEventWithoutOverrideOrNewIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task VirtualFieldLikeEventWithoutOverrideOrNewIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -164,9 +172,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies an abstract event has no backing field to split and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task AbstractEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -178,9 +187,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies an abstract override that re-abstracts declares no backing field and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractOverrideEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task AbstractOverrideEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -197,9 +207,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies an override with explicit accessors shares the author's storage and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideEventWithExplicitAccessorsIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task OverrideEventWithExplicitAccessorsIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -230,9 +241,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies an interface event declares no storage and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task InterfaceEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -244,9 +256,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new</c> interface event hides no backing storage and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewInterfaceEventHidingBaseInterfaceEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task NewInterfaceEventHidingBaseInterfaceEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -263,9 +276,10 @@ public class RedeclaredFieldLikeEventAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new</c> field-like event that hides nothing is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpuriousNewFieldLikeEventIsCleanAsync()
-        => await VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
+    public Task SpuriousNewFieldLikeEventIsCleanAsync() =>
+        VerifyRedeclaredFieldLikeEvent.VerifyAnalyzerAsync(
             """
             using System;
 

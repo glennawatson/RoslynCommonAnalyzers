@@ -64,16 +64,16 @@ public sealed class Sst2425BaseCallDropsOptionalArgumentAnalyzer : DiagnosticAna
         for (var i = 0; i < arguments.Length; i++)
         {
             var argument = arguments[i];
-            if (argument.ArgumentKind == ArgumentKind.DefaultValue
-                && argument.Parameter is { } baseParameter
-                && HasOptionalParameterNamed(method, baseParameter.Name))
+            if (argument.ArgumentKind != ArgumentKind.DefaultValue || argument.Parameter is not { } baseParameter || !HasOptionalParameterNamed(method, baseParameter.Name))
             {
-                context.ReportDiagnostic(DiagnosticHelper.Create(
-                    CorrectnessRules.OverrideDropsOptionalArgument,
-                    invocation.GetLocation(),
-                    baseParameter.Name));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                CorrectnessRules.OverrideDropsOptionalArgument,
+                invocation.GetLocation(),
+                baseParameter.Name));
+            return;
         }
     }
 

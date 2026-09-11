@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -15,23 +16,26 @@ public class ModernCSharpRegressionTests
 {
     /// <summary>A discard parameter '_' is not a naming violation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardParameterIsCleanAsync()
-        => await CSharpAnalyzerVerifier<Sst1313ParameterNamingAnalyzer>.VerifyAnalyzerAsync(
+    public Task DiscardParameterIsCleanAsync() =>
+        CSharpAnalyzerVerifier<Sst1313ParameterNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M(int _, int __) { } }");
 
     /// <summary>A discard local '_' is not a naming violation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardLocalIsCleanAsync()
-        => await CSharpAnalyzerVerifier<Sst1312LocalVariableNamingAnalyzer>.VerifyAnalyzerAsync(
+    public Task DiscardLocalIsCleanAsync() =>
+        CSharpAnalyzerVerifier<Sst1312LocalVariableNamingAnalyzer>.VerifyAnalyzerAsync(
             "public class C { public void M() { _ = System.Math.Abs(-1); } }");
 
     /// <summary>A multi-line collection expression does not trip element indentation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionExpressionIndentationIsCleanAsync()
-        => await CSharpAnalyzerVerifier<Sst1137ElementIndentationAnalyzer>.VerifyAnalyzerAsync(
+    public Task CollectionExpressionIndentationIsCleanAsync() =>
+        CSharpAnalyzerVerifier<Sst1137ElementIndentationAnalyzer>.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -46,9 +50,10 @@ public class ModernCSharpRegressionTests
 
     /// <summary>A using directive with a file-scoped namespace keeps its placement clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileScopedNamespaceUsingPlacementIsCleanAsync()
-        => await CSharpAnalyzerVerifier<UsingOrderingAnalyzer>.VerifyAnalyzerAsync(
+    public Task FileScopedNamespaceUsingPlacementIsCleanAsync() =>
+        CSharpAnalyzerVerifier<UsingOrderingAnalyzer>.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -68,7 +73,7 @@ public class ModernCSharpRegressionTests
         var test = new CSharpAnalyzerVerifier<Sst1316TupleElementNamingAnalyzer>.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = "public class C { public void M() { var (a, _) = (1, 2); System.Console.WriteLine(a); } }"
+            TestCode = "public class C { public void M() { var (a, _) = (1, 2); System.Console.WriteLine(a); } }",
         };
 
         await test.RunAsync(CancellationToken.None);

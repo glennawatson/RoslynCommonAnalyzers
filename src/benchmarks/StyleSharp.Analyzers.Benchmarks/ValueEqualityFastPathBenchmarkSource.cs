@@ -11,8 +11,8 @@ internal static class ValueEqualityFastPathBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? Violating(i) : Clean(i))}}
@@ -21,8 +21,8 @@ internal static class ValueEqualityFastPathBenchmarkSource
     /// <summary>Builds one hierarchy whose derived equality combines the base with '&amp;&amp;'.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public class B{{index}}
            {
                public int Y { get; set; }
@@ -45,8 +45,8 @@ internal static class ValueEqualityFastPathBenchmarkSource
     /// <summary>Builds one hierarchy whose derived equality uses the base as an early-return-true fast path.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public class VB{{index}}
            {
                public int Y { get; set; }

@@ -20,15 +20,6 @@ public sealed class LayoutHelpersUnitTest
     /// <summary>Zero-based line index of the "// docs" leading comment in the commented-method snippets.</summary>
     private const int LeadingCommentLine = 2;
 
-    /// <summary>A method carrying a leading comment, so its content starts above the declaration line.</summary>
-    private const string CommentedMethodSource = """
-        class C
-        {
-            // docs
-            void M() { }
-        }
-        """;
-
     /// <summary>Verifies the shared cursor can resolve both start and end lines for later spans.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -153,7 +144,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineUsesLeadingCommentWhenPresentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit(CommentedMethodSource);
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -183,7 +181,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task TryGetHeaderStartLineFindsLeadingCommentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit(CommentedMethodSource);
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
 
@@ -223,7 +228,14 @@ public sealed class LayoutHelpersUnitTest
     [Test]
     public async Task ContentStartLineOrLaterUsesHeaderTriviaWhenPresentAsync()
     {
-        var root = SyntaxFactory.ParseCompilationUnit(CommentedMethodSource);
+        var root = SyntaxFactory.ParseCompilationUnit(
+            """
+            class C
+            {
+                // docs
+                void M() { }
+            }
+            """);
         var method = ParseSingleMethod(root);
         var text = await root.SyntaxTree.GetTextAsync();
         var lineNumber = 0;
@@ -284,8 +296,8 @@ public sealed class LayoutHelpersUnitTest
     /// <summary>Parses the single method declaration from a single-type test snippet.</summary>
     /// <param name="root">The parsed compilation unit.</param>
     /// <returns>The single method declaration.</returns>
-    private static MethodDeclarationSyntax ParseSingleMethod(CompilationUnitSyntax root)
-        => (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
+    private static MethodDeclarationSyntax ParseSingleMethod(CompilationUnitSyntax root) =>
+        (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
 
     /// <summary>Parses the method declarations from a single-type test snippet.</summary>
     /// <param name="root">The parsed compilation unit.</param>

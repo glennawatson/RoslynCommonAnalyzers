@@ -63,7 +63,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new EscapeScan(context, body, constructor.Identifier.ValueText);
-        DescendantTraversalHelper.VisitDescendants<ThisExpressionSyntax, EscapeScan>(body, ref scan, VisitThis);
+        _ = DescendantTraversalHelper.VisitDescendants<ThisExpressionSyntax, EscapeScan>(body, ref scan, VisitThis);
     }
 
     /// <summary>Classifies one <c>this</c> and reports it when it escapes.</summary>
@@ -99,8 +99,8 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// so, and a closure passed to any other method is a real escape the rule must keep reporting. The
     /// difference is a fact about the callee, so it is configured rather than guessed.
     /// </remarks>
-    private static bool IsHandedToAnAllowedMethod(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context)
-        => EnclosingInvokedName(escaping) is { } name
+    private static bool IsHandedToAnAllowedMethod(ExpressionSyntax escaping, in SyntaxNodeAnalysisContext context) =>
+        EnclosingInvokedName(escaping) is { } name
         && ThisEscapeOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(escaping.SyntaxTree)).Allows(name);
 
     /// <summary>Returns the simple name of the nearest call the expression sits inside.</summary>
@@ -140,7 +140,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// naming any framework, and a genuine publish still has to store the object somewhere other than
     /// its own member to be worth reporting.
     /// </remarks>
-    private static bool IsTakenBackByOwnMember(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context)
+    private static bool IsTakenBackByOwnMember(ExpressionSyntax escaping, in SyntaxNodeAnalysisContext context)
     {
         // A constructor runs before the result can be stored, so it can dereference the half-built
         // object there and then. Only a call that returns something keeps the reference until after.
@@ -190,7 +190,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// <param name="escaping">The expression that would carry the object out.</param>
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when the expression is passed as an argument or stored externally.</returns>
-    private static bool IsHandedOver(ExpressionSyntax escaping, SyntaxNodeAnalysisContext context) => escaping.Parent switch
+    private static bool IsHandedOver(ExpressionSyntax escaping, in SyntaxNodeAnalysisContext context) => escaping.Parent switch
     {
         ArgumentSyntax argument => argument.Expression == escaping
             && !FlowsIntoOwnValueTypeField(argument, context),
@@ -217,7 +217,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// now holds.
     /// </para>
     /// </remarks>
-    private static bool FlowsIntoOwnValueTypeField(ArgumentSyntax argument, SyntaxNodeAnalysisContext context)
+    private static bool FlowsIntoOwnValueTypeField(ArgumentSyntax argument, in SyntaxNodeAnalysisContext context)
     {
         if (argument.Parent?.Parent is not BaseObjectCreationExpressionSyntax creation
             || context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not { IsValueType: true })
@@ -245,8 +245,8 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment stores its right-hand side rather than computing with it.</summary>
     /// <param name="assignment">The assignment.</param>
     /// <returns><see langword="true"/> for a plain store and for an event subscription.</returns>
-    private static bool IsStoringAssignment(AssignmentExpressionSyntax assignment)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.AddAssignmentExpression);
+    private static bool IsStoringAssignment(AssignmentExpressionSyntax assignment) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) || assignment.IsKind(SyntaxKind.AddAssignmentExpression);
 
     /// <summary>Returns whether an assignment target outlives the object being built.</summary>
     /// <param name="target">The assignment's left-hand side.</param>
@@ -257,7 +257,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// so storing <c>this</c> in one of them publishes nothing. A static field, or a field or event on
     /// another object, is reachable after the constructor returns, and by any thread that can see it.
     /// </remarks>
-    private static bool IsExternalTarget(ExpressionSyntax target, SyntaxNodeAnalysisContext context)
+    private static bool IsExternalTarget(ExpressionSyntax target, in SyntaxNodeAnalysisContext context)
     {
         var qualifiedByAnotherObject = target switch
         {
@@ -326,7 +326,7 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     private static bool IsFirstThisIn(AnonymousFunctionExpressionSyntax closure, ThisExpressionSyntax thisExpression)
     {
         var scan = default(FirstThisScan);
-        DescendantTraversalHelper.VisitDescendants<ThisExpressionSyntax, FirstThisScan>(closure, ref scan, VisitFirstThis);
+        _ = DescendantTraversalHelper.VisitDescendants<ThisExpressionSyntax, FirstThisScan>(closure, ref scan, VisitFirstThis);
         return scan.First == thisExpression;
     }
 
@@ -347,8 +347,8 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
     /// Only the body is walked, so a <c>: base(this)</c> initializer is out of scope by construction: it
     /// hands the object to its own base constructor, which is part of building it.
     /// </remarks>
-    private static SyntaxNode? GetBody(ConstructorDeclarationSyntax constructor)
-        => (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody;
+    private static SyntaxNode? GetBody(ConstructorDeclarationSyntax constructor) =>
+        (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody;
 
     /// <summary>The state threaded through a constructor's escape scan.</summary>
     /// <param name="Context">The syntax node context.</param>

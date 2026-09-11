@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyExclusiveOr = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2261UseExclusiveOrAnalyzer,
     StyleSharp.Analyzers.Sst2261UseExclusiveOrCodeFixProvider>;
@@ -81,9 +82,10 @@ public class UseExclusiveOrAnalyzerUnitTest
 
     /// <summary>Verifies operands with a side effect are left alone; the long form runs each twice.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingOperandsAreCleanAsync()
-        => await VerifyExclusiveOr.VerifyAnalyzerAsync(
+    public Task SideEffectingOperandsAreCleanAsync() =>
+        VerifyExclusiveOr.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -97,9 +99,10 @@ public class UseExclusiveOrAnalyzerUnitTest
 
     /// <summary>Verifies a disjunction that is not a mirror image is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonMirroredDisjunctionIsCleanAsync()
-        => await VerifyExclusiveOr.VerifyAnalyzerAsync(
+    public Task NonMirroredDisjunctionIsCleanAsync() =>
+        VerifyExclusiveOr.VerifyAnalyzerAsync(
             """
             internal class C
             {

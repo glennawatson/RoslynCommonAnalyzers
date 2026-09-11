@@ -9,9 +9,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1521 (lines should not be too long).</summary>
 public class LineTooLongAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the line-length options are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>The number of <c>Name</c> terms concatenated into one expression to push its line past the default maximum.</summary>
     private const int OverlongLineTermCount = 25;
 
@@ -58,7 +55,7 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1521.max_line_length = 40")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1521.max_line_length = 40")));
         test.ExpectedDiagnostics.Add(
             VerifyLineLength.Diagnostic()
                 .WithSpan(ReportedLineNumber, 1, ReportedLineNumber, ReportedLineEndColumn)
@@ -73,7 +70,7 @@ public class LineTooLongAnalyzerUnitTest
     {
         const int UnbreakableUrlPaddingLength = 120;
 
-        var url = "https://example.invalid/" + new string('x', UnbreakableUrlPaddingLength);
+        var url = $"https://example.invalid/{new string('x', UnbreakableUrlPaddingLength)}";
         var source = $$"""
                      public class C
                      {
@@ -160,7 +157,7 @@ public class LineTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, BuildConfig("stylesharp.max_line_length = 200", "stylesharp.SST1521.max_line_length = 40")));
+            ("/.editorconfig", BuildConfig("stylesharp.max_line_length = 200", "stylesharp.SST1521.max_line_length = 40")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -179,7 +176,7 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_line_length = 40")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_line_length = 40")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -201,13 +198,13 @@ public class LineTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1521.max_line_length = wide")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1521.max_line_length = wide")));
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Builds an editor config file body from the supplied keys.</summary>
     /// <param name="entries">The keys to write under the C# section.</param>
     /// <returns>The editor config text.</returns>
-    private static string BuildConfig(params string[] entries)
-        => "root = true\n[*.cs]\n" + string.Join("\n", entries) + "\n";
+    private static string BuildConfig(params string[] entries) =>
+        $"root = true\n[*.cs]\n{string.Join("\n", entries)}\n";
 }

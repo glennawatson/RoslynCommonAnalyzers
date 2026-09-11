@@ -20,8 +20,8 @@ internal static class CacheRegexOutsideLoopBenchmarkSource
     /// reporting path and hides whether the cheap gates in front of the semantic model are doing their job.
     /// One type in <see cref="NearMissInterval"/> is still a near-miss so the full gate stays covered.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Collections.Generic;
            using System.Text.RegularExpressions;
 
@@ -37,8 +37,8 @@ internal static class CacheRegexOutsideLoopBenchmarkSource
     /// The calls here take two or more arguments on purpose. That is the shape the rule's arity gate lets
     /// through, so this is what reaches — and must be turned back by — the receiver prepass.
     /// </remarks>
-    private static string GenerateUnrelatedType(int index)
-        => $$"""
+    private static string GenerateUnrelatedType(int index) =>
+        $$"""
            public sealed class U{{index}}
            {
                public int Count(string[] values, Dictionary<string, int> lookup)
@@ -62,14 +62,14 @@ internal static class CacheRegexOutsideLoopBenchmarkSource
     /// <summary>Builds one clean type: usually unrelated code, periodically a near-miss.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => index % NearMissInterval == 0 ? GenerateCachedInstanceType(index) : GenerateUnrelatedType(index);
+    private static string GenerateCleanType(int index) =>
+        index % NearMissInterval == 0 ? GenerateCachedInstanceType(index) : GenerateUnrelatedType(index);
 
     /// <summary>Builds one type that matches through a cached instance.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCachedInstanceType(int index)
-        => $$"""
+    private static string GenerateCachedInstanceType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                private static readonly Regex Word = new Regex("[a-z]+");
@@ -93,8 +93,8 @@ internal static class CacheRegexOutsideLoopBenchmarkSource
     /// <summary>Builds one type that calls the static overloads from inside a loop.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public int Count(string[] values)

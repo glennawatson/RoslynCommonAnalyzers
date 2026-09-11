@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes an empty <c>else</c> clause from its <c>if</c> statement (SST1180).</summary>
@@ -16,12 +18,13 @@ public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider, IBatchFixa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the empty 'else' clause", nameof(EmptyElseClauseCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the empty 'else' clause", nameof(EmptyElseClauseCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported else clause and builds the if statement without it.</summary>
     /// <param name="root">The syntax root.</param>

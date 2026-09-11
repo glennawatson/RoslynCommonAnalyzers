@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDispose = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2300DisposePatternAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 {
     /// <summary>Verifies an unsealed disposable type with no <c>Dispose(bool)</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsealedTypeWithoutDisposeOverloadIsReportedAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task UnsealedTypeWithoutDisposeOverloadIsReportedAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -35,9 +37,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
     /// <summary>Verifies a sealed type with no finalizer is complete with a plain <c>Dispose()</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Nothing can derive from it and nothing else calls its cleanup, so the pattern is not asked for.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedTypeWithNoFinalizerIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task SealedTypeWithNoFinalizerIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -51,9 +54,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>Dispose(bool)</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicDisposeOverloadIsReportedAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task PublicDisposeOverloadIsReportedAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -72,9 +76,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Dispose()</c> that never chains to <c>Dispose(true)</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeThatDoesNotChainIsReportedAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task DisposeThatDoesNotChainIsReportedAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -92,9 +97,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a finalizable type whose <c>Dispose()</c> forgets to suppress finalization is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FinalizerWithoutSuppressFinalizeIsReportedAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task FinalizerWithoutSuppressFinalizeIsReportedAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -115,9 +121,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies the whole pattern, written out, is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompletePatternIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task CompletePatternIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -145,9 +152,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies the chained call still counts when it is guarded or qualified.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedAndGuardedCallsAreFoundAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task QualifiedAndGuardedCallsAreFoundAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -173,9 +181,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a derived type inherits the pattern and is not asked to build it again.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedTypeIsNotAskedForThePatternAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task DerivedTypeIsNotAskedForThePatternAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -207,9 +216,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
     /// <summary>Verifies a derived type that hides the base's <c>Dispose()</c> with a new one is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A <c>using</c> on a base-typed variable dispatches statically to the base's <c>Dispose()</c>, not the hidden one.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedTypeHidingBaseDisposeIsReportedAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task DerivedTypeHidingBaseDisposeIsReportedAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -235,9 +245,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a derived type that overrides a virtual base <c>Dispose()</c> is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedTypeOverridingVirtualDisposeIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task DerivedTypeOverridingVirtualDisposeIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -264,9 +275,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>IDisposable.Dispose</c> implementation is read like any other.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitDisposeImplementationIsReadAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task ExplicitDisposeImplementationIsReadAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -299,9 +311,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a struct is not measured: it cannot be derived from and cannot have a finalizer.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task StructIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -315,9 +328,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a record is skipped.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task RecordIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -353,9 +367,10 @@ public class Sst2300DisposePatternAnalyzerUnitTest
 
     /// <summary>Verifies a type that implements neither disposal contract is never looked at.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDisposableTypeIsCleanAsync()
-        => await VerifyDispose.VerifyAnalyzerAsync(
+    public Task NonDisposableTypeIsCleanAsync() =>
+        VerifyDispose.VerifyAnalyzerAsync(
             """
             public class Connection
             {

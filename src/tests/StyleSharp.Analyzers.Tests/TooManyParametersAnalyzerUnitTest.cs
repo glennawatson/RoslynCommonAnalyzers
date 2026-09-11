@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyParameters = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1472TooManyParametersAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,9 +10,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1472 (signatures should not declare too many parameters).</summary>
 public class TooManyParametersAnalyzerUnitTest
 {
-    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
     private const string IsExternalInit = """
 
@@ -20,9 +18,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a method over the default maximum is reported and one at the maximum is not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodOverTheMaximumIsReportedAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task MethodOverTheMaximumIsReportedAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -38,9 +37,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a constructor, a delegate, a local function and an indexer are all measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EverySignatureKindIsMeasuredAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task EverySignatureKindIsMeasuredAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public delegate void {|SST1472:Handler|}(int a, int b, int c, int d, int e, int f, int g, int h);
 
@@ -65,9 +65,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a class primary constructor is measured like any other constructor.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassPrimaryConstructorIsMeasuredAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task ClassPrimaryConstructorIsMeasuredAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public class {|SST1472:Service|}(int a, int b, int c, int d, int e, int f, int g, int h);
 
@@ -76,9 +77,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a positional record is the parameter object the rule asks for, so it is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordIsCleanByDefaultAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task PositionalRecordIsCleanByDefaultAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             $$"""
             public record Person(int A, int B, int C, int D, int E, int F, int G, int H, int I, int J);
 
@@ -100,7 +102,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1472.check_positional_records = true
@@ -113,9 +115,10 @@ public class TooManyParametersAnalyzerUnitTest
     /// <summary>Verifies a signature whose shape a base type or an interface dictates is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The declaration that owns the shape is reported instead, which is where the fix belongs.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedSignaturesAreReportedAtTheirSourceAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task InheritedSignaturesAreReportedAtTheirSourceAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public interface IProcessor
             {
@@ -141,9 +144,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies an explicit interface implementation is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceImplementationIsCleanAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceImplementationIsCleanAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public interface IProcessor
             {
@@ -160,9 +164,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a P/Invoke keeps the signature the native API dictates.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NativeImportIsCleanAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task NativeImportIsCleanAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 
@@ -187,9 +192,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies only the defining half of a partial method is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialMethodIsReportedOnceAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task PartialMethodIsReportedOnceAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public partial class C
             {
@@ -203,9 +209,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a deconstructor's parameters mirror the type's state and are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeconstructorIsCleanAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task DeconstructorIsCleanAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -218,9 +225,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies a lambda takes its shape from its delegate and is never measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaIsCleanAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task LambdaIsCleanAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -235,9 +243,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies an extension method's receiver is written as the receiver, not as an argument.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionReceiverIsNotCountedAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task ExtensionReceiverIsNotCountedAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public static class Extensions
             {
@@ -249,9 +258,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies an extension block's receiver is not counted against its members.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionBlockReceiverIsNotCountedAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task ExtensionBlockReceiverIsNotCountedAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public static class Extensions
             {
@@ -266,9 +276,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies the compiler-supplied caller-info parameters do not count against the maximum.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerInfoParametersAreNotCountedAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task CallerInfoParametersAreNotCountedAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -292,9 +303,10 @@ public class TooManyParametersAnalyzerUnitTest
 
     /// <summary>Verifies optional parameters count by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalParametersCountByDefaultAsync()
-        => await VerifyParameters.VerifyAnalyzerAsync(
+    public Task OptionalParametersCountByDefaultAsync() =>
+        VerifyParameters.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -326,7 +338,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1472.count_optional_parameters = false
@@ -358,7 +370,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.max_parameters = 20
@@ -391,7 +403,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.max_parameters = 2
@@ -423,7 +435,7 @@ public class TooManyParametersAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1472.max_parameters = lots

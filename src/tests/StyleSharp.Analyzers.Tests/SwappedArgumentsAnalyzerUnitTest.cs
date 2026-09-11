@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySwappedArguments = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2400SwappedArgumentsAnalyzer,
     StyleSharp.Analyzers.Sst2400SwappedArgumentsCodeFixProvider>;
@@ -165,9 +166,10 @@ public class SwappedArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies arguments already in the parameters' order are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentsInOrderAreCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task ArgumentsInOrderAreCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -181,9 +183,10 @@ public class SwappedArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a named argument settles the order at the call site, so nothing is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedArgumentsAreCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task NamedArgumentsAreCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -198,9 +201,10 @@ public class SwappedArgumentsAnalyzerUnitTest
     /// <summary>Verifies a rotation is not a transposition, and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>There is no unambiguous repair for one, so reading it as a mistake would be a guess.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RotationIsNotReportedAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task RotationIsNotReportedAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -215,9 +219,10 @@ public class SwappedArgumentsAnalyzerUnitTest
     /// <summary>Verifies a pair whose parameters differ in type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Reordering would change which overload the call binds to, or stop it compiling at all.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentParameterTypesAreCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task DifferentParameterTypesAreCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -231,9 +236,10 @@ public class SwappedArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies an argument that is not a bare identifier is not read as a name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedArgumentIsCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task ComputedArgumentIsCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -249,9 +255,10 @@ public class SwappedArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a call with a <c>params</c> tail is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterArrayIsCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task ParameterArrayIsCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -265,9 +272,10 @@ public class SwappedArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies an argument naming a parameter it is already in the right place for is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentNamingItsOwnParameterIsCleanAsync()
-        => await VerifySwappedArguments.VerifyAnalyzerAsync(
+    public Task ArgumentNamingItsOwnParameterIsCleanAsync() =>
+        VerifySwappedArguments.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

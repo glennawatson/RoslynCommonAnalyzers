@@ -53,7 +53,7 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a render requested from a disposal method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!BlazorComponentModel.IsSelfStateHasChangedSyntax(invocation.Expression)
@@ -86,10 +86,7 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
         {
             switch (current)
             {
-                case SimpleLambdaExpressionSyntax:
-                case ParenthesizedLambdaExpressionSyntax:
-                case AnonymousMethodExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax or AnonymousMethodExpressionSyntax or LocalFunctionStatementSyntax:
                     return null;
                 case MethodDeclarationSyntax method:
                     return IsDisposeMethodName(method.Identifier.ValueText) ? method : null;
@@ -104,6 +101,6 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method name is a disposal method name.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for <c>Dispose</c> or <c>DisposeAsync</c>.</returns>
-    private static bool IsDisposeMethodName(string name)
-        => string.Equals(name, DisposeName, StringComparison.Ordinal) || string.Equals(name, DisposeAsyncName, StringComparison.Ordinal);
+    private static bool IsDisposeMethodName(string name) =>
+        string.Equals(name, DisposeName, StringComparison.Ordinal) || string.Equals(name, DisposeAsyncName, StringComparison.Ordinal);
 }

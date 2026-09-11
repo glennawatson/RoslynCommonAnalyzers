@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for clear-over-fill-default analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ClearOverFillDefaultProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class ClearOverFillDefaultProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class ClearOverFillDefaultProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean clear-over-fill-default path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ClearOverFillDefault_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating clear-over-fill-default path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ClearOverFillDefault_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

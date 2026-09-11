@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the file-ending code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("FileEndingCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class FileEndingCodeFixBenchmarks
@@ -22,8 +24,8 @@ public class FileEndingCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects the end-of-file insertion span.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             LayoutTriviaCodeFixBenchmarkSource.GenerateFileEnding,
             static async (document, _, _) =>
@@ -33,6 +35,7 @@ public class FileEndingCodeFixBenchmarks
             }).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

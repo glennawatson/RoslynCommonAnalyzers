@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFieldLocal = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1422PrivateFieldUsedAsLocalAnalyzer>;
 
@@ -12,9 +13,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 {
     /// <summary>Verifies a field reset at the start of its only using method is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResetTemporaryFieldIsReportedAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task ResetTemporaryFieldIsReportedAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -31,9 +33,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies cross-method state is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldUsedByMultipleMethodsIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task FieldUsedByMultipleMethodsIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -47,9 +50,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies several scratch fields in one type are each reported independently.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleScratchFieldsAreEachReportedAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task MultipleScratchFieldsAreEachReportedAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -74,9 +78,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a same-named local in another method does not count as a second using method.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNameLocalInOtherMethodDoesNotBlockReportAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task SameNameLocalInOtherMethodDoesNotBlockReportAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -99,9 +104,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a field referenced inside a lambda is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldReferencedInsideLambdaIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task FieldReferencedInsideLambdaIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -121,9 +127,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a lazily-initialized cache (<c>??=</c> reads before writing) is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyInitializedFieldIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task LazyInitializedFieldIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             #nullable enable
             using System;
@@ -144,9 +151,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a compound assignment as the first access (read before write) is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentFirstAccessIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentFirstAccessIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -162,9 +170,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a guarded null-assignment (lazy cache) is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedNullAssignmentIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task GuardedNullAssignmentIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             #nullable enable
             public sealed class C
@@ -185,9 +194,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies a field whose reset reads its own previous value (a running counter) is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfReferencingResetIsCleanAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task SelfReferencingResetIsCleanAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -203,9 +213,10 @@ public class PrivateFieldUsedAsLocalAnalyzerUnitTest
 
     /// <summary>Verifies an unconditional reset that does not read the field is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnconditionalResetStillReportedAsync()
-        => await VerifyFieldLocal.VerifyAnalyzerAsync(
+    public Task UnconditionalResetStillReportedAsync() =>
+        VerifyFieldLocal.VerifyAnalyzerAsync(
             """
             public class C
             {

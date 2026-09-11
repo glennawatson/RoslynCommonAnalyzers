@@ -14,6 +14,10 @@ namespace System.Runtime.CompilerServices;
 /// </summary>
 [ExcludeFromCodeCoverage]
 [DebuggerNonUserCode]
+[SuppressMessage(
+    "Maintainability",
+    "SST1436:Add members to the type or remove it",
+    Justification = "The compiler only requires this type to exist so that init accessors compile on netstandard2.0; it has no members by design.")]
 internal static class IsExternalInit;
 
 #else

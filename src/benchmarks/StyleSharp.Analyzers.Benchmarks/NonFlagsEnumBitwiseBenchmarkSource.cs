@@ -11,8 +11,8 @@ internal static class NonFlagsEnumBitwiseBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
@@ -27,8 +27,8 @@ internal static class NonFlagsEnumBitwiseBenchmarkSource
     /// operands), literal and numeric-cast operands (no bind at all), and equality comparisons on a
     /// non-flags enum (never registered).
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [System.Flags]
            public enum Options{{index}}
            {
@@ -74,8 +74,8 @@ internal static class NonFlagsEnumBitwiseBenchmarkSource
     /// Each block carries four violations: an or, a mask whose complement folds into the outermost
     /// report, a compound or-assignment, and a xor.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public enum Mode{{index}}
            {
                Plain,

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEvents = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2304EventHandlerSignatureAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 {
     /// <summary>Verifies an event whose delegate has an unrelated shape is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomDelegateWithTheWrongShapeIsReportedAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task CustomDelegateWithTheWrongShapeIsReportedAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             public delegate void ValueChanged(int oldValue, int newValue);
 
@@ -25,9 +27,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a second parameter that carries no event payload is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEventArgsPayloadIsReportedAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task NonEventArgsPayloadIsReportedAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             public delegate void Notified(object sender, string payload);
 
@@ -39,9 +42,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a handler that returns something is reported: an event has no one to return it to.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HandlerWithAReturnValueIsReportedAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task HandlerWithAReturnValueIsReportedAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -55,9 +59,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies the framework's own handler delegates are the shape by definition.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FrameworkHandlersAreCleanAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task FrameworkHandlersAreCleanAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -213,9 +218,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a right-shape delegate dictated by an interface is reported at the interface, not the implementation.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RightShapeInterfaceImplementationIsReportedAtItsSourceAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task RightShapeInterfaceImplementationIsReportedAtItsSourceAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -238,9 +244,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies an implementing event is not reported; the interface that dictates the shape is.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceImplementationIsReportedAtItsSourceAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task InterfaceImplementationIsReportedAtItsSourceAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             public delegate void ValueChanged(int value);
 
@@ -266,9 +273,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies an override takes its shape from the declaration it follows.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsReportedAtItsSourceAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task OverrideIsReportedAtItsSourceAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             public delegate void ValueChanged(int value);
 
@@ -285,9 +293,10 @@ public class Sst2304EventHandlerSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a class that declares no events is never looked at.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithoutEventsIsCleanAsync()
-        => await VerifyEvents.VerifyAnalyzerAsync(
+    public Task TypeWithoutEventsIsCleanAsync() =>
+        VerifyEvents.VerifyAnalyzerAsync(
             """
             public delegate void ValueChanged(int oldValue, int newValue);
 

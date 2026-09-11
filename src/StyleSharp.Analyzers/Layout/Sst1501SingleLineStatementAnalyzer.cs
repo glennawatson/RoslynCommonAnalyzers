@@ -62,8 +62,8 @@ public sealed class Sst1501SingleLineStatementAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the block is the body of a member, accessor, local function, or lambda.</summary>
     /// <param name="parent">The block's parent node.</param>
     /// <returns><see langword="true"/> when the block is an element or function body (excluded from SST1501).</returns>
-    private static bool IsElementOrFunctionBody(SyntaxNode? parent)
-        => parent is BaseMethodDeclarationSyntax
+    private static bool IsElementOrFunctionBody(SyntaxNode? parent) =>
+        parent is BaseMethodDeclarationSyntax
             or AccessorDeclarationSyntax
             or AnonymousFunctionExpressionSyntax
             or LocalFunctionStatementSyntax;

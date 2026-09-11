@@ -10,15 +10,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The default SST1442 maximum.</summary>
-    private const int DefaultCyclomaticMaximum = 10;
-
-    /// <summary>The default SST1443 method maximum.</summary>
-    private const int DefaultCognitiveMaximum = 15;
-
-    /// <summary>The default SST1443 property/accessor maximum.</summary>
-    private const int DefaultPropertyCognitiveMaximum = 3;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         MaintainabilityRules.CyclomaticComplexity,
@@ -62,7 +53,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
     /// <param name="thresholdByTree">The per-tree threshold cache.</param>
     /// <param name="factory">The threshold cache-miss factory.</param>
     private static void AnalyzeDeclaration(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConditionalWeakTable<SyntaxTree, ComplexityThresholds> thresholdByTree,
         ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback factory)
     {
@@ -86,7 +77,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
     /// <param name="declarationType">The declaration type.</param>
     /// <param name="maximum">The configured maximum.</param>
     /// <param name="cyclomatic">The computed complexity.</param>
-    private static void ReportCyclomatic(SyntaxNodeAnalysisContext context, Location location, string declarationType, int maximum, int cyclomatic)
+    private static void ReportCyclomatic(in SyntaxNodeAnalysisContext context, Location location, string declarationType, int maximum, int cyclomatic)
     {
         if (cyclomatic <= maximum)
         {
@@ -108,7 +99,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
     /// <param name="declarationType">The declaration type.</param>
     /// <param name="maximum">The configured maximum.</param>
     /// <param name="cognitive">The computed complexity.</param>
-    private static void ReportCognitive(SyntaxNodeAnalysisContext context, Location location, string declarationType, int maximum, int cognitive)
+    private static void ReportCognitive(in SyntaxNodeAnalysisContext context, Location location, string declarationType, int maximum, int cognitive)
     {
         if (cognitive <= maximum)
         {
@@ -202,6 +193,15 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
     /// <summary>Per-tree complexity thresholds.</summary>
     private sealed class ComplexityThresholds
     {
+        /// <summary>The default SST1442 maximum.</summary>
+        private const int DefaultCyclomaticMaximum = 10;
+
+        /// <summary>The default SST1443 method maximum.</summary>
+        private const int DefaultCognitiveMaximum = 15;
+
+        /// <summary>The default SST1443 property/accessor maximum.</summary>
+        private const int DefaultPropertyCognitiveMaximum = 3;
+
         /// <summary>Initializes a new instance of the <see cref="ComplexityThresholds"/> class.</summary>
         /// <param name="cyclomaticMaximum">The SST1442 maximum.</param>
         /// <param name="cognitiveMaximum">The SST1443 function maximum.</param>
@@ -225,8 +225,8 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <summary>Reads complexity thresholds from analyzer options.</summary>
         /// <param name="options">The analyzer config options.</param>
         /// <returns>The resolved thresholds.</returns>
-        public static ComplexityThresholds Read(AnalyzerConfigOptions options)
-            => new(
+        public static ComplexityThresholds Read(AnalyzerConfigOptions options) =>
+            new(
                 ReadPositiveInt(options, "stylesharp.SST1442.max_cyclomatic_complexity", "stylesharp.max_cyclomatic_complexity", DefaultCyclomaticMaximum),
                 ReadPositiveInt(options, "stylesharp.SST1443.max_cognitive_complexity", "stylesharp.max_cognitive_complexity", DefaultCognitiveMaximum),
                 ReadPositiveInt(options, "stylesharp.SST1443.max_property_cognitive_complexity", "stylesharp.max_property_cognitive_complexity", DefaultPropertyCognitiveMaximum));
@@ -267,10 +267,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Initializes a new instance of the <see cref="ComplexityCounter"/> class.</summary>
         /// <param name="root">The declaration root.</param>
-        private ComplexityCounter(SyntaxNode root)
-        {
-            _root = root;
-        }
+        private ComplexityCounter(SyntaxNode root) => _root = root;
 
         /// <summary>Gets the computed direct-branch count.</summary>
         public int BranchingComplexity { get; private set; } = 1;
@@ -386,24 +383,24 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         }
 
         /// <inheritdoc/>
-        public override void VisitCatchClause(CatchClauseSyntax node)
-            => VisitNestedComplexity(node, static (counter, current) => counter.VisitCatchClauseCore(current));
+        public override void VisitCatchClause(CatchClauseSyntax node) =>
+            VisitNestedComplexity(node, static (counter, current) => counter.VisitCatchClauseCore(current));
 
         /// <inheritdoc/>
-        public override void VisitGotoStatement(GotoStatementSyntax node)
-            => VisitNestedComplexity(node, static (counter, current) => counter.VisitGotoStatementCore(current));
+        public override void VisitGotoStatement(GotoStatementSyntax node) =>
+            VisitNestedComplexity(node, static (counter, current) => counter.VisitGotoStatementCore(current));
 
         /// <inheritdoc/>
-        public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node)
-            => VisitWithNesting(node, static (counter, current) => counter.VisitSimpleLambdaExpressionCore(current));
+        public override void VisitSimpleLambdaExpression(SimpleLambdaExpressionSyntax node) =>
+            VisitWithNesting(node, static (counter, current) => counter.VisitSimpleLambdaExpressionCore(current));
 
         /// <inheritdoc/>
-        public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node)
-            => VisitWithNesting(node, static (counter, current) => counter.VisitParenthesizedLambdaExpressionCore(current));
+        public override void VisitParenthesizedLambdaExpression(ParenthesizedLambdaExpressionSyntax node) =>
+            VisitWithNesting(node, static (counter, current) => counter.VisitParenthesizedLambdaExpressionCore(current));
 
         /// <inheritdoc/>
-        public override void VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node)
-            => VisitWithNesting(node, static (counter, current) => counter.VisitAnonymousMethodExpressionCore(current));
+        public override void VisitAnonymousMethodExpression(AnonymousMethodExpressionSyntax node) =>
+            VisitWithNesting(node, static (counter, current) => counter.VisitAnonymousMethodExpressionCore(current));
 
         /// <inheritdoc/>
         public override void VisitInvocationExpression(InvocationExpressionSyntax node)
@@ -468,8 +465,8 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a node starts a nested function boundary.</summary>
         /// <param name="node">The candidate node.</param>
         /// <returns><see langword="true"/> for nested lambdas and local functions.</returns>
-        private static bool IsNestedFunctionBoundary(SyntaxNode node)
-            => node is LocalFunctionStatementSyntax
+        private static bool IsNestedFunctionBoundary(SyntaxNode node) =>
+            node is LocalFunctionStatementSyntax
                 or SimpleLambdaExpressionSyntax
                 or ParenthesizedLambdaExpressionSyntax
                 or AnonymousMethodExpressionSyntax;
@@ -478,27 +475,29 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         /// <param name="expression">The expression to inspect.</param>
         /// <param name="kind">The expected kind.</param>
         /// <returns><see langword="true"/> when the expression is the same logical operation.</returns>
-        private static bool IsSameLogicalBinary(ExpressionSyntax expression, SyntaxKind kind)
-            => Unwrap(expression).IsKind(kind);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsSameLogicalBinary(ExpressionSyntax expression, SyntaxKind kind) =>
+            Unwrap(expression).IsKind(kind);
 
         /// <summary>Returns whether a pattern is the same binary-pattern kind after parentheses.</summary>
         /// <param name="pattern">The pattern to inspect.</param>
         /// <param name="kind">The expected kind.</param>
         /// <returns><see langword="true"/> when the pattern is the same binary operation.</returns>
-        private static bool IsSameBinaryPattern(PatternSyntax pattern, SyntaxKind kind)
-            => Unwrap(pattern).IsKind(kind);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static bool IsSameBinaryPattern(PatternSyntax pattern, SyntaxKind kind) =>
+            Unwrap(pattern).IsKind(kind);
 
         /// <summary>Returns whether the binary expression increments cognitive complexity.</summary>
         /// <param name="kind">The binary kind.</param>
         /// <returns><see langword="true"/> for logical operators.</returns>
-        private static bool IsLogicalBinary(SyntaxKind kind)
-            => kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression;
+        private static bool IsLogicalBinary(SyntaxKind kind) =>
+            kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression;
 
         /// <summary>Returns whether the binary expression increments direct branching complexity.</summary>
         /// <param name="kind">The binary kind.</param>
         /// <returns><see langword="true"/> for supported branching operators.</returns>
-        private static bool IsBranchingBinary(SyntaxKind kind)
-            => kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression;
+        private static bool IsBranchingBinary(SyntaxKind kind) =>
+            kind is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression or SyntaxKind.CoalesceExpression;
 
         /// <summary>Removes parentheses around an expression.</summary>
         /// <param name="expression">The expression.</param>
@@ -551,50 +550,62 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Visits an if statement without adding the decision point again.</summary>
         /// <param name="node">The if statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitIfStatementCore(IfStatementSyntax node) => base.VisitIfStatement(node);
 
         /// <summary>Visits a conditional expression without adding the decision point again.</summary>
         /// <param name="node">The conditional expression.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitConditionalExpressionCore(ConditionalExpressionSyntax node) => base.VisitConditionalExpression(node);
 
         /// <summary>Visits a switch statement without adding the decision point again.</summary>
         /// <param name="node">The switch statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitSwitchStatementCore(SwitchStatementSyntax node) => base.VisitSwitchStatement(node);
 
         /// <summary>Visits a for statement without adding the decision point again.</summary>
         /// <param name="node">The for statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitForStatementCore(ForStatementSyntax node) => base.VisitForStatement(node);
 
         /// <summary>Visits a foreach statement without adding the decision point again.</summary>
         /// <param name="node">The foreach statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitForEachStatementCore(ForEachStatementSyntax node) => base.VisitForEachStatement(node);
 
         /// <summary>Visits a while statement without adding the decision point again.</summary>
         /// <param name="node">The while statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitWhileStatementCore(WhileStatementSyntax node) => base.VisitWhileStatement(node);
 
         /// <summary>Visits a do statement without adding the decision point again.</summary>
         /// <param name="node">The do statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitDoStatementCore(DoStatementSyntax node) => base.VisitDoStatement(node);
 
         /// <summary>Visits a catch clause without adding the decision point again.</summary>
         /// <param name="node">The catch clause.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitCatchClauseCore(CatchClauseSyntax node) => base.VisitCatchClause(node);
 
         /// <summary>Visits a goto statement without adding the decision point again.</summary>
         /// <param name="node">The goto statement.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitGotoStatementCore(GotoStatementSyntax node) => base.VisitGotoStatement(node);
 
         /// <summary>Visits a simple lambda with the current nesting state.</summary>
         /// <param name="node">The lambda expression.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitSimpleLambdaExpressionCore(SimpleLambdaExpressionSyntax node) => base.VisitSimpleLambdaExpression(node);
 
         /// <summary>Visits a parenthesized lambda with the current nesting state.</summary>
         /// <param name="node">The lambda expression.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitParenthesizedLambdaExpressionCore(ParenthesizedLambdaExpressionSyntax node) => base.VisitParenthesizedLambdaExpression(node);
 
         /// <summary>Visits an anonymous method with the current nesting state.</summary>
         /// <param name="node">The anonymous method.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private void VisitAnonymousMethodExpressionCore(AnonymousMethodExpressionSyntax node) => base.VisitAnonymousMethodExpression(node);
 
         /// <summary>Adds one direct-branch point.</summary>

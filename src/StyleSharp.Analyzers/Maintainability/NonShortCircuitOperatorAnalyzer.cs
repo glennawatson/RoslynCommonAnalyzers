@@ -57,7 +57,7 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a boolean <c>&amp;</c> / <c>|</c>, choosing the id by whether the right operand does work.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expressionType">The resolved <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> definition, if any.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!IsBoolean(binary.Left, context.SemanticModel, context.CancellationToken)
@@ -94,8 +94,8 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for boolean operands.</returns>
-    private static bool IsBoolean(ExpressionSyntax operand, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetTypeInfo(operand, cancellationToken).Type is { SpecialType: SpecialType.System_Boolean };
+    private static bool IsBoolean(ExpressionSyntax operand, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetTypeInfo(operand, cancellationToken).Type is { SpecialType: SpecialType.System_Boolean };
 
     /// <summary>Returns whether the operator appears inside a lambda converted to an expression tree.</summary>
     /// <param name="node">The reported binary expression.</param>

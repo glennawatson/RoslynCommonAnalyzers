@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LiteralFormattingAnalyzer,
     StyleSharp.Analyzers.Sst1119IrregularDigitGroupingCodeFixProvider>;
@@ -46,21 +47,24 @@ public class IrregularDigitGroupingAnalyzerUnitTest
 
     /// <summary>Verifies an irregularly grouped decimal literal is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IrregularDecimalIsReportedAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(IrregularDecimalSource);
+    public Task IrregularDecimalIsReportedAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(IrregularDecimalSource);
 
     /// <summary>Verifies an irregularly grouped hexadecimal literal is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IrregularHexIsReportedAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(IrregularHexSource);
+    public Task IrregularHexIsReportedAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(IrregularHexSource);
 
     /// <summary>Verifies an evenly grouped decimal literal is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EvenDecimalIsCleanAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(
+    public Task EvenDecimalIsCleanAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -70,9 +74,10 @@ public class IrregularDigitGroupingAnalyzerUnitTest
 
     /// <summary>Verifies a hexadecimal literal grouped in twos, with a leading separator, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EvenHexWithLeadingSeparatorIsCleanAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(
+    public Task EvenHexWithLeadingSeparatorIsCleanAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -82,9 +87,10 @@ public class IrregularDigitGroupingAnalyzerUnitTest
 
     /// <summary>Verifies a literal with no separators is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoSeparatorsIsCleanAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(
+    public Task NoSeparatorsIsCleanAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -94,9 +100,10 @@ public class IrregularDigitGroupingAnalyzerUnitTest
 
     /// <summary>Verifies a floating-point literal with separators is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FloatingPointIsCleanAsync()
-        => await VerifyGrouping.VerifyAnalyzerAsync(
+    public Task FloatingPointIsCleanAsync() =>
+        VerifyGrouping.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -106,13 +113,15 @@ public class IrregularDigitGroupingAnalyzerUnitTest
 
     /// <summary>Verifies the fix regroups a decimal literal into threes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRegroupsDecimalAsync()
-        => await VerifyFix.VerifyCodeFixAsync(IrregularDecimalSource, IrregularDecimalFixed);
+    public Task FixRegroupsDecimalAsync() =>
+        VerifyFix.VerifyCodeFixAsync(IrregularDecimalSource, IrregularDecimalFixed);
 
     /// <summary>Verifies the fix regroups a hexadecimal literal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRegroupsHexAsync()
-        => await VerifyFix.VerifyCodeFixAsync(IrregularHexSource, IrregularHexFixed);
+    public Task FixRegroupsHexAsync() =>
+        VerifyFix.VerifyCodeFixAsync(IrregularHexSource, IrregularHexFixed);
 }

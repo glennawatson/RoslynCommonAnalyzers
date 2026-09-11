@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -127,9 +128,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a length that stops short of the end is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LengthThatStopsShortIsCleanAsync()
-        => await VerifyAsync(
+    public Task LengthThatStopsShortIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -143,9 +145,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
     /// The arithmetic has to be visible in the source. A length computed somewhere else may reach the
     /// end today and not tomorrow, and the rule has no business guessing which.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OpaqueLengthIsCleanAsync()
-        => await VerifyAsync(
+    public Task OpaqueLengthIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -155,9 +158,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a length taken from a different receiver's Length is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LengthOfAnotherStringIsCleanAsync()
-        => await VerifyAsync(
+    public Task LengthOfAnotherStringIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -172,9 +176,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
     /// length argument drops one of those calls, which is a change in behavior whenever the method does
     /// anything at all — so a receiver that is not a plain name path is never touched.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallReceiverIsCleanAsync()
-        => await VerifyAsync(
+    public Task CallReceiverIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -186,9 +191,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a start argument that does work is left alone for the same reason.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallStartArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task CallStartArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -204,9 +210,10 @@ public class RedundantLengthArgumentAnalyzerUnitTest
     /// Somebody else's <c>Slice(int)</c> is defined to do whatever they wrote, which need not be "run
     /// to the end". Only the framework slices whose one-argument form has that meaning are shortened.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedSliceIsCleanAsync()
-        => await VerifyAsync(
+    public Task UserDefinedSliceIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Buffer
             {
@@ -223,10 +230,7 @@ public class RedundantLengthArgumentAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the string form still reports against netstandard2.0, because the overload it suggests
-    /// exists there.
-    /// </summary>
+    /// <summary>Verifies the string form still reports against netstandard2.0, because the overload it suggests exists there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// <c>string.Substring(int)</c> is as old as <see cref="string"/> itself, so the suggestion is
@@ -249,18 +253,11 @@ public class RedundantLengthArgumentAnalyzerUnitTest
                                        public string M(string text, int start) => text.Substring(start);
                                    }
                                    """;
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = FixedSource, };
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>
-    /// Verifies the span forms are silent against netstandard2.0, where <c>AsSpan</c> does not exist.
-    /// </summary>
+    /// <summary>Verifies the span forms are silent against netstandard2.0, where <c>AsSpan</c> does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The span slices cannot even be written on that target, and the semantic gate would refuse them
@@ -294,11 +291,7 @@ public class RedundantLengthArgumentAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

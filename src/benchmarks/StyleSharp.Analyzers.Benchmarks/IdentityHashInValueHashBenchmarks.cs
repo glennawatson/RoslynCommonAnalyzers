@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for identity-hash-in-value-hash analysis (SST2481).</summary>
+[System.Diagnostics.DebuggerDisplay("IdentityHashInValueHashBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class IdentityHashInValueHashBenchmarks
@@ -24,11 +26,13 @@ public class IdentityHashInValueHashBenchmarks
 
     /// <summary>Benchmarks the clean identity-hash-in-value-hash scan.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> IdentityHashInValueHash_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating identity-hash-in-value-hash scan.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> IdentityHashInValueHash_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -77,7 +77,7 @@ public sealed class Sst2467BypassedParamsOverloadAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The declaring type.</param>
     /// <param name="paramsMethod">The params overload under test.</param>
     /// <param name="elementType">The params array's element type.</param>
-    private static void AnalyzeParamsMethod(SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol paramsMethod, ITypeSymbol elementType)
+    private static void AnalyzeParamsMethod(in SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol paramsMethod, ITypeSymbol elementType)
     {
         var arity = paramsMethod.Parameters.Length;
         var candidates = type.GetMembers(paramsMethod.Name);
@@ -115,7 +115,7 @@ public sealed class Sst2467BypassedParamsOverloadAnalyzer : DiagnosticAnalyzer
     private static ITypeSymbol? GetParamsElementType(IMethodSymbol method)
     {
         var parameters = method.Parameters;
-        if (parameters.Length == 0)
+        if (parameters.IsEmpty)
         {
             return null;
         }

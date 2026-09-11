@@ -106,17 +106,11 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the receiver local of a single-argument AddRange/UnionWith call.</summary>
     /// <param name="invocation">The candidate bulk-add invocation.</param>
     /// <returns>The receiver identifier, or <see langword="null"/> when the shape does not match.</returns>
-    private static IdentifierNameSyntax? TryGetBulkAddReceiver(InvocationExpressionSyntax invocation)
-    {
-        if (invocation.ArgumentList.Arguments.Count != 1
+    private static IdentifierNameSyntax? TryGetBulkAddReceiver(InvocationExpressionSyntax invocation) => invocation.ArgumentList.Arguments.Count != 1
             || invocation.Expression is not MemberAccessExpressionSyntax { Expression: IdentifierNameSyntax receiver } access
-            || access.Name.Identifier.ValueText is not (AddRangeMethodName or UnionWithMethodName))
-        {
-            return null;
-        }
-
-        return receiver;
-    }
+            || access.Name.Identifier.ValueText is not (AddRangeMethodName or UnionWithMethodName)
+        ? null
+        : receiver;
 
     /// <summary>Returns the single-variable declaration statement immediately preceding the invocation's statement.</summary>
     /// <param name="invocation">The bulk-add invocation.</param>
@@ -158,7 +152,7 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="listType">The list type definition.</param>
     /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol listType, INamedTypeSymbol hashSetType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol listType, INamedTypeSymbol hashSetType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetSeedShape(invocation, out var declaration, out var creation))
@@ -200,7 +194,7 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the collection-expression preference is explicitly disabled.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the option is set to <c>false</c>.</returns>
-    private static bool IsCollectionExpressionPreferenceDisabled(SyntaxNodeAnalysisContext context)
+    private static bool IsCollectionExpressionPreferenceDisabled(in SyntaxNodeAnalysisContext context)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         return options.TryGetValue(PreferCollectionExpressionsKey, out var value)

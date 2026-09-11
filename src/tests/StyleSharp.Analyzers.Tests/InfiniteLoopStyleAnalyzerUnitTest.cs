@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.Testing;
-
 using VerifyInfiniteLoopStyle = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2267InfiniteLoopStyleAnalyzer,
     StyleSharp.Analyzers.Sst2267InfiniteLoopStyleCodeFixProvider>;
@@ -188,10 +186,7 @@ public class InfiniteLoopStyleAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyInfiniteLoopStyle.Test CreateTest(string source, string? style)
     {
-        var test = new VerifyInfiniteLoopStyle.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyInfiniteLoopStyle.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST2267.severity = warning\n";
         if (style is not null)

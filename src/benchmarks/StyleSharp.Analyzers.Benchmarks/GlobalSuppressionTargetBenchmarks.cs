@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for global-suppression target validation.</summary>
+[System.Diagnostics.DebuggerDisplay("GlobalSuppressionTargetBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class GlobalSuppressionTargetBenchmarks
@@ -24,11 +26,13 @@ public class GlobalSuppressionTargetBenchmarks
 
     /// <summary>Benchmarks resolvable global-suppression targets.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> GlobalSuppressionTarget_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks unresolved and legacy global-suppression targets.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> GlobalSuppressionTarget_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -39,8 +43,8 @@ public class GlobalSuppressionTargetBenchmarks
         /// <param name="members">The number of synthetic members and suppressions to emit.</param>
         /// <param name="violating">Whether to emit unresolved or legacy target strings.</param>
         /// <returns>The generated source text.</returns>
-        public static string Generate(int members, bool violating)
-            => $$"""
+        public static string Generate(int members, bool violating) =>
+            $$"""
                using System.Diagnostics.CodeAnalysis;
 
                {{BenchmarkSourceText.JoinLines(members, i => GenerateSuppression(i, violating))}}
@@ -65,7 +69,7 @@ public class GlobalSuppressionTargetBenchmarks
 
             if (violating && (index & 1) == 1)
             {
-                target = "~" + target;
+                target = $"~{target}";
             }
 
             return $"""[assembly: SuppressMessage("Style", "SST1000", Justification = "Benchmark.", Scope = "member", Target = "{target}")]""";
@@ -83,7 +87,8 @@ public class GlobalSuppressionTargetBenchmarks
         /// <summary>Creates the prepared benchmark state for the requested member count.</summary>
         /// <param name="members">The synthetic member count.</param>
         /// <returns>The prepared benchmark state.</returns>
-        public static SingleAnalyzerBenchmarkState Create(int members)
-            => SingleAnalyzerBenchmarkCases.Create(new GlobalSuppressionTargetAnalyzer(), Source.Generate, members);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleAnalyzerBenchmarkState Create(int members) =>
+            SingleAnalyzerBenchmarkCases.Create(new GlobalSuppressionTargetAnalyzer(), Source.Generate, members);
     }
 }

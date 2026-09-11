@@ -11,8 +11,8 @@ internal static class StringBuilderNeverReadBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Text;
 
@@ -29,8 +29,8 @@ internal static class StringBuilderNeverReadBenchmarkSource
     /// one whose property is read, and a local of another type entirely — which the name comparison must
     /// reject before it binds.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public string Join(string[] lines)
@@ -67,8 +67,8 @@ internal static class StringBuilderNeverReadBenchmarkSource
     /// <summary>Builds one type whose builder is filled and thrown away.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Join(string[] lines)

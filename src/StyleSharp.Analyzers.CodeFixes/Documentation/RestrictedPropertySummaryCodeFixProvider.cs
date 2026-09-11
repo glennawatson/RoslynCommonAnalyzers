@@ -108,7 +108,7 @@ public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider, 
                 return false;
             }
 
-            change = new TextChange(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
+            change = new(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
             return true;
         }
 

@@ -243,12 +243,7 @@ public class StringBuilderInnerAllocationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyInnerAllocation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyInnerAllocation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

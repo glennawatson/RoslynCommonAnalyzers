@@ -42,7 +42,7 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one index-of comparison that skips the first position.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? listInterface)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? listInterface)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (GetIndexOfCall(comparison) is not { } invocation)
@@ -75,18 +75,18 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
     /// <param name="invocationSide">The side expected to be the invocation.</param>
     /// <param name="zeroSide">The side expected to be <c>0</c>.</param>
     /// <returns>The invocation when the shape matches, otherwise <see langword="null"/>.</returns>
-    private static InvocationExpressionSyntax? Pair(ExpressionSyntax invocationSide, ExpressionSyntax zeroSide)
-        => IsZero(zeroSide)
+    private static InvocationExpressionSyntax? Pair(ExpressionSyntax invocationSide, ExpressionSyntax zeroSide) =>
+        IsZero(zeroSide)
             && invocationSide is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member } invocation
             && member.Name.Identifier.ValueText is "IndexOf" or "LastIndexOf"
-                ? invocation
-                : null;
+            ? invocation
+            : null;
 
     /// <summary>Returns whether an expression is the literal <c>0</c>.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> for the constant <c>0</c>.</returns>
-    private static bool IsZero(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { Token.Value: int and 0 };
+    private static bool IsZero(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { Token.Value: int and 0 };
 
     /// <summary>Returns whether a method is a recognised index search on a container.</summary>
     /// <param name="method">The resolved method.</param>

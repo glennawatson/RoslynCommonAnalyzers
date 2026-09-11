@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantName = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.RedundantAnonymousTypeMemberNameCodeFixProvider>;
@@ -105,9 +106,10 @@ public class RedundantAnonymousTypeMemberNameAnalyzerUnitTest
 
     /// <summary>Verifies a member name that differs from the inferred name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctNameIsCleanAsync()
-        => await VerifyRedundantName.VerifyAnalyzerAsync(
+    public Task DistinctNameIsCleanAsync() =>
+        VerifyRedundantName.VerifyAnalyzerAsync(
             """
             public class P
             {

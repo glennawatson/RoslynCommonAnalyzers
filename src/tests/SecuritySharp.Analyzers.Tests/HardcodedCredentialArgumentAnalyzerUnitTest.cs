@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeCredential = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -10,13 +12,15 @@ using AnalyzeCredential = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1202 (a non-empty string literal bound to a credential parameter or credential-type constructor).</summary>
+[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class HardcodedCredentialArgumentAnalyzerUnitTest
 {
     /// <summary>Verifies a string literal passed to an <c>apiKey</c> parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToApiKeyParameterReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToApiKeyParameterReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -28,9 +32,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal passed to a <c>password</c> parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToPasswordParameterReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToPasswordParameterReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -42,9 +47,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal passed to an underscore-cased <c>access_token</c> parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToUnderscoreTokenParameterReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToUnderscoreTokenParameterReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -56,9 +62,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies matching is case-insensitive on the parameter name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterNameMatchIsCaseInsensitiveAsync()
-        => await VerifyNet90Async(
+    public Task ParameterNameMatchIsCaseInsensitiveAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -70,9 +77,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a named argument bound to a credential parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedCredentialArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedCredentialArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -84,9 +92,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal passed to a <c>connectionString</c> parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToConnectionStringParameterReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToConnectionStringParameterReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -98,9 +107,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal in the <c>password</c> position of a <c>NetworkCredential</c> constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralNetworkCredentialPasswordReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralNetworkCredentialPasswordReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net;
 
@@ -112,9 +122,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed <c>new(...)</c> credential construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralImplicitNetworkCredentialReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralImplicitNetworkCredentialReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net;
 
@@ -130,9 +141,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal in the <c>key</c> position of a gated <c>AzureKeyCredential</c> is reported even though <c>key</c> is too generic to flag elsewhere.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralAzureKeyCredentialReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralAzureKeyCredentialReportedAsync() =>
+        VerifyNet90Async(
             """
             namespace Azure
             {
@@ -150,9 +162,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal to the <c>ApiKeyCredential.key</c> position is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralApiKeyCredentialReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralApiKeyCredentialReportedAsync() =>
+        VerifyNet90Async(
             """
             namespace System.ClientModel
             {
@@ -170,9 +183,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal to the <c>clientSecret</c> position of <c>ClientSecretCredential</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralClientSecretCredentialReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralClientSecretCredentialReportedAsync() =>
+        VerifyNet90Async(
             """
             namespace Azure.Identity
             {
@@ -191,9 +205,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a variable (non-literal) passed to a credential parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VariableToCredentialParameterIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task VariableToCredentialParameterIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -205,9 +220,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a constant field reference (non-literal) passed to a credential parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantReferenceToCredentialParameterIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantReferenceToCredentialParameterIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -221,9 +237,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an environment read (the correct pattern) passed to a credential parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnvironmentReadToCredentialParameterIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EnvironmentReadToCredentialParameterIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -237,9 +254,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal passed to a non-credential parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToNonCredentialParameterIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToNonCredentialParameterIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -251,9 +269,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a string literal bound to a bare <c>key</c> parameter outside a gated credential type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralToBareKeyParameterOutsideCredentialTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LiteralToBareKeyParameterOutsideCredentialTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
 
@@ -265,9 +284,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies the non-secret <c>userName</c> position of a <c>NetworkCredential</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NetworkCredentialUserNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NetworkCredentialUserNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net;
 
@@ -279,9 +299,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an empty string password is not reported (an empty credential is a different concern).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyStringCredentialIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EmptyStringCredentialIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -293,9 +314,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a <c>your-...</c> placeholder credential is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task YourPlaceholderCredentialIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task YourPlaceholderCredentialIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -307,9 +329,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an angle-bracket placeholder credential is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AngleBracketPlaceholderCredentialIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AngleBracketPlaceholderCredentialIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -321,9 +344,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a <c>changeme</c> placeholder credential is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChangeMePlaceholderCredentialIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ChangeMePlaceholderCredentialIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -335,9 +359,10 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an all-same-character (masked) placeholder credential is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllSameCharacterPlaceholderCredentialIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AllSameCharacterPlaceholderCredentialIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -364,11 +389,7 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeCredential.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeCredential.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -378,11 +399,7 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeCredential.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeCredential.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -11,8 +11,8 @@ internal static class ParameterListLayoutBenchmarkSource
     /// <param name="members">The number of method/call pairs to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class ParameterLayoutBench
            {
@@ -24,14 +24,14 @@ internal static class ParameterListLayoutBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
+    private static string GenerateMember(int index, bool violating) =>
+        violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
     /// <summary>Builds one clean method/call pair.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            private static int Add{{index}}(
                int x,
                int y) => x + y;
@@ -45,8 +45,8 @@ internal static class ParameterListLayoutBenchmarkSource
     /// <summary>Builds one violating method/call pair.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            private static int Add{{index}}(
                int x,
 

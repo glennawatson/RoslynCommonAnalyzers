@@ -51,7 +51,7 @@ public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a union type or case whose name does not match the configured convention.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="unionMarker">The resolved <c>IUnion</c> marker symbol.</param>
-    private static void AnalyzeType(SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
+    private static void AnalyzeType(in SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (!IsUnionRelated(type, unionMarker))
@@ -65,7 +65,7 @@ public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (type.Locations.Length == 0 || type.Locations[0].SourceTree is not { } tree)
+        if (type.Locations.IsEmpty || type.Locations[0].SourceTree is not { } tree)
         {
             return;
         }
@@ -90,8 +90,8 @@ public sealed class Sst1315UnionMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The type to test.</param>
     /// <param name="unionMarker">The <c>IUnion</c> marker symbol.</param>
     /// <returns><see langword="true"/> when the type participates in a union.</returns>
-    private static bool IsUnionRelated(INamedTypeSymbol type, INamedTypeSymbol unionMarker)
-        => Implements(type, unionMarker) || (type.BaseType is { } baseType && Implements(baseType, unionMarker));
+    private static bool IsUnionRelated(INamedTypeSymbol type, INamedTypeSymbol unionMarker) =>
+        Implements(type, unionMarker) || (type.BaseType is { } baseType && Implements(baseType, unionMarker));
 
     /// <summary>Returns whether <paramref name="type"/> implements the <paramref name="marker"/> interface.</summary>
     /// <param name="type">The type to test.</param>

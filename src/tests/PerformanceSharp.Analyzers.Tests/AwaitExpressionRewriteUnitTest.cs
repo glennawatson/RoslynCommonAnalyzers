@@ -2,15 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="AwaitExpressionRewrite"/>, the await-wrapping shared by the
-/// PSH1313 and PSH1315 code fixes.
-/// </summary>
+/// <summary>Direct tests for <see cref="AwaitExpressionRewrite"/>, the await-wrapping shared by the PSH1313 and PSH1315 code fixes.</summary>
 public class AwaitExpressionRewriteUnitTest
 {
     /// <summary>Verifies an expression whose parent binds tighter than <c>await</c> is flagged for parentheses.</summary>
@@ -62,18 +60,21 @@ public class AwaitExpressionRewriteUnitTest
     /// <summary>Parses a member access and returns the receiver being accessed.</summary>
     /// <param name="text">The member-access source.</param>
     /// <returns>The receiver expression.</returns>
-    private static ExpressionSyntax MemberReceiverOf(string text)
-        => ((MemberAccessExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax MemberReceiverOf(string text) =>
+        ((MemberAccessExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
 
     /// <summary>Parses an element access and returns the indexed expression.</summary>
     /// <param name="text">The element-access source.</param>
     /// <returns>The indexed expression.</returns>
-    private static ExpressionSyntax ElementReceiverOf(string text)
-        => ((ElementAccessExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax ElementReceiverOf(string text) =>
+        ((ElementAccessExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
 
     /// <summary>Parses an invocation and returns the callee expression.</summary>
     /// <param name="text">The invocation source.</param>
     /// <returns>The callee expression.</returns>
-    private static ExpressionSyntax CalleeOf(string text)
-        => ((InvocationExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax CalleeOf(string text) =>
+        ((InvocationExpressionSyntax)SyntaxFactory.ParseExpression(text)).Expression;
 }

@@ -58,7 +58,7 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1103 for a parameterless Enumerable Count/Any call whose receiver has a constant-time count.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0
@@ -102,7 +102,7 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol enumerableType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 }

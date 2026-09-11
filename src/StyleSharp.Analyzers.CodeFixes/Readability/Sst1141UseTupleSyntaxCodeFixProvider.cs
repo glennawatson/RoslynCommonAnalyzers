@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -59,8 +60,9 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root.</param>
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Replace(Document document, SyntaxNode root, GenericNameSyntax generic)
-        => document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic, null)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Replace(Document document, SyntaxNode root, GenericNameSyntax generic) =>
+        document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic, null)));
 
     /// <summary>Replaces the explicit <c>ValueTuple&lt;...&gt;</c> spelling with tuple syntax.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -68,8 +70,9 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
     /// <param name="tupleSpans">The diagnostic spans to convert recursively.</param>
     /// <returns>The updated document.</returns>
-    private static Document Replace(Document document, SyntaxNode root, GenericNameSyntax generic, HashSet<TextSpan> tupleSpans)
-        => document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic, tupleSpans)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Document Replace(Document document, SyntaxNode root, GenericNameSyntax generic, HashSet<TextSpan> tupleSpans) =>
+        document.WithSyntaxRoot(root.ReplaceNode(ReplaceTarget(generic), BuildTuple(generic, tupleSpans)));
 
     /// <summary>Replaces an explicit value tuple, including nested tuple type arguments that bind to <see cref="ValueTuple"/>.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -102,7 +105,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     private static void AddNestedTupleSpans(SemanticModel model, GenericNameSyntax generic, HashSet<TextSpan> tupleSpans, CancellationToken cancellationToken)
     {
-        tupleSpans.Add(generic.Span);
+        _ = tupleSpans.Add(generic.Span);
         foreach (var node in generic.TypeArgumentList.DescendantNodes())
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -110,7 +113,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
                 && nested.Identifier.ValueText == "ValueTuple"
                 && model.GetSymbolInfo(nested, cancellationToken).Symbol is INamedTypeSymbol { IsTupleType: true })
             {
-                tupleSpans.Add(nested.Span);
+                _ = tupleSpans.Add(nested.Span);
             }
         }
     }
@@ -118,15 +121,15 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     /// <summary>Returns the node to replace — the qualified name when the generic is its right side.</summary>
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
     /// <returns>The outermost type node representing the value tuple.</returns>
-    private static SyntaxNode ReplaceTarget(GenericNameSyntax generic)
-        => generic.Parent is QualifiedNameSyntax qualified && qualified.Right == generic ? qualified : generic;
+    private static SyntaxNode ReplaceTarget(GenericNameSyntax generic) =>
+        generic.Parent is QualifiedNameSyntax qualified && qualified.Right == generic ? qualified : generic;
 
     /// <summary>Builds the <c>(T1, T2, ...)</c> tuple type from the value tuple's type arguments.</summary>
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
     /// <param name="tupleSpans">The diagnostic spans to convert recursively, or <see langword="null"/> for only the supplied generic.</param>
     /// <returns>The equivalent tuple type, carrying the replaced node's trivia.</returns>
-    private static TupleTypeSyntax BuildTuple(GenericNameSyntax generic, HashSet<TextSpan>? tupleSpans)
-        => (TupleTypeSyntax)SyntaxFactory.ParseTypeName(BuildTupleText(generic, tupleSpans)).WithTriviaFrom(ReplaceTarget(generic));
+    private static TupleTypeSyntax BuildTuple(GenericNameSyntax generic, HashSet<TextSpan>? tupleSpans) =>
+        (TupleTypeSyntax)SyntaxFactory.ParseTypeName(BuildTupleText(generic, tupleSpans)).WithTriviaFrom(ReplaceTarget(generic));
 
     /// <summary>Builds the tuple type text for one explicit value tuple.</summary>
     /// <param name="generic">The <c>ValueTuple&lt;...&gt;</c> generic name.</param>
@@ -140,13 +143,13 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
             AppendTypeArgument(builder, arguments[i], tupleSpans);
         }
 
-        builder.Append(')');
+        _ = builder.Append(')');
         return builder.ToString();
     }
 
@@ -158,11 +161,11 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     {
         if (tupleSpans is not null && TryGetNestedTupleGeneric(type, tupleSpans, out var nested))
         {
-            builder.Append(BuildTupleText(nested, tupleSpans));
+            _ = builder.Append(BuildTupleText(nested, tupleSpans));
             return;
         }
 
-        builder.Append(type.WithoutTrivia());
+        _ = builder.Append(type.WithoutTrivia());
     }
 
     /// <summary>Gets a nested value-tuple generic only when its span was reported by the analyzer.</summary>
@@ -190,7 +193,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
         var tupleSpans = new HashSet<TextSpan>();
         foreach (var diagnostic in diagnostics)
         {
-            tupleSpans.Add(diagnostic.Location.SourceSpan);
+            _ = tupleSpans.Add(diagnostic.Location.SourceSpan);
         }
 
         return tupleSpans;
@@ -288,11 +291,13 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
                 var contained = false;
                 for (var i = 0; i < selected.Count; i++)
                 {
-                    if (selected[i].Target.Span.Contains(candidate.Target.Span))
+                    if (!selected[i].Target.Span.Contains(candidate.Target.Span))
                     {
-                        contained = true;
-                        break;
+                        continue;
                     }
+
+                    contained = true;
+                    break;
                 }
 
                 if (!contained)

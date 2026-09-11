@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPublicConstant = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2311PublicConstantFieldAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 {
     /// <summary>Verifies a public constant an outside assembly can read is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicConstantIsReportedAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task PublicConstantIsReportedAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -25,9 +27,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies each constant in a shared declaration is reported: they are baked in one by one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryDeclaratorIsReportedAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task EveryDeclaratorIsReportedAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -37,9 +40,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies a constant is reported wherever an outside caller can still reach it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantInEveryVisibleContainerIsReportedAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task ConstantInEveryVisibleContainerIsReportedAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public interface ILimits
             {
@@ -72,9 +76,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies a protected constant is reported: a derived type in another assembly bakes it in too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedConstantIsReportedAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task ProtectedConstantIsReportedAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -90,9 +95,10 @@ public class PublicConstantFieldAnalyzerUnitTest
     /// Inside one assembly every caller is rebuilt together, so the stale-copy hazard cannot arise; the rule
     /// has nothing to say about these.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HiddenConstantIsCleanAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task HiddenConstantIsCleanAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -125,9 +131,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies a protected constant in a sealed type is left alone: nothing can derive from it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedConstantInSealedTypeIsCleanAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task ProtectedConstantInSealedTypeIsCleanAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public sealed class Limits
             {
@@ -139,9 +146,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies a local constant is left alone: it never leaves the method.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalConstantIsCleanAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task LocalConstantIsCleanAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -155,9 +163,10 @@ public class PublicConstantFieldAnalyzerUnitTest
 
     /// <summary>Verifies an enum member is not a field declaration and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumMemberIsCleanAsync()
-        => await VerifyPublicConstant.VerifyAnalyzerAsync(
+    public Task EnumMemberIsCleanAsync() =>
+        VerifyPublicConstant.VerifyAnalyzerAsync(
             """
             public enum Level
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -30,33 +31,36 @@ internal static class LayoutHelpers
     /// <summary>Returns the cached diagnostic properties for the requested wrapped-token side.</summary>
     /// <param name="breakBefore">Whether the token should break before (lead its continuation line).</param>
     /// <returns>The matching cached property set.</returns>
-    public static ImmutableDictionary<string, string?> PlacementProperties(bool breakBefore)
-        => breakBefore ? BreakBeforeProperties : BreakAfterProperties;
+    internal static ImmutableDictionary<string, string?> PlacementProperties(bool breakBefore) =>
+        breakBefore ? BreakBeforeProperties : BreakAfterProperties;
 
     /// <summary>Returns the zero-based line index that contains <paramref name="position"/>.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="position">An absolute character position in the text.</param>
     /// <returns>The zero-based line index.</returns>
-    public static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 
     /// <summary>Returns the zero-based line index on which <paramref name="token"/> starts.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="token">The token.</param>
     /// <returns>The zero-based start line index.</returns>
-    public static int StartLine(SourceText text, SyntaxToken token) => LineOf(text, token.SpanStart);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int StartLine(SourceText text, SyntaxToken token) => LineOf(text, token.SpanStart);
 
     /// <summary>Returns the zero-based line index on which <paramref name="token"/> ends.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="token">The token.</param>
     /// <returns>The zero-based end line index.</returns>
-    public static int EndLine(SourceText text, SyntaxToken token)
-        => LineOf(text, token.Span.End > token.SpanStart ? token.Span.End - 1 : token.SpanStart);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int EndLine(SourceText text, SyntaxToken token) =>
+        LineOf(text, token.Span.End > token.SpanStart ? token.Span.End - 1 : token.SpanStart);
 
     /// <summary>Returns whether the line at <paramref name="lineIndex"/> is empty or all whitespace.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="lineIndex">The zero-based line index.</param>
     /// <returns><see langword="true"/> when the line has no non-whitespace content.</returns>
-    public static bool IsBlankLine(SourceText text, int lineIndex)
+    internal static bool IsBlankLine(SourceText text, int lineIndex)
     {
         if (lineIndex < 0 || lineIndex >= text.Lines.Count)
         {
@@ -79,7 +83,7 @@ internal static class LayoutHelpers
     /// <param name="text">The source text.</param>
     /// <param name="member">The member node.</param>
     /// <returns>The zero-based line index of the member's first documentation/comment trivia or first token.</returns>
-    public static int ContentStartLine(SourceText text, SyntaxNode member) =>
+    internal static int ContentStartLine(SourceText text, SyntaxNode member) =>
         TryGetHeaderStartLine(text, member, out var startLine)
             ? startLine
             : StartLine(text, member.GetFirstToken());
@@ -89,7 +93,7 @@ internal static class LayoutHelpers
     /// <param name="member">The member node.</param>
     /// <param name="startLine">The line of the first leading header trivia.</param>
     /// <returns><see langword="true"/> when the member has a leading comment or documentation header.</returns>
-    public static bool TryGetHeaderStartLine(SourceText text, SyntaxNode member, out int startLine)
+    internal static bool TryGetHeaderStartLine(SourceText text, SyntaxNode member, out int startLine)
     {
         var leadingTrivia = member.GetLeadingTrivia();
         if (leadingTrivia.Count == 0)
@@ -122,7 +126,7 @@ internal static class LayoutHelpers
     /// <param name="lineNumber">The current line number cursor.</param>
     /// <param name="line">The current line cursor.</param>
     /// <returns>The zero-based line index of the member's first header trivia or first token.</returns>
-    public static int ContentStartLineOrLater(SourceText text, SyntaxNode member, ref int lineNumber, ref TextLine line)
+    internal static int ContentStartLineOrLater(SourceText text, SyntaxNode member, ref int lineNumber, ref TextLine line)
     {
         var leadingTrivia = member.GetLeadingTrivia();
         if (leadingTrivia.Count == 0)
@@ -150,7 +154,7 @@ internal static class LayoutHelpers
     /// <param name="lineNumber">The current line number cursor.</param>
     /// <param name="line">The current line cursor.</param>
     /// <returns>The resolved line number.</returns>
-    public static int LineOfOrLater(SourceText text, int position, ref int lineNumber, ref TextLine line)
+    internal static int LineOfOrLater(SourceText text, int position, ref int lineNumber, ref TextLine line)
     {
         while (position >= line.EndIncludingLineBreak && lineNumber + 1 < text.Lines.Count)
         {
@@ -169,7 +173,7 @@ internal static class LayoutHelpers
     /// <param name="line">The current line cursor.</param>
     /// <param name="startLine">The resolved start line.</param>
     /// <param name="endLine">The resolved end line.</param>
-    public static void GetLineSpanOfOrLater(
+    internal static void GetLineSpanOfOrLater(
         SourceText text,
         int start,
         int end,
@@ -193,7 +197,7 @@ internal static class LayoutHelpers
     /// <param name="token">The token to inspect.</param>
     /// <param name="tokenLine">The token's line.</param>
     /// <returns><see langword="true"/> when no earlier token shares the line.</returns>
-    public static bool TokenStartsLine(SourceText text, SyntaxToken token, int tokenLine)
+    internal static bool TokenStartsLine(SourceText text, SyntaxToken token, int tokenLine)
     {
         var previous = token.GetPreviousToken();
         return previous.IsKind(SyntaxKind.None) || EndLine(text, previous) < tokenLine;
@@ -204,7 +208,7 @@ internal static class LayoutHelpers
     /// <param name="token">The token to inspect.</param>
     /// <param name="tokenLine">The token's line.</param>
     /// <returns><see langword="true"/> when code precedes the token on its line.</returns>
-    public static bool TokenSharesLineWithPrevious(SourceText text, SyntaxToken token, int tokenLine)
+    internal static bool TokenSharesLineWithPrevious(SourceText text, SyntaxToken token, int tokenLine)
     {
         var previous = token.GetPreviousToken();
         return !previous.IsKind(SyntaxKind.None) && EndLine(text, previous) == tokenLine;
@@ -215,7 +219,7 @@ internal static class LayoutHelpers
     /// <param name="token">The token to inspect.</param>
     /// <param name="tokenLine">The token's line.</param>
     /// <returns><see langword="true"/> when code follows the token on its line.</returns>
-    public static bool TokenSharesLineWithNext(SourceText text, SyntaxToken token, int tokenLine)
+    internal static bool TokenSharesLineWithNext(SourceText text, SyntaxToken token, int tokenLine)
     {
         var next = token.GetNextToken();
         return !next.IsKind(SyntaxKind.None) && StartLine(text, next) == tokenLine;
@@ -226,7 +230,7 @@ internal static class LayoutHelpers
     /// <param name="token">The token to inspect.</param>
     /// <param name="tokenLine">The token's line.</param>
     /// <returns>The token's line-sharing facts.</returns>
-    public static TokenLineFacts GetTokenLineFacts(SourceText text, SyntaxToken token, int tokenLine)
+    internal static TokenLineFacts GetTokenLineFacts(SourceText text, SyntaxToken token, int tokenLine)
     {
         var previous = token.GetPreviousToken();
         var sharesLineWithPrevious = !previous.IsKind(SyntaxKind.None) && EndLine(text, previous) == tokenLine;
@@ -238,7 +242,7 @@ internal static class LayoutHelpers
     /// <summary>Returns whether a line break separates the token before <paramref name="token"/> from it.</summary>
     /// <param name="token">The token whose leading side is inspected.</param>
     /// <returns><see langword="true"/> when <paramref name="token"/> begins a new line relative to its predecessor.</returns>
-    public static bool HasLineBreakBefore(SyntaxToken token)
+    internal static bool HasLineBreakBefore(SyntaxToken token)
     {
         var previous = token.GetPreviousToken();
         return !previous.IsKind(SyntaxKind.None)
@@ -248,7 +252,7 @@ internal static class LayoutHelpers
     /// <summary>Returns whether a line break separates <paramref name="token"/> from the token after it.</summary>
     /// <param name="token">The token whose trailing side is inspected.</param>
     /// <returns><see langword="true"/> when the following token begins a new line relative to <paramref name="token"/>.</returns>
-    public static bool HasLineBreakAfter(SyntaxToken token)
+    internal static bool HasLineBreakAfter(SyntaxToken token)
     {
         var next = token.GetNextToken();
         return !next.IsKind(SyntaxKind.None)
@@ -261,7 +265,7 @@ internal static class LayoutHelpers
     /// <param name="end">The exclusive end position.</param>
     /// <param name="hasLineBreak">Set when the run contains a carriage return or line feed.</param>
     /// <param name="isCleanWhitespace">Set when the run contains only whitespace.</param>
-    public static void ClassifyGap(SourceText text, int start, int end, out bool hasLineBreak, out bool isCleanWhitespace)
+    internal static void ClassifyGap(SourceText text, int start, int end, out bool hasLineBreak, out bool isCleanWhitespace)
     {
         hasLineBreak = false;
         isCleanWhitespace = true;
@@ -285,7 +289,7 @@ internal static class LayoutHelpers
     /// <param name="afterToken">The token immediately before the member name (the binding '.').</param>
     /// <param name="nameToken">The first token of the accessed member name.</param>
     /// <returns><see langword="true"/> when the node is a chain link with a resolvable member name.</returns>
-    public static bool TryGetChainLink(SyntaxNode node, out SyntaxToken leadToken, out SyntaxToken afterToken, out SyntaxToken nameToken)
+    internal static bool TryGetChainLink(SyntaxNode node, out SyntaxToken leadToken, out SyntaxToken afterToken, out SyntaxToken nameToken)
     {
         switch (node)
         {
@@ -315,7 +319,8 @@ internal static class LayoutHelpers
 
     /// <summary>The control-flow statement kinds that carry a single embedded child statement.</summary>
     /// <returns>The handled control-flow kinds.</returns>
-    public static ImmutableArray<SyntaxKind> EmbeddedStatementKinds() => ImmutableArrays.Of(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImmutableArray<SyntaxKind> EmbeddedStatementKinds() => ImmutableArrays.Of(
         SyntaxKind.IfStatement,
         SyntaxKind.ElseClause,
         SyntaxKind.ForStatement,
@@ -331,7 +336,7 @@ internal static class LayoutHelpers
     /// <param name="node">The control-flow node.</param>
     /// <param name="statement">The embedded statement, when present.</param>
     /// <returns><see langword="true"/> when the node has an embedded statement.</returns>
-    public static bool TryGetEmbeddedStatement(SyntaxNode node, out StatementSyntax statement)
+    internal static bool TryGetEmbeddedStatement(SyntaxNode node, out StatementSyntax statement)
     {
         statement = (EmbeddedStatementOrNull(node) ?? SecondaryEmbeddedStatementOrNull(node))!;
         return statement is not null;
@@ -341,7 +346,7 @@ internal static class LayoutHelpers
     /// <param name="member">The member node.</param>
     /// <param name="header">The documentation trivia, when found.</param>
     /// <returns><see langword="true"/> when the member carries a documentation header.</returns>
-    public static bool TryGetDocHeader(SyntaxNode member, out SyntaxTrivia header)
+    internal static bool TryGetDocHeader(SyntaxNode member, out SyntaxTrivia header)
     {
         foreach (var trivia in member.GetLeadingTrivia())
         {
@@ -364,80 +369,16 @@ internal static class LayoutHelpers
     /// <param name="open">The opening brace token, when found.</param>
     /// <param name="close">The closing brace token, when found.</param>
     /// <returns><see langword="true"/> when the node carries a real (non-missing) brace pair.</returns>
-    public static bool TryGetBraces(SyntaxNode node, out SyntaxToken open, out SyntaxToken close)
+    internal static bool TryGetBraces(SyntaxNode node, out SyntaxToken open, out SyntaxToken close)
     {
-        switch (node)
-        {
-            case BlockSyntax block:
-            {
-                open = block.OpenBraceToken;
-                close = block.CloseBraceToken;
-                break;
-            }
-
-            case AccessorListSyntax accessors:
-            {
-                open = accessors.OpenBraceToken;
-                close = accessors.CloseBraceToken;
-                break;
-            }
-
-            case BaseTypeDeclarationSyntax type:
-            {
-                open = type.OpenBraceToken;
-                close = type.CloseBraceToken;
-                break;
-            }
-
-            case NamespaceDeclarationSyntax ns:
-            {
-                open = ns.OpenBraceToken;
-                close = ns.CloseBraceToken;
-                break;
-            }
-
-            case SwitchStatementSyntax @switch:
-            {
-                open = @switch.OpenBraceToken;
-                close = @switch.CloseBraceToken;
-                break;
-            }
-
-            case SwitchExpressionSyntax switchExpression:
-            {
-                open = switchExpression.OpenBraceToken;
-                close = switchExpression.CloseBraceToken;
-                break;
-            }
-
-            case InitializerExpressionSyntax initializer:
-            {
-                open = initializer.OpenBraceToken;
-                close = initializer.CloseBraceToken;
-                break;
-            }
-
-            case AnonymousObjectCreationExpressionSyntax anonymous:
-            {
-                open = anonymous.OpenBraceToken;
-                close = anonymous.CloseBraceToken;
-                break;
-            }
-
-            default:
-            {
-                open = default;
-                close = default;
-                return false;
-            }
-        }
-
+        (open, close) = GetBracePair(node);
         return !open.IsKind(SyntaxKind.None) && !close.IsKind(SyntaxKind.None) && !open.IsMissing && !close.IsMissing;
     }
 
     /// <summary>The brace-bearing node kinds inspected by the brace-placement rules.</summary>
     /// <returns>The handled node kinds.</returns>
-    public static ImmutableArray<SyntaxKind> BraceBearingKinds() => ImmutableArrays.Of(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImmutableArray<SyntaxKind> BraceBearingKinds() => ImmutableArrays.Of(
         SyntaxKind.Block,
         SyntaxKind.AccessorList,
         SyntaxKind.ClassDeclaration,
@@ -455,6 +396,26 @@ internal static class LayoutHelpers
         SyntaxKind.ComplexElementInitializerExpression,
         SyntaxKind.WithInitializerExpression,
         SyntaxKind.AnonymousObjectCreationExpression);
+
+    /// <summary>Gets the brace pair a node carries, whichever brace-bearing shape it is.</summary>
+    /// <param name="node">The candidate node.</param>
+    /// <returns>The node's braces, or a default pair for a node that carries none.</returns>
+    /// <remarks>
+    /// A default <see cref="SyntaxToken"/> has kind <see cref="SyntaxKind.None"/>, so a node that carries no
+    /// braces at all is rejected by the same kind test that rejects a missing brace.
+    /// </remarks>
+    private static (SyntaxToken Open, SyntaxToken Close) GetBracePair(SyntaxNode node) => node switch
+    {
+        BlockSyntax block => (block.OpenBraceToken, block.CloseBraceToken),
+        AccessorListSyntax accessors => (accessors.OpenBraceToken, accessors.CloseBraceToken),
+        BaseTypeDeclarationSyntax type => (type.OpenBraceToken, type.CloseBraceToken),
+        NamespaceDeclarationSyntax ns => (ns.OpenBraceToken, ns.CloseBraceToken),
+        SwitchStatementSyntax @switch => (@switch.OpenBraceToken, @switch.CloseBraceToken),
+        SwitchExpressionSyntax switchExpression => (switchExpression.OpenBraceToken, switchExpression.CloseBraceToken),
+        InitializerExpressionSyntax initializer => (initializer.OpenBraceToken, initializer.CloseBraceToken),
+        AnonymousObjectCreationExpressionSyntax anonymous => (anonymous.OpenBraceToken, anonymous.CloseBraceToken),
+        _ => default,
+    };
 
     /// <summary>Returns the embedded statement of the branch/loop control kinds, or <see langword="null"/>.</summary>
     /// <param name="node">The control-flow node.</param>
@@ -532,5 +493,5 @@ internal static class LayoutHelpers
     /// <param name="StartsLine">Whether the token is the first token on its line.</param>
     /// <param name="SharesLineWithPrevious">Whether code precedes the token on its line.</param>
     /// <param name="SharesLineWithNext">Whether code follows the token on its line.</param>
-    public readonly record struct TokenLineFacts(bool StartsLine, bool SharesLineWithPrevious, bool SharesLineWithNext);
+    internal readonly record struct TokenLineFacts(bool StartsLine, bool SharesLineWithPrevious, bool SharesLineWithNext);
 }

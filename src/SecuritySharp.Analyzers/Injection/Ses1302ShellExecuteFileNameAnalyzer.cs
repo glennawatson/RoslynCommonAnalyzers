@@ -62,7 +62,7 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1302 for a shell-executed <c>ProcessStartInfo</c> whose filename is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="processStartInfoType">The gated <c>ProcessStartInfo</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -145,17 +145,19 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         var expressions = initializer.Expressions;
         for (var i = 0; i < expressions.Count; i++)
         {
-            if (expressions[i] is AssignmentExpressionSyntax { Left: IdentifierNameSyntax memberName } assignment)
+            if (expressions[i] is not AssignmentExpressionSyntax { Left: IdentifierNameSyntax memberName } assignment)
             {
-                var name = memberName.Identifier.ValueText;
-                if (name == UseShellExecuteMemberName && assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression))
-                {
-                    useShellExecuteAssignment = assignment;
-                }
-                else if (name == FileNameMemberName)
-                {
-                    fileNameAssignment = assignment;
-                }
+                continue;
+            }
+
+            var name = memberName.Identifier.ValueText;
+            if (name == UseShellExecuteMemberName && assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression))
+            {
+                useShellExecuteAssignment = assignment;
+            }
+            else if (name == FileNameMemberName)
+            {
+                fileNameAssignment = assignment;
             }
         }
     }
@@ -175,11 +177,13 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         var parameters = constructor.Parameters;
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (parameters[i].Name == FileNameParameterName)
+            if (parameters[i].Name != FileNameParameterName)
             {
-                fileNameOrdinal = i;
-                break;
+                continue;
             }
+
+            fileNameOrdinal = i;
+            break;
         }
 
         if (fileNameOrdinal < 0)
@@ -214,8 +218,8 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax expression,
         string memberName,
         INamedTypeSymbol containingType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(expression, cancellationToken).Symbol is { } member
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(expression, cancellationToken).Symbol is { } member
             && member.Name == memberName
             && SymbolEqualityComparer.Default.Equals(member.ContainingType, containingType);
 }

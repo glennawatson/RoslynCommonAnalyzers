@@ -14,8 +14,8 @@ internal static class PatternMatchingBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit 'as' casts compared to null.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class PatternMatchingBench

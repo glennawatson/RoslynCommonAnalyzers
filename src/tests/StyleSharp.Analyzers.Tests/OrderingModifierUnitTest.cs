@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyModifier = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModifierOrderAnalyzer,
     StyleSharp.Analyzers.ModifierOrderCodeFixProvider>;
@@ -81,9 +82,10 @@ public class OrderingModifierUnitTest
 
     /// <summary>Verifies modifiers already in canonical order are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CanonicalOrderIsCleanAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task CanonicalOrderIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             internal class C
             {

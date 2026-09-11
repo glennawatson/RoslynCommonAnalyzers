@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -48,8 +50,8 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
     /// <param name="conditional">The conditional to inspect.</param>
     /// <returns><see langword="true"/> when the shape is a chain head worth binding.</returns>
     /// <remarks>Pure syntax; never binds a symbol so the no-diagnostic path stays allocation-free.</remarks>
-    internal static bool IsChainHead(ConditionalExpressionSyntax conditional)
-        => !IsChainContinuation(conditional)
+    internal static bool IsChainHead(ConditionalExpressionSyntax conditional) =>
+        !IsChainContinuation(conditional)
             && TryGetSubject(conditional.Condition, out var subject)
             && conditional.WhenFalse is ConditionalExpressionSyntax next
             && IsSameSubjectChain(next, subject);
@@ -178,8 +180,8 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a conditional continues a same-subject chain started by its parent.</summary>
     /// <param name="conditional">The conditional to inspect.</param>
     /// <returns><see langword="true"/> when the conditional is the else branch of a same-subject test.</returns>
-    private static bool IsChainContinuation(ConditionalExpressionSyntax conditional)
-        => conditional.Parent is ConditionalExpressionSyntax parent
+    private static bool IsChainContinuation(ConditionalExpressionSyntax conditional) =>
+        conditional.Parent is ConditionalExpressionSyntax parent
             && parent.WhenFalse == conditional
             && TryGetSubject(parent.Condition, out var parentSubject)
             && TryGetSubject(conditional.Condition, out var subject)
@@ -219,18 +221,17 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
     /// <param name="first">The first identifier.</param>
     /// <param name="second">The second identifier.</param>
     /// <returns><see langword="true"/> when both spell the same name.</returns>
-    private static bool SubjectsMatch(IdentifierNameSyntax first, IdentifierNameSyntax second)
-        => string.Equals(first.Identifier.ValueText, second.Identifier.ValueText, StringComparison.Ordinal);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SubjectsMatch(IdentifierNameSyntax first, IdentifierNameSyntax second) =>
+        string.Equals(first.Identifier.ValueText, second.Identifier.ValueText, StringComparison.Ordinal);
 
     /// <summary>Returns whether a symbol is a read that cannot have a side effect and is not itself constant.</summary>
     /// <param name="symbol">The symbol the subject binds to.</param>
     /// <returns><see langword="true"/> for a local, parameter, or non-const field.</returns>
-    private static bool IsSideEffectFreeVariable(ISymbol symbol)
-        => symbol switch
+    private static bool IsSideEffectFreeVariable(ISymbol symbol) =>
+        symbol switch
         {
-            ILocalSymbol => true,
-            IParameterSymbol => true,
-            IFieldSymbol { IsConst: false } => true,
+            ILocalSymbol or IParameterSymbol or IFieldSymbol { IsConst: false } => true,
             _ => false
         };
 
@@ -250,7 +251,7 @@ public sealed class Sst2246ChainedConditionalToSwitchAnalyzer : DiagnosticAnalyz
         var special = type.SpecialType;
         return type.TypeKind == TypeKind.Enum
             || special == SpecialType.System_String
-            || (special >= SpecialType.System_Char && special <= SpecialType.System_UInt64);
+            || (special is >= SpecialType.System_Char and <= SpecialType.System_UInt64);
     }
 
     /// <summary>Returns whether a collected constant value already appears in the chain.</summary>

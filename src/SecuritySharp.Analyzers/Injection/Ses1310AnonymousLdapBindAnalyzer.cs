@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -95,7 +97,7 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1310 for a <c>DirectoryEntry</c> construction that binds anonymously.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The gated directory types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, DirectoryBindTypes types)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, DirectoryBindTypes types)
     {
         var (argumentList, initializer) = Decompose(context.Node, out var explicitTypeName);
 
@@ -140,8 +142,9 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1310 on the object-creation node with the given message detail.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="detail">The message detail describing the offending shape.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, string detail)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, string detail) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             SecurityRules.AnonymousLdapBind,
             context.Node.SyntaxTree,
             context.Node.Span,
@@ -277,23 +280,23 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <param name="types">The gated directory types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the value is the gated enum's <c>Anonymous</c> member.</returns>
-    private static bool IsAnonymousAuthentication(SemanticModel model, ExpressionSyntax value, DirectoryBindTypes types, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(value, cancellationToken).Symbol is IFieldSymbol { Name: AnonymousMemberName } field
+    private static bool IsAnonymousAuthentication(SemanticModel model, ExpressionSyntax value, DirectoryBindTypes types, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(value, cancellationToken).Symbol is IFieldSymbol { Name: AnonymousMemberName } field
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, types.AuthenticationTypes);
 
     /// <summary>Returns whether an expression is an <c>LDAP://</c> string literal.</summary>
     /// <param name="expression">The candidate path expression.</param>
     /// <returns><see langword="true"/> when the expression is a string literal whose value begins with the LDAP scheme.</returns>
-    private static bool IsLdapLiteralPath(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsLdapLiteralPath(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && StartsWithIgnoreCase(literal.Token.ValueText, LdapPathPrefix);
 
     /// <summary>Returns whether an expression is an empty-string literal or a <see langword="null"/> literal.</summary>
     /// <param name="expression">The candidate credential expression.</param>
     /// <returns><see langword="true"/> when the expression is <c>""</c> or <see langword="null"/>.</returns>
-    private static bool IsEmptyOrNullLiteral(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsEmptyOrNullLiteral(ExpressionSyntax expression) =>
+        expression switch
         {
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.NullLiteralExpression) => true,
             LiteralExpressionSyntax literal when literal.IsKind(SyntaxKind.StringLiteralExpression) => literal.Token.ValueText.Length == 0,
@@ -325,14 +328,14 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>Lower-cases an ASCII letter, leaving every other character untouched.</summary>
     /// <param name="c">The character to fold.</param>
     /// <returns>The lower-cased character.</returns>
-    private static char ToLowerAscii(char c)
-        => c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
+    private static char ToLowerAscii(char c) =>
+        c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 
     /// <summary>Returns the right-most simple identifier of a member access or bare identifier expression.</summary>
     /// <param name="expression">The expression to read.</param>
     /// <returns>The trailing simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTrailingName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetTrailingName(ExpressionSyntax expression) =>
+        expression switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -342,8 +345,8 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the right-most simple identifier of a type name.</summary>
     /// <param name="type">The constructed type syntax.</param>
     /// <returns>The simple type name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetSimpleTypeName(TypeSyntax type)
-        => type switch
+    private static string? GetSimpleTypeName(TypeSyntax type) =>
+        type switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,

@@ -57,7 +57,7 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
 
         if (tryStatement.Catches.Count > 1 || tryStatement.Finally is not null)
         {
-            editor.ReplaceNode(tryStatement, (current, _) => RemoveLastCatch(current));
+            editor.ReplaceNode(tryStatement, static (current, _) => RemoveLastCatch(current));
             return;
         }
 
@@ -108,15 +108,8 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// <summary>Removes the last catch clause from a try statement that keeps other clauses.</summary>
     /// <param name="node">The current try statement, including any nested batch edits.</param>
     /// <returns>The try statement without its trailing catch clause.</returns>
-    private static SyntaxNode RemoveLastCatch(SyntaxNode node)
-    {
-        if (node is not TryStatementSyntax tryStatement || tryStatement.Catches.Count == 0)
-        {
-            return node;
-        }
-
-        return tryStatement.WithCatches(tryStatement.Catches.RemoveAt(tryStatement.Catches.Count - 1));
-    }
+    private static SyntaxNode RemoveLastCatch(SyntaxNode node) =>
+        node is not TryStatementSyntax tryStatement || tryStatement.Catches.Count == 0 ? node : tryStatement.WithCatches(tryStatement.Catches.RemoveAt(tryStatement.Catches.Count - 1));
 
     /// <summary>Replaces a bare try/catch with the statements of its try block.</summary>
     /// <param name="root">The syntax root.</param>
@@ -214,8 +207,8 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// <summary>Returns whether a statement is valid outside a block in an embedded-statement position.</summary>
     /// <param name="statement">The candidate statement.</param>
     /// <returns><see langword="true"/> when no wrapping block is required.</returns>
-    private static bool CanStandWithoutBlock(StatementSyntax statement)
-        => statement is not LocalDeclarationStatementSyntax and not LocalFunctionStatementSyntax and not LabeledStatementSyntax;
+    private static bool CanStandWithoutBlock(StatementSyntax statement) =>
+        statement is not LocalDeclarationStatementSyntax and not LocalFunctionStatementSyntax and not LabeledStatementSyntax;
 
     /// <summary>Wraps hoisted statements as top-level global statements.</summary>
     /// <param name="statements">The hoisted statements.</param>
@@ -257,8 +250,8 @@ public sealed class Sst1470RemoveRethrowOnlyCatchCodeFixProvider : CodeFixProvid
     /// <summary>Returns whether a try statement is a bare try/catch whose only clause is rethrow-only.</summary>
     /// <param name="tryStatement">The try statement.</param>
     /// <returns><see langword="true"/> when the fix would unwrap the whole try statement.</returns>
-    private static bool IsUnwrappableTry(TryStatementSyntax tryStatement)
-        => tryStatement.Finally is null
+    private static bool IsUnwrappableTry(TryStatementSyntax tryStatement) =>
+        tryStatement.Finally is null
             && tryStatement.Catches.Count == 1
             && Sst1470RemoveRethrowOnlyCatchAnalyzer.IsRethrowOnly(tryStatement.Catches[0]);
 }

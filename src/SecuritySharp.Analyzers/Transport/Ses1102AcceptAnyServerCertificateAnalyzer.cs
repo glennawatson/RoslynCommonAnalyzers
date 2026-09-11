@@ -39,7 +39,7 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
         context.RegisterCompilationStartAction(start =>
         {
             var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(ValidatorMemberName).Length == 0)
+            if (handlerType is null || handlerType.GetMembers(ValidatorMemberName).IsEmpty)
             {
                 return;
             }
@@ -51,7 +51,7 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
     /// <summary>Reports SES1102 for a member access that reads the accept-any server-certificate validator.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 

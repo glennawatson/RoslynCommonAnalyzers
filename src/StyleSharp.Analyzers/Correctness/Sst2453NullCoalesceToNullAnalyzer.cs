@@ -26,8 +26,8 @@ public sealed class Sst2453NullCoalesceToNullAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NullCoalesceToNull);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -42,10 +42,7 @@ public sealed class Sst2453NullCoalesceToNullAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the operand could bind to a constant null.</returns>
     internal static bool CouldBeConstant(ExpressionSyntax expression) => expression switch
     {
-        LiteralExpressionSyntax => true,
-        DefaultExpressionSyntax => true,
-        IdentifierNameSyntax => true,
-        MemberAccessExpressionSyntax => true,
+        LiteralExpressionSyntax or DefaultExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax => true,
         ParenthesizedExpressionSyntax parenthesized => CouldBeConstant(parenthesized.Expression),
         CastExpressionSyntax cast => CouldBeConstant(cast.Expression),
         _ => false,
@@ -74,15 +71,15 @@ public sealed class Sst2453NullCoalesceToNullAnalyzer : DiagnosticAnalyzer
     /// The operand must be side-effect-free for the two written evaluations to be the same thing, so folding
     /// to one of them changes nothing.
     /// </remarks>
-    private static bool IsSelfCoalescing(BinaryExpressionSyntax coalesce)
-        => CompoundAssignmentOperators.IsSideEffectFreeTarget(coalesce.Left)
+    private static bool IsSelfCoalescing(BinaryExpressionSyntax coalesce) =>
+        CompoundAssignmentOperators.IsSideEffectFreeTarget(coalesce.Left)
             && SyntaxFactory.AreEquivalent(coalesce.Left, coalesce.Right, topLevel: false);
 
     /// <summary>Returns whether a coalescing falls back to a compile-time constant null.</summary>
     /// <param name="coalesce">The coalescing expression.</param>
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when the fallback substitutes null for null.</returns>
-    private static bool IsConstantNullFallback(BinaryExpressionSyntax coalesce, SyntaxNodeAnalysisContext context)
+    private static bool IsConstantNullFallback(BinaryExpressionSyntax coalesce, in SyntaxNodeAnalysisContext context)
     {
         if (!CouldBeConstant(coalesce.Right))
         {

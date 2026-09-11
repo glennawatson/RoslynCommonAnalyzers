@@ -33,8 +33,8 @@ public sealed class Sst2284UseIncrementOperatorAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseIncrementOperator);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -112,8 +112,8 @@ public sealed class Sst2284UseIncrementOperatorAnalyzer : DiagnosticAnalyzer
     /// deliberately outside it: they gained <c>++</c> only when they became the <c>nint</c>/<c>nuint</c>
     /// types, so they fall through to the operator lookup that asks the referenced framework.
     /// </remarks>
-    private static bool IsSteppableSpecialType(SpecialType specialType)
-        => specialType is >= SpecialType.System_Char and <= SpecialType.System_Double;
+    private static bool IsSteppableSpecialType(SpecialType specialType) =>
+        specialType is >= SpecialType.System_Char and <= SpecialType.System_Double;
 
     /// <summary>Returns whether a type declares the user-defined stepping operator the rewrite would use.</summary>
     /// <param name="type">The assignment target's type.</param>

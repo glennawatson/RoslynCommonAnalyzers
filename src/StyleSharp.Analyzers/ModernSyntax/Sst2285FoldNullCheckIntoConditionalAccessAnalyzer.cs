@@ -20,8 +20,8 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessAnalyzer : Diagnost
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.FoldNullCheckIntoConditionalAccess);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)

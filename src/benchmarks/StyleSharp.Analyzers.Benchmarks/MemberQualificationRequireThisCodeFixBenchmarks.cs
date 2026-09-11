@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the require-this member-qualification code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("MemberQualificationRequireThisCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class MemberQualificationRequireThisCodeFixBenchmarks : IDisposable
@@ -40,7 +42,7 @@ public class MemberQualificationRequireThisCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ExpressionCodeFixBenchmarkSource.GenerateRequireThisMemberQualification(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(
@@ -55,6 +57,7 @@ public class MemberQualificationRequireThisCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

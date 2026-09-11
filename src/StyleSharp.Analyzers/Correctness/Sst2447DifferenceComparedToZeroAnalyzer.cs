@@ -21,8 +21,8 @@ public sealed class Sst2447DifferenceComparedToZeroAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DifferenceComparedToZero);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -90,8 +90,8 @@ public sealed class Sst2447DifferenceComparedToZeroAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the literal zero.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a bare <c>0</c>.</returns>
-    private static bool IsZeroLiteral(ExpressionSyntax expression)
-        => Unwrap(expression) is LiteralExpressionSyntax { Token.Value: 0 };
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        Unwrap(expression) is LiteralExpressionSyntax { Token.Value: 0 };
 
     /// <summary>Reports one comparison of a difference against zero.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -131,6 +131,6 @@ public sealed class Sst2447DifferenceComparedToZeroAnalyzer : DiagnosticAnalyzer
     /// <c>decimal</c> just above it, and neither is wanted here: C# promotes a <c>char</c> subtraction to
     /// <c>int</c> before it can wrap, and <c>decimal</c> throws rather than wrapping.
     /// </remarks>
-    private static bool IsIntegral(SpecialType specialType)
-        => specialType is >= SpecialType.System_SByte and <= SpecialType.System_UInt64;
+    private static bool IsIntegral(SpecialType specialType) =>
+        specialType is >= SpecialType.System_SByte and <= SpecialType.System_UInt64;
 }

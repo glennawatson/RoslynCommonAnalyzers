@@ -64,7 +64,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports explicit arguments bound to caller-info parameters.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
-    private static void AnalyzeArguments(SyntaxNodeAnalysisContext context, CallerInfoAttributes attributes)
+    private static void AnalyzeArguments(in SyntaxNodeAnalysisContext context, CallerInfoAttributes attributes)
     {
         var argumentList = ArgumentBinding.GetArgumentList(context.Node);
         if (argumentList is null || argumentList.Arguments.Count == 0)
@@ -119,8 +119,8 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax expression,
         string description,
         CallerInfoAttributes attributes,
-        SyntaxNodeAnalysisContext context)
-        => !IsCallerInfoForwarding(expression, attributes, context)
+        in SyntaxNodeAnalysisContext context) =>
+        !IsCallerInfoForwarding(expression, attributes, context)
         && (description != MemberNameDescription || SuppliesTheSameMemberName(expression, context));
 
     /// <summary>Returns whether the compiler would supply exactly the text the argument states.</summary>
@@ -134,8 +134,8 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// call onto one name. The same gap opens for an accessor calling a helper about another member,
     /// and for any argument that simply states something else.
     /// </remarks>
-    private static bool SuppliesTheSameMemberName(ExpressionSyntax expression, SyntaxNodeAnalysisContext context)
-        => context.SemanticModel.GetConstantValue(expression, context.CancellationToken) is { HasValue: true, Value: string stated }
+    private static bool SuppliesTheSameMemberName(ExpressionSyntax expression, in SyntaxNodeAnalysisContext context) =>
+        context.SemanticModel.GetConstantValue(expression, context.CancellationToken) is { HasValue: true, Value: string stated }
         && GetEnclosingCallerMemberName(context) is { } supplied
         && string.Equals(stated, supplied, StringComparison.Ordinal);
 
@@ -148,7 +148,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// yields <see langword="null"/> and the argument is left alone, since guessing wrong here is what
     /// produces the defect.
     /// </remarks>
-    private static string? GetEnclosingCallerMemberName(SyntaxNodeAnalysisContext context)
+    private static string? GetEnclosingCallerMemberName(in SyntaxNodeAnalysisContext context)
     {
         var symbol = context.SemanticModel.GetEnclosingSymbol(context.Node.SpanStart, context.CancellationToken);
         for (; symbol is not null; symbol = symbol.ContainingSymbol)
@@ -190,33 +190,25 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the argument forwards a caller-info parameter.</returns>
-    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, CallerInfoAttributes attributes, SyntaxNodeAnalysisContext context)
-        => expression is IdentifierNameSyntax
+    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, CallerInfoAttributes attributes, in SyntaxNodeAnalysisContext context) =>
+        expression is IdentifierNameSyntax
             && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IParameterSymbol forwarded
             && attributes.Classify(forwarded) is not null;
 
     /// <summary>The compilation's caller-info attribute symbols.</summary>
-    private sealed class CallerInfoAttributes
+    /// <param name="memberName">The caller-member-name attribute symbol.</param>
+    /// <param name="filePath">The caller-file-path attribute symbol.</param>
+    /// <param name="lineNumber">The caller-line-number attribute symbol.</param>
+    private sealed class CallerInfoAttributes(INamedTypeSymbol memberName, INamedTypeSymbol? filePath, INamedTypeSymbol? lineNumber)
     {
         /// <summary>The caller-member-name attribute symbol.</summary>
-        private readonly INamedTypeSymbol _memberName;
+        private readonly INamedTypeSymbol _memberName = memberName;
 
         /// <summary>The caller-file-path attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _filePath;
+        private readonly INamedTypeSymbol? _filePath = filePath;
 
         /// <summary>The caller-line-number attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _lineNumber;
-
-        /// <summary>Initializes a new instance of the <see cref="CallerInfoAttributes"/> class.</summary>
-        /// <param name="memberName">The caller-member-name attribute symbol.</param>
-        /// <param name="filePath">The caller-file-path attribute symbol.</param>
-        /// <param name="lineNumber">The caller-line-number attribute symbol.</param>
-        public CallerInfoAttributes(INamedTypeSymbol memberName, INamedTypeSymbol? filePath, INamedTypeSymbol? lineNumber)
-        {
-            _memberName = memberName;
-            _filePath = filePath;
-            _lineNumber = lineNumber;
-        }
+        private readonly INamedTypeSymbol? _lineNumber = lineNumber;
 
         /// <summary>Describes the caller-info attribute a parameter carries, if any.</summary>
         /// <param name="parameter">The parameter to classify.</param>

@@ -75,7 +75,7 @@ public sealed class Sst1521LineTooLongAnalyzer : DiagnosticAnalyzer
     /// <param name="root">The lazily fetched syntax root, shared across the file's long lines.</param>
     /// <returns><see langword="true"/> when the line is exempt.</returns>
     private static bool IsUnwrappable(
-        SyntaxTreeAnalysisContext context,
+        in SyntaxTreeAnalysisContext context,
         SourceText text,
         TextLine line,
         int maximum,

@@ -11,8 +11,8 @@ internal static class NamingBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit parameter naming violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateParameterSource(int members, bool violating)
-        => $$"""
+    internal static string GenerateParameterSource(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class C
@@ -25,8 +25,8 @@ internal static class NamingBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit local-variable naming violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateLocalVariableSource(int members, bool violating)
-        => $$"""
+    internal static string GenerateLocalVariableSource(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class C
@@ -39,8 +39,8 @@ internal static class NamingBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit field naming violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateFieldSource(int types, bool violating)
-        => $$"""
+    internal static string GenerateFieldSource(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateFieldType(i, violating))}}
@@ -50,8 +50,8 @@ internal static class NamingBenchmarkSource
     /// <param name="types">The number of synthetic type groups to emit.</param>
     /// <param name="violating">Whether to emit element naming violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateElementSource(int types, bool violating)
-        => $$"""
+    internal static string GenerateElementSource(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateElementGroup(i, violating))}}

@@ -34,5 +34,5 @@ internal readonly record struct ShadowedMember(
 
     /// <summary>Returns this member, marked as hiding an inherited field of the same name.</summary>
     /// <returns>The updated member.</returns>
-    public ShadowedMember HidingInheritedField() => this with { HidesInheritedField = true };
+    internal ShadowedMember HidingInheritedField() => this with { HidesInheritedField = true };
 }

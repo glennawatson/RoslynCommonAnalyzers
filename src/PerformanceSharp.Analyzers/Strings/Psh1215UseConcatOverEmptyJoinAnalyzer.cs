@@ -93,7 +93,7 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1215 for an empty-separator Join call whose values have a Concat overload.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="overloads">The Concat overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, ConcatOverloads overloads)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ConcatOverloads overloads)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsCandidate(invocation, out var separator, out var separatorIsLiteral))
@@ -117,29 +117,22 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the receiver is the <c>string</c> keyword or the <c>String</c> identifier, syntactically.</summary>
     /// <param name="expression">The member access receiver.</param>
     /// <returns><see langword="true"/> for a <c>string.Join</c> or <c>String.Join</c> spelling.</returns>
-    private static bool IsStringReceiver(ExpressionSyntax expression)
-    {
-        if (expression is PredefinedTypeSyntax predefined)
-        {
-            return predefined.Keyword.IsKind(SyntaxKind.StringKeyword);
-        }
-
-        return expression is IdentifierNameSyntax { Identifier.ValueText: "String" };
-    }
+    private static bool IsStringReceiver(ExpressionSyntax expression) =>
+        expression is PredefinedTypeSyntax predefined ? predefined.Keyword.IsKind(SyntaxKind.StringKeyword) : expression is IdentifierNameSyntax { Identifier.ValueText: "String" };
 
     /// <summary>Returns whether an expression is the literal <c>""</c>.</summary>
     /// <param name="expression">The candidate separator expression.</param>
     /// <returns><see langword="true"/> for a string literal whose value is empty.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && literal.Token.ValueText.Length == 0;
 
     /// <summary>Returns whether an expression is a member access ending in <c>.Empty</c>, syntactically.</summary>
     /// <param name="expression">The candidate separator expression.</param>
     /// <returns><see langword="true"/> for a simple member access named <c>Empty</c>.</returns>
-    private static bool IsEmptyMemberAccess(ExpressionSyntax expression)
-        => expression is MemberAccessExpressionSyntax access
+    private static bool IsEmptyMemberAccess(ExpressionSyntax expression) =>
+        expression is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Name is IdentifierNameSyntax { Identifier.ValueText: "Empty" };
 
@@ -148,8 +141,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <param name="separator">The <c>.Empty</c> member access to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the access is the static <c>Empty</c> field on <see cref="string"/>.</returns>
-    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax separator, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(separator, cancellationToken).Symbol is IFieldSymbol
+    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax separator, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(separator, cancellationToken).Symbol is IFieldSymbol
         {
             IsStatic: true,
             ContainingType.SpecialType: SpecialType.System_String
@@ -161,8 +154,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <param name="overloads">The Concat overloads available in this compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the invocation binds to a reportable Join overload.</returns>
-    private static bool IsReportableJoin(SemanticModel model, InvocationExpressionSyntax invocation, in ConcatOverloads overloads, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
+    private static bool IsReportableJoin(SemanticModel model, InvocationExpressionSyntax invocation, in ConcatOverloads overloads, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && IsTwoParameterStaticStringMethod(method)
             && method.Parameters[0].Type.SpecialType == SpecialType.System_String
             && HasMatchingConcatOverload(method, overloads);
@@ -170,8 +163,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a bound method is a two-parameter static member of <see cref="string"/>.</summary>
     /// <param name="method">The bound Join method.</param>
     /// <returns><see langword="true"/> for the Join overload arity that can have a Concat equivalent.</returns>
-    private static bool IsTwoParameterStaticStringMethod(IMethodSymbol method)
-        => method is { IsStatic: true, ContainingType.SpecialType: SpecialType.System_String, Parameters.Length: JoinParameterCount };
+    private static bool IsTwoParameterStaticStringMethod(IMethodSymbol method) =>
+        method is { IsStatic: true, ContainingType.SpecialType: SpecialType.System_String, Parameters.Length: JoinParameterCount };
 
     /// <summary>Maps the bound Join overload's values parameter to its Concat overload gate.</summary>
     /// <param name="method">The bound Join method.</param>
@@ -190,20 +183,17 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
-        {
-            return HasEnumerableConcat(method, named, overloads);
-        }
-
-        return IsReadOnlySpan(named) && HasSpanConcat(named, overloads);
+        return named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
+            ? HasEnumerableConcat(method, named, overloads)
+            : IsReadOnlySpan(named) && HasSpanConcat(named, overloads);
     }
 
     /// <summary>Maps an array-typed values parameter to its Concat overload gate.</summary>
     /// <param name="array">The values parameter's array type.</param>
     /// <param name="overloads">The Concat overloads available in this compilation.</param>
     /// <returns><see langword="true"/> when the matching array Concat overload exists.</returns>
-    private static bool HasArrayConcat(IArrayTypeSymbol array, in ConcatOverloads overloads)
-        => array.ElementType.SpecialType switch
+    private static bool HasArrayConcat(IArrayTypeSymbol array, in ConcatOverloads overloads) =>
+        array.ElementType.SpecialType switch
         {
             SpecialType.System_Object => overloads.ObjectArray,
             SpecialType.System_String => overloads.StringArray,
@@ -215,8 +205,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <param name="named">The values parameter's constructed type.</param>
     /// <param name="overloads">The Concat overloads available in this compilation.</param>
     /// <returns><see langword="true"/> when the matching enumerable Concat overload exists.</returns>
-    private static bool HasEnumerableConcat(IMethodSymbol method, INamedTypeSymbol named, in ConcatOverloads overloads)
-        => method.Arity == 1
+    private static bool HasEnumerableConcat(IMethodSymbol method, INamedTypeSymbol named, in ConcatOverloads overloads) =>
+        method.Arity == 1
             ? overloads.GenericEnumerable
             : named.TypeArguments[0].SpecialType == SpecialType.System_String && overloads.StringEnumerable;
 
@@ -224,8 +214,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <param name="named">The values parameter's constructed type.</param>
     /// <param name="overloads">The Concat overloads available in this compilation.</param>
     /// <returns><see langword="true"/> when the matching span Concat overload exists.</returns>
-    private static bool HasSpanConcat(INamedTypeSymbol named, in ConcatOverloads overloads)
-        => named.TypeArguments[0].SpecialType switch
+    private static bool HasSpanConcat(INamedTypeSymbol named, in ConcatOverloads overloads) =>
+        named.TypeArguments[0].SpecialType switch
         {
             SpecialType.System_String => overloads.SpanOfString,
             SpecialType.System_Object => overloads.SpanOfObject,
@@ -235,8 +225,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is the framework's <c>System.ReadOnlySpan&lt;T&gt;</c>.</summary>
     /// <param name="type">The candidate type.</param>
     /// <returns><see langword="true"/> for <c>ReadOnlySpan&lt;T&gt;</c> in the <c>System</c> namespace.</returns>
-    private static bool IsReadOnlySpan(INamedTypeSymbol type)
-        => type is { Name: "ReadOnlySpan", Arity: 1, ContainingType: null }
+    private static bool IsReadOnlySpan(INamedTypeSymbol type) =>
+        type is { Name: "ReadOnlySpan", Arity: 1, ContainingType: null }
             && type.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true };
 
     /// <summary>The single-values-argument <c>string.Concat</c> overloads available in the current compilation.</summary>
@@ -260,7 +250,7 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
         /// <summary>Probes the compilation's <see cref="string"/> member list once for the Concat overloads.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The available Concat overloads.</returns>
-        public static ConcatOverloads Resolve(Compilation compilation)
+        internal static ConcatOverloads Resolve(Compilation compilation)
         {
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var objectArray = false;
@@ -294,8 +284,8 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a parameter type is a constructed <c>IEnumerable&lt;T&gt;</c>.</summary>
         /// <param name="parameterType">The overload's single parameter type.</param>
         /// <returns><see langword="true"/> for the generic enumerable Concat shape.</returns>
-        private static bool IsGenericEnumerable(ITypeSymbol parameterType)
-            => parameterType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Collections_Generic_IEnumerable_T };
+        private static bool IsGenericEnumerable(ITypeSymbol parameterType) =>
+            parameterType is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Collections_Generic_IEnumerable_T };
 
         /// <summary>Classifies one arity-zero single-parameter Concat overload into the availability flags.</summary>
         /// <param name="parameterType">The overload's single parameter type.</param>

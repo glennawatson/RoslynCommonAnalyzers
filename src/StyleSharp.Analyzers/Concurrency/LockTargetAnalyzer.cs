@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -46,13 +48,14 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The containing type declaration.</param>
     /// <param name="expression">The lock target expression.</param>
     /// <returns><see langword="true"/> when the target is a clean private object field use.</returns>
-    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression)
-        => FieldReferenceAnalysis.IsPrivateObjectFieldLockTarget(type, expression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression) =>
+        FieldReferenceAnalysis.IsPrivateObjectFieldLockTarget(type, expression);
 
     /// <summary>Reports SST1901/SST1902/SST1903/SST1904 for a questionable lock target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
-    private static void AnalyzeLock(SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
+    private static void AnalyzeLock(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
     {
         var expression = UnwrapLockTarget(((LockStatementSyntax)context.Node).Expression);
 
@@ -78,7 +81,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The unwrapped lock target expression.</param>
     /// <returns><see langword="true"/> when the target is a private object field, so no other rule applies.</returns>
-    private static bool TryReportPrivateObjectField(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    private static bool TryReportPrivateObjectField(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         if (context.Node.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } type
             || !FieldReferenceAnalysis.TryGetPrivateObjectFieldLockTarget(type, expression, out var declaration))
@@ -103,7 +106,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The lock target expression.</param>
     /// <param name="symbol">The bound symbol for the lock target, if any.</param>
-    private static void ReportSwappableField(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
+    private static void ReportSwappableField(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
     {
         if (symbol is not IFieldSymbol field || !IsSwappableOwnField(field, context.ContainingSymbol?.ContainingType))
         {
@@ -117,7 +120,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The lock target expression.</param>
     /// <param name="symbol">The bound symbol for the lock target, if any.</param>
-    private static void ReportFreshObject(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
+    private static void ReportFreshObject(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
     {
         if (!IsNewlyCreatedObject(expression, context.SemanticModel, context.CancellationToken)
             && !IsFreshLocalObject(expression, symbol, context.SemanticModel, context.CancellationToken))
@@ -137,8 +140,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// object — closes the mutability too; scoping SST1904 to fields SST1901 does not see keeps the two
     /// disjoint. The field must belong to the type that holds the lock, so the fix is a local one.
     /// </remarks>
-    private static bool IsSwappableOwnField(IFieldSymbol field, INamedTypeSymbol? enclosingType)
-        => !field.IsReadOnly
+    private static bool IsSwappableOwnField(IFieldSymbol field, INamedTypeSymbol? enclosingType) =>
+        !field.IsReadOnly
             && !field.IsConst
             && !IsExternallyAccessible(field.DeclaredAccessibility)
             && enclosingType is not null
@@ -148,7 +151,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The lock target expression.</param>
     /// <param name="symbol">The bound symbol for the lock target, if any.</param>
-    private static void ReportAccessibleMember(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
+    private static void ReportAccessibleMember(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol? symbol)
     {
         if (symbol is not (IFieldSymbol or IPropertySymbol) || !IsExternallyAccessible(symbol.DeclaredAccessibility))
         {
@@ -163,8 +166,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the target is an object creation expression.</returns>
-    private static bool IsNewlyCreatedObject(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => (expression is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+    private static bool IsNewlyCreatedObject(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        (expression is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
             && model.GetTypeInfo(expression, cancellationToken).Type is not null;
 
     /// <summary>Returns whether a lock target is a local that only ever holds a freshly-created object that never leaves the method.</summary>
@@ -193,7 +196,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new FreshLocalScan(model, local, identifier, scope, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FreshLocalScan>(scope, ref scan, VisitFreshLocalReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FreshLocalScan>(scope, ref scan, VisitFreshLocalReference);
         return !scan.Escaped;
     }
 
@@ -223,8 +226,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the local is the receiver of a member access.</summary>
     /// <param name="reference">The reference.</param>
     /// <returns><see langword="true"/> when the reference reads or calls a member of the local.</returns>
-    private static bool IsMemberAccessOnLocal(IdentifierNameSyntax reference)
-        => reference.Parent is MemberAccessExpressionSyntax access
+    private static bool IsMemberAccessOnLocal(IdentifierNameSyntax reference) =>
+        reference.Parent is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Expression == reference;
 
@@ -248,8 +251,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the block a local lives in, which is as far as any reference to it can reach.</summary>
     /// <param name="declarator">The local's declarator.</param>
     /// <returns>The enclosing block, or <see langword="null"/> when the local is declared somewhere unusual.</returns>
-    private static SyntaxNode? GetLocalScope(VariableDeclaratorSyntax declarator)
-        => declarator.Parent?.Parent?.Parent switch
+    private static SyntaxNode? GetLocalScope(VariableDeclaratorSyntax declarator) =>
+        declarator.Parent?.Parent?.Parent switch
         {
             BlockSyntax block => block,
             SwitchSectionSyntax section => section,
@@ -307,8 +310,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an accessibility is reachable from outside the declaring assembly.</summary>
     /// <param name="accessibility">The member accessibility.</param>
     /// <returns><see langword="true"/> for public, protected, or protected-or-internal.</returns>
-    private static bool IsExternallyAccessible(Accessibility accessibility)
-        => accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
+    private static bool IsExternallyAccessible(Accessibility accessibility) =>
+        accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
 
     /// <summary>Removes wrappers that do not change the locked instance.</summary>
     /// <param name="expression">The expression to unwrap.</param>
@@ -343,8 +346,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The cast target type syntax.</param>
     /// <returns><see langword="true"/> when the cast target is object.</returns>
     private static bool IsObjectType(TypeSyntax type) =>
-        type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword } ||
-        (type is QualifiedNameSyntax qualifiedName
+        type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword }
+        || (type is QualifiedNameSyntax qualifiedName
             && qualifiedName.Right.Identifier.ValueText == "Object"
             && IsSystemTypeName(qualifiedName.Left));
 
@@ -376,8 +379,9 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a reference really resolves to this local.</summary>
         /// <param name="reference">The reference with a matching name.</param>
         /// <returns><see langword="true"/> when the name is not another symbol's.</returns>
-        public readonly bool IsTheLocal(IdentifierNameSyntax reference)
-            => SymbolEqualityComparer.Default.Equals(
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool IsTheLocal(IdentifierNameSyntax reference) =>
+            SymbolEqualityComparer.Default.Equals(
                 Model.GetSymbolInfo(reference, CancellationToken).Symbol,
                 Local);
     }

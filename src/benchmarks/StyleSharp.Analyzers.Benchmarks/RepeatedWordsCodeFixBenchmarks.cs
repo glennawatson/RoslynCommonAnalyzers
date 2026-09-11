@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the repeated-word code-fix path (SST1658).</summary>
+[System.Diagnostics.DebuggerDisplay("RepeatedWordsCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RepeatedWordsCodeFixBenchmarks
@@ -23,13 +25,14 @@ public class RepeatedWordsCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative repeated-word span.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             static count => RepeatedWordsBenchmarkSource.Generate(count, violating: true),
             static (_, root, index) => Task.FromResult(FindWordSpan(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -46,6 +49,7 @@ public class RepeatedWordsCodeFixBenchmarks
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based method index to select.</param>
     /// <returns>The selected repeated word's span.</returns>
+    /// <exception cref="InvalidOperationException">The summary of the method at <paramref name="index"/> contains no repeated word for the fix to remove.</exception>
     private static TextSpan FindWordSpan(CompilationUnitSyntax root, int index)
     {
         const string Pattern = "the the";
@@ -67,7 +71,7 @@ public class RepeatedWordsCodeFixBenchmarks
                 if (match >= 0)
                 {
                     // The second word starts after "the " within the matched pattern.
-                    return new TextSpan(token.SpanStart + match + SecondWordOffset, RepeatedWordLength);
+                    return new(token.SpanStart + match + SecondWordOffset, RepeatedWordLength);
                 }
             }
         }

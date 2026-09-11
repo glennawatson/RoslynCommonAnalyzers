@@ -3,12 +3,13 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Testing;
 using Microsoft.CodeAnalysis.Text;
@@ -27,18 +28,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ModernSyntaxValueAnalyzerUnitTest
 {
-    /// <summary>The id of the opt-in rule that assigns an ignored expression value to the discard.</summary>
-    private const string MakeIgnoredExpressionValueExplicitId = "SST2221";
-
-    /// <summary>The id of the opt-in rule that rewrites an anonymous object as a tuple literal.</summary>
-    private const string ConvertAnonymousObjectToTupleId = "SST2224";
-
-    /// <summary>The name the verifier gives the first test document, which hand-built diagnostics must locate themselves in.</summary>
-    private const string DefaultDocumentName = "Test0.cs";
-
-    /// <summary>The name of the in-memory project the fixer is driven against directly.</summary>
-    private const string AdhocProjectName = "TestProject";
-
     /// <summary>Verifies a redundant ToString call is folded into the interpolation hole.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -66,9 +55,10 @@ public class ModernSyntaxValueAnalyzerUnitTest
     /// A hole reaches the formatter as an object or as a generic argument to the interpolation handler, and
     /// a ref struct fits neither, so removing the call stops the interpolation compiling.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToStringOnARefStructIsCleanAsync()
-        => await new VerifyModernSyntaxValue.Test
+    public Task ToStringOnARefStructIsCleanAsync() =>
+        new VerifyModernSyntaxValue.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
             TestCode = """
@@ -113,7 +103,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                    }
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
-        Enable(test, MakeIgnoredExpressionValueExplicitId);
+        Enable(test, "SST2221");
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -167,7 +157,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                    }
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
-        Enable(test, MakeIgnoredExpressionValueExplicitId);
+        Enable(test, "SST2221");
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -185,9 +175,9 @@ public class ModernSyntaxValueAnalyzerUnitTest
         var descriptor = ModernSyntaxRules.MakeIgnoredExpressionValueExplicit;
         var firstSpan = new TextSpan(FirstStatementSpanStart, ReportedStatementSpanLength);
         var secondSpan = new TextSpan(SecondStatementSpanStart, ReportedStatementSpanLength);
-        var first = Diagnostic.Create(descriptor, Location.Create(DefaultDocumentName, firstSpan, default));
-        var duplicate = Diagnostic.Create(descriptor, Location.Create(DefaultDocumentName, firstSpan, default));
-        var second = Diagnostic.Create(descriptor, Location.Create(DefaultDocumentName, secondSpan, default));
+        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", firstSpan, default));
+        var duplicate = Diagnostic.Create(descriptor, Location.Create("Test0.cs", firstSpan, default));
+        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", secondSpan, default));
 
         var diagnostics = ImmutableArray.Create(first, duplicate, second);
         var unique = BatchEditFixAllProvider.UniqueDiagnostics(diagnostics).ToArray();
@@ -215,8 +205,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
         var statement = root.DescendantNodes().OfType<ExpressionStatementSyntax>().Single();
         var memberAccess = statement.DescendantNodes().OfType<MemberAccessExpressionSyntax>().Single();
         var descriptor = ModernSyntaxRules.MakeIgnoredExpressionValueExplicit;
-        var first = Diagnostic.Create(descriptor, Location.Create(DefaultDocumentName, statement.Expression.Span, default));
-        var second = Diagnostic.Create(descriptor, Location.Create(DefaultDocumentName, memberAccess.Name.Span, default));
+        var first = Diagnostic.Create(descriptor, Location.Create("Test0.cs", statement.Expression.Span, default));
+        var second = Diagnostic.Create(descriptor, Location.Create("Test0.cs", memberAccess.Name.Span, default));
 
         var diagnostics = ImmutableArray.Create(first, second);
         var fix = (IBatchFixableCodeFix)new ModernSyntaxValueCodeFixProvider();
@@ -232,8 +222,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
     public async Task DuplicateBatchEditSyntaxEditorFailureIsIgnoredAsync()
     {
         using var workspace = new AdhocWorkspace();
-        var project = workspace.CurrentSolution.AddProject(AdhocProjectName, AdhocProjectName, LanguageNames.CSharp);
-        var document = project.AddDocument(DefaultDocumentName, SourceText.From("public sealed class C { }"));
+        var project = workspace.CurrentSolution.AddProject("TestProject", "TestProject", LanguageNames.CSharp);
+        var document = project.AddDocument("Test0.cs", SourceText.From("public sealed class C { }"));
         var editor = await DocumentEditor.CreateAsync(document, CancellationToken.None);
         var diagnostic = Diagnostic.Create(ModernSyntaxRules.MakeIgnoredExpressionValueExplicit, Location.None);
         var fix = new ThrowingBatchFix("GetCurrentNode returned null with the following node: received.TrySetResult();");
@@ -258,13 +248,13 @@ public class ModernSyntaxValueAnalyzerUnitTest
                               }
                               """;
         using var workspace = new AdhocWorkspace();
-        var project = workspace.CurrentSolution.AddProject(AdhocProjectName, AdhocProjectName, LanguageNames.CSharp);
-        var document = project.AddDocument(DefaultDocumentName, SourceText.From(Source));
+        var project = workspace.CurrentSolution.AddProject("TestProject", "TestProject", LanguageNames.CSharp);
+        var document = project.AddDocument("Test0.cs", SourceText.From(Source));
         var root = await document.GetSyntaxRootAsync(CancellationToken.None);
         var invocation = root!.DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
         var diagnostic = Diagnostic.Create(
             ModernSyntaxRules.MakeIgnoredExpressionValueExplicit,
-            Location.Create(DefaultDocumentName, invocation.Span, default));
+            Location.Create("Test0.cs", invocation.Span, default));
 
         var updated = ModernSyntaxValueCodeFixProvider.Apply(document, root, diagnostic);
         var updatedRoot = await updated.GetSyntaxRootAsync(CancellationToken.None);
@@ -295,15 +285,15 @@ public class ModernSyntaxValueAnalyzerUnitTest
                               """;
         using var workspace = new AdhocWorkspace();
         var project = workspace.CurrentSolution
-            .AddProject(AdhocProjectName, AdhocProjectName, LanguageNames.CSharp)
+            .AddProject("TestProject", "TestProject", LanguageNames.CSharp)
             .WithMetadataReferences([RuntimeMetadataReferences.CoreLibrary]);
-        var document = project.AddDocument(DefaultDocumentName, SourceText.From(Source));
+        var document = project.AddDocument("Test0.cs", SourceText.From(Source));
         var root = await document.GetSyntaxRootAsync(CancellationToken.None);
         var model = await document.GetSemanticModelAsync(CancellationToken.None);
         var statement = root!.DescendantNodes().OfType<ExpressionStatementSyntax>().Single();
         var diagnostic = Diagnostic.Create(
             ModernSyntaxRules.MakeIgnoredExpressionValueExplicit,
-            Location.Create(DefaultDocumentName, statement.Expression.Span, default));
+            Location.Create("Test0.cs", statement.Expression.Span, default));
         var actions = new List<CodeAction>();
         var context = new CodeFixContext(
             document,
@@ -366,8 +356,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                    }
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
-        Enable(test, MakeIgnoredExpressionValueExplicitId);
-        test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic(MakeIgnoredExpressionValueExplicitId)
+        Enable(test, "SST2221");
+        test.FixedState.ExpectedDiagnostics.Add(VerifyModernSyntaxValue.Diagnostic("SST2221")
             .WithSpan(SkippedLambdaCallLine, SkippedLambdaCallStartColumn, SkippedLambdaCallLine, SkippedLambdaCallEndColumn));
 
         await test.RunAsync(CancellationToken.None);
@@ -432,7 +422,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                    }
                                    """;
         var test = CreateNet80Test(Source, FixedSource);
-        Enable(test, ConvertAnonymousObjectToTupleId);
+        Enable(test, "SST2224");
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -468,7 +458,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
                               }
                               """;
         var test = CreateNet80Test(Source, Source);
-        Enable(test, ConvertAnonymousObjectToTupleId);
+        Enable(test, "SST2224");
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -680,13 +670,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxValue.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = Source
-        };
-        Enable(test, MakeIgnoredExpressionValueExplicitId);
+        var test = new VerifyModernSyntaxValue.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
+        Enable(test, "SST2221");
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -707,13 +692,8 @@ public class ModernSyntaxValueAnalyzerUnitTest
                                   public object M(int id, string name) => new { id, Label = name };
                               }
                               """;
-        var test = new VerifyModernSyntaxValue.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = Source
-        };
-        Enable(test, ConvertAnonymousObjectToTupleId);
+        var test = new VerifyModernSyntaxValue.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
+        Enable(test, "SST2224");
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -729,11 +709,7 @@ public class ModernSyntaxValueAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyModernSyntaxValue.Test CreateNet80Test(string source, string? fixedSource = null)
     {
-        var test = new VerifyModernSyntaxValue.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyModernSyntaxValue.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         if (fixedSource is not null)
         {
@@ -746,8 +722,9 @@ public class ModernSyntaxValueAnalyzerUnitTest
 
     /// <summary>Ensures feature-gated syntax rules run against the newest parser available to the test SDK.</summary>
     /// <param name="test">The test to configure.</param>
-    private static void AddModernParseOptions(VerifyModernSyntaxValue.Test test)
-        => test.SolutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddModernParseOptions(VerifyModernSyntaxValue.Test test) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var projectParseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, projectParseOptions.WithLanguageVersion(LanguageVersion.Preview));

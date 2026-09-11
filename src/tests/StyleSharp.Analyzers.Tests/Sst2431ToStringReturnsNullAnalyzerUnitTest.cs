@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyToString = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2431ToStringReturnsNullAnalyzer,
     StyleSharp.Analyzers.Sst2431ToStringReturnsNullCodeFixProvider>;
@@ -71,27 +72,31 @@ public class Sst2431ToStringReturnsNullAnalyzerUnitTest
 
     /// <summary>Verifies <c>=&gt; null!</c> is reported and replaced with <c>string.Empty</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodyNullBangIsFixedAsync()
-        => await VerifyToString.VerifyCodeFixAsync(ExpressionBodyNullBangSource, ExpressionBodyNullBangFixed);
+    public Task ExpressionBodyNullBangIsFixedAsync() =>
+        VerifyToString.VerifyCodeFixAsync(ExpressionBodyNullBangSource, ExpressionBodyNullBangFixed);
 
     /// <summary>Verifies <c>return null;</c> is reported and replaced with <c>string.Empty</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnNullStatementIsFixedAsync()
-        => await VerifyToString.VerifyCodeFixAsync(ReturnNullSource, ReturnNullFixed);
+    public Task ReturnNullStatementIsFixedAsync() =>
+        VerifyToString.VerifyCodeFixAsync(ReturnNullSource, ReturnNullFixed);
 
     /// <summary>Verifies a null branch of a conditional is reported and replaced with <c>string.Empty</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalNullBranchIsFixedAsync()
-        => await VerifyToString.VerifyCodeFixAsync(ConditionalBranchSource, ConditionalBranchFixed);
+    public Task ConditionalNullBranchIsFixedAsync() =>
+        VerifyToString.VerifyCodeFixAsync(ConditionalBranchSource, ConditionalBranchFixed);
 
     /// <summary>Verifies a non-null literal return is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNullLiteralIsCleanAsync()
-        => await VerifyToString.VerifyAnalyzerAsync(
+    public Task NonNullLiteralIsCleanAsync() =>
+        VerifyToString.VerifyAnalyzerAsync(
             """
             public sealed class Money
             {
@@ -101,9 +106,10 @@ public class Sst2431ToStringReturnsNullAnalyzerUnitTest
 
     /// <summary>Verifies returning <c>string.Empty</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringEmptyIsCleanAsync()
-        => await VerifyToString.VerifyAnalyzerAsync(
+    public Task StringEmptyIsCleanAsync() =>
+        VerifyToString.VerifyAnalyzerAsync(
             """
             public sealed class Money
             {
@@ -113,9 +119,10 @@ public class Sst2431ToStringReturnsNullAnalyzerUnitTest
 
     /// <summary>Verifies a null returned by a nested lambda, not by ToString, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullFromNestedLambdaIsCleanAsync()
-        => await VerifyToString.VerifyAnalyzerAsync(
+    public Task NullFromNestedLambdaIsCleanAsync() =>
+        VerifyToString.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -131,9 +138,10 @@ public class Sst2431ToStringReturnsNullAnalyzerUnitTest
 
     /// <summary>Verifies a non-override method named ToString is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonOverrideNamedToStringIsCleanAsync()
-        => await VerifyToString.VerifyAnalyzerAsync(
+    public Task NonOverrideNamedToStringIsCleanAsync() =>
+        VerifyToString.VerifyAnalyzerAsync(
             """
             public sealed class Money
             {

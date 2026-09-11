@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -101,9 +102,10 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
 
     /// <summary>Verifies a copy handed straight to a foreach, with no local, is not this rule's shape.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectForEachWithoutLocalIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task DirectForEachWithoutLocalIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -122,9 +124,10 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
 
     /// <summary>Verifies a mutated array is left alone: a string cannot stand in for a writable buffer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedLocalIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task MutatedLocalIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -139,9 +142,10 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
 
     /// <summary>Verifies an array passed as an argument is left alone: the callee may want a real array.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassedLocalIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task PassedLocalIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -159,9 +163,10 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
 
     /// <summary>Verifies an array whose member other than Length is read is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClonedLocalIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ClonedLocalIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -179,12 +184,7 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -192,5 +192,6 @@ public class IterateStringWithoutCopyAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

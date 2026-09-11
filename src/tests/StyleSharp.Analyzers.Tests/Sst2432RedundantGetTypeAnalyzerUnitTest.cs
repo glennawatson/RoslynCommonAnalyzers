@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2432RedundantGetTypeAnalyzer,
     StyleSharp.Analyzers.Sst2432RedundantGetTypeCodeFixProvider>;
@@ -53,21 +54,24 @@ public class Sst2432RedundantGetTypeAnalyzerUnitTest
 
     /// <summary>Verifies GetType() on a Type parameter is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetTypeOnTypeParameterIsReportedAsync()
-        => await Verify.VerifyCodeFixAsync(TypeParameterSource, TypeParameterFixed);
+    public Task GetTypeOnTypeParameterIsReportedAsync() =>
+        Verify.VerifyCodeFixAsync(TypeParameterSource, TypeParameterFixed);
 
     /// <summary>Verifies GetType() on a typeof expression is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetTypeOnTypeofIsReportedAsync()
-        => await Verify.VerifyCodeFixAsync(TypeofSource, TypeofFixed);
+    public Task GetTypeOnTypeofIsReportedAsync() =>
+        Verify.VerifyCodeFixAsync(TypeofSource, TypeofFixed);
 
     /// <summary>Verifies GetType() on an ordinary object is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetTypeOnObjectIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GetTypeOnObjectIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -79,9 +83,10 @@ public class Sst2432RedundantGetTypeAnalyzerUnitTest
 
     /// <summary>Verifies GetType() on a string is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetTypeOnStringIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GetTypeOnStringIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

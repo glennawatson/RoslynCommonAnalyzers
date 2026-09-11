@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyInParameter = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -56,9 +57,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a large readonly struct passed by value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LargeReadonlyStructPassedByValueIsReportedAsync()
-        => await VerifyAsync(
+    public Task LargeReadonlyStructPassedByValueIsReportedAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -68,9 +70,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies the estimator measures a struct built from auto-properties.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AutoPropertyStructIsMeasuredAsync()
-        => await VerifyAsync(
+    public Task AutoPropertyStructIsMeasuredAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -80,9 +83,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a struct at the register-passing boundary is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SmallStructIsCleanAsync()
-        => await VerifyAsync(
+    public Task SmallStructIsCleanAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -95,9 +99,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <summary>Verifies a struct that is not readonly is left to PSH1003.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>An 'in' here would take a defensive copy at every member access, which is worse than the copy it saves.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableStructIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutableStructIsCleanAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -107,9 +112,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies ref structs are never reported, whatever their size.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefStructIsCleanAsync()
-        => await VerifyAsync(
+    public Task RefStructIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -135,9 +141,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <summary>Verifies the SIMD types are excluded even though they are large readonly structs.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The whole BCL vector surface passes these by value; an 'in' buys nothing and costs an indirection.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SimdTypesAreCleanAsync()
-        => await VerifyAsync(
+    public Task SimdTypesAreCleanAsync() =>
+        VerifyAsync(
             """
             using System.Numerics;
             using System.Runtime.Intrinsics;
@@ -156,9 +163,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies the cheap framework handle types are excluded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FrameworkHandleTypesAreCleanAsync()
-        => await VerifyAsync(
+    public Task FrameworkHandleTypesAreCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading;
@@ -176,9 +184,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <summary>Verifies an externally visible signature is not reported by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Adding 'in' to a public member is a binary break for every compiled consumer.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicApiIsCleanByDefaultAsync()
-        => await VerifyAsync(
+    public Task PublicApiIsCleanByDefaultAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -192,9 +201,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies an externally visible signature is reported once it is opted in.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicApiIsReportedWhenOptedInAsync()
-        => await VerifyWithConfigAsync(
+    public Task PublicApiIsReportedWhenOptedInAsync() =>
+        VerifyWithConfigAsync(
             """
             public static class C
             {
@@ -205,9 +215,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a signature an interface or a base type dictates is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedSignaturesAreCleanAsync()
-        => await VerifyAsync(
+    public Task InheritedSignaturesAreCleanAsync() =>
+        VerifyAsync(
             """
             internal interface IScorer
             {
@@ -231,9 +242,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies an async method and an iterator are not reported, because neither may take 'in'.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncAndIteratorAreCleanAsync()
-        => await VerifyAsync(
+    public Task AsyncAndIteratorAreCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Threading.Tasks;
@@ -256,9 +268,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a captured parameter is not reported, because a reference cannot be captured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturedParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task CapturedParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -276,9 +289,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a parameter the body writes to is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WrittenParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task WrittenParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -301,9 +315,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <summary>Verifies a parameter that only reads the value inside a lambda's own scope still reports.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A lambda that never touches the parameter does not capture it, so the change still compiles.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UncapturedLambdaStillReportsAsync()
-        => await VerifyAsync(
+    public Task UncapturedLambdaStillReportsAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -319,9 +334,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a constructor and a local function are measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorAndLocalFunctionAreMeasuredAsync()
-        => await VerifyAsync(
+    public Task ConstructorAndLocalFunctionAreMeasuredAsync() =>
+        VerifyAsync(
             """
             internal sealed class C
             {
@@ -339,9 +355,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a lambda, a delegate, and a primary constructor are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateShapesAndPrimaryConstructorsAreCleanAsync()
-        => await VerifyAsync(
+    public Task DelegateShapesAndPrimaryConstructorsAreCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -362,9 +379,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies an attribute constructor is not reported, because every use of the attribute would break.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeConstructorIsCleanAsync()
-        => await VerifyAsync(
+    public Task AttributeConstructorIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -378,9 +396,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a parameter that already carries a modifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExistingModifiersAreCleanAsync()
-        => await VerifyAsync(
+    public Task ExistingModifiersAreCleanAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -394,9 +413,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies the size threshold is configurable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MinimumSizeIsConfigurableAsync()
-        => await VerifyWithConfigAsync(
+    public Task MinimumSizeIsConfigurableAsync() =>
+        VerifyWithConfigAsync(
             """
             internal readonly struct Medium
             {
@@ -415,9 +435,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <summary>Verifies a configured size below the ABI floor is raised to it rather than honored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A 16-byte struct rides in registers; an 'in' would force it to memory, so the floor is not configurable away.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SizeFloorIsEnforcedAsync()
-        => await VerifyWithConfigAsync(
+    public Task SizeFloorIsEnforcedAsync() =>
+        VerifyWithConfigAsync(
             """
             internal static class C
             {
@@ -428,9 +449,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a configured type exclusion is honored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExcludedTypesAreHonoredAsync()
-        => await VerifyWithConfigAsync(
+    public Task ExcludedTypesAreHonoredAsync() =>
+        VerifyWithConfigAsync(
             """
             internal static class C
             {
@@ -443,9 +465,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a method converted to a delegate keeps its by-value parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateTargetIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task DelegateTargetIsNotReportedAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -463,9 +486,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a delegate conversion in one type suppresses the report in another.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateTargetFromAnotherTypeIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task DelegateTargetFromAnotherTypeIsNotReportedAsync() =>
+        VerifyAsync(
             """
             internal static class Handlers
             {
@@ -486,9 +510,10 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
 
     /// <summary>Verifies a local function converted to a delegate keeps its by-value parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateTargetLocalFunctionIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task DelegateTargetLocalFunctionIsNotReportedAsync() =>
+        VerifyAsync(
             """
             internal static class C
             {
@@ -512,11 +537,7 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyInParameter.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + Structs,
-        };
+        var test = new VerifyInParameter.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + Structs, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -527,11 +548,7 @@ public class PassLargeReadonlyStructByInAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithConfigAsync(string source, string setting)
     {
-        var test = new VerifyInParameter.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + Structs,
-        };
+        var test = new VerifyInParameter.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + Structs, };
 
         test.TestState.AnalyzerConfigFiles.Add(
             ("/.editorconfig", $"""

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -29,20 +31,21 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported foreach and builds its deconstructing replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => PairSupportsDeconstruct(model.Compilation)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        PairSupportsDeconstruct(model.Compilation)
             && TryGetFixableForEach(root, diagnostic) is { } statement
             ? new NodeReplacement(statement, Rewrite(statement))
             : null;
@@ -50,25 +53,19 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
     /// <summary>Returns whether the compilation's key/value pair type exposes a Deconstruct method.</summary>
     /// <param name="compilation">The compilation to probe.</param>
     /// <returns><see langword="true"/> when the deconstruction rewrite compiles.</returns>
-    private static bool PairSupportsDeconstruct(Compilation compilation)
-        => compilation.GetTypeByMetadataName(KeyValuePairMetadataName) is { } pairType
+    private static bool PairSupportsDeconstruct(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(KeyValuePairMetadataName) is { } pairType
             && !pairType.GetMembers(DeconstructMethodName).IsEmpty;
 
     /// <summary>Returns the reported foreach when it declares a var-typed variable over a snapshot access.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The foreach statement, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ForEachStatementSyntax? TryGetFixableForEach(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan) is not MemberAccessExpressionSyntax access
+    private static ForEachStatementSyntax? TryGetFixableForEach(SyntaxNode root, Diagnostic diagnostic) => root.FindNode(diagnostic.Location.SourceSpan) is not MemberAccessExpressionSyntax access
             || access.Parent is not ForEachStatementSyntax { Type: IdentifierNameSyntax { IsVar: true } } statement
-            || Psh1305NoConcurrentSnapshotEnumerationAnalyzer.TryGetSnapshotAccess(statement) is null)
-        {
-            return null;
-        }
-
-        return statement;
-    }
+            || Psh1305NoConcurrentSnapshotEnumerationAnalyzer.TryGetSnapshotAccess(statement) is null
+        ? null
+        : statement;
 
     /// <summary>Builds the deconstructing foreach over the dictionary itself.</summary>
     /// <param name="statement">The foreach statement to rewrite; callers must have validated the shape.</param>
@@ -81,7 +78,7 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
         var variable = SyntaxFactory.SingleVariableDesignation(statement.Identifier.WithoutTrivia());
         var discard = SyntaxFactory.DiscardDesignation();
         var designation = SyntaxFactory.ParenthesizedVariableDesignation(
-            SyntaxFactory.SeparatedList<VariableDesignationSyntax>(
+            SyntaxFactory.SeparatedList(
                 isKeys ? new VariableDesignationSyntax[] { variable, discard } : [discard, variable]));
 
         var declaration = SyntaxFactory.DeclarationExpression(

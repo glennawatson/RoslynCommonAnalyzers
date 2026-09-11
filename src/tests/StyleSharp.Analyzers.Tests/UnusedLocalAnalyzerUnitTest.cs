@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyUnusedLocal = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -140,9 +141,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a local read even once is used, wherever the read happens.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadLocalIsCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task ReadLocalIsCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -163,9 +165,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a local read only inside a lambda or a local function is still read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalCapturedByANestedFunctionIsCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task LocalCapturedByANestedFunctionIsCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -186,9 +189,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a discard, a using declaration, a foreach variable and a pattern variable are all left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationsWhoseLifetimeIsThePointAreCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task DeclarationsWhoseLifetimeIsThePointAreCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -214,9 +218,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a ref local is left alone, since the alias it holds is the point of declaring it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefLocalIsCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task RefLocalIsCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -250,9 +255,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies an out variable the caller goes on to read is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOutVariableIsCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task ReadOutVariableIsCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -270,9 +276,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a deconstruction is not an out variable and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeconstructionIsCleanAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task DeconstructionIsCleanAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -379,9 +386,10 @@ public class UnusedLocalAnalyzerUnitTest
 
     /// <summary>Verifies a local a nested scope only writes to is still unused.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalWrittenInsideALoopIsStillUnusedAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task LocalWrittenInsideALoopIsStillUnusedAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -399,9 +407,10 @@ public class UnusedLocalAnalyzerUnitTest
     /// <summary>Verifies a local declared straight into a switch section is analyzed against the whole switch.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Such a local is in scope across every section, so the scan climbs past the switch to the block around it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalDeclaredInASwitchSectionIsCleanWhenReadAsync()
-        => await VerifyUnusedLocal.VerifyAnalyzerAsync(
+    public Task LocalDeclaredInASwitchSectionIsCleanWhenReadAsync() =>
+        VerifyUnusedLocal.VerifyAnalyzerAsync(
             """
             using System;
 

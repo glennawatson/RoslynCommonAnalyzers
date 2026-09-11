@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for general-exception-throw analysis (SST2409).</summary>
+[System.Diagnostics.DebuggerDisplay("GeneralExceptionThrowProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class GeneralExceptionThrowProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class GeneralExceptionThrowProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean general-exception-throw path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> GeneralExceptionThrow_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating general-exception-throw path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> GeneralExceptionThrow_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

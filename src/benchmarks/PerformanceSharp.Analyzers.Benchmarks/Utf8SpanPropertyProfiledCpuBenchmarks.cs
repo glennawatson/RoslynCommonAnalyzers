@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for UTF-8 span property analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Utf8SpanPropertyProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class Utf8SpanPropertyProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class Utf8SpanPropertyProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean UTF-8 span property path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8SpanProperty_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating UTF-8 span property path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8SpanProperty_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

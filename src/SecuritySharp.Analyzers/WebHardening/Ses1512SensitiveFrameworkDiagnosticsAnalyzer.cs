@@ -76,7 +76,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>Reports SES1512 for an unguarded <c>EnableSensitiveDataLogging</c> call on a gated builder type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderTypes">The gated EF Core option-builder types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] builderTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] builderTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -104,7 +104,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>Reports SES1512 for an unguarded <c>true</c> assignment to a gated identity-logging property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventSourceType">The gated identity event-source type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol eventSourceType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventSourceType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -127,7 +127,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
             SecurityRules.SensitiveFrameworkDiagnosticsEnabled,
             assignment.SyntaxTree,
             assignment.Span,
-            IdentityModelEventSourceTypeName + "." + property.Name));
+            $"{IdentityModelEventSourceTypeName}.{property.Name}"));
     }
 
     /// <summary>Returns whether an <c>EnableSensitiveDataLogging</c> call turns the switch on rather than off.</summary>
@@ -153,8 +153,8 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>Returns the assignment's left expression when it names a gated identity-logging property.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The left expression to bind, or <see langword="null"/> when it is not a guarded member.</returns>
-    private static ExpressionSyntax? GetSensitiveIdentityMember(ExpressionSyntax left)
-        => GetMemberName(left) switch
+    private static ExpressionSyntax? GetSensitiveIdentityMember(ExpressionSyntax left) =>
+        GetMemberName(left) switch
         {
             ShowPiiPropertyName or LogCompleteSecurityArtifactPropertyName => left,
             _ => null,
@@ -163,8 +163,8 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>Returns the member name an assignment target spells, ignoring the receiver.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The simple member name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetMemberName(ExpressionSyntax left)
-        => left switch
+    private static string? GetMemberName(ExpressionSyntax left) =>
+        left switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -222,7 +222,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         }
 
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             condition,
             ref found,
             static (InvocationExpressionSyntax invocation, ref bool state) =>
@@ -242,14 +242,14 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
     /// <param name="node">The candidate node.</param>
     /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node)
-        => node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
+    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
+        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
 
     /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked)
-        => invoked switch
+    private static string? GetInvokedName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
@@ -265,11 +265,13 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < DbContextOptionsBuilderMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(DbContextOptionsBuilderMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(DbContextOptionsBuilderMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[DbContextOptionsBuilderMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[DbContextOptionsBuilderMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

@@ -41,8 +41,8 @@ public sealed class Sst2268ObjectCreationParenthesesAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a creation with an initializer is a candidate for normalizing its parentheses.</summary>
     /// <param name="creation">The object creation to inspect.</param>
     /// <returns><see langword="true"/> when it has an initializer and no non-empty argument list.</returns>
-    internal static bool IsCandidate(ObjectCreationExpressionSyntax creation)
-        => creation.Initializer is not null && creation.ArgumentList is null or { Arguments.Count: 0 };
+    internal static bool IsCandidate(ObjectCreationExpressionSyntax creation) =>
+        creation.Initializer is not null && creation.ArgumentList is null or { Arguments.Count: 0 };
 
     /// <summary>Reports a creation whose parentheses style does not match the configured one.</summary>
     /// <param name="context">The syntax node analysis context.</param>

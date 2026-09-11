@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyModifier = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantModifierAnalyzer,
     StyleSharp.Analyzers.RemoveModifierCodeFixProvider>;
@@ -51,9 +52,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies genuine partial and sealed-override declarations are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MeaningfulModifiersAreCleanAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task MeaningfulModifiersAreCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public partial class C
             {
@@ -162,9 +164,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a <c>checked</c> block that guards no arithmetic is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedundantCheckedStatementIsReportedAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task RedundantCheckedStatementIsReportedAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -180,9 +183,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies an <c>unchecked</c> block that guards no arithmetic is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedundantUncheckedStatementIsReportedAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task RedundantUncheckedStatementIsReportedAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -198,9 +202,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a <c>checked</c> expression that wraps no arithmetic is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedundantCheckedExpressionIsReportedAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task RedundantCheckedExpressionIsReportedAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -210,9 +215,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a <c>checked</c> block whose arithmetic could overflow is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CheckedBlockGuardingArithmeticIsCleanAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task CheckedBlockGuardingArithmeticIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -228,9 +234,10 @@ public class RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a <c>checked</c> expression over a multiplication is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CheckedExpressionOverMultiplicationIsCleanAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task CheckedExpressionOverMultiplicationIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -241,9 +248,10 @@ public class RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies an <c>unchecked</c> expression over a narrowing cast is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A narrowing numeric conversion is exactly what an overflow-check context changes.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UncheckedExpressionOverCastIsCleanAsync()
-        => await VerifyModifier.VerifyAnalyzerAsync(
+    public Task UncheckedExpressionOverCastIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
             """
             public class C
             {

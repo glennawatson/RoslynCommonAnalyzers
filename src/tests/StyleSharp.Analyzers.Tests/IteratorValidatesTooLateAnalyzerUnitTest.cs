@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyIteratorGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -287,9 +288,10 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
 
     /// <summary>Verifies an iterator with no guard is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnguardedIteratorIsCleanAsync()
-        => await VerifyIteratorGuard.VerifyAnalyzerAsync(
+    public Task UnguardedIteratorIsCleanAsync() =>
+        VerifyIteratorGuard.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -307,9 +309,10 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
 
     /// <summary>Verifies a guarded method that is not an iterator is clean: its body runs when it is called.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedNonIteratorIsCleanAsync()
-        => await VerifyNet80AnalyzerAsync(
+    public Task GuardedNonIteratorIsCleanAsync() =>
+        VerifyNet80AnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -326,9 +329,10 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
 
     /// <summary>Verifies a method already split into a wrapper and an iterator is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlreadySplitMethodIsCleanAsync()
-        => await VerifyNet80AnalyzerAsync(
+    public Task AlreadySplitMethodIsCleanAsync() =>
+        VerifyNet80AnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -354,9 +358,10 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
 
     /// <summary>Verifies an iterator whose leading guard checks its own state, not an argument, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StateGuardWithoutAnArgumentCheckIsCleanAsync()
-        => await VerifyIteratorGuard.VerifyAnalyzerAsync(
+    public Task StateGuardWithoutAnArgumentCheckIsCleanAsync() =>
+        VerifyIteratorGuard.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -387,11 +392,7 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80AnalyzerAsync(string source)
     {
-        var test = new VerifyIteratorGuard.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyIteratorGuard.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -402,12 +403,7 @@ public class IteratorValidatesTooLateAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80CodeFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyIteratorGuard.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyIteratorGuard.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }

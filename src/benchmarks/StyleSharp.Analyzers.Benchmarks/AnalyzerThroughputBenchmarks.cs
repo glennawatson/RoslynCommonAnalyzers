@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -15,6 +16,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// via <see cref="CompilationWithAnalyzers"/>. This is the realistic "what an
 /// IDE/build pays" figure and the surface used to hunt cross-analyzer bottlenecks.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("AnalyzerThroughputBenchmarks: {Types}")]
 [MemoryDiagnoser]
 public class AnalyzerThroughputBenchmarks
 {
@@ -60,11 +62,13 @@ public class AnalyzerThroughputBenchmarks
 
     /// <summary>Runs all 22 analyzers over the compilation and returns the diagnostic count.</summary>
     /// <returns>The number of analyzer diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AllAnalyzers() => GetDiagnosticCountAsync(_analyzers);
 
     /// <summary>Runs a single analyzer, to isolate per-analyzer driver overhead.</summary>
     /// <returns>The number of analyzer diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SingleAnalyzer() => GetDiagnosticCountAsync(_singleAnalyzer);
 
@@ -86,6 +90,6 @@ public class AnalyzerThroughputBenchmarks
     /// <summary>Runs the configured analyzer set and returns the diagnostic count.</summary>
     /// <param name="analyzers">The analyzers to run.</param>
     /// <returns>The number of analyzer diagnostics produced.</returns>
-    private async Task<int> GetDiagnosticCountAsync(ImmutableArray<DiagnosticAnalyzer> analyzers)
-        => (await _compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync().ConfigureAwait(false)).Length;
+    private async Task<int> GetDiagnosticCountAsync(ImmutableArray<DiagnosticAnalyzer> analyzers) =>
+        (await _compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync().ConfigureAwait(false)).Length;
 }

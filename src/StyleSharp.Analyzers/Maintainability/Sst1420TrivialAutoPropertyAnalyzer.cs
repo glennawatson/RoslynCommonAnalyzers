@@ -2,13 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports properties that trivially wrap a private single-use backing field (SST1420).</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The implicit parameter a set or init accessor assigns from.</summary>
+    /// <summary>The implicit parameter a write accessor assigns from.</summary>
     private const string SetterValueParameterName = "value";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
@@ -245,12 +247,13 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="field">The field symbol.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a trivial getter.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsTrivialGet(
         SemanticModel model,
         AccessorDeclarationSyntax accessor,
         IFieldSymbol field,
-        CancellationToken cancellationToken)
-        => IsFieldRead(model, GetReturnedExpression(accessor), field, cancellationToken);
+        CancellationToken cancellationToken) =>
+        IsFieldRead(model, GetReturnedExpression(accessor), field, cancellationToken);
 
     /// <summary>Returns whether a getter directly returns the named backing field, checking the name syntactically before binding once.</summary>
     /// <param name="model">The semantic model.</param>
@@ -259,13 +262,14 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="fieldName">The expected backing-field name.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a trivial getter.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsTrivialGet(
         SemanticModel model,
         AccessorDeclarationSyntax accessor,
         IFieldSymbol field,
         string fieldName,
-        CancellationToken cancellationToken)
-        => IsFieldRead(model, GetReturnedExpression(accessor), field, fieldName, cancellationToken);
+        CancellationToken cancellationToken) =>
+        IsFieldRead(model, GetReturnedExpression(accessor), field, fieldName, cancellationToken);
 
     /// <summary>Returns the expression a getter yields, whether it uses an expression body or a single return.</summary>
     /// <param name="accessor">The getter.</param>
@@ -291,8 +295,8 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         ExpressionSyntax? expression,
         IFieldSymbol field,
-        CancellationToken cancellationToken)
-        => expression is not null
+        CancellationToken cancellationToken) =>
+        expression is not null
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
 
     /// <summary>Returns whether an expression binds directly to the named backing field, checking the name syntactically before binding once.</summary>
@@ -307,8 +311,8 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax? expression,
         IFieldSymbol field,
         string fieldName,
-        CancellationToken cancellationToken)
-        => expression is not null
+        CancellationToken cancellationToken) =>
+        expression is not null
             && TryGetFieldName(expression, out var name)
             && string.Equals(name, fieldName, StringComparison.Ordinal)
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
@@ -394,6 +398,6 @@ public sealed class Sst1420TrivialAutoPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
     /// <param name="identifier">The identifier token.</param>
     /// <returns>The comparison-ready identifier text.</returns>
-    private static string GetIdentifierText(SyntaxToken identifier)
-        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
+    private static string GetIdentifierText(SyntaxToken identifier) =>
+        identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInheritance = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.RedundantInheritanceListCodeFixProvider>;
@@ -87,9 +88,10 @@ public class RedundantInheritanceListAnalyzerUnitTest
 
     /// <summary>Verifies a real base type and a non-int enum underlying type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RealBasesAreCleanAsync()
-        => await VerifyInheritance.VerifyAnalyzerAsync(
+    public Task RealBasesAreCleanAsync() =>
+        VerifyInheritance.VerifyAnalyzerAsync(
             """
             public class Base
             {

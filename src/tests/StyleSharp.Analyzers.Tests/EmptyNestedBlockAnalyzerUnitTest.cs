@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer>;
 
@@ -12,9 +13,10 @@ public class EmptyNestedBlockAnalyzerUnitTest
 {
     /// <summary>Verifies an empty loop body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyLoopBodyReportedAsync()
-        => await VerifyEmptyBlock.VerifyAnalyzerAsync(
+    public Task EmptyLoopBodyReportedAsync() =>
+        VerifyEmptyBlock.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -29,9 +31,10 @@ public class EmptyNestedBlockAnalyzerUnitTest
 
     /// <summary>Verifies a non-empty loop body and an empty else clause are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyBodyAndEmptyElseAreCleanAsync()
-        => await VerifyEmptyBlock.VerifyAnalyzerAsync(
+    public Task NonEmptyBodyAndEmptyElseAreCleanAsync() =>
+        VerifyEmptyBlock.VerifyAnalyzerAsync(
             """
             public class C
             {

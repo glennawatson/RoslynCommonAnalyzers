@@ -29,15 +29,9 @@ internal readonly record struct EnumStorageOptions(string AllowedStorage)
     /// An unset or empty value yields the default rather than an empty list, so a typo does not turn every
     /// enum in the project into a diagnostic.
     /// </remarks>
-    public static EnumStorageOptions Read(AnalyzerConfigOptions options)
-    {
-        if (TryReadList(options, AllowedStorageRuleKey, out var list) || TryReadList(options, AllowedStorageGeneralKey, out list))
-        {
-            return new EnumStorageOptions(list);
-        }
-
-        return new EnumStorageOptions(DefaultAllowedStorage);
-    }
+    internal static EnumStorageOptions Read(AnalyzerConfigOptions options) => TryReadList(options, AllowedStorageRuleKey, out var list) || TryReadList(options, AllowedStorageGeneralKey, out list)
+        ? new EnumStorageOptions(list)
+        : new EnumStorageOptions(DefaultAllowedStorage);
 
     /// <summary>Returns whether an enum may be stored as the supplied type.</summary>
     /// <param name="keyword">The C# keyword for the underlying type, such as <c>byte</c>.</param>
@@ -47,8 +41,8 @@ internal readonly record struct EnumStorageOptions(string AllowedStorage)
     /// Both spellings are accepted because both read naturally in a config file, and a team that writes
     /// <c>Int64</c> where the rule expected <c>long</c> should not silently get the default back.
     /// </remarks>
-    public bool Allows(string keyword, string metadataName)
-        => EditorConfigList.Contains(AllowedStorage, keyword, StringComparison.OrdinalIgnoreCase)
+    internal bool Allows(string keyword, string metadataName) =>
+        EditorConfigList.Contains(AllowedStorage, keyword, StringComparison.OrdinalIgnoreCase)
             || EditorConfigList.Contains(AllowedStorage, metadataName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Reads a list setting, treating an empty value as unset.</summary>

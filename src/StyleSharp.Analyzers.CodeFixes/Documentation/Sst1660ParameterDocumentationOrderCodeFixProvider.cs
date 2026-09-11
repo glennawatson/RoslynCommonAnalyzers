@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,8 +20,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.ParameterDocumentationOrder.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.ParameterDocumentationOrder.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -54,8 +55,9 @@ public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixP
     }
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => BuildChanges(text, root, diagnostic, changes);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        BuildChanges(text, root, diagnostic, changes);
 
     /// <summary>Applies the reordering text changes to the document.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -106,7 +108,7 @@ public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixP
 
             if (sourceIndex != slot)
             {
-                changes.Add(new TextChange(elements[slot].Span, text.ToString(elements[sourceIndex].Span)));
+                changes.Add(new(elements[slot].Span, text.ToString(elements[sourceIndex].Span)));
             }
         }
     }

@@ -24,8 +24,8 @@ internal static class SuppressionCategoryResolver
     /// <summary>Returns the category for a diagnostic id, or a neutral default when it is unknown.</summary>
     /// <param name="ruleId">The diagnostic id being suppressed.</param>
     /// <returns>The rule's declared category, or <c>Usage</c> when it is not known.</returns>
-    public static string Resolve(string ruleId)
-        => Categories.TryGetValue(ruleId, out var category) ? category : DefaultCategory;
+    internal static string Resolve(string ruleId) =>
+        Categories.TryGetValue(ruleId, out var category) ? category : DefaultCategory;
 
     /// <summary>Builds the id-to-category map from every <see cref="DiagnosticDescriptor"/> in the analyzer assembly.</summary>
     /// <returns>The id-to-category map.</returns>

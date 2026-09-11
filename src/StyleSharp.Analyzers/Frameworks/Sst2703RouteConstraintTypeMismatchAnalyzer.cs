@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -27,12 +29,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the component route attribute.</summary>
-    private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Components.RouteAttribute";
-
-    /// <summary>The metadata name of the component parameter attribute.</summary>
-    private const string ParameterAttributeMetadataName = "Microsoft.AspNetCore.Components.ParameterAttribute";
-
     /// <summary>The character span of a doubled brace escape (<c>{{</c> or <c>}}</c>).</summary>
     private const int EscapedBraceLength = 2;
 
@@ -63,7 +59,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <summary>Parses each route template on a type and reports every typed segment whose parameter type disagrees.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="model">The resolved markers and constraint-to-type map.</param>
-    private static void AnalyzeType(SymbolAnalysisContext context, RouteBindingModel model)
+    private static void AnalyzeType(in SymbolAnalysisContext context, RouteBindingModel model)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class)
@@ -94,11 +90,13 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         var arguments = attribute.ConstructorArguments;
         for (var i = 0; i < arguments.Length; i++)
         {
-            if (arguments[i].Kind == TypedConstantKind.Primitive && arguments[i].Value is string { Length: > 0 } value)
+            if (arguments[i].Kind != TypedConstantKind.Primitive || arguments[i].Value is not string { Length: > 0 } value)
             {
-                template = value;
-                return true;
+                continue;
             }
+
+            template = value;
+            return true;
         }
 
         template = null;
@@ -111,7 +109,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="type">The routable component type.</param>
     /// <param name="template">The route template.</param>
     /// <param name="reported">The set of already-reported parameters, guarding against a duplicate across templates.</param>
-    private static void InspectTemplate(SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string template, HashSet<ISymbol> reported)
+    private static void InspectTemplate(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string template, HashSet<ISymbol> reported)
     {
         var index = 0;
         while (index < template.Length)
@@ -148,7 +146,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="type">The routable component type.</param>
     /// <param name="segment">The template segment content, without its enclosing braces.</param>
     /// <param name="reported">The set of already-reported parameters.</param>
-    private static void InspectSegment(SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string segment, HashSet<ISymbol> reported)
+    private static void InspectSegment(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string segment, HashSet<ISymbol> reported)
     {
         var colon = segment.IndexOf(':');
         if (colon < 0)
@@ -207,11 +205,13 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         var end = colon;
         for (var i = start; i < colon; i++)
         {
-            if (segment[i] is '?' or '=')
+            if (segment[i] is not ('?' or '='))
             {
-                end = i;
-                break;
+                continue;
             }
+
+            end = i;
+            break;
         }
 
         return segment.Substring(start, end - start);
@@ -226,11 +226,13 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         var end = segment.Length;
         for (var i = start; i < segment.Length; i++)
         {
-            if (segment[i] is ':' or '(' or '=')
+            if (segment[i] is not (':' or '(' or '='))
             {
-                end = i;
-                break;
+                continue;
             }
+
+            end = i;
+            break;
         }
 
         var token = segment.Substring(start, end - start).TrimEnd('?');
@@ -264,8 +266,8 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <summary>Unwraps a <c>Nullable&lt;T&gt;</c> value type to its underlying type.</summary>
     /// <param name="type">The type to unwrap.</param>
     /// <returns>The underlying type, or the type unchanged.</returns>
-    private static ITypeSymbol UnwrapNullable(ITypeSymbol type)
-        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
+    private static ITypeSymbol UnwrapNullable(ITypeSymbol type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
             ? named.TypeArguments[0]
             : type;
 
@@ -275,6 +277,12 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// </summary>
     private sealed class RouteBindingModel
     {
+        /// <summary>The metadata name of the component route attribute.</summary>
+        private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Components.RouteAttribute";
+
+        /// <summary>The metadata name of the component parameter attribute.</summary>
+        private const string ParameterAttributeMetadataName = "Microsoft.AspNetCore.Components.ParameterAttribute";
+
         /// <summary>The route marker attribute.</summary>
         private readonly INamedTypeSymbol _routeAttribute;
 
@@ -319,14 +327,15 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             AddSpecial(constraintTypes, compilation, "float", SpecialType.System_Single);
             AddResolved(constraintTypes, compilation, "guid", "System.Guid");
 
-            return new RouteBindingModel(routeAttribute, parameterAttribute, constraintTypes);
+            return new(routeAttribute, parameterAttribute, constraintTypes);
         }
 
         /// <summary>Returns whether an attribute class is the route marker.</summary>
         /// <param name="attributeClass">The bound attribute class.</param>
         /// <returns><see langword="true"/> for the route attribute.</returns>
-        public bool IsRoute(INamedTypeSymbol? attributeClass)
-            => SymbolEqualityComparer.Default.Equals(attributeClass, _routeAttribute);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsRoute(INamedTypeSymbol? attributeClass) =>
+            SymbolEqualityComparer.Default.Equals(attributeClass, _routeAttribute);
 
         /// <summary>Returns whether a property carries the parameter marker attribute.</summary>
         /// <param name="property">The property to inspect.</param>
@@ -349,16 +358,17 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         /// <param name="constraint">The lowercased constraint keyword.</param>
         /// <param name="constraintType">The mapped CLR type, when the keyword is a typed constraint we resolve.</param>
         /// <returns><see langword="true"/> when the keyword maps to a resolved CLR type.</returns>
-        public bool TryGetConstraintType(string constraint, [NotNullWhen(true)] out ITypeSymbol? constraintType)
-            => _constraintTypes.TryGetValue(constraint, out constraintType);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool TryGetConstraintType(string constraint, [NotNullWhen(true)] out ITypeSymbol? constraintType) =>
+            _constraintTypes.TryGetValue(constraint, out constraintType);
 
         /// <summary>Adds a constraint keyword bound to a special type.</summary>
         /// <param name="map">The constraint map.</param>
         /// <param name="compilation">The compilation to resolve against.</param>
         /// <param name="constraint">The constraint keyword.</param>
         /// <param name="specialType">The special type it maps to.</param>
-        private static void AddSpecial(Dictionary<string, ITypeSymbol> map, Compilation compilation, string constraint, SpecialType specialType)
-            => map[constraint] = compilation.GetSpecialType(specialType);
+        private static void AddSpecial(Dictionary<string, ITypeSymbol> map, Compilation compilation, string constraint, SpecialType specialType) =>
+            map[constraint] = compilation.GetSpecialType(specialType);
 
         /// <summary>Adds a constraint keyword bound to a metadata-named type when it resolves.</summary>
         /// <param name="map">The constraint map.</param>

@@ -37,7 +37,7 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Add parentheses",
-                    cancellationToken => AddParenthesesAsync(context.Document, root, expression, cancellationToken),
+                    _ => AddParenthesesAsync(context.Document, root, expression),
                     equivalenceKey: nameof(PrecedenceCodeFixProvider)),
                 diagnostic);
         }
@@ -51,16 +51,16 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
             return;
         }
 
-        editor.ReplaceNode(expression, (current, _) => SyntaxFactory.ParenthesizedExpression(((ExpressionSyntax)current).WithoutTrivia()).WithTriviaFrom(current));
+        editor.ReplaceNode(expression, static (current, _) => SyntaxFactory.ParenthesizedExpression(((ExpressionSyntax)current).WithoutTrivia()).WithTriviaFrom(current));
     }
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="expression">The expression to parenthesize.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression, CancellationToken cancellationToken)
+    /// <remarks>The rewrite is a pure syntax edit over a root the caller already has, so there is nothing to cancel.</remarks>
+    internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression)
     {
         var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, parenthesized)));
@@ -74,6 +74,6 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
     internal static async Task<Document> AddParenthesesAsync(Document document, ExpressionSyntax expression, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return await AddParenthesesAsync(document, root!, expression, cancellationToken).ConfigureAwait(false);
+        return await AddParenthesesAsync(document, root!, expression).ConfigureAwait(false);
     }
 }

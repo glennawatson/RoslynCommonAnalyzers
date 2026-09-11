@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for invariant-loop-condition analysis (SST2406).</summary>
+[System.Diagnostics.DebuggerDisplay("InvariantLoopConditionBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class InvariantLoopConditionBenchmarks
@@ -24,11 +26,13 @@ public class InvariantLoopConditionBenchmarks
 
     /// <summary>Benchmarks the clean invariant-loop-condition path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InvariantLoopCondition_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating invariant-loop-condition path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InvariantLoopCondition_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

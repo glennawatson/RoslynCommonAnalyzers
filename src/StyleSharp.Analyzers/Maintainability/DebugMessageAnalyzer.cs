@@ -53,7 +53,7 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a Debug.Assert/Debug.Fail call that omits a message.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="debug">The resolved <c>System.Diagnostics.Debug</c> symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol debug)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debug)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access)
@@ -61,8 +61,7 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var name = access.Name.Identifier.ValueText;
-        var (rule, messageIndex) = name switch
+        var (rule, messageIndex) = access.Name.Identifier.ValueText switch
         {
             AssertName => (MaintainabilityRules.AssertMessage, AssertMessageIndex),
             FailName => (MaintainabilityRules.FailMessage, FailMessageIndex),

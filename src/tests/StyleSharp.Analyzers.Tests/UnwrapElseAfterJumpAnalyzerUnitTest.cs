@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUnwrapElse = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1464UnwrapElseAfterJumpAnalyzer,
     StyleSharp.Analyzers.Sst1464UnwrapElseAfterJumpCodeFixProvider>;
@@ -259,9 +260,10 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
 
     /// <summary>Verifies an if branch that falls through keeps its else clause.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonJumpIfBranchIsCleanAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task NonJumpIfBranchIsCleanAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -284,9 +286,10 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
 
     /// <summary>Verifies an empty if branch keeps its else clause.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyIfBranchIsCleanAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task EmptyIfBranchIsCleanAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -308,9 +311,10 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
 
     /// <summary>Verifies an if statement without an else clause is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IfWithoutElseIsCleanAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task IfWithoutElseIsCleanAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -328,9 +332,10 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
 
     /// <summary>Verifies the diagnostic is still reported when the fix is withheld because the else declares a local and statements follow the if.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElseWithLocalsAndFollowingStatementsReportsWithoutFixAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task ElseWithLocalsAndFollowingStatementsReportsWithoutFixAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -354,9 +359,10 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
 
     /// <summary>Verifies the diagnostic is still reported when the fix is withheld because the if statement is not directly inside a block.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElseOfUnbracedNestedIfReportsWithoutFixAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task ElseOfUnbracedNestedIfReportsWithoutFixAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -427,15 +433,16 @@ public class UnwrapElseAfterJumpAnalyzerUnitTest
     }
 
     /// <summary>Verifies the trailing else of a chain whose first arm falls through is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The else belongs to an if that is itself an else clause, so its statements have nowhere to hoist
     /// to: moving the <c>continue</c> out would put it on the path the first arm takes as well, and the
     /// loop would continue where it used to fall through. The else is carrying the chain, not nesting it.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingElseOfChainWhoseFirstArmFallsThroughIsNotReportedAsync()
-        => await VerifyUnwrapElse.VerifyAnalyzerAsync(
+    public Task TrailingElseOfChainWhoseFirstArmFallsThroughIsNotReportedAsync() =>
+        VerifyUnwrapElse.VerifyAnalyzerAsync(
             """
             public class C
             {

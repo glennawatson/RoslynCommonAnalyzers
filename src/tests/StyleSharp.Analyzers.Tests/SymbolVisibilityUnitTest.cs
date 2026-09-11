@@ -28,30 +28,22 @@ public sealed class SymbolVisibilityUnitTest
     /// <summary>Verifies a public member of a public type is externally visible.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task PublicMemberOfPublicTypeIsExternallyVisibleAsync()
-    {
-        await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PublicMethod"))).IsTrue();
-    }
+    public async Task PublicMemberOfPublicTypeIsExternallyVisibleAsync() => await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PublicMethod"))).IsTrue();
 
     /// <summary>Verifies a private member is not externally visible.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task PrivateMemberIsNotExternallyVisibleAsync()
-    {
-        await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PrivateMethod"))).IsFalse();
-    }
+    public async Task PrivateMemberIsNotExternallyVisibleAsync() => await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PrivateMethod"))).IsFalse();
 
     /// <summary>Verifies a public member nested in an internal type is not externally visible.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task PublicMemberOfInternalTypeIsNotExternallyVisibleAsync()
-    {
-        await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PublicMethodInInternalType"))).IsFalse();
-    }
+    public async Task PublicMemberOfInternalTypeIsNotExternallyVisibleAsync() => await Assert.That(SymbolVisibility.IsExternallyVisible(GetMethod("PublicMethodInInternalType"))).IsFalse();
 
     /// <summary>Resolves the named method symbol from the shared source.</summary>
     /// <param name="name">The method name.</param>
     /// <returns>The declared method symbol.</returns>
+    /// <exception cref="InvalidOperationException">No type in the shared source declares a method named <paramref name="name"/>.</exception>
     private static ISymbol GetMethod(string name)
     {
         var (root, model) = SemanticModelFactory.Create(Source);

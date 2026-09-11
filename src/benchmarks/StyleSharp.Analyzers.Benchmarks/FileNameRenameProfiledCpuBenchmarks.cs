@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using Microsoft.CodeAnalysis;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile (EventPipe) benchmarks for the SST1649 rename-file code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("FileNameRenameProfiledCpuBenchmarks: {Types}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class FileNameRenameProfiledCpuBenchmarks
@@ -24,13 +26,14 @@ public class FileNameRenameProfiledCpuBenchmarks
     /// <summary>Builds a single-type document of the requested size.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Types,
             static types => FileTypeNamespaceBenchmarkSource.Generate(types, violating: false),
             static (root, _) => CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(root, 0)).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

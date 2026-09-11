@@ -11,8 +11,8 @@ internal static class SuspiciousShiftCountBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit shift-count rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class SuspiciousShiftCountBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose shift counts are all in range.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -33,8 +33,8 @@ internal static class SuspiciousShiftCountBenchmarkSource
     /// the model, the 64-bit limit, the promotion of a narrow operand to an int, a native integer, and a
     /// count the compiler cannot fold.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public int Low(int value) => value << 1;
@@ -54,8 +54,8 @@ internal static class SuspiciousShiftCountBenchmarkSource
     /// <summary>Builds one type whose shift counts are all masked or meaningless.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public int Overshift(int value) => value << 32;

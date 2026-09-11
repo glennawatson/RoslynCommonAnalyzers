@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.DocumentationPeriodCodeFixProvider>;
@@ -11,22 +12,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the member documentation rules (SST1600/1602/1604/1606/1611/1615/1617/1618/1629).</summary>
 public class MemberDocumentationAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the documentation options are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
-    /// <summary>The analyzer config that requires private fields to be documented.</summary>
-    private const string RequirePrivateFieldDocumentationConfig = """
-            root = true
-            [*.cs]
-            stylesharp.document_private_fields = true
-
-            """;
-
     /// <summary>Verifies a fully documented type produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValidAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A widget.</summary>
             public class Widget { }
@@ -34,15 +25,17 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an exposed, undocumented type is reported (SST1600).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingDocumentationAsync()
-        => await Verify.VerifyAnalyzerAsync("public class {|SST1600:Widget|} { }");
+    public Task MissingDocumentationAsync() =>
+        Verify.VerifyAnalyzerAsync("public class {|SST1600:Widget|} { }");
 
     /// <summary>Verifies an internal type is required by default (internal elements are documented by default), while a private nested type is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalRequiredPrivateIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync("internal class {|SST1600:Outer|} { private class Inner { } }");
+    public Task InternalRequiredPrivateIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync("internal class {|SST1600:Outer|} { private class Inner { } }");
 
     /// <summary>Verifies document_internal_elements = false stops an internal type from being required.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -51,7 +44,7 @@ public class MemberDocumentationAnalyzerUnitTest
     {
         var test = new Verify.Test { TestCode = "internal class Outer { }" };
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.document_internal_elements = false
@@ -71,10 +64,10 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private class {|SST1600:Inner|} { } }
-                       """
+                       """,
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.document_private_elements = true
@@ -91,7 +84,7 @@ public class MemberDocumentationAnalyzerUnitTest
     {
         var test = new Verify.Test { TestCode = "public interface IThing { void Do(); }" };
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.document_interfaces = none
@@ -103,9 +96,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented enum member is reported (SST1602).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumMemberAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EnumMemberAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>Colors.</summary>
             public enum Color { {|SST1602:Red|} }
@@ -113,9 +107,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies documentation without a summary is reported (SST1604).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingSummaryAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MissingSummaryAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <remarks>Notes.</remarks>
             public class {|SST1604:Widget|} { }
@@ -123,9 +118,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an empty summary is reported (SST1606).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptySummaryAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptySummaryAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary></summary>
             public class {|SST1606:Widget|} { }
@@ -133,9 +129,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented parameter is reported (SST1611).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParameterAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -147,9 +144,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a missing return value is reported (SST1615).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnValueAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReturnValueAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -161,9 +159,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a documented void return is reported (SST1617).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidReturnAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task VoidReturnAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -176,9 +175,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented type parameter is reported (SST1618).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TypeParameterAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public class C
@@ -236,9 +236,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented private field is not required by default (no <c>document_private_fields</c> set).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateFieldNotRequiredByDefaultAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateFieldNotRequiredByDefaultAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>Outer.</summary>
             public class Outer { private int _value; }
@@ -254,10 +255,10 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private int _value; }
-                       """
+                       """,
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.document_private_fields = false
@@ -277,9 +278,15 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private int {|SST1600:_value|}; }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -298,9 +305,15 @@ public class MemberDocumentationAnalyzerUnitTest
                            /// <summary>The value.</summary>
                            private int _value;
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -315,9 +328,15 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private const int {|SST1600:Value|} = 1; }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -332,18 +351,25 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private protected int {|SST1600:_value|}; }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a <c>private protected</c> field is not required while <c>document_private_fields</c> is off, even though internal coverage is on.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateProtectedFieldNotRequiredByDefaultAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateProtectedFieldNotRequiredByDefaultAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>Outer.</summary>
             public class Outer { private protected int _value; }
@@ -351,9 +377,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented public field is required by default (<c>document_exposed_elements</c>), independent of the new field option (SST1600).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicFieldRequiredByDefaultAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicFieldRequiredByDefaultAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>Outer.</summary>
             public class Outer { public int {|SST1600:Value|}; }
@@ -369,10 +396,10 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { internal int Value; }
-                       """
+                       """,
         };
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.document_internal_elements = false
@@ -384,9 +411,10 @@ public class MemberDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented public event field is required by default (SST1600).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicEventFieldRequiredByDefaultAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicEventFieldRequiredByDefaultAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -408,9 +436,15 @@ public class MemberDocumentationAnalyzerUnitTest
                            /// <summary>Gets or sets the value.</summary>
                            public int Value { get; set; }
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -431,9 +465,15 @@ public class MemberDocumentationAnalyzerUnitTest
                            [GeneratedCode("tool", "1.0")]
                            private int _value;
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -448,9 +488,15 @@ public class MemberDocumentationAnalyzerUnitTest
             TestCode = """
                        /// <summary>Outer.</summary>
                        public class Outer { private int {|SST1600:_a|}, {|SST1600:_b|}; }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequirePrivateFieldDocumentationConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.document_private_fields = true
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }

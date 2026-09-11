@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for Debug.Assert side-effect analysis (SST2450).</summary>
+[System.Diagnostics.DebuggerDisplay("DebugAssertSideEffectBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DebugAssertSideEffectBenchmarks
@@ -24,11 +26,13 @@ public class DebugAssertSideEffectBenchmarks
 
     /// <summary>Benchmarks the clean Debug.Assert path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DebugAssertSideEffect_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating Debug.Assert path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DebugAssertSideEffect_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

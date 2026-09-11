@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for prefer-const-over-static-readonly analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("PreferConstOverStaticReadonlyBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PreferConstOverStaticReadonlyBenchmarks
@@ -24,11 +26,13 @@ public class PreferConstOverStaticReadonlyBenchmarks
 
     /// <summary>Benchmarks the clean prefer-const path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferConstOverStaticReadonly_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating prefer-const path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferConstOverStaticReadonly_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

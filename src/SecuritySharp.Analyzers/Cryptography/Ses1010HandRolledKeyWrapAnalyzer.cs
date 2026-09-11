@@ -50,7 +50,7 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(static start =>
         {
             var aes = start.Compilation.GetTypeByMetadataName(AesMetadataName);
-            if (aes is null || aes.GetMembers(EncryptKeyWrapName).Length == 0)
+            if (aes is null || aes.GetMembers(EncryptKeyWrapName).IsEmpty)
             {
                 return;
             }
@@ -111,8 +111,8 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets whether a constant is the 64-bit integrity check value.</summary>
     /// <param name="constant">The bound constant.</param>
     /// <returns><see langword="true"/> when it matches.</returns>
-    private static bool IsIntegrityCheckValue(Optional<object?> constant)
-        => constant is { HasValue: true, Value: { } value }
+    private static bool IsIntegrityCheckValue(Optional<object?> constant) =>
+        constant is { HasValue: true, Value: { } value }
             && value switch
             {
                 ulong unsigned => unsigned == KeyWrapIntegrityCheckValue,
@@ -123,8 +123,8 @@ public sealed class Ses1010HandRolledKeyWrapAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets whether a constant is the repeated integrity check byte.</summary>
     /// <param name="constant">The bound constant.</param>
     /// <returns><see langword="true"/> when it matches.</returns>
-    private static bool IsIntegrityCheckByte(Optional<object?> constant)
-        => constant is { HasValue: true, Value: { } value }
+    private static bool IsIntegrityCheckByte(Optional<object?> constant) =>
+        constant is { HasValue: true, Value: { } value }
             && value switch
             {
                 byte singleByte => singleByte == KeyWrapIntegrityCheckByte,

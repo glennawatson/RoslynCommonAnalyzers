@@ -8,9 +8,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A code fix provider for the <see cref="Sst1127ConstraintOnOwnLineAnalyzer"/> analyzer.
-/// </summary>
+/// <summary>A code fix provider for the <see cref="Sst1127ConstraintOnOwnLineAnalyzer"/> analyzer.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1127ConstraintOnOwnLineCodeFixProvider))]
 [Shared]
 public sealed class Sst1127ConstraintOnOwnLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
@@ -97,7 +95,7 @@ public sealed class Sst1127ConstraintOnOwnLineCodeFixProvider : CodeFixProvider,
 
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var indent = GetConstraintIndent(text, clause);
-        change = new TextChange(TextSpan.FromBounds(previous.Span.End, clause.WhereKeyword.SpanStart), newLine + indent);
+        change = new(TextSpan.FromBounds(previous.Span.End, clause.WhereKeyword.SpanStart), newLine + indent);
         return true;
     }
 }

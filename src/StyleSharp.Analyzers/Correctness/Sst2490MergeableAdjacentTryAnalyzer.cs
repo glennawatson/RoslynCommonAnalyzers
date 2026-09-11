@@ -111,12 +111,7 @@ public sealed class Sst2490MergeableAdjacentTryAnalyzer : DiagnosticAnalyzer
 
         var firstFinally = first.Finally;
         var secondFinally = second.Finally;
-        if (firstFinally is null)
-        {
-            return secondFinally is null;
-        }
-
-        return secondFinally is not null
+        return firstFinally is null ? secondFinally is null : secondFinally is not null
             && SyntaxFactory.AreEquivalent(firstFinally, secondFinally, topLevel: false);
     }
 }

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for readonly struct-member analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ReadonlyStructMemberBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ReadonlyStructMemberBenchmarks
@@ -24,11 +26,13 @@ public class ReadonlyStructMemberBenchmarks
 
     /// <summary>Benchmarks struct members already marked readonly.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ReadonlyStructMember_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks non-mutating struct members that are not marked readonly.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ReadonlyStructMember_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -39,8 +43,8 @@ public class ReadonlyStructMemberBenchmarks
         /// <param name="members">The number of synthetic structs to emit.</param>
         /// <param name="violating">Whether to emit members that can be marked readonly.</param>
         /// <returns>The generated source text.</returns>
-        public static string Generate(int members, bool violating)
-            => $$"""
+        public static string Generate(int members, bool violating) =>
+            $$"""
                namespace Bench;
 
                {{BenchmarkSourceText.JoinBlocks(members, i => GenerateStruct(i, violating))}}
@@ -72,7 +76,8 @@ public class ReadonlyStructMemberBenchmarks
         /// <summary>Creates the prepared benchmark state for the requested struct count.</summary>
         /// <param name="members">The synthetic struct count.</param>
         /// <returns>The prepared benchmark state.</returns>
-        public static SingleAnalyzerBenchmarkState Create(int members)
-            => SingleAnalyzerBenchmarkCases.Create(new Sst1460ReadonlyStructMemberAnalyzer(), Source.Generate, members);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleAnalyzerBenchmarkState Create(int members) =>
+            SingleAnalyzerBenchmarkCases.Create(new Sst1460ReadonlyStructMemberAnalyzer(), Source.Generate, members);
     }
 }

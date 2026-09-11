@@ -59,7 +59,7 @@ public sealed class SingleLineBlockReflowCodeFixProvider : CodeFixProvider, ITex
         }
 
         var newLine = LayoutFixHelpers.DetectNewLine(text);
-        LayoutFixHelpers.TryAppendBlockExpansion(text, block, newLine, changes);
+        _ = LayoutFixHelpers.TryAppendBlockExpansion(text, block, newLine, changes);
     }
 
     /// <summary>Builds the line breaks that spread the block's statements and closing brace across lines.</summary>

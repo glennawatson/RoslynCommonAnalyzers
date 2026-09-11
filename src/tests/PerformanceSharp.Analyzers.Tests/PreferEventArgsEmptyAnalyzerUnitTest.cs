@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -87,9 +88,10 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a derived EventArgs is never reported: it is a different type that may carry state.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedEventArgsIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task DerivedEventArgsIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -105,9 +107,10 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a construction with an object initializer is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerAllocationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InitializerAllocationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -119,9 +122,10 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
 
     /// <summary>Verifies another type's parameterless allocation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherTypeAllocationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task OtherTypeAllocationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -135,12 +139,7 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -148,5 +147,6 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

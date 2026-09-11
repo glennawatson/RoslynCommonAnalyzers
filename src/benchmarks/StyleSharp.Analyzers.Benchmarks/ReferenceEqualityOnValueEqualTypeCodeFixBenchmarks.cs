@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the reference-equality code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("ReferenceEqualityOnValueEqualTypeCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ReferenceEqualityOnValueEqualTypeCodeFixBenchmarks : IDisposable
@@ -44,7 +46,7 @@ public class ReferenceEqualityOnValueEqualTypeCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             ReferenceEqualityOnValueEqualTypeBenchmarkSource.Generate(Nodes, violating: true));
@@ -58,6 +60,7 @@ public class ReferenceEqualityOnValueEqualTypeCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

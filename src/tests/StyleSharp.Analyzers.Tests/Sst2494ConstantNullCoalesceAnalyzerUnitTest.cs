@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2494ConstantNullCoalesceAnalyzer,
     StyleSharp.Analyzers.Sst2494ConstantNullCoalesceCodeFixProvider>;
@@ -75,9 +76,10 @@ public class Sst2494ConstantNullCoalesceAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant left operand is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantLeftIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonConstantLeftIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

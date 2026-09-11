@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for extension-block analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ExtensionBlockBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ExtensionBlockBenchmarks
@@ -24,11 +26,13 @@ public class ExtensionBlockBenchmarks
 
     /// <summary>Benchmarks the clean extension-block path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ExtensionBlock_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating extension-block path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ExtensionBlock_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -82,8 +82,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a <c>Concat</c> of two to four arguments, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsConcatShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count is >= MinConcatArguments and <= MaxConcatArguments
+    internal static bool IsConcatShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count is >= MinConcatArguments and <= MaxConcatArguments
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == ConcatMethodName
             && HasSubstringArgument(invocation)
@@ -148,8 +148,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression must be parenthesized before a member access is appended.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when <c>.AsSpan()</c> would otherwise bind to the wrong operand.</returns>
-    private static bool NeedsParentheses(ExpressionSyntax expression)
-        => expression is not (IdentifierNameSyntax
+    private static bool NeedsParentheses(ExpressionSyntax expression) =>
+        expression is not (IdentifierNameSyntax
             or MemberAccessExpressionSyntax
             or InvocationExpressionSyntax
             or ElementAccessExpressionSyntax
@@ -160,8 +160,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a plain <c>x.Substring(...)</c> call.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    private static bool IsSubstringCall(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax invocation
+    private static bool IsSubstringCall(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax invocation
             && invocation.ArgumentList.Arguments.Count is >= MinSubstringArguments and <= MaxSubstringArguments
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == SubstringMethodName;
@@ -221,8 +221,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <c>ReadOnlySpan&lt;char&gt;</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for a read-only char span.</returns>
-    private static bool IsCharSpan(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsCharSpan(ITypeSymbol type) =>
+        type is INamedTypeSymbol
         {
             Name: "ReadOnlySpan",
             IsGenericType: true,
@@ -291,8 +291,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <param name="slice">The sliced argument.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the slice is the framework's own <c>Substring</c>.</returns>
-    private static bool SlicesAString(SemanticModel model, InvocationExpressionSyntax slice, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(slice, cancellationToken).Symbol is IMethodSymbol
+    private static bool SlicesAString(SemanticModel model, InvocationExpressionSyntax slice, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(slice, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Name: SubstringMethodName,

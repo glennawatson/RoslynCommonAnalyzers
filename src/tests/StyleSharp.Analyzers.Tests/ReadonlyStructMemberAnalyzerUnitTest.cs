@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyReadonlyStructMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ReadonlyStructMemberAnalyzerUnitTest
 {
     /// <summary>Verifies a non-mutating struct method is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonMutatingMethodIsReportedAsync()
-        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+    public Task NonMutatingMethodIsReportedAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -28,9 +30,10 @@ public class ReadonlyStructMemberAnalyzerUnitTest
 
     /// <summary>Verifies a method with a call is skipped because mutation cannot be cheaply proven away.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodWithCallIsCleanAsync()
-        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+    public Task MethodWithCallIsCleanAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -41,9 +44,10 @@ public class ReadonlyStructMemberAnalyzerUnitTest
 
     /// <summary>Verifies a property returning a writable reference is skipped, since readonly would not compile.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefReturningPropertyIsCleanAsync()
-        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+    public Task RefReturningPropertyIsCleanAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -56,9 +60,10 @@ public class ReadonlyStructMemberAnalyzerUnitTest
 
     /// <summary>Verifies a method returning a writable reference is skipped, since readonly would not compile.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefReturningMethodIsCleanAsync()
-        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+    public Task RefReturningMethodIsCleanAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -71,9 +76,10 @@ public class ReadonlyStructMemberAnalyzerUnitTest
 
     /// <summary>Verifies a property returning a readonly reference is still reported, which stays compilable.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefReadonlyReturningPropertyIsReportedAsync()
-        => await VerifyReadonlyStructMember.VerifyAnalyzerAsync(
+    public Task RefReadonlyReturningPropertyIsReportedAsync() =>
+        VerifyReadonlyStructMember.VerifyAnalyzerAsync(
             """
             public struct Counter
             {

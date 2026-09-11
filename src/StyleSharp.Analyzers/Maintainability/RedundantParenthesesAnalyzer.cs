@@ -46,8 +46,7 @@ public sealed class RedundantParenthesesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context)
     {
-        var attribute = (AttributeSyntax)context.Node;
-        if (attribute.ArgumentList is not { Arguments.Count: 0 } argumentList)
+        if (((AttributeSyntax)context.Node).ArgumentList is not { Arguments.Count: 0 } argumentList)
         {
             return;
         }

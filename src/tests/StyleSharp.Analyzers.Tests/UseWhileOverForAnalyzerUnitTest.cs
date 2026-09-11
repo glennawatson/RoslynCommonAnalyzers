@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyWhile = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2245UseWhileOverForAnalyzer,
     StyleSharp.Analyzers.Sst2245UseWhileOverForCodeFixProvider>;
@@ -115,9 +116,10 @@ public class UseWhileOverForAnalyzerUnitTest
 
     /// <summary>Verifies the idiomatic infinite loop stays clean; it has no condition to move.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InfiniteLoopIsCleanAsync()
-        => await VerifyWhile.VerifyAnalyzerAsync(
+    public Task InfiniteLoopIsCleanAsync() =>
+        VerifyWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -133,9 +135,10 @@ public class UseWhileOverForAnalyzerUnitTest
 
     /// <summary>Verifies a loop with a declaration in its initializer stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationLoopIsCleanAsync()
-        => await VerifyWhile.VerifyAnalyzerAsync(
+    public Task DeclarationLoopIsCleanAsync() =>
+        VerifyWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -150,9 +153,10 @@ public class UseWhileOverForAnalyzerUnitTest
 
     /// <summary>Verifies a loop that keeps its incrementor stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IncrementorLoopIsCleanAsync()
-        => await VerifyWhile.VerifyAnalyzerAsync(
+    public Task IncrementorLoopIsCleanAsync() =>
+        VerifyWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -168,9 +172,10 @@ public class UseWhileOverForAnalyzerUnitTest
 
     /// <summary>Verifies a loop that keeps an initializer expression stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerExpressionLoopIsCleanAsync()
-        => await VerifyWhile.VerifyAnalyzerAsync(
+    public Task InitializerExpressionLoopIsCleanAsync() =>
+        VerifyWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -187,9 +192,10 @@ public class UseWhileOverForAnalyzerUnitTest
 
     /// <summary>Verifies a loop declaring several variables stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclarationLoopIsCleanAsync()
-        => await VerifyWhile.VerifyAnalyzerAsync(
+    public Task MultipleDeclarationLoopIsCleanAsync() =>
+        VerifyWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {

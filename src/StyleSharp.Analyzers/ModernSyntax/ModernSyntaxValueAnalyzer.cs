@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace StyleSharp.Analyzers;
@@ -80,8 +81,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the syntax tree supports the requested version.</returns>
-    internal static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    internal static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Returns whether an expression can be evaluated without observable side effects.</summary>
     /// <param name="expression">The expression.</param>
@@ -107,8 +108,9 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a target can be read twice safely by a compound null assignment rewrite.</summary>
     /// <param name="expression">The target expression.</param>
     /// <returns><see langword="true"/> for identifiers, <c>this</c>, and member-access chains rooted in those.</returns>
-    internal static bool IsSideEffectFreeTarget(ExpressionSyntax expression)
-        => CompoundAssignmentOperators.IsSideEffectFreeTarget(ExpressionSimplificationAnalyzer.Unwrap(expression));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsSideEffectFreeTarget(ExpressionSyntax expression) =>
+        CompoundAssignmentOperators.IsSideEffectFreeTarget(ExpressionSimplificationAnalyzer.Unwrap(expression));
 
     /// <summary>Returns whether an interpolation can remove or fold a <c>ToString</c> call.</summary>
     /// <param name="interpolation">The interpolation.</param>
@@ -177,8 +179,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is usable as an interpolation format.</summary>
     /// <param name="expression">The format expression.</param>
     /// <returns><see langword="true"/> for a non-empty string literal.</returns>
-    private static bool IsInterpolationFormat(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsInterpolationFormat(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && !string.IsNullOrEmpty(literal.Token.ValueText);
 
@@ -249,8 +251,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <c>string.Format</c>, or as a generic argument to the interpolation handler. A ref struct fits
     /// neither, so the call that turns it into a string is what makes the hole legal.
     /// </remarks>
-    private static bool HoleWouldHaveToBoxTheReceiver(SyntaxNodeAnalysisContext context, ExpressionSyntax receiver)
-        => context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type is { IsRefLikeType: true };
+    private static bool HoleWouldHaveToBoxTheReceiver(in SyntaxNodeAnalysisContext context, ExpressionSyntax receiver) =>
+        context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type is { IsRefLikeType: true };
 
     /// <summary>Reports ignored expression values and adjacent overwritten assignments.</summary>
     /// <param name="context">The syntax context.</param>
@@ -354,7 +356,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax context.</param>
     /// <param name="ifStatement">The if statement.</param>
     /// <param name="checkedExpression">The null-checked expression.</param>
-    private static void AnalyzeFoldedNullCheck(SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, ExpressionSyntax checkedExpression)
+    private static void AnalyzeFoldedNullCheck(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, ExpressionSyntax checkedExpression)
     {
         if (!TryGetPreviousStatement(ifStatement, out var previous)
             || !TryGetAssignedExpression(previous, checkedExpression, out var assignedExpression)
@@ -441,7 +443,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new LocalEscapeScan(declarator.Identifier.ValueText);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalEscapeScan>(scope, ref scan, VisitLocalUse);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalEscapeScan>(scope, ref scan, VisitLocalUse);
         return !scan.Escapes;
     }
 
@@ -588,11 +590,13 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         var statements = block.Statements;
         for (var i = 1; i < statements.Count; i++)
         {
-            if (statements[i] == ifStatement)
+            if (statements[i] != ifStatement)
             {
-                previous = statements[i - 1];
-                return true;
+                continue;
             }
+
+            previous = statements[i - 1];
+            return true;
         }
 
         return false;
@@ -602,7 +606,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax context.</param>
     /// <param name="statement">The assignment statement.</param>
     /// <param name="assignment">The assignment expression.</param>
-    private static void AnalyzeOverwrittenAssignment(SyntaxNodeAnalysisContext context, ExpressionStatementSyntax statement, AssignmentExpressionSyntax assignment)
+    private static void AnalyzeOverwrittenAssignment(in SyntaxNodeAnalysisContext context, ExpressionStatementSyntax statement, AssignmentExpressionSyntax assignment)
     {
         if (assignment.Left is not IdentifierNameSyntax identifier
             || statement.Parent is not BlockSyntax block
@@ -645,7 +649,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax context.</param>
     /// <param name="assignment">The simple assignment statement expression.</param>
     /// <returns><see langword="true"/> when a diagnostic was reported.</returns>
-    private static bool TryReportSelfAssignedStep(SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
+    private static bool TryReportSelfAssignedStep(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
     {
         if (assignment.Left is not IdentifierNameSyntax target
             || ExpressionSimplificationAnalyzer.Unwrap(assignment.Right) is not PostfixUnaryExpressionSyntax postfix
@@ -664,8 +668,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a postfix increment or decrement.</summary>
     /// <param name="postfix">The postfix expression.</param>
     /// <returns><see langword="true"/> for <c>x++</c> and <c>x--</c>.</returns>
-    private static bool IsPostfixStep(PostfixUnaryExpressionSyntax postfix)
-        => postfix.RawKind is (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression;
+    private static bool IsPostfixStep(PostfixUnaryExpressionSyntax postfix) =>
+        postfix.RawKind is (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression;
 
     /// <summary>Gets the local a postfix step can be removed for, when the step itself cannot be observed or throw.</summary>
     /// <param name="postfix">The postfix step.</param>
@@ -758,7 +762,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     private static bool LocalStorageEscapes(SyntaxNode function, ILocalSymbol local, SemanticModel model, CancellationToken cancellationToken)
     {
         var scan = new EscapeScan(function, local, model, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(function, ref scan, VisitEscapeCandidate);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(function, ref scan, VisitEscapeCandidate);
         return scan.Escapes;
     }
 
@@ -784,7 +788,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a ref-like argument, a <c>ref</c> expression, or an address-of operand.</returns>
     private static bool IsAliasTarget(IdentifierNameSyntax identifier)
     {
-        SyntaxNode? parent = identifier.Parent;
+        var parent = identifier.Parent;
         while (parent is ParenthesizedExpressionSyntax)
         {
             parent = parent.Parent;
@@ -792,8 +796,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
 
         return parent switch
         {
-            ArgumentSyntax { RefKindKeyword.RawKind: not 0 } => true,
-            RefExpressionSyntax => true,
+            ArgumentSyntax { RefKindKeyword.RawKind: not 0 } or RefExpressionSyntax => true,
             PrefixUnaryExpressionSyntax prefix => prefix.RawKind == (int)SyntaxKind.AddressOfExpression,
             _ => false
         };
@@ -916,7 +919,7 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the parameter list has a safe one-to-one shape.</returns>
     private static bool CanBuildLocalFunctionParameters(LambdaExpressionSyntax lambda, IMethodSymbol invokeMethod)
     {
-        if (invokeMethod.Parameters.Length == 0)
+        if (invokeMethod.Parameters.IsEmpty)
         {
             return lambda switch
             {
@@ -1033,8 +1036,8 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression statement candidate produces a value that can be made explicit.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> for direct calls and object creations.</returns>
-    private static bool IsIgnoredValueCandidate(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax;
+    private static bool IsIgnoredValueCandidate(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax;
 
     /// <summary>Returns whether a <c>nameof</c> invocation contains concrete generic type arguments.</summary>
     /// <param name="invocation">The invocation expression.</param>
@@ -1083,14 +1086,14 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type syntax is the built-in <c>object</c> type.</summary>
     /// <param name="type">The type syntax.</param>
     /// <returns><see langword="true"/> when the type is object.</returns>
-    private static bool IsObjectType(SyntaxNode type)
-        => type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword };
+    private static bool IsObjectType(SyntaxNode type) =>
+        type is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword };
 
     /// <summary>Returns whether a type can be checked for null without boxing.</summary>
     /// <param name="type">The expression type.</param>
     /// <returns><see langword="true"/> for reference types and nullable type parameters.</returns>
-    private static bool CanUseNullPatternFor(ITypeSymbol? type)
-        => type is not null && (!type.IsValueType || type.TypeKind == TypeKind.TypeParameter);
+    private static bool CanUseNullPatternFor(ITypeSymbol? type) =>
+        type is not null && (!type.IsValueType || type.TypeKind == TypeKind.TypeParameter);
 
     /// <summary>Gets an expression checked against null by supported null-check syntax.</summary>
     /// <param name="condition">The condition.</param>

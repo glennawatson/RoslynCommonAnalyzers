@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySealAttribute = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1401SealAttributeTypesAnalyzer,
     PerformanceSharp.Analyzers.Psh1401SealAttributeTypesCodeFixProvider>;
@@ -101,9 +102,10 @@ public class SealAttributeTypesAnalyzerUnitTest
 
     /// <summary>Verifies an already sealed attribute type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedAttributeIsCleanAsync()
-        => await VerifySealAttribute.VerifyAnalyzerAsync(
+    public Task SealedAttributeIsCleanAsync() =>
+        VerifySealAttribute.VerifyAnalyzerAsync(
             """
             public sealed class MyAttribute : System.Attribute
             {
@@ -112,9 +114,10 @@ public class SealAttributeTypesAnalyzerUnitTest
 
     /// <summary>Verifies an abstract attribute base type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractAttributeBaseIsCleanAsync()
-        => await VerifySealAttribute.VerifyAnalyzerAsync(
+    public Task AbstractAttributeBaseIsCleanAsync() =>
+        VerifySealAttribute.VerifyAnalyzerAsync(
             """
             public abstract class ValidationAttribute : System.Attribute
             {
@@ -123,9 +126,10 @@ public class SealAttributeTypesAnalyzerUnitTest
 
     /// <summary>Verifies an unsealed class that is not an attribute is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsealedNonAttributeClassIsCleanAsync()
-        => await VerifySealAttribute.VerifyAnalyzerAsync(
+    public Task UnsealedNonAttributeClassIsCleanAsync() =>
+        VerifySealAttribute.VerifyAnalyzerAsync(
             """
             public class Widget
             {

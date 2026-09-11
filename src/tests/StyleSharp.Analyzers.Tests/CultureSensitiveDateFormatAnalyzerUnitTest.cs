@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDate = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2445CultureSensitiveDateFormatAnalyzer>;
@@ -196,9 +197,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies the invariant provider is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvariantProviderIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InvariantProviderIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Globalization;
@@ -211,9 +213,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies the no-provider overload is out of scope.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoProviderIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NoProviderIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -225,9 +228,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies an already-quoted separator is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QuotedSeparatorIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task QuotedSeparatorIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Globalization;
@@ -240,9 +244,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies a standard specifier is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StandardSpecifierIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StandardSpecifierIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Globalization;
@@ -257,9 +262,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies a literal dot separator is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralDotIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task LiteralDotIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Globalization;
@@ -272,9 +278,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string built invariantly is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvariantInterpolationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InvariantInterpolationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Globalization;
@@ -287,9 +294,10 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
 
     /// <summary>Verifies an interpolation over a non-date value is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDateInterpolationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonDateInterpolationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -303,13 +311,7 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyQuoteAsync(string source, string fixedSource)
     {
-        var test = new VerifyDateFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-            CodeActionEquivalenceKey = "SST2445.Quote",
-        };
+        var test = new VerifyDateFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, CodeActionEquivalenceKey = "SST2445.Quote", };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -320,13 +322,7 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyInvariantAsync(string source, string fixedSource)
     {
-        var test = new VerifyDateFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-            CodeActionEquivalenceKey = "SST2445.Invariant",
-        };
+        var test = new VerifyDateFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, CodeActionEquivalenceKey = "SST2445.Invariant", };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -336,11 +332,7 @@ public class CultureSensitiveDateFormatAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyCleanAsync(string source)
     {
-        var test = new VerifyDate.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyDate.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

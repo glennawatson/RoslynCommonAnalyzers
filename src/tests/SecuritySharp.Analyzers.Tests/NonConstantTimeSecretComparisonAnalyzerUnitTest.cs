@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = SecuritySharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -175,9 +176,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a secret member-access operand (<c>request.Signature</c>) compared with <c>==</c> is reported (no fix).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessSecretOperandReportedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task MemberAccessSecretOperandReportedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             public class Request
             {
@@ -192,9 +194,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a string <c>==</c> comparison of a token is reported (no fix; string has no byte fix).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringTokenEqualityReportedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task StringTokenEqualityReportedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             public class C
             {
@@ -204,9 +207,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a string <c>!=</c> comparison of a secret is reported (no fix).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringSecretInequalityReportedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task StringSecretInequalityReportedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             public class C
             {
@@ -216,9 +220,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an instance <c>string.Equals</c> comparison of a secret is reported (no fix).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringEqualsReportedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task StringEqualsReportedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             using System;
 
@@ -230,9 +235,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies the static <c>object.Equals(a, b)</c> of secret buffers is reported (no fix; not SequenceEqual).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectEqualsReportedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task ObjectEqualsReportedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             public class C
             {
@@ -242,9 +248,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a string <c>SequenceEqual</c> of a secret is reported but not fixed (string is not a byte buffer).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringSequenceEqualReportedNotFixedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task StringSequenceEqualReportedNotFixedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             using System.Linq;
 
@@ -256,9 +263,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SequenceEqual</c> with an equality comparer is reported but not fixed (no constant-time twin).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparerSequenceEqualReportedNotFixedAsync()
-        => await VerifyReportedNoFixAsync(
+    public Task ComparerSequenceEqualReportedNotFixedAsync() =>
+        VerifyReportedNoFixAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -272,9 +280,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies <c>expected</c>/<c>actual</c> operands are ignored outside a verify-shaped method.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpectationOperandsOutsideVerifyMethodCleanAsync()
-        => await VerifyAsync(
+    public Task ExpectationOperandsOutsideVerifyMethodCleanAsync() =>
+        VerifyAsync(
             """
             using System.Linq;
 
@@ -286,9 +295,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies <c>expected</c>/<c>actual</c> operands in a property body (no enclosing method) are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpectationOperandsInPropertyBodyCleanAsync()
-        => await VerifyAsync(
+    public Task ExpectationOperandsInPropertyBodyCleanAsync() =>
+        VerifyAsync(
             """
             using System.Linq;
 
@@ -304,9 +314,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a non-secret byte-buffer comparison is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonSecretByteComparisonCleanAsync()
-        => await VerifyAsync(
+    public Task NonSecretByteComparisonCleanAsync() =>
+        VerifyAsync(
             """
             using System.Linq;
 
@@ -318,9 +329,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a secret comparison against a constant (emptiness check) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecretComparedToConstantCleanAsync()
-        => await VerifyAsync(
+    public Task SecretComparedToConstantCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -330,9 +342,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a secret compared to <c>null</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecretComparedToNullCleanAsync()
-        => await VerifyAsync(
+    public Task SecretComparedToNullCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -342,9 +355,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a secret-named value of an unsupported type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecretNamedNonBufferTypeCleanAsync()
-        => await VerifyAsync(
+    public Task SecretNamedNonBufferTypeCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -354,9 +368,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a secret-named receiver type with non-secret operands is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecretNamedReceiverTypeCleanAsync()
-        => await VerifyAsync(
+    public Task SecretNamedReceiverTypeCleanAsync() =>
+        VerifyAsync(
             """
             public static class TokenStore
             {
@@ -366,9 +381,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a custom single-argument static method named like a comparison is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomSingleArgumentStaticSequenceEqualCleanAsync()
-        => await VerifyAsync(
+    public Task CustomSingleArgumentStaticSequenceEqualCleanAsync() =>
+        VerifyAsync(
             """
             public static class Marker
             {
@@ -383,9 +399,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a static <c>SequenceEqual</c> passed by name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedArgumentStaticSequenceEqualCleanAsync()
-        => await VerifyAsync(
+    public Task NamedArgumentStaticSequenceEqualCleanAsync() =>
+        VerifyAsync(
             """
             using System.Linq;
 
@@ -397,9 +414,10 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a custom non-bool <c>SequenceEqual</c> on a secret is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomNonBoolSequenceEqualCleanAsync()
-        => await VerifyAsync(
+    public Task CustomNonBoolSequenceEqualCleanAsync() =>
+        VerifyAsync(
             """
             public class Buffer
             {
@@ -435,12 +453,7 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
                               }
                               """;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source,
-            FixedCode = Source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source, FixedCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -459,11 +472,7 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
                               }
                               """;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -474,11 +483,7 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         if (fixedSource is not null)
         {
@@ -493,12 +498,7 @@ public class NonConstantTimeSecretComparisonAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportedNoFixAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

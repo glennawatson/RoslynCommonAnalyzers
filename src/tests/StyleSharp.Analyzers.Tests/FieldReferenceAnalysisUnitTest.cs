@@ -76,8 +76,8 @@ public class FieldReferenceAnalysisUnitTest
     /// <summary>Parses the first lock statement from the supplied source.</summary>
     /// <param name="source">The source containing the lock statement.</param>
     /// <returns>The parsed lock statement.</returns>
-    private static LockStatementSyntax ParseLockStatement(string source)
-        => (LockStatementSyntax)((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[1]).Body!.Statements[0];
+    private static LockStatementSyntax ParseLockStatement(string source) =>
+        (LockStatementSyntax)((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[1]).Body!.Statements[0];
 
     /// <summary>Creates a semantic model for a single-type test source and returns the type and first property.</summary>
     /// <param name="source">The source to compile.</param>
@@ -87,7 +87,7 @@ public class FieldReferenceAnalysisUnitTest
         var tree = CSharpSyntaxTree.ParseText(source);
         var root = tree.GetCompilationUnitRoot();
         var compilation = CSharpCompilation.Create(
-            assemblyName: "FieldReferenceAnalysisUnitTest",
+            assemblyName: nameof(FieldReferenceAnalysisUnitTest),
             syntaxTrees: [tree],
             references: RuntimeMetadataReferences.Platform);
         var model = compilation.GetSemanticModel(tree);

@@ -11,8 +11,8 @@ internal static class ArrayCovarianceBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? Violating(i) : Clean(i))}}
@@ -21,8 +21,8 @@ internal static class ArrayCovarianceBenchmarkSource
     /// <summary>Builds one type whose array assignment keeps the element type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public object[] Run()
@@ -36,8 +36,8 @@ internal static class ArrayCovarianceBenchmarkSource
     /// <summary>Builds one type that widens a string array to an object array.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public object[] Run()

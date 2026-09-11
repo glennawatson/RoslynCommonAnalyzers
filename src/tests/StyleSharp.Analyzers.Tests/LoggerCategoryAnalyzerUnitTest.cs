@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCategory = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2443LoggerCategoryAnalyzer,
     StyleSharp.Analyzers.Sst2443LoggerCategoryCodeFixProvider>;
@@ -91,9 +92,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies a logger categorized by its own type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnTypeCategoryIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task OwnTypeCategoryIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class Bar
             {
@@ -103,9 +105,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies a base type category is treated as deliberate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseTypeCategoryIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task BaseTypeCategoryIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public class Base { public virtual void Work() { } }
 
@@ -117,9 +120,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies an implemented interface category is treated as deliberate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceCategoryIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task InterfaceCategoryIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public interface IThing { void Work(); }
 
@@ -133,9 +137,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies a dedicated category marker type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CategoryMarkerIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task CategoryMarkerIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class RequestCategory { public void Work() { } }
 
@@ -147,9 +152,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies an empty marker type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyMarkerIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task EmptyMarkerIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class LoggingRoot { }
 
@@ -161,9 +167,10 @@ public class LoggerCategoryAnalyzerUnitTest
 
     /// <summary>Verifies a generic type naming its own constructed self is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericSelfCategoryIsCleanAsync()
-        => await VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task GenericSelfCategoryIsCleanAsync() =>
+        VerifyCategory.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class Repository<T>
             {

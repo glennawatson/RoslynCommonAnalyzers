@@ -88,7 +88,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// <param name="sizeByType">The per-compilation struct-size cache.</param>
     /// <param name="delegateTargets">The methods the compilation converts to a delegate.</param>
     private static void AnalyzeParameter(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree,
         ConcurrentDictionary<ITypeSymbol, int> sizeByType,
         MethodGroupTargets delegateTargets)
@@ -141,7 +141,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// only a parameter that clears both pays for the interface walk and the body scan.
     /// </remarks>
     private static int GetReportableSize(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode container,
         IParameterSymbol symbol,
         INamedTypeSymbol type,
@@ -175,7 +175,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static InParameterOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -185,7 +185,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         }
 
         options = InParameterOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -266,8 +266,8 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// <c>readonly</c> would take a defensive copy at every member access, which is PSH1003's complaint,
     /// not an improvement.
     /// </remarks>
-    private static bool IsLargeReadonlyStruct(INamedTypeSymbol type)
-        => type is { TypeKind: TypeKind.Struct, SpecialType: SpecialType.None, IsReadOnly: true, IsRefLikeType: false };
+    private static bool IsLargeReadonlyStruct(INamedTypeSymbol type) =>
+        type is { TypeKind: TypeKind.Struct, SpecialType: SpecialType.None, IsReadOnly: true, IsRefLikeType: false };
 
     /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
     /// <param name="symbol">The member that declares the parameter.</param>
@@ -298,7 +298,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// An attribute's constructor is excluded because every use of the attribute would stop compiling
     /// (CS8358), which the constructor's own declaration gives no hint of.
     /// </remarks>
-    private static bool IsSignatureChangeable(IParameterSymbol parameter, SyntaxNodeAnalysisContext context)
+    private static bool IsSignatureChangeable(IParameterSymbol parameter, in SyntaxNodeAnalysisContext context)
     {
         if (parameter.ContainingSymbol is not IMethodSymbol method)
         {
@@ -359,7 +359,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     private static bool HasUnmanagedCallersOnlyAttribute(IMethodSymbol method, Compilation compilation)
     {
         var attributes = method.GetAttributes();
-        if (attributes.Length == 0)
+        if (attributes.IsEmpty)
         {
             return false;
         }
@@ -386,7 +386,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// <param name="parameter">The parameter symbol.</param>
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when the body neither captures nor writes the parameter.</returns>
-    private static bool CanBodyTakeReadonlyReference(SyntaxNode container, IParameterSymbol parameter, SyntaxNodeAnalysisContext context)
+    private static bool CanBodyTakeReadonlyReference(SyntaxNode container, IParameterSymbol parameter, in SyntaxNodeAnalysisContext context)
     {
         var body = GetBody(container);
         return InParameterBodyScan.CanBecomeReadonlyReference(body, parameter, context.SemanticModel, context.CancellationToken);

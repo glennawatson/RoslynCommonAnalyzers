@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum ConditionalConditionParenthesesStyle
 {
     /// <summary>Drop the parentheses when the condition is a single simple token.</summary>
-    OmitWhenSingleToken,
+    OmitWhenSingleToken = 0,
 
     /// <summary>Keep parentheses around the condition.</summary>
-    Include
+    Include = 1,
 }

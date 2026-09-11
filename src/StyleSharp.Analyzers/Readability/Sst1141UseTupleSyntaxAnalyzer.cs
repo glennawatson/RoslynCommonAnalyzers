@@ -50,8 +50,7 @@ public sealed class Sst1141UseTupleSyntaxAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var count = node.TypeArgumentList.Arguments.Count;
-        if (count is < MinTupleArity or > MaxTupleArity)
+        if (node.TypeArgumentList.Arguments.Count is < MinTupleArity or > MaxTupleArity)
         {
             return;
         }

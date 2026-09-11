@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for suspicious-shift-count analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("SuspiciousShiftCountBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class SuspiciousShiftCountBenchmarks
@@ -27,11 +29,13 @@ public class SuspiciousShiftCountBenchmarks
 
     /// <summary>Benchmarks the clean shift-count path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SuspiciousShiftCount_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating shift-count path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SuspiciousShiftCount_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

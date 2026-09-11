@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2459OptionalByRefParameterAnalyzer,
     StyleSharp.Analyzers.Sst2459OptionalByRefParameterCodeFixProvider>;
@@ -159,51 +160,59 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies an [Optional] ref parameter is reported and the attribute removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalRefParameterIsReportedAndAttributeRemovedAsync()
-        => await Verify.VerifyCodeFixAsync(RefParameterSource, RefParameterFixed);
+    public Task OptionalRefParameterIsReportedAndAttributeRemovedAsync() =>
+        Verify.VerifyCodeFixAsync(RefParameterSource, RefParameterFixed);
 
     /// <summary>Verifies an [Optional] out parameter is reported and the attribute removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalOutParameterIsReportedAndAttributeRemovedAsync()
-        => await Verify.VerifyCodeFixAsync(OutParameterSource, OutParameterFixed);
+    public Task OptionalOutParameterIsReportedAndAttributeRemovedAsync() =>
+        Verify.VerifyCodeFixAsync(OutParameterSource, OutParameterFixed);
 
     /// <summary>Verifies removing [Optional] keeps the rest of a shared attribute list on a ref parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalBesideInAttributeKeepsRestOfListAsync()
-        => await Verify.VerifyCodeFixAsync(BesideInAttributeSource, BesideInAttributeFixed);
+    public Task OptionalBesideInAttributeKeepsRestOfListAsync() =>
+        Verify.VerifyCodeFixAsync(BesideInAttributeSource, BesideInAttributeFixed);
 
     /// <summary>Verifies removing [Optional] keeps the rest of a shared attribute list on an out parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalBesideOutAttributeKeepsRestOfListAsync()
-        => await Verify.VerifyCodeFixAsync(BesideOutAttributeSource, BesideOutAttributeFixed);
+    public Task OptionalBesideOutAttributeKeepsRestOfListAsync() =>
+        Verify.VerifyCodeFixAsync(BesideOutAttributeSource, BesideOutAttributeFixed);
 
     /// <summary>Verifies a fully qualified [Optional] is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedOptionalIsReportedAndAttributeRemovedAsync()
-        => await Verify.VerifyCodeFixAsync(QualifiedSource, QualifiedFixed);
+    public Task QualifiedOptionalIsReportedAndAttributeRemovedAsync() =>
+        Verify.VerifyCodeFixAsync(QualifiedSource, QualifiedFixed);
 
     /// <summary>Verifies every [Optional] by-reference parameter in a declaration is reported and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryOptionalByRefParameterIsFixedAsync()
-        => await Verify.VerifyCodeFixAsync(TwoParametersSource, TwoParametersFixed);
+    public Task EveryOptionalByRefParameterIsFixedAsync() =>
+        Verify.VerifyCodeFixAsync(TwoParametersSource, TwoParametersFixed);
 
     /// <summary>Verifies an [Optional] by-reference parameter on a delegate is reported and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateOptionalOutParameterIsReportedAsync()
-        => await Verify.VerifyCodeFixAsync(DelegateSource, DelegateFixed);
+    public Task DelegateOptionalOutParameterIsReportedAsync() =>
+        Verify.VerifyCodeFixAsync(DelegateSource, DelegateFixed);
 
     /// <summary>Verifies an [Optional] by-value parameter is not reported: callers really can omit it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalByValueParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OptionalByValueParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 
@@ -217,9 +226,10 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies an [Optional] in parameter is not reported: callers really can omit it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalInParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OptionalInParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 
@@ -231,9 +241,10 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies an [Optional] ref readonly parameter is not reported: callers really can omit it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalRefReadonlyParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OptionalRefReadonlyParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 
@@ -245,9 +256,10 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies members of a COM-imported type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComImportMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ComImportMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -265,9 +277,10 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated attribute that happens to be named Optional is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedOptionalAttributeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UserDefinedOptionalAttributeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class OptionalAttribute : System.Attribute
             {
@@ -281,9 +294,10 @@ public class OptionalByRefParameterAnalyzerUnitTest
 
     /// <summary>Verifies by-reference parameters without [Optional] are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnattributedByRefParametersAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnattributedByRefParametersAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 

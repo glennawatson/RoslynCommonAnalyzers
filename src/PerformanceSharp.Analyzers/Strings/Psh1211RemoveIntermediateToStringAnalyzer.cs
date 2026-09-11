@@ -50,8 +50,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether an invocation is a plain parameterless <c>x.ToString()</c>, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsBareToStringShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsBareToStringShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == ToStringMethodName;
 
@@ -59,7 +59,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The StringBuilder type, or <see langword="null"/> when absent.</param>
     /// <param name="hasInterpolationHandler">Whether the framework can format a ref struct in a hole.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? builderType, bool hasInterpolationHandler)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? builderType, bool hasInterpolationHandler)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsBareToStringShape(invocation))
@@ -91,7 +91,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="interpolation">The hole holding the ToString call.</param>
     /// <returns><see langword="true"/> when the interpolated string converts to a plain string and is not a single-hole wrapper.</returns>
-    private static bool IsPlainStringInterpolation(SyntaxNodeAnalysisContext context, InterpolationSyntax interpolation)
+    private static bool IsPlainStringInterpolation(in SyntaxNodeAnalysisContext context, InterpolationSyntax interpolation)
     {
         if (interpolation.Parent is not InterpolatedStringExpressionSyntax interpolated
             || interpolated.Contents.Count <= 1)
@@ -112,7 +112,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// Without the handler an interpolated string formats through <c>object</c>, which a ref struct has no
     /// conversion to, so the receiver's own <c>ToString</c> is the only way to reach the hole.
     /// </remarks>
-    private static bool CanFormatReceiverDirectly(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, bool hasInterpolationHandler)
+    private static bool CanFormatReceiverDirectly(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, bool hasInterpolationHandler)
     {
         if (hasInterpolationHandler || invocation.Expression is not MemberAccessExpressionSyntax access)
         {
@@ -130,7 +130,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="builderType">The StringBuilder type, or <see langword="null"/> when absent.</param>
     /// <returns><see langword="true"/> when a same-shape overload accepts the receiver's type in that position.</returns>
     private static bool HasDirectOverload(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax toStringCall,
         ArgumentSyntax argument,
         InvocationExpressionSyntax outer,
@@ -165,8 +165,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a ToString receiver's type is worth passing directly.</summary>
     /// <param name="receiverType">The receiver's type.</param>
     /// <returns><see langword="false"/> for strings, dynamic values, and type parameters.</returns>
-    private static bool IsDirectlyPassableValue(ITypeSymbol? receiverType)
-        => receiverType is not null
+    private static bool IsDirectlyPassableValue(ITypeSymbol? receiverType) =>
+        receiverType is not null
             && receiverType.SpecialType != SpecialType.System_String
             && receiverType.TypeKind is not (TypeKind.Dynamic or TypeKind.TypeParameter);
 
@@ -176,7 +176,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="index">The parameter position of the ToString result.</param>
     /// <param name="receiverType">The ToString receiver's type.</param>
     /// <returns><see langword="true"/> when a direct overload exists.</returns>
-    private static bool FindDirectOverload(SyntaxNodeAnalysisContext context, IMethodSymbol method, int index, ITypeSymbol receiverType)
+    private static bool FindDirectOverload(in SyntaxNodeAnalysisContext context, IMethodSymbol method, int index, ITypeSymbol receiverType)
     {
         foreach (var member in method.ContainingType.GetMembers(method.Name))
         {
@@ -202,7 +202,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="receiverType">The ToString receiver's type.</param>
     /// <returns><see langword="true"/> when the value converts implicitly into the slot and all other parameters match.</returns>
     private static bool AcceptsValueAt(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         IMethodSymbol sibling,
         IMethodSymbol method,
         int index,

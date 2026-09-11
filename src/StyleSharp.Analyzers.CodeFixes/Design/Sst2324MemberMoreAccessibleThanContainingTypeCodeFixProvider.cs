@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,12 +22,13 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Narrow the member to its container's accessibility", nameof(Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Narrow the member to its container's accessibility", nameof(Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites a member's access modifiers to the named accessibility.</summary>
     /// <param name="declaration">The member to narrow.</param>

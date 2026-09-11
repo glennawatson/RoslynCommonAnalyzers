@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -38,16 +40,17 @@ public sealed class Ses1005NonConstantTimeSecretComparisonCodeFixProvider : Code
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Compare in constant time with CryptographicOperations.FixedTimeEquals",
             nameof(Ses1005NonConstantTimeSecretComparisonCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported byte-buffer <c>SequenceEqual</c> and builds its <c>FixedTimeEquals</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -86,8 +89,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonCodeFixProvider : Code
     /// <summary>Returns the <c>FixedTimeEquals</c> members of the crypto type, or an empty span-safe list when it is absent.</summary>
     /// <param name="compilation">The analyzed compilation.</param>
     /// <returns>The matching members; empty when the type does not resolve.</returns>
-    private static ImmutableArray<ISymbol> ResolveCandidateMembers(Compilation compilation)
-        => compilation.GetTypeByMetadataName(CryptographicOperationsMetadataName) is { } type
+    private static ImmutableArray<ISymbol> ResolveCandidateMembers(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(CryptographicOperationsMetadataName) is { } type
             ? type.GetMembers(FixedTimeEqualsMethodName)
             : ImmutableArrays.Of<ISymbol>();
 
@@ -107,7 +110,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonCodeFixProvider : Code
             target,
             SyntaxFactory.IdentifierName(FixedTimeEqualsMethodName));
 
-        var arguments = SyntaxFactory.SeparatedList<ArgumentSyntax>(
+        var arguments = SyntaxFactory.SeparatedList(
         [
             SyntaxFactory.Argument(left.WithoutTrivia()),
             SyntaxFactory.Argument(right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space),

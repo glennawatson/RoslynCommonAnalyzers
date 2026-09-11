@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Removes the <c>[Optional]</c> attribute from a <c>ref</c> or <c>out</c> parameter (SST2459).
-/// </summary>
+/// <summary>Removes the <c>[Optional]</c> attribute from a <c>ref</c> or <c>out</c> parameter (SST2459).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2459OptionalByRefParameterCodeFixProvider))]
 [Shared]
 public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
@@ -18,16 +18,17 @@ public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Remove the [Optional] attribute",
             nameof(Sst2459OptionalByRefParameterCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported attribute and removes it from its parameter.</summary>
     /// <param name="root">The syntax root.</param>

@@ -6,9 +6,7 @@ using System.Globalization;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports an enum marked <c>[Flags]</c> whose members are not distinct bit values (SST2303).
-/// </summary>
+/// <summary>Reports an enum marked <c>[Flags]</c> whose members are not distinct bit values (SST2303).</summary>
 /// <remarks>
 /// <para>
 /// A member passes when it is one of three things: <b>zero</b> (the empty set — <c>None = 0</c> is
@@ -56,7 +54,7 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamedType(SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Enum || !HasFlagsAttribute(type) || type.Locations.Length == 0 || !type.Locations[0].IsInSource)
+        if (type.TypeKind != TypeKind.Enum || !HasFlagsAttribute(type) || type.Locations.IsEmpty || !type.Locations[0].IsInSource)
         {
             return;
         }
@@ -65,11 +63,13 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
         var declaredBits = GetDeclaredSingleBits(members);
         for (var i = 0; i < members.Length; i++)
         {
-            if (IsBadMember(members[i], declaredBits, context.CancellationToken))
+            if (!IsBadMember(members[i], declaredBits, context.CancellationToken))
             {
-                context.ReportDiagnostic(Diagnostic.Create(DesignRules.MisusedFlagsAttribute, type.Locations[0], type.Name));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(Diagnostic.Create(DesignRules.MisusedFlagsAttribute, type.Locations[0], type.Name));
+            return;
         }
     }
 
@@ -153,7 +153,7 @@ public sealed class Sst2303MisusedFlagsAttributeAnalyzer : DiagnosticAnalyzer
     private static bool HasExplicitValue(ISymbol member, CancellationToken cancellationToken)
     {
         var references = member.DeclaringSyntaxReferences;
-        return references.Length != 0
+        return !references.IsEmpty
             && references[0].GetSyntax(cancellationToken) is EnumMemberDeclarationSyntax { EqualsValue: not null };
     }
 

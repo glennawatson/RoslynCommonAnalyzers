@@ -4,10 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Drops an argument that repeats its parameter's default (SST1494), along with every argument to its
-/// right.
-/// </summary>
+/// <summary>Drops an argument that repeats its parameter's default (SST1494), along with every argument to its right.</summary>
 /// <remarks>
 /// <para>
 /// The tail is removed as a unit on purpose. Deleting one argument from the middle of a positional list

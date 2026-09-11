@@ -16,7 +16,7 @@ internal static class StringLiteralHelper
     /// <param name="literal">The matched literal when the probe succeeds.</param>
     /// <param name="value">The literal's single character.</param>
     /// <returns><see langword="true"/> for a regular <c>"x"</c> literal whose value is exactly one character.</returns>
-    public static bool TryGetSingleCharacterLiteral(ExpressionSyntax expression, out LiteralExpressionSyntax? literal, out char value)
+    internal static bool TryGetSingleCharacterLiteral(ExpressionSyntax expression, out LiteralExpressionSyntax? literal, out char value)
     {
         if (expression is LiteralExpressionSyntax candidate
             && candidate.IsKind(SyntaxKind.StringLiteralExpression))

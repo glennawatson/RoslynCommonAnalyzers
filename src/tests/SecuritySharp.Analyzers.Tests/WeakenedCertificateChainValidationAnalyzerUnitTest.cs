@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeChain = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 {
     /// <summary>Verifies setting <c>RevocationMode</c> to <c>NoCheck</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RevocationModeNoCheckReportedAsync()
-        => await VerifyNet90Async(
+    public Task RevocationModeNoCheckReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -31,9 +33,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>VerificationFlags</c> to <c>AllowUnknownCertificateAuthority</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerificationFlagsAllowUnknownCaReportedAsync()
-        => await VerifyNet90Async(
+    public Task VerificationFlagsAllowUnknownCaReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -48,9 +51,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>VerificationFlags</c> to the ignore-everything <c>AllFlags</c> value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerificationFlagsAllFlagsReportedAsync()
-        => await VerifyNet90Async(
+    public Task VerificationFlagsAllFlagsReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -65,9 +69,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies a suppressing flag inside an OR-combination is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerificationFlagsOrCombinationReportedAsync()
-        => await VerifyNet90Async(
+    public Task VerificationFlagsOrCombinationReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -82,9 +87,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies the weakening is reported inside an object initializer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerWeakeningReportedAsync()
-        => await VerifyNet90Async(
+    public Task ObjectInitializerWeakeningReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -101,9 +107,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies a revocation mode that keeps checking on (<c>Online</c>) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RevocationModeOnlineIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RevocationModeOnlineIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -118,9 +125,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies <c>VerificationFlags = NoFlag</c> (the strict default) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerificationFlagsNoFlagIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task VerificationFlagsNoFlagIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -135,9 +143,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies a narrow, non-authority flag (<c>IgnoreEndRevocationUnknown</c> alone) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerificationFlagsNarrowRevocationFlagIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task VerificationFlagsNarrowRevocationFlagIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography.X509Certificates;
 
@@ -152,9 +161,10 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
 
     /// <summary>Verifies a same-named member on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMemberOnUnrelatedTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SameNamedMemberOnUnrelatedTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public enum FakeRevocation { NoCheck, Online }
 
@@ -196,11 +206,7 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeChain.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10,
-            TestCode = Source
-        };
+        var test = new AnalyzeChain.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -210,11 +216,7 @@ public class WeakenedCertificateChainValidationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeChain.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeChain.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

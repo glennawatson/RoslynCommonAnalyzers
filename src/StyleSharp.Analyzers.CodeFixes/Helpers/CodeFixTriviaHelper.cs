@@ -10,7 +10,7 @@ internal static class CodeFixTriviaHelper
     /// <summary>Removes one blank line from the start of a member's leading trivia.</summary>
     /// <param name="trivia">The member's leading trivia.</param>
     /// <returns>The leading trivia with at most one initial line break.</returns>
-    internal static SyntaxTriviaList CollapseLeadingBlankLine(SyntaxTriviaList trivia)
+    internal static SyntaxTriviaList CollapseLeadingBlankLine(in SyntaxTriviaList trivia)
     {
         var firstEndOfLine = -1;
         for (var i = 0; i < trivia.Count; i++)
@@ -39,6 +39,7 @@ internal static class CodeFixTriviaHelper
     /// <param name="root">The syntax root.</param>
     /// <param name="annotation">The annotation to look up.</param>
     /// <returns>The annotated property declaration.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> carries no property declaration marked with <paramref name="annotation"/>, or carries more than one.</exception>
     internal static PropertyDeclarationSyntax GetSingleAnnotatedProperty(SyntaxNode root, SyntaxAnnotation annotation)
     {
         PropertyDeclarationSyntax? result = null;

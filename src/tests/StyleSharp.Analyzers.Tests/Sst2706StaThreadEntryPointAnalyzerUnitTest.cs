@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -59,12 +60,7 @@ public class Sst2706StaThreadEntryPointAnalyzerUnitTest
             }
             """ + WindowsFormsStub;
 
-        var test = new VerifyFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
         test.FixedState.OutputKind = OutputKind.ConsoleApplication;
 
@@ -73,9 +69,10 @@ public class Sst2706StaThreadEntryPointAnalyzerUnitTest
 
     /// <summary>Verifies an entry point already marked [STAThread] is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EntryPointWithStaThreadIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task EntryPointWithStaThreadIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public static class Program
             {
@@ -89,9 +86,10 @@ public class Sst2706StaThreadEntryPointAnalyzerUnitTest
 
     /// <summary>Verifies an entry point already marked [MTAThread] is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EntryPointWithMtaThreadIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task EntryPointWithMtaThreadIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public static class Program
             {
@@ -128,11 +126,7 @@ public class Sst2706StaThreadEntryPointAnalyzerUnitTest
             }
             """ + WindowsFormsStub;
 
-        var test = new VerifyAnalyzer.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyAnalyzer.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
 
         await test.RunAsync(CancellationToken.None);
@@ -167,11 +161,7 @@ public class Sst2706StaThreadEntryPointAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyCleanAsync(string entryPointSource)
     {
-        var test = new VerifyAnalyzer.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = entryPointSource + WindowsFormsStub,
-        };
+        var test = new VerifyAnalyzer.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = entryPointSource + WindowsFormsStub, };
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
 
         await test.RunAsync(CancellationToken.None);

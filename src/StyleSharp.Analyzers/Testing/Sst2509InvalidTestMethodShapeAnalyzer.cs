@@ -30,22 +30,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the TUnit test marker, which does not universally require a public method.</summary>
-    private const string TUnitTestMarkerMetadataName = "TUnit.Core.TestAttribute";
-
-    /// <summary>The metadata names of the attributes that mark a method as a test the framework discovers only when public.</summary>
-    private static readonly string[] PublicRequiredMarkerMetadataNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-    ];
-
     /// <summary>The simple names, with and without the suffix, that a test-marking attribute is written as.</summary>
     private static readonly HashSet<string> TestAttributeSimpleNames = new(StringComparer.Ordinal)
     {
@@ -62,8 +46,8 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.InvalidTestMethodShape);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -86,7 +70,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one method declaration for a test-method shape the runner cannot execute.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="symbols">The resolved test-framework symbols.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists) || IsSyntacticallyRunnableShape(method))
@@ -124,7 +108,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <param name="symbols">The resolved test-framework symbols.</param>
     /// <returns>Whether a real test attribute is present and whether the matched framework discovers only public methods.</returns>
     private static (bool IsTest, bool RequiresPublic) ClassifyTestAttributes(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         FrameworkSymbols symbols)
     {
@@ -167,7 +151,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return "is not public";
         }
 
-        if (method.IsGenericMethod && method.Parameters.Length == 0)
+        if (method.IsGenericMethod && method.Parameters.IsEmpty)
         {
             return "is a generic method with no parameters, so its type argument cannot be inferred";
         }
@@ -184,8 +168,8 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <see langword="true"/> when the method is written with a <c>public</c> modifier, no type parameters, and a
     /// <c>void</c> return — the shape every framework runs, which needs no further checking.
     /// </returns>
-    private static bool IsSyntacticallyRunnableShape(MethodDeclarationSyntax method)
-        => method.TypeParameterList is null
+    private static bool IsSyntacticallyRunnableShape(MethodDeclarationSyntax method) =>
+        method.TypeParameterList is null
             && method.Modifiers.Any(SyntaxKind.PublicKeyword)
             && method.ReturnType is PredefinedTypeSyntax predefined
             && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
@@ -224,6 +208,22 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <summary>The test-framework symbols resolved once per compilation the rule needs to classify attributes and returns.</summary>
     private sealed class FrameworkSymbols
     {
+        /// <summary>The metadata name of the TUnit test marker, which does not universally require a public method.</summary>
+        private const string TUnitTestMarkerMetadataName = "TUnit.Core.TestAttribute";
+
+        /// <summary>The metadata names of the attributes that mark a method as a test the framework discovers only when public.</summary>
+        private static readonly string[] PublicRequiredMarkerMetadataNames =
+        [
+            "Xunit.FactAttribute",
+            "Xunit.TheoryAttribute",
+            "NUnit.Framework.TestAttribute",
+            "NUnit.Framework.TestCaseAttribute",
+            "NUnit.Framework.TestCaseSourceAttribute",
+            "NUnit.Framework.TheoryAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+        ];
+
         /// <summary>The resolved markers whose framework discovers only public test methods; unresolved slots stay <see langword="null"/>.</summary>
         private readonly INamedTypeSymbol?[] _publicRequiredMarkers;
 
@@ -280,12 +280,9 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             }
 
             var tunitMarker = compilation.GetTypeByMetadataName(TUnitTestMarkerMetadataName);
-            if (!anyPublicRequired && tunitMarker is null)
-            {
-                return null;
-            }
-
-            return new FrameworkSymbols(
+            return !anyPublicRequired && tunitMarker is null
+                ? null
+                : new FrameworkSymbols(
                 publicRequiredMarkers,
                 tunitMarker,
                 compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),

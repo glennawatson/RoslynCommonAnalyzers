@@ -11,8 +11,8 @@ internal static class PrivateMemberUsageBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit reportable private members.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class PrivateMemberUsageBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit reportable members.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating
+    private static string GenerateType(int index, bool violating) =>
+        violating
             ? $$"""
               internal sealed class C{{index}}
               {

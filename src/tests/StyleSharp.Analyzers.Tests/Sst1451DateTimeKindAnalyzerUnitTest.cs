@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1451DateTimeKindAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst1451DateTimeKindAnalyzerUnitTest
 {
     /// <summary>Verifies a kindless DateTime constructor is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KindlessConstructorIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task KindlessConstructorIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -26,9 +28,10 @@ public class Sst1451DateTimeKindAnalyzerUnitTest
 
     /// <summary>Verifies a constructor that states the kind is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KindConstructorIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task KindConstructorIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -40,9 +43,10 @@ public class Sst1451DateTimeKindAnalyzerUnitTest
 
     /// <summary>Verifies the parameterless constructor is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessConstructorIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParameterlessConstructorIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -54,9 +58,10 @@ public class Sst1451DateTimeKindAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed kindless creation is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TargetTypedKindlessCreationIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TargetTypedKindlessCreationIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -72,9 +77,10 @@ public class Sst1451DateTimeKindAnalyzerUnitTest
 
     /// <summary>Verifies other constructions are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherCreationsAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OtherCreationsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

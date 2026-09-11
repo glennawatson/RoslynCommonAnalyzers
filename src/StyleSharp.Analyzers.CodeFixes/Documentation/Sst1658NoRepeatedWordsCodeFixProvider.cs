@@ -75,7 +75,7 @@ public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITe
     private static bool TryGetRemovalChange(SourceText text, TextSpan wordSpan, out TextChange change)
     {
         change = default;
-        if (wordSpan.Length == 0 || wordSpan.End > text.Length)
+        if (wordSpan.IsEmpty || wordSpan.End > text.Length)
         {
             return false;
         }
@@ -86,7 +86,7 @@ public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITe
         // Both occurrences sit on the same line: drop the word and the whitespace before it.
         if (whitespaceStart < wordSpan.Start && char.IsLetter(before))
         {
-            change = new TextChange(TextSpan.FromBounds(whitespaceStart, wordSpan.End), string.Empty);
+            change = new(TextSpan.FromBounds(whitespaceStart, wordSpan.End), string.Empty);
             return true;
         }
 
@@ -97,7 +97,7 @@ public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITe
             return false;
         }
 
-        change = new TextChange(TextSpan.FromBounds(wordSpan.Start, FindRemovalEnd(text, wordSpan.End)), string.Empty);
+        change = new(TextSpan.FromBounds(wordSpan.Start, FindRemovalEnd(text, wordSpan.End)), string.Empty);
         return true;
     }
 
@@ -125,8 +125,8 @@ public sealed class Sst1658NoRepeatedWordsCodeFixProvider : CodeFixProvider, ITe
     /// <param name="text">The document's source text.</param>
     /// <param name="end">The word's end position.</param>
     /// <returns>The removal end position.</returns>
-    private static int FindRemovalEnd(SourceText text, int end)
-        => end < text.Length && text[end] == ' ' ? end + 1 : end;
+    private static int FindRemovalEnd(SourceText text, int end) =>
+        end < text.Length && text[end] == ' ' ? end + 1 : end;
 
     /// <summary>Returns whether a character is a same-line whitespace character.</summary>
     /// <param name="character">The character.</param>

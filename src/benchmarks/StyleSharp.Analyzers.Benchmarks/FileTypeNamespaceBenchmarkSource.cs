@@ -15,14 +15,14 @@ internal static class FileTypeNamespaceBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit multiple top-level types (rule violations).</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => violating ? GenerateViolating(types) : GenerateClean(types);
+    internal static string Generate(int types, bool violating) =>
+        violating ? GenerateViolating(types) : GenerateClean(types);
 
     /// <summary>Builds a single top-level type containing many nested types (no violations).</summary>
     /// <param name="types">The number of nested types to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateClean(int types)
-        => $$"""
+    private static string GenerateClean(int types) =>
+        $$"""
            namespace Bench;
 
            public sealed class Root
@@ -34,8 +34,8 @@ internal static class FileTypeNamespaceBenchmarkSource
     /// <summary>Builds many top-level types (every type beyond the first violates SST1402).</summary>
     /// <param name="types">The number of top-level types to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateViolating(int types)
-        => $$"""
+    private static string GenerateViolating(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateTopLevelType)}}
@@ -44,8 +44,8 @@ internal static class FileTypeNamespaceBenchmarkSource
     /// <summary>Builds one nested type for the clean corpus.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated nested type block.</returns>
-    private static string GenerateNestedType(int index)
-        => $$"""
+    private static string GenerateNestedType(int index) =>
+        $$"""
            public sealed class Nested{{index}}
            {
                public int Value { get; set; }
@@ -55,8 +55,8 @@ internal static class FileTypeNamespaceBenchmarkSource
     /// <summary>Builds one top-level type for the violating corpus.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated top-level type block.</returns>
-    private static string GenerateTopLevelType(int index)
-        => $$"""
+    private static string GenerateTopLevelType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public int Value { get; set; }

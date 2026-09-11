@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyText = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.DocumentationTextAnalyzer>;
 
@@ -16,9 +17,10 @@ public class DocumentationTextAnalyzerUnitTest
     /// The spacing and the ratio of letters to symbols belong to the language, not the author, so neither
     /// SST1630 nor SST1631 says anything about the summary.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CodeCaptionSummaryIsCleanAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task CodeCaptionSummaryIsCleanAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -31,9 +33,10 @@ public class DocumentationTextAnalyzerUnitTest
 
     /// <summary>Verifies a summary mixing prose with a code element is still measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SummaryWithProseAroundACodeElementIsMeasuredAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task SummaryWithProseAroundACodeElementIsMeasuredAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -46,9 +49,10 @@ public class DocumentationTextAnalyzerUnitTest
 
     /// <summary>Verifies a summary that begins with a lower-case letter is reported (SST1628).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LowerCaseSummaryReportedAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task LowerCaseSummaryReportedAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -61,9 +65,10 @@ public class DocumentationTextAnalyzerUnitTest
 
     /// <summary>Verifies a single-word summary is reported (SST1630).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleWordSummaryReportedAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task SingleWordSummaryReportedAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -76,9 +81,10 @@ public class DocumentationTextAnalyzerUnitTest
 
     /// <summary>Verifies a summary made up mostly of symbols is reported (SST1631).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SymbolHeavySummaryReportedAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task SymbolHeavySummaryReportedAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -91,9 +97,10 @@ public class DocumentationTextAnalyzerUnitTest
 
     /// <summary>Verifies a too-short summary is reported (SST1632).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TooShortSummaryReportedAsync()
-        => await VerifyText.VerifyAnalyzerAsync(
+    public Task TooShortSummaryReportedAsync() =>
+        VerifyText.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -23,20 +25,21 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the catch clause with its <c>when</c>-filtered form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="catchClause">The catch clause to rewrite.</param>
     /// <returns>The updated document, or the original document when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, CatchClauseSyntax catchClause)
-        => BuildReplacement(catchClause) is { } replacement
+    internal static Document Apply(Document document, SyntaxNode root, CatchClauseSyntax catchClause) =>
+        BuildReplacement(catchClause) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(catchClause, replacement))
             : document;
 
@@ -44,8 +47,8 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<CatchClauseSyntax>() is { } catchClause
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<CatchClauseSyntax>() is { } catchClause
             && BuildReplacement(catchClause) is { } replacement
             ? new NodeReplacement(catchClause, replacement, RewriteCurrent)
             : null;
@@ -53,8 +56,8 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <summary>Rewrites the current catch clause during batch FixAll composition.</summary>
     /// <param name="current">The current catch clause node.</param>
     /// <returns>The rewritten catch clause, or the current node when the shape no longer matches.</returns>
-    private static SyntaxNode RewriteCurrent(SyntaxNode current)
-        => current is CatchClauseSyntax catchClause && BuildReplacement(catchClause) is { } replacement
+    private static SyntaxNode RewriteCurrent(SyntaxNode current) =>
+        current is CatchClauseSyntax catchClause && BuildReplacement(catchClause) is { } replacement
             ? replacement
             : current;
 
@@ -122,8 +125,8 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <summary>Returns the statements a surviving branch contributes to the new catch body.</summary>
     /// <param name="branch">The surviving branch statement.</param>
     /// <returns>The branch's statements, with leading blank lines stripped from the first.</returns>
-    private static SyntaxList<StatementSyntax> BranchStatements(StatementSyntax branch)
-        => branch is BlockSyntax block
+    private static SyntaxList<StatementSyntax> BranchStatements(StatementSyntax branch) =>
+        branch is BlockSyntax block
             ? StripLeadingBlankLines(block.Statements)
             : SyntaxFactory.SingletonList(branch);
 
@@ -145,8 +148,8 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
     /// <summary>Strips leading blank lines from a statement list's first statement.</summary>
     /// <param name="statements">The statement list.</param>
     /// <returns>The statement list without leading blank lines.</returns>
-    private static SyntaxList<StatementSyntax> StripLeadingBlankLines(SyntaxList<StatementSyntax> statements)
-        => statements.Count == 0
+    private static SyntaxList<StatementSyntax> StripLeadingBlankLines(SyntaxList<StatementSyntax> statements) =>
+        statements.Count == 0
             ? statements
             : statements.Replace(statements[0], StripLeadingBlankLines(statements[0]));
 

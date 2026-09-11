@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUseStringEmpty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1122UseStringEmptyAnalyzer,
     StyleSharp.Analyzers.Sst1122UseStringEmptyCodeFixProvider>;
@@ -61,9 +62,10 @@ public class UseStringEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a non-empty string literal is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyStringIsCleanAsync()
-        => await VerifyUseStringEmpty.VerifyAnalyzerAsync(
+    public Task NonEmptyStringIsCleanAsync() =>
+        VerifyUseStringEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -73,9 +75,10 @@ public class UseStringEmptyAnalyzerUnitTest
 
     /// <summary>Verifies empty strings in constant-required contexts are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantContextsAreCleanAsync()
-        => await VerifyUseStringEmpty.VerifyAnalyzerAsync(
+    public Task ConstantContextsAreCleanAsync() =>
+        VerifyUseStringEmpty.VerifyAnalyzerAsync(
             """
             using System;
 

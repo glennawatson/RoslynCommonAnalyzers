@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyPatternMatching = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -81,9 +82,10 @@ public class IsCheckFollowedByCastAnalyzerUnitTest
 
     /// <summary>Verifies property receivers and mismatched casts are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsafeOrMismatchedShapesAreCleanAsync()
-        => await VerifyPatternMatching.VerifyAnalyzerAsync(
+    public Task UnsafeOrMismatchedShapesAreCleanAsync() =>
+        VerifyPatternMatching.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

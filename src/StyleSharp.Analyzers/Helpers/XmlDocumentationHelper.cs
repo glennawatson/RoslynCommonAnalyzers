@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,13 +13,13 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static class XmlDocumentationHelper
 {
-    /// <summary>The local name of the element that takes a member's documentation from somewhere else.</summary>
+    /// <summary>The name of the element that takes its documentation from another member.</summary>
     private const string InheritDocElementName = "inheritdoc";
 
     /// <summary>Returns the documentation comment attached to <paramref name="member"/>, or <see langword="null"/>.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The documentation comment trivia, or <see langword="null"/>.</returns>
-    public static DocumentationCommentTriviaSyntax? GetDocumentationComment(SyntaxNode member)
+    internal static DocumentationCommentTriviaSyntax? GetDocumentationComment(SyntaxNode member)
     {
         foreach (var trivia in member.GetLeadingTrivia())
         {
@@ -36,7 +38,7 @@ internal static class XmlDocumentationHelper
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="name">The element name (e.g. <c>summary</c>).</param>
     /// <returns>The matching node, or <see langword="null"/>.</returns>
-    public static XmlNodeSyntax? FindElement(DocumentationCommentTriviaSyntax documentation, string name)
+    internal static XmlNodeSyntax? FindElement(DocumentationCommentTriviaSyntax documentation, string name)
     {
         foreach (var node in documentation.Content)
         {
@@ -53,14 +55,15 @@ internal static class XmlDocumentationHelper
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="name">The element name.</param>
     /// <returns><see langword="true"/> when present.</returns>
-    public static bool HasElement(DocumentationCommentTriviaSyntax documentation, string name)
-        => FindElement(documentation, name) is not null;
+    internal static bool HasElement(DocumentationCommentTriviaSyntax documentation, string name) =>
+        FindElement(documentation, name) is not null;
 
     /// <summary>Returns whether the documentation uses <c>&lt;inheritdoc&gt;</c> (so content rules are skipped).</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <returns><see langword="true"/> when an inheritdoc element is present.</returns>
-    public static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation)
-        => HasElement(documentation, InheritDocElementName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsInheritDoc(DocumentationCommentTriviaSyntax documentation) =>
+        HasElement(documentation, InheritDocElementName);
 
     /// <summary>Returns whether a declaration documents a further part of a partial declaration.</summary>
     /// <param name="member">The declaration carrying the documentation.</param>
@@ -72,8 +75,8 @@ internal static class XmlDocumentationHelper
     /// <c>&lt;content&gt;</c> element. Repeating the summary in every part would state the same thing
     /// several times and leave the reader to work out which copy is authoritative.
     /// </remarks>
-    public static bool DocumentsPartialContent(SyntaxNode member, DocumentationCommentTriviaSyntax documentation)
-        => member is MemberDeclarationSyntax declaration
+    internal static bool DocumentsPartialContent(SyntaxNode member, DocumentationCommentTriviaSyntax documentation) =>
+        member is MemberDeclarationSyntax declaration
             && ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.PartialKeyword)
             && FindElement(documentation, "content") is { } content
             && HasText(content);
@@ -86,16 +89,16 @@ internal static class XmlDocumentationHelper
     /// be a base type or an implemented interface — it can be any documented member at all. Rules that reason
     /// about what a bare inheritdoc would inherit from have nothing to say about that form.
     /// </remarks>
-    public static bool HasInheritDocCref(DocumentationCommentTriviaSyntax documentation)
-        => FindElement(documentation, InheritDocElementName) is { } element && HasCref(element);
+    internal static bool HasInheritDocCref(DocumentationCommentTriviaSyntax documentation) =>
+        FindElement(documentation, InheritDocElementName) is { } element && HasCref(element);
 
     /// <summary>Returns whether an element contains a nested <c>&lt;inheritdoc&gt;</c> (so its content is inherited).</summary>
     /// <param name="element">The element to scan.</param>
     /// <returns><see langword="true"/> when an inheritdoc descendant is present.</returns>
-    public static bool ContainsInheritDoc(XmlNodeSyntax element)
+    internal static bool ContainsInheritDoc(XmlNodeSyntax element)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<XmlNodeSyntax, bool>(element, ref found, VisitInheritDocNode);
+        _ = DescendantTraversalHelper.VisitDescendants<XmlNodeSyntax, bool>(element, ref found, VisitInheritDocNode);
         return found;
     }
 
@@ -103,22 +106,24 @@ internal static class XmlDocumentationHelper
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="parameterName">The parameter name.</param>
     /// <returns>The matching element, or <see langword="null"/>.</returns>
-    public static XmlNodeSyntax? FindParameterElement(DocumentationCommentTriviaSyntax documentation, string parameterName)
-        => FindNamedElement(documentation, "param", parameterName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static XmlNodeSyntax? FindParameterElement(DocumentationCommentTriviaSyntax documentation, string parameterName) =>
+        FindNamedElement(documentation, "param", parameterName);
 
     /// <summary>Returns the <c>&lt;typeparam name="..."&gt;</c> element documenting <paramref name="typeParameterName"/>, or <see langword="null"/>.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="typeParameterName">The type parameter name.</param>
     /// <returns>The matching element, or <see langword="null"/>.</returns>
-    public static XmlNodeSyntax? FindTypeParameterElement(DocumentationCommentTriviaSyntax documentation, string typeParameterName)
-        => FindNamedElement(documentation, "typeparam", typeParameterName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static XmlNodeSyntax? FindTypeParameterElement(DocumentationCommentTriviaSyntax documentation, string typeParameterName) =>
+        FindNamedElement(documentation, "typeparam", typeParameterName);
 
     /// <summary>Returns the first element named <paramref name="elementName"/> whose name attribute equals <paramref name="nameAttribute"/>.</summary>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="elementName">The element name (e.g. <c>param</c>).</param>
     /// <param name="nameAttribute">The required name attribute value.</param>
     /// <returns>The matching node, or <see langword="null"/>.</returns>
-    public static XmlNodeSyntax? FindNamedElement(DocumentationCommentTriviaSyntax documentation, string elementName, string nameAttribute)
+    internal static XmlNodeSyntax? FindNamedElement(DocumentationCommentTriviaSyntax documentation, string elementName, string nameAttribute)
     {
         foreach (var node in documentation.Content)
         {
@@ -134,7 +139,7 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns the value of a node's <c>name</c> attribute, or <see langword="null"/>.</summary>
     /// <param name="node">The element node.</param>
     /// <returns>The name attribute value, or <see langword="null"/>.</returns>
-    public static string? NameAttribute(XmlNodeSyntax node)
+    internal static string? NameAttribute(XmlNodeSyntax node)
     {
         var attributes = node switch
         {
@@ -161,7 +166,7 @@ internal static class XmlDocumentationHelper
     /// The cref is rendered to text, so call this only once a rule has already decided to report — never on the
     /// clean path.
     /// </remarks>
-    public static string? CrefSimpleName(XmlNodeSyntax node)
+    internal static string? CrefSimpleName(XmlNodeSyntax node)
     {
         var attributes = node switch
         {
@@ -184,7 +189,7 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns whether an element carries a <c>cref</c> attribute.</summary>
     /// <param name="node">The element node.</param>
     /// <returns><see langword="true"/> when a cref is present.</returns>
-    public static bool HasCref(XmlNodeSyntax node)
+    internal static bool HasCref(XmlNodeSyntax node)
     {
         var attributes = node switch
         {
@@ -207,7 +212,7 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns whether an element contains any non-whitespace text.</summary>
     /// <param name="node">The element node.</param>
     /// <returns><see langword="true"/> when non-whitespace text is present.</returns>
-    public static bool HasText(XmlNodeSyntax node)
+    internal static bool HasText(XmlNodeSyntax node)
     {
         if (node is not XmlElementSyntax element)
         {
@@ -220,7 +225,7 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns the element's text content with runs of whitespace collapsed to single spaces and trimmed.</summary>
     /// <param name="node">The element node.</param>
     /// <returns>The normalized text, or an empty string when there is none.</returns>
-    public static string NormalizedText(XmlNodeSyntax node)
+    internal static string NormalizedText(XmlNodeSyntax node)
     {
         if (node is not XmlElementSyntax element)
         {
@@ -228,7 +233,7 @@ internal static class XmlDocumentationHelper
         }
 
         var state = new NormalizeState(new System.Text.StringBuilder());
-        DescendantTraversalHelper.VisitDescendantTokens(element, ref state, AppendNormalizedToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(element, ref state, AppendNormalizedToken);
         return state.Builder.ToString();
     }
 
@@ -246,7 +251,7 @@ internal static class XmlDocumentationHelper
     /// </summary>
     /// <param name="element">The element whose comparison key is built.</param>
     /// <param name="builder">The reusable buffer that receives the key.</param>
-    public static void AppendDuplicateComparisonKey(XmlElementSyntax element, System.Text.StringBuilder builder)
+    internal static void AppendDuplicateComparisonKey(XmlElementSyntax element, System.Text.StringBuilder builder)
     {
         var state = new NormalizeState(builder);
         AppendContentKey(element.Content, ref state);
@@ -261,7 +266,7 @@ internal static class XmlDocumentationHelper
     /// <param name="element">The prose element (summary, returns, …).</param>
     /// <param name="insertPosition">Where a period should be inserted when the method returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> when a terminal period is missing.</returns>
-    public static bool NeedsTerminalPeriod(XmlElementSyntax element, out int insertPosition)
+    internal static bool NeedsTerminalPeriod(XmlElementSyntax element, out int insertPosition)
     {
         insertPosition = -1;
 
@@ -287,10 +292,10 @@ internal static class XmlDocumentationHelper
     /// <param name="character">The last non-whitespace character when found.</param>
     /// <param name="position">The absolute source position of that character when found.</param>
     /// <returns><see langword="true"/> when the node has text.</returns>
-    public static bool TryGetLastTextCharacter(XmlNodeSyntax node, out char character, out int position)
+    internal static bool TryGetLastTextCharacter(XmlNodeSyntax node, out char character, out int position)
     {
         var state = new LastCharacterState();
-        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordLastTextCharacter);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordLastTextCharacter);
         character = state.Character;
         position = state.Position;
         return position >= 0;
@@ -305,7 +310,7 @@ internal static class XmlDocumentationHelper
     /// <param name="element">The prose element.</param>
     /// <param name="expected">The expected leading text.</param>
     /// <returns><see langword="true"/> when the leading text matches.</returns>
-    public static bool LeadingTextStartsWith(XmlElementSyntax element, ReadOnlySpan<char> expected)
+    internal static bool LeadingTextStartsWith(XmlElementSyntax element, ReadOnlySpan<char> expected)
     {
         foreach (var node in element.Content)
         {
@@ -344,10 +349,10 @@ internal static class XmlDocumentationHelper
     /// <param name="character">The first non-whitespace character when found.</param>
     /// <param name="position">The absolute source position of that character when found.</param>
     /// <returns><see langword="true"/> when the element has text.</returns>
-    public static bool TryGetFirstTextCharacter(XmlElementSyntax element, out char character, out int position)
+    internal static bool TryGetFirstTextCharacter(XmlElementSyntax element, out char character, out int position)
     {
         var state = new FirstCharacterState();
-        DescendantTraversalHelper.VisitDescendantTokens(element, ref state, RecordFirstTextCharacter);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(element, ref state, RecordFirstTextCharacter);
         character = state.Character;
         position = state.Position;
         return position >= 0;
@@ -356,13 +361,14 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns the member declaration a documentation node belongs to (hopping out of the structured trivia).</summary>
     /// <param name="nodeInDocumentation">A node inside a documentation comment.</param>
     /// <returns>The documented member declaration, or <see langword="null"/>.</returns>
-    public static SyntaxNode? DocumentedMember(SyntaxNode nodeInDocumentation)
-        => nodeInDocumentation.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()?.ParentTrivia.Token.Parent;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SyntaxNode? DocumentedMember(SyntaxNode nodeInDocumentation) =>
+        nodeInDocumentation.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()?.ParentTrivia.Token.Parent;
 
     /// <summary>Returns the local name of an XML element or empty element, or <see langword="null"/> for other nodes.</summary>
     /// <param name="node">The node.</param>
     /// <returns>The element's local name, or <see langword="null"/>.</returns>
-    public static string? GetElementName(XmlNodeSyntax node) => node switch
+    internal static string? GetElementName(XmlNodeSyntax node) => node switch
     {
         XmlElementSyntax element => element.StartTag.Name.LocalName.ValueText,
         XmlEmptyElementSyntax element => element.Name.LocalName.ValueText,
@@ -377,21 +383,25 @@ internal static class XmlDocumentationHelper
         var end = cref.Length;
         for (var i = 0; i < cref.Length; i++)
         {
-            if (cref[i] is '{' or '(' or '<')
+            if (cref[i] is not ('{' or '(' or '<'))
             {
-                end = i;
-                break;
+                continue;
             }
+
+            end = i;
+            break;
         }
 
         var start = 0;
         for (var i = end - 1; i >= 0; i--)
         {
-            if (cref[i] is '.' or ':')
+            if (cref[i] is not ('.' or ':'))
             {
-                start = i + 1;
-                break;
+                continue;
             }
+
+            start = i + 1;
+            break;
         }
 
         return cref.Substring(start, end - start);
@@ -400,14 +410,14 @@ internal static class XmlDocumentationHelper
     /// <summary>Returns whether a character is terminal sentence punctuation.</summary>
     /// <param name="character">The character.</param>
     /// <returns><see langword="true"/> for terminal punctuation.</returns>
-    private static bool IsTerminalPunctuation(char character)
-        => character is '.' or '!' or '?' or ':' or ';';
+    private static bool IsTerminalPunctuation(char character) =>
+        character is '.' or '!' or '?' or ':' or ';';
 
     /// <summary>Returns whether a character is a closing quote or bracket.</summary>
     /// <param name="character">The character.</param>
     /// <returns><see langword="true"/> for a closing delimiter.</returns>
-    private static bool IsClosingDelimiter(char character)
-        => character is '"' or '\'' or ')' or ']' or '”' or '’';
+    private static bool IsClosingDelimiter(char character) =>
+        character is '"' or '\'' or ')' or ']' or '”' or '’';
 
     /// <summary>Returns the last content node of an element that has significant (non-whitespace) text or is an inline element.</summary>
     /// <param name="element">The element.</param>
@@ -439,7 +449,7 @@ internal static class XmlDocumentationHelper
     private static bool TryGetTrailingCharacters(XmlNodeSyntax node, out char last, out char secondLast, out int position)
     {
         var state = new TrailingCharactersState();
-        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordTrailingCharacters);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, RecordTrailingCharacters);
         last = state.Last;
         secondLast = state.SecondLast;
         position = state.Position;
@@ -452,7 +462,7 @@ internal static class XmlDocumentationHelper
     private static bool ContainsNonWhitespace(XmlNodeSyntax node)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendantTokens(node, ref found, RecordNonWhitespace);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref found, RecordNonWhitespace);
         return found;
     }
 
@@ -469,11 +479,13 @@ internal static class XmlDocumentationHelper
 
         foreach (var character in token.ValueText)
         {
-            if (!char.IsWhiteSpace(character))
+            if (char.IsWhiteSpace(character))
             {
-                found = true;
-                return false;
+                continue;
             }
+
+            found = true;
+            return false;
         }
 
         return true;
@@ -509,11 +521,11 @@ internal static class XmlDocumentationHelper
 
             if (state.PendingSpace)
             {
-                state.Builder.Append(' ');
+                _ = state.Builder.Append(' ');
                 state.PendingSpace = false;
             }
 
-            state.Builder.Append(character);
+            _ = state.Builder.Append(character);
         }
     }
 
@@ -574,7 +586,7 @@ internal static class XmlDocumentationHelper
                 case XmlCrefAttributeSyntax cref:
                 {
                     state.PendingSpace = state.Builder.Length > 0;
-                    DescendantTraversalHelper.VisitDescendantTokens(cref.Cref, ref state, AppendTokenValue);
+                    _ = DescendantTraversalHelper.VisitDescendantTokens(cref.Cref, ref state, AppendTokenValue);
                     break;
                 }
 
@@ -623,12 +635,14 @@ internal static class XmlDocumentationHelper
         var text = token.ValueText;
         for (var i = 0; i < text.Length; i++)
         {
-            if (!char.IsWhiteSpace(text[i]))
+            if (char.IsWhiteSpace(text[i]))
             {
-                state.Character = text[i];
-                state.Position = token.SpanStart + i;
-                return false;
+                continue;
             }
+
+            state.Character = text[i];
+            state.Position = token.SpanStart + i;
+            return false;
         }
 
         return true;
@@ -648,13 +662,15 @@ internal static class XmlDocumentationHelper
         var text = token.ValueText;
         for (var i = 0; i < text.Length; i++)
         {
-            if (!char.IsWhiteSpace(text[i]))
+            if (char.IsWhiteSpace(text[i]))
             {
-                state.Character = text[i];
-
-                // ValueText positions line up with the token span for XML text literals.
-                state.Position = token.SpanStart + i;
+                continue;
             }
+
+            state.Character = text[i];
+
+            // ValueText positions line up with the token span for XML text literals.
+            state.Position = token.SpanStart + i;
         }
 
         return true;
@@ -674,12 +690,14 @@ internal static class XmlDocumentationHelper
         var text = token.ValueText;
         for (var i = 0; i < text.Length; i++)
         {
-            if (!char.IsWhiteSpace(text[i]))
+            if (char.IsWhiteSpace(text[i]))
             {
-                state.SecondLast = state.Last;
-                state.Last = text[i];
-                state.Position = token.SpanStart + i;
+                continue;
             }
+
+            state.SecondLast = state.Last;
+            state.Last = text[i];
+            state.Position = token.SpanStart + i;
         }
 
         return true;

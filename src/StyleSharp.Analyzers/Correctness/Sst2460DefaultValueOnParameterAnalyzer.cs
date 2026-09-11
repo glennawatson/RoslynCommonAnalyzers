@@ -41,8 +41,8 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -67,7 +67,7 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the designer attribute on a parameter that no call site reads.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="defaultValueAttribute">The resolved designer attribute symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol defaultValueAttribute)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol defaultValueAttribute)
     {
         var parameter = (ParameterSyntax)context.Node;
         var attributeLists = parameter.AttributeLists;
@@ -110,8 +110,8 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an attribute name is spelled <c>DefaultValue</c> or <c>DefaultValueAttribute</c>.</summary>
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the simple name matches either spelling.</returns>
-    private static bool IsDefaultValueName(NameSyntax name)
-        => GetSimpleName(name) is DefaultValueName or DefaultValueSuffixedName;
+    private static bool IsDefaultValueName(NameSyntax name) =>
+        GetSimpleName(name) is DefaultValueName or DefaultValueSuffixedName;
 
     /// <summary>Reduces an attribute name to its rightmost identifier text.</summary>
     /// <param name="name">The attribute name syntax.</param>

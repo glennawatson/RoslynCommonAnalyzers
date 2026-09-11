@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for modern-syntax preference analysis.</summary>
@@ -14,31 +16,34 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => GenerateCore(members, violating, shape: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating) =>
+        GenerateCore(members, violating, shape: null);
 
     /// <summary>Builds clean or violating source for one modern-syntax preference shape.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating, ModernSyntaxPreferenceBenchmarkShape shape)
-        => GenerateCore(members, violating, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating, ModernSyntaxPreferenceBenchmarkShape shape) =>
+        GenerateCore(members, violating, shape);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFix(int members, ModernSyntaxPreferenceBenchmarkShape shape)
-        => GenerateCore(members, violating: true, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateCodeFix(int members, ModernSyntaxPreferenceBenchmarkShape shape) =>
+        GenerateCore(members, violating: true, shape);
 
     /// <summary>Builds the benchmark source body.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The fixed shape, or <see langword="null"/> to cycle all shapes.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCore(int members, bool violating, ModernSyntaxPreferenceBenchmarkShape? shape)
-        => $$"""
+    private static string GenerateCore(int members, bool violating, ModernSyntaxPreferenceBenchmarkShape? shape) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -56,8 +61,8 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating, ModernSyntaxPreferenceBenchmarkShape shape)
-        => (shape, violating) switch
+    private static string GenerateMember(int index, bool violating, ModernSyntaxPreferenceBenchmarkShape shape) =>
+        (shape, violating) switch
         {
             (ModernSyntaxPreferenceBenchmarkShape.Lambda, true) => $$"""
                                                                      private readonly Func<int, int, int> _sum{{index}} = (int left, int right) => left + right + {{index}};
@@ -93,15 +98,11 @@ internal static class ModernSyntaxPreferenceBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="expressionBodied">Whether to emit the clean expression-bodied form.</param>
     /// <returns>The generated accessor text.</returns>
-    private static string GenerateAccessor(int index, bool expressionBodied)
-    {
-        var writeOnly = (index & 1) == 1;
-        return (writeOnly, expressionBodied) switch
+    private static string GenerateAccessor(int index, bool expressionBodied) => ((index & 1) == 1, expressionBodied) switch
         {
             (true, true) => $"        set => _value{index} = value;",
             (true, false) => $"        set {{ _value{index} = value; }}",
             (false, true) => $"        get => _value{index};",
             _ => $"        get {{ return _value{index}; }}"
         };
-    }
 }

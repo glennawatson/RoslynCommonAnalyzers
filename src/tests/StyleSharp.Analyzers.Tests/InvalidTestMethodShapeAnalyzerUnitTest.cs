@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTest = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2509InvalidTestMethodShapeAnalyzer>;
@@ -51,9 +52,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a non-public xUnit fact is reported because the runner does not discover it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitPrivateFactIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitPrivateFactIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -65,9 +67,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies an internal xUnit theory is reported, exercising the derived-attribute marker walk.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitInternalTheoryIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitInternalTheoryIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -79,9 +82,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a non-public NUnit test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitPrivateTestIsReportedAsync()
-        => await VerifyAsync(
+    public Task NUnitPrivateTestIsReportedAsync() =>
+        VerifyAsync(
             NUnitStubs + """
 
             public class Tests
@@ -93,9 +97,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a non-public MSTest test method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MsTestPrivateMethodIsReportedAsync()
-        => await VerifyAsync(
+    public Task MsTestPrivateMethodIsReportedAsync() =>
+        VerifyAsync(
             MsTestStubs + """
 
             public class Tests
@@ -107,9 +112,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless generic xUnit fact is reported, because its type argument cannot be inferred.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitGenericParameterlessFactIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitGenericParameterlessFactIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -121,9 +127,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless generic TUnit test is reported even though TUnit is exempt from the public check.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TUnitGenericParameterlessTestIsReportedAsync()
-        => await VerifyAsync(
+    public Task TUnitGenericParameterlessTestIsReportedAsync() =>
+        VerifyAsync(
             TUnitStubs + """
 
             public class Tests
@@ -135,9 +142,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit fact that returns a non-awaitable value type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactReturningIntIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitFactReturningIntIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -149,9 +157,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit test that returns a non-awaitable reference type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitTestReturningStringIsReportedAsync()
-        => await VerifyAsync(
+    public Task NUnitTestReturningStringIsReportedAsync() =>
+        VerifyAsync(
             NUnitStubs + """
 
             public class Tests
@@ -163,9 +172,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a public, non-generic, void-returning xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicVoidFactIsCleanAsync()
-        => await VerifyAsync(
+    public Task PublicVoidFactIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -177,9 +187,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a static public, void-returning xUnit fact is never reported, because static is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPublicVoidFactIsCleanAsync()
-        => await VerifyAsync(
+    public Task StaticPublicVoidFactIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -191,9 +202,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a Task-returning xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactReturningTaskIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitFactReturningTaskIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -205,9 +217,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a ValueTask-returning xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactReturningValueTaskIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitFactReturningValueTaskIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -219,9 +232,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a Task&lt;T&gt;-returning xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactReturningTaskOfIntIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitFactReturningTaskOfIntIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -233,9 +247,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a ValueTask&lt;T&gt;-returning xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactReturningValueTaskOfIntIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitFactReturningValueTaskOfIntIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -247,9 +262,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a non-public TUnit test is never reported, because TUnit does not universally require public methods.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TUnitPrivateTestIsCleanAsync()
-        => await VerifyAsync(
+    public Task TUnitPrivateTestIsCleanAsync() =>
+        VerifyAsync(
             TUnitStubs + """
 
             public class Tests
@@ -261,9 +277,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a generic test method that declares parameters is not reported for shape, leaving data-source concerns to another rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericFactWithParametersIsCleanAsync()
-        => await VerifyAsync(
+    public Task GenericFactWithParametersIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -275,9 +292,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary method that carries no test attribute is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTestMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonTestMethodIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -289,9 +307,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute from an unrelated namespace on a suspect-shaped method is never treated as a test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookalikeTestAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task LookalikeTestAttributeIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public sealed class TheoryAttribute : System.Attribute { }
@@ -305,9 +324,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported when no test framework is referenced at all.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoFrameworkReferencedIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoFrameworkReferencedIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -322,9 +342,10 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
 
     /// <summary>Verifies a test method whose return type does not resolve is not reported, so transient editing errors stay quiet.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnresolvedReturnTypeIsCleanAsync()
-        => await VerifyIgnoringCompilerDiagnosticsAsync(
+    public Task UnresolvedReturnTypeIsCleanAsync() =>
+        VerifyIgnoringCompilerDiagnosticsAsync(
             XunitStubs + """
 
             public class Tests
@@ -339,11 +360,7 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyTest.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyTest.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -353,12 +370,7 @@ public class InvalidTestMethodShapeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyIgnoringCompilerDiagnosticsAsync(string source)
     {
-        var test = new VerifyTest.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            CompilerDiagnostics = CompilerDiagnostics.None,
-        };
+        var test = new VerifyTest.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None, };
 
         await test.RunAsync(CancellationToken.None);
     }

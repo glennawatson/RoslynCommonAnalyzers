@@ -28,7 +28,7 @@ internal static class CancellationTokenOverload
     /// <param name="cache">The per-compilation resolution cache, or <see langword="null"/> to resolve without memoizing.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The forwardable token, or <see langword="null"/> when the call already carries one or has no cancellable form.</returns>
-    public static ForwardableToken? TryFind(
+    internal static ForwardableToken? TryFind(
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol tokenType,
@@ -77,7 +77,7 @@ internal static class CancellationTokenOverload
         if (!cache.TryGetValue(called, out var cached))
         {
             cached = TryResolveTarget(called, tokenType);
-            cache.TryAdd(called, cached);
+            _ = cache.TryAdd(called, cached);
         }
 
         return cached;
@@ -132,8 +132,8 @@ internal static class CancellationTokenOverload
     /// <param name="candidate">The sibling being considered.</param>
     /// <param name="called">The bound method.</param>
     /// <returns><see langword="true"/> when the two agree on everything but their parameters.</returns>
-    private static bool IsSubstitutable(IMethodSymbol candidate, IMethodSymbol called)
-        => !SymbolEqualityComparer.Default.Equals(candidate, called)
+    private static bool IsSubstitutable(IMethodSymbol candidate, IMethodSymbol called) =>
+        !SymbolEqualityComparer.Default.Equals(candidate, called)
             && candidate.MethodKind == MethodKind.Ordinary
             && !candidate.IsGenericMethod
             && candidate.IsStatic == called.IsStatic

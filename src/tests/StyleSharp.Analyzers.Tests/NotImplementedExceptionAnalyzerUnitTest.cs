@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNotImplemented = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2485NotImplementedExceptionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 {
     /// <summary>Verifies a throw statement of a new NotImplementedException is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowStatementIsReportedAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task ThrowStatementIsReportedAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -28,9 +30,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a NotImplementedException with a message argument is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowWithMessageIsReportedAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task ThrowWithMessageIsReportedAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -42,9 +45,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a throw expression is reported like a throw statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowExpressionIsReportedAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task ThrowExpressionIsReportedAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -58,9 +62,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified System.NotImplementedException is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedNotImplementedExceptionIsReportedAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task QualifiedNotImplementedExceptionIsReportedAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -70,9 +75,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies an alias-qualified <c>global::System.NotImplementedException</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AliasQualifiedNotImplementedExceptionIsReportedAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task AliasQualifiedNotImplementedExceptionIsReportedAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -82,9 +88,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a NotSupportedException is left alone as a deliberate, permanent signal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NotSupportedExceptionIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task NotSupportedExceptionIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -96,9 +103,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a specific, meaningful exception type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpecificExceptionIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task SpecificExceptionIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -118,9 +126,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a rethrow is not the creation of a new exception.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task RethrowIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -142,9 +151,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies throwing an already-built exception value is not a new-object creation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowOfExistingValueIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task ThrowOfExistingValueIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -160,9 +170,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
     /// <summary>Verifies a project type that merely shares the name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The bind confirms the framework's type; a same-named type of the project's own is a different symbol.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProjectTypeSharingNameIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task ProjectTypeSharingNameIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             namespace Contoso
             {
@@ -179,9 +190,10 @@ public class NotImplementedExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a generic exception type is not treated as the framework's NotImplementedException.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericExceptionTypeIsCleanAsync()
-        => await VerifyNotImplemented.VerifyAnalyzerAsync(
+    public Task GenericExceptionTypeIsCleanAsync() =>
+        VerifyNotImplemented.VerifyAnalyzerAsync(
             """
             using System;
 

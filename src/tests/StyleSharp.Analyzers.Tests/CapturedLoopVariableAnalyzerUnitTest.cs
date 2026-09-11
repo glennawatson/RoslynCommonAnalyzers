@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyCapture = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2479CapturedLoopVariableAnalyzer>;
@@ -13,9 +14,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 {
     /// <summary>Verifies a for control variable captured by a delegate added to a collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForVariableAddedToCollectionIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task ForVariableAddedToCollectionIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -34,9 +36,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a for control variable captured by an event handler is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForVariableSubscribedToEventIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task ForVariableSubscribedToEventIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System.ComponentModel;
 
@@ -54,9 +57,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a for control variable captured by a deferred runner is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForVariableHandedToTaskRunIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task ForVariableHandedToTaskRunIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System.Collections.Generic;
             using System.Threading.Tasks;
@@ -75,9 +79,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a local stepped by a while body and captured by an escaping delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WhileSteppedLocalIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task WhileSteppedLocalIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -100,9 +105,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a local stepped by a do body and captured by an escaping delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DoSteppedLocalIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task DoSteppedLocalIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -126,9 +132,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a for control variable captured by a yielded delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForVariableYieldedIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task ForVariableYieldedIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -147,9 +154,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous method capturing the for control variable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousMethodCapturingForVariableIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task AnonymousMethodCapturingForVariableIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -168,9 +176,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a delegate assigned to an array element and capturing the for variable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForVariableAssignedToArrayElementIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task ForVariableAssignedToArrayElementIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
 
@@ -188,9 +197,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a local function capturing the for variable and stored in a collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionCapturingForVariableIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task LocalFunctionCapturingForVariableIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -212,9 +222,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a foreach iteration variable captured by an escaping delegate is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForEachIterationVariableIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ForEachIterationVariableIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -234,9 +245,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies an immediately invoked lambda capturing the for variable is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImmediatelyInvokedLambdaIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ImmediatelyInvokedLambdaIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -254,9 +266,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a captured local that never changes across the loop is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonVaryingCapturedLocalIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonVaryingCapturedLocalIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -276,9 +289,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a per-iteration copy captured instead of the for variable is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PerIterationCopyIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task PerIterationCopyIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -300,9 +314,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a captured parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturedParameterIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task CapturedParameterIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -321,9 +336,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a lambda invoked in place inside the loop is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaInvokedInPlaceIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task LambdaInvokedInPlaceIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System.Collections.Generic;
 
@@ -341,9 +357,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a delegate returned from inside the loop is never reported, because return ends the loop.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedDelegateIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ReturnedDelegateIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -362,9 +379,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a local function called in place inside the loop is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionCalledInPlaceIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task LocalFunctionCalledInPlaceIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -383,9 +401,10 @@ public class CapturedLoopVariableAnalyzerUnitTest
 
     /// <summary>Verifies a delegate outside any loop is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateOutsideLoopIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task DelegateOutsideLoopIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -406,11 +425,7 @@ public class CapturedLoopVariableAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new VerifyCapture.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyCapture.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -418,5 +433,6 @@ public class CapturedLoopVariableAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyReportAsync(source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyReportAsync(source);
 }

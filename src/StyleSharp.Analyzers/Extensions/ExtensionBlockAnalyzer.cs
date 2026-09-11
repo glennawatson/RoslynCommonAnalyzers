@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -53,15 +54,16 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The current receiver text.</param>
     /// <param name="previousReceiver">The previous receiver text, when any.</param>
     /// <returns><see langword="true"/> when the current receiver is out of lexical order.</returns>
-    internal static bool IsOutOfOrderReceiver(string receiver, string? previousReceiver)
-        => previousReceiver is not null && string.CompareOrdinal(receiver, previousReceiver) < 0;
+    internal static bool IsOutOfOrderReceiver(string receiver, string? previousReceiver) =>
+        previousReceiver is not null && string.CompareOrdinal(receiver, previousReceiver) < 0;
 
     /// <summary>Returns whether a second extension block repeats the immediately previous receiver.</summary>
     /// <param name="receiver">The current receiver text.</param>
     /// <param name="previousReceiver">The previous receiver text.</param>
     /// <returns><see langword="true"/> when both receivers are ordinally equal.</returns>
-    internal static bool IsDuplicateImmediateReceiver(string receiver, string previousReceiver)
-        => string.Equals(receiver, previousReceiver, StringComparison.Ordinal);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsDuplicateImmediateReceiver(string receiver, string previousReceiver) =>
+        string.Equals(receiver, previousReceiver, StringComparison.Ordinal);
 
     /// <summary>Reports SST1706 for a classic <c>this</c>-parameter extension method on a broad receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -93,8 +95,8 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="receiverType">The receiver parameter's type syntax.</param>
     /// <param name="text">The broad receiver text when matched.</param>
     /// <returns><see langword="true"/> for <c>object</c>, <c>dynamic</c>, or an unconstrained type parameter.</returns>
-    private static bool TryGetBroadReceiverText(MethodDeclarationSyntax method, TypeSyntax? receiverType, out string text)
-        => ExtensionBlockHelper.IsBroadReceiver(receiverType, out text)
+    private static bool TryGetBroadReceiverText(MethodDeclarationSyntax method, TypeSyntax? receiverType, out string text) =>
+        ExtensionBlockHelper.IsBroadReceiver(receiverType, out text)
             || IsUnconstrainedTypeParameterReceiver(method, receiverType, out text);
 
     /// <summary>Returns whether a classic extension receiver is one of the method's unconstrained type parameters.</summary>
@@ -228,7 +230,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="groupEnded">Whether a non-extension member already interrupted the block run.</param>
     /// <param name="scan">The per-block tracking state, updated on return.</param>
     private static void ProcessBlock(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         bool groupEnded,
         ref BlockScanState scan)
@@ -309,7 +311,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         var builder = new System.Text.StringBuilder(keyed);
         for (var i = 0; i < constraints.Count; i++)
         {
-            builder.Append('\u0001').Append(constraints[i].ToString());
+            _ = builder.Append('\u0001').Append(constraints[i].ToString());
         }
 
         return builder.ToString();
@@ -334,7 +336,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
         var modifiers = parameters[0].Modifiers;
         for (var i = 0; i < modifiers.Count; i++)
         {
-            builder.Append(modifiers[i].ValueText).Append(' ');
+            _ = builder.Append(modifiers[i].ValueText).Append(' ');
         }
 
         return builder.Append(receiver).ToString();
@@ -347,7 +349,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The current receiver text.</param>
     /// <param name="previousReceiver">The previous receiver text, when any.</param>
     private static void ReportOutOfOrderReceiver(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         ref SyntaxToken extensionKeyword,
         string receiver,
@@ -370,7 +372,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="scan">The per-block tracking state, updated on return.</param>
     /// <returns><see langword="true"/> when the receiver was handled entirely.</returns>
     private static bool TryHandleFirstReceivers(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         ref SyntaxToken extensionKeyword,
         string receiver,
@@ -406,12 +408,8 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="firstKey">The first block's merge key.</param>
     /// <param name="previousKey">The most recently seen merge key.</param>
     /// <returns>The initialized merge-key set.</returns>
-    private static HashSet<string> CreateSeenKeys(string firstKey, string previousKey)
-        => new(StringComparer.Ordinal)
-        {
-            firstKey,
-            previousKey
-        };
+    private static HashSet<string> CreateSeenKeys(string firstKey, string previousKey) =>
+        new(StringComparer.Ordinal) { firstKey, previousKey, };
 
     /// <summary>Reports SST1701 when the block's merge key was already seen.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -421,7 +419,7 @@ public sealed class ExtensionBlockAnalyzer : DiagnosticAnalyzer
     /// <param name="mergeKey">The current block's constraint-aware merge key.</param>
     /// <param name="seenKeys">The merge keys already seen.</param>
     private static void ReportDuplicateReceiver(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax block,
         ref SyntaxToken extensionKeyword,
         string receiver,

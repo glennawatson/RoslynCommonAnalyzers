@@ -54,15 +54,15 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation has the two-argument <c>.Register(callback, state)</c> shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the member name is Register with two arguments.</returns>
-    internal static bool IsRegisterShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == CallbackAndStateArgumentCount
+    internal static bool IsRegisterShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == CallbackAndStateArgumentCount
             && invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText == RegisterMethodName;
 
     /// <summary>Reports PSH1309 for a Register overload whose UnsafeRegister twin exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="tokenType">The cancellation token type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol tokenType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol tokenType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsRegisterShape(invocation)

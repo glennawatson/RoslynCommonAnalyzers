@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the pass-through async state machine code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("PassThroughStateMachineCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PassThroughStateMachineCodeFixBenchmarks : IDisposable
@@ -41,7 +43,7 @@ public class PassThroughStateMachineCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, PassThroughStateMachineBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var type = CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
@@ -49,6 +51,7 @@ public class PassThroughStateMachineCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

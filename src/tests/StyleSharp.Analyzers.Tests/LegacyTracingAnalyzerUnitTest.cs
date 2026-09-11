@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySelf = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2600LegacyTracingAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LegacyTracingAnalyzerUnitTest
 {
     /// <summary>Verifies a Trace.WriteLine call is reported when structured logging is available.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceWriteLineIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TraceWriteLineIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -23,9 +25,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a Trace.Write call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceWriteIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TraceWriteIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -35,9 +38,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a Trace.WriteIf call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceWriteIfIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TraceWriteIfIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -47,9 +51,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a Trace.WriteLineIf call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceWriteLineIfIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TraceWriteLineIfIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -59,9 +64,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies the short Trace.WriteLine form binds and is reported through an imported namespace.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImportedTraceWriteLineIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ImportedTraceWriteLineIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             namespace App
             {
@@ -76,9 +82,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a using-static Trace.WriteLine call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticTraceWriteLineIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task UsingStaticTraceWriteLineIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             namespace App
             {
@@ -93,9 +100,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when no structured-logging abstraction is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoStructuredLoggingAvailableIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task NoStructuredLoggingAvailableIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -107,9 +115,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies Debug.WriteLine is not reported, since it is compiled out of release builds.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DebugWriteLineIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task DebugWriteLineIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -119,9 +128,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a Trace method outside the output set is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceInformationIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TraceInformationIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -131,9 +141,10 @@ public class LegacyTracingAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on another type is not treated as legacy tracing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedTraceWriteLineIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task UserDefinedTraceWriteLineIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

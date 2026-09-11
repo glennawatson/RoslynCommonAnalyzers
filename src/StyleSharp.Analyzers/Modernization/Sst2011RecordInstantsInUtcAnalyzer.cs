@@ -64,8 +64,8 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model, used only to classify a store's target.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when the value is stored in state or handed back to a caller.</returns>
-    internal static bool IsRecorded(MemberAccessExpressionSyntax access, SemanticModel model, CancellationToken cancellationToken)
-        => access.Parent switch
+    internal static bool IsRecorded(MemberAccessExpressionSyntax access, SemanticModel model, CancellationToken cancellationToken) =>
+        access.Parent switch
         {
             ReturnStatementSyntax @return => @return.Expression == access,
             ArrowExpressionClauseSyntax arrow => arrow.Expression == access,
@@ -77,7 +77,7 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one local-clock read that is being recorded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="clockTypes">The clock types resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
@@ -109,8 +109,7 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
     /// <remarks>Decided on syntax alone: a field's declarator sits under a field declaration, a local's under a statement.</remarks>
     private static bool IsStateInitializer(EqualsValueClauseSyntax equals) => equals.Parent switch
     {
-        PropertyDeclarationSyntax => true,
-        VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax } => true,
+        PropertyDeclarationSyntax or VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax } => true,
         _ => false,
     };
 

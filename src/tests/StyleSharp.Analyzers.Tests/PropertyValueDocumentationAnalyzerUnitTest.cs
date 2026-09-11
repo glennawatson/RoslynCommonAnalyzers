@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPropertyValue = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.PropertyValueDocumentationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class PropertyValueDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies a documented property without a value element is reported (SST1609).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyWithoutValueReportedAsync()
-        => await VerifyPropertyValue.VerifyAnalyzerAsync(
+    public Task PropertyWithoutValueReportedAsync() =>
+        VerifyPropertyValue.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -25,9 +27,10 @@ public class PropertyValueDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a property whose value element is empty is reported (SST1610).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyWithEmptyValueReportedAsync()
-        => await VerifyPropertyValue.VerifyAnalyzerAsync(
+    public Task PropertyWithEmptyValueReportedAsync() =>
+        VerifyPropertyValue.VerifyAnalyzerAsync(
             """
             internal class C
             {

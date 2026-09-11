@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the swapped-argument code-fix path (SST2400).</summary>
+[System.Diagnostics.DebuggerDisplay("SwappedArgumentsCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class SwappedArgumentsCodeFixBenchmarks : IDisposable
@@ -46,7 +48,7 @@ public class SwappedArgumentsCodeFixBenchmarks : IDisposable
     {
         // SST2400 only reports a call whose two arguments can trade places.
         const int SwappableArgumentPairSize = 2;
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             SwappedArgumentsBenchmarkSource.Generate(Nodes, violating: true));
@@ -68,6 +70,7 @@ public class SwappedArgumentsCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

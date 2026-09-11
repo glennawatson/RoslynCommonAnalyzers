@@ -10,8 +10,8 @@ internal static class SingleLineSummaryCodeFixBenchmarkSource
     /// <summary>Generates a compilation unit containing many short multi-line summaries.</summary>
     /// <param name="types">The number of documented types to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types)
-        => $$"""
+    internal static string Generate(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateType)}}
@@ -20,8 +20,8 @@ internal static class SingleLineSummaryCodeFixBenchmarkSource
     /// <summary>Builds one violating type declaration.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index)
-        => $$"""
+    private static string GenerateType(int index) =>
+        $$"""
            /// <summary>
            /// Short summary {{index}}.
            /// </summary>

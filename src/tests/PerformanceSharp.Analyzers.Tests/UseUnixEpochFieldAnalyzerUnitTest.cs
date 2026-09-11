@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -159,9 +160,10 @@ public class UseUnixEpochFieldAnalyzerUnitTest
 
     /// <summary>Verifies an explicitly local epoch is not reported: it names a different instant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalKindEpochIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task LocalKindEpochIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -173,9 +175,10 @@ public class UseUnixEpochFieldAnalyzerUnitTest
 
     /// <summary>Verifies an explicitly unspecified epoch is not reported: written out, it is a choice.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnspecifiedKindEpochIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task UnspecifiedKindEpochIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -187,9 +190,10 @@ public class UseUnixEpochFieldAnalyzerUnitTest
 
     /// <summary>Verifies another date is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherDateIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task OtherDateIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -201,9 +205,10 @@ public class UseUnixEpochFieldAnalyzerUnitTest
 
     /// <summary>Verifies a non-zero offset is not reported: it is not the epoch.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonZeroOffsetIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonZeroOffsetIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -215,9 +220,10 @@ public class UseUnixEpochFieldAnalyzerUnitTest
 
     /// <summary>Verifies a non-zero time component is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonZeroTimeIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonZeroTimeIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -241,12 +247,7 @@ public class UseUnixEpochFieldAnalyzerUnitTest
                               }
                               """;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -257,12 +258,7 @@ public class UseUnixEpochFieldAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -270,5 +266,6 @@ public class UseUnixEpochFieldAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

@@ -90,6 +90,6 @@ public sealed class Sst1146ConditionalOnNewLineCodeFixProvider : CodeFixProvider
         var builder = new System.Text.StringBuilder(indentationLength + 1);
         _ = builder.Append(newLine).Append(lineText, 0, indentationLength);
         var separatingTrivia = TextSpan.FromBounds(previous.Span.End, token.SpanStart);
-        return new TextChange(separatingTrivia, builder.ToString());
+        return new(separatingTrivia, builder.ToString());
     }
 }

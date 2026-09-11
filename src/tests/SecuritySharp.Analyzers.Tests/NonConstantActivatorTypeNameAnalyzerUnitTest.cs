@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeActivatorTypeName = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 {
     /// <summary>Verifies the two-string <c>Activator.CreateInstance(assemblyName, typeName)</c> overload with a non-constant type name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CreateInstanceStringTypeNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task CreateInstanceStringTypeNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -31,9 +33,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies the <c>(assemblyName, typeName, activationAttributes)</c> overload with a non-constant type name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CreateInstanceWithActivationAttributesReportedAsync()
-        => await VerifyNet90Async(
+    public Task CreateInstanceWithActivationAttributesReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -48,9 +51,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies the long binding-flags overload with a non-constant type name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CreateInstanceBindingFlagsOverloadReportedAsync()
-        => await VerifyNet90Async(
+    public Task CreateInstanceBindingFlagsOverloadReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Globalization;
@@ -75,9 +79,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies <c>Activator.CreateInstanceFrom(assemblyFile, typeName)</c> with a non-constant type name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CreateInstanceFromReportedAsync()
-        => await VerifyNet90Async(
+    public Task CreateInstanceFromReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -92,9 +97,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies the <c>typeName:</c>-named argument form is still reported when reordered.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedTypeNameArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedTypeNameArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -109,9 +115,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies a type name built by concatenating non-constant data is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenatedTypeNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConcatenatedTypeNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -126,9 +133,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal type name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantTypeNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantTypeNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -143,9 +151,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies a type name held in a <c>const</c> local (constant-folded) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstLocalTypeNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstLocalTypeNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -161,9 +170,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies the Type-taking overload (the SES1401 inline shape) is not double-reported here.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeTakingOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task TypeTakingOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -178,9 +188,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies the generic <c>Activator.CreateInstance&lt;T&gt;()</c> form is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericCreateInstanceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task GenericCreateInstanceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -195,9 +206,10 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
 
     /// <summary>Verifies a two-string <c>CreateInstance</c> method that is not on <c>System.Activator</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonActivatorCreateInstanceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonActivatorCreateInstanceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Factory
             {
@@ -219,11 +231,7 @@ public class NonConstantActivatorTypeNameAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeActivatorTypeName.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeActivatorTypeName.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

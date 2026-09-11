@@ -18,7 +18,7 @@ internal static class DescriptorFactory
     /// <param name="category">The rule category.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
-    public static DiagnosticDescriptor Create(string id, string title, string messageFormat, string category, string description) =>
+    internal static DiagnosticDescriptor Create(string id, string title, string messageFormat, string category, string description) =>
         new(
             id,
             title,
@@ -36,7 +36,7 @@ internal static class DescriptorFactory
     /// <param name="category">The rule category.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
-    public static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string category, string description) =>
+    internal static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string category, string description) =>
         new(
             id,
             title,
@@ -50,6 +50,6 @@ internal static class DescriptorFactory
     /// <summary>Builds the docs-page help link for a rule id.</summary>
     /// <param name="id">The diagnostic id.</param>
     /// <returns>The help link.</returns>
-    private static string BuildHelpLink(string id)
-        => $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md";
+    private static string BuildHelpLink(string id) =>
+        $"https://github.com/glennawatson/RoslynCommonAnalyzers/blob/main/docs/rules/{id}.md";
 }

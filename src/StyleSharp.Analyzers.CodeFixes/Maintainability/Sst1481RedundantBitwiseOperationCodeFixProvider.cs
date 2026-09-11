@@ -2,12 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Removes a bitwise operation that cannot change its operand's value (SST1481): <c>x | 0</c>,
-/// <c>x ^ 0</c> and <c>x &amp; ~0</c> all collapse to <c>x</c>.
-/// </summary>
+/// <summary>Removes a bitwise operation that cannot change its operand's value (SST1481): <c>x | 0</c>, <c>x ^ 0</c> and <c>x &amp; ~0</c> all collapse to <c>x</c>.</summary>
 /// <remarks>
 /// <para>
 /// <c>x &amp; 0</c> is reported without a fix. It is always <c>0</c>, but whether the author meant a
@@ -29,31 +28,32 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Remove the redundant operation",
             nameof(Sst1481RedundantBitwiseOperationCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies one SST1481 removal for the reported operation.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => TryRewrite(root, diagnostic) is { } edit
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
 
@@ -77,15 +77,12 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
         }
 
         var keepLeft = side == Sst1481RedundantBitwiseOperationAnalyzer.LeftOperandSurvives;
-        if (binary.Parent is ParenthesizedExpressionSyntax parentheses && IsPrimary(Surviving(binary, keepLeft)))
-        {
-            return new NodeReplacement(
+        return binary.Parent is ParenthesizedExpressionSyntax parentheses && IsPrimary(Surviving(binary, keepLeft))
+            ? new NodeReplacement(
                 parentheses,
                 Surviving(binary, keepLeft).WithTriviaFrom(parentheses),
-                current => Collapse(current, keepLeft));
-        }
-
-        return new NodeReplacement(
+                current => Collapse(current, keepLeft))
+            : new NodeReplacement(
             binary,
             Surviving(binary, keepLeft).WithTriviaFrom(binary),
             current => Lift(current, keepLeft));
@@ -95,8 +92,8 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
     /// <param name="current">The operation, as it stands after any nested fix.</param>
     /// <param name="keepLeft">Whether the left operand is the one that survives.</param>
     /// <returns>The surviving operand, or the node unchanged when it no longer matches.</returns>
-    private static SyntaxNode Lift(SyntaxNode current, bool keepLeft)
-        => current is BinaryExpressionSyntax binary && IsFixableKind(binary)
+    private static SyntaxNode Lift(SyntaxNode current, bool keepLeft) =>
+        current is BinaryExpressionSyntax binary && IsFixableKind(binary)
             ? Surviving(binary, keepLeft).WithTriviaFrom(binary)
             : current;
 
@@ -104,8 +101,8 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
     /// <param name="current">The parenthesized operation, as it stands after any nested fix.</param>
     /// <param name="keepLeft">Whether the left operand is the one that survives.</param>
     /// <returns>The surviving operand, or the node unchanged when it no longer matches.</returns>
-    private static SyntaxNode Collapse(SyntaxNode current, bool keepLeft)
-        => current is ParenthesizedExpressionSyntax { Expression: BinaryExpressionSyntax binary } parentheses && IsFixableKind(binary)
+    private static SyntaxNode Collapse(SyntaxNode current, bool keepLeft) =>
+        current is ParenthesizedExpressionSyntax { Expression: BinaryExpressionSyntax binary } parentheses && IsFixableKind(binary)
             ? Surviving(binary, keepLeft).WithTriviaFrom(parentheses)
             : current;
 
@@ -113,14 +110,14 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
     /// <param name="binary">The reported operation.</param>
     /// <param name="keepLeft">Whether the left operand is the one that survives.</param>
     /// <returns>The surviving operand.</returns>
-    private static ExpressionSyntax Surviving(BinaryExpressionSyntax binary, bool keepLeft)
-        => keepLeft ? binary.Left : binary.Right;
+    private static ExpressionSyntax Surviving(BinaryExpressionSyntax binary, bool keepLeft) =>
+        keepLeft ? binary.Left : binary.Right;
 
     /// <summary>Returns whether an expression is a primary one that no surrounding operator can regroup.</summary>
     /// <param name="expression">The surviving operand.</param>
     /// <returns><see langword="true"/> when the operand is safe to unwrap out of its parentheses.</returns>
-    private static bool IsPrimary(ExpressionSyntax expression)
-        => expression is IdentifierNameSyntax
+    private static bool IsPrimary(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax
             or LiteralExpressionSyntax
             or MemberAccessExpressionSyntax
             or InvocationExpressionSyntax
@@ -131,8 +128,8 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
     /// <summary>Returns whether the resolved node is still one of the reported operator kinds.</summary>
     /// <param name="binary">The candidate expression.</param>
     /// <returns><see langword="true"/> for <c>&amp;</c>, <c>|</c> and <c>^</c> expressions.</returns>
-    private static bool IsFixableKind(BinaryExpressionSyntax binary)
-        => binary.RawKind is (int)SyntaxKind.BitwiseOrExpression
+    private static bool IsFixableKind(BinaryExpressionSyntax binary) =>
+        binary.RawKind is (int)SyntaxKind.BitwiseOrExpression
             or (int)SyntaxKind.ExclusiveOrExpression
             or (int)SyntaxKind.BitwiseAndExpression;
 }

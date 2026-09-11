@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for do-not-combine-fields analysis (SST1132).</summary>
+[System.Diagnostics.DebuggerDisplay("DoNotCombineFieldsBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DoNotCombineFieldsBenchmarks
@@ -24,11 +26,13 @@ public class DoNotCombineFieldsBenchmarks
 
     /// <summary>Benchmarks the clean combined-field path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DoNotCombineFields_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating combined-field path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DoNotCombineFields_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

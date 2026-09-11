@@ -77,7 +77,7 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         }
 
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        var insertion = "/// " + element + LayoutFixHelpers.DetectNewLine(text) + Indent(member);
+        var insertion = $"/// {element}{LayoutFixHelpers.DetectNewLine(text)}{Indent(member)}";
         return document.WithText(text.WithChanges(new TextChange(new(member.GetFirstToken().SpanStart, 0), insertion)));
     }
 
@@ -133,7 +133,7 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         }
 
         context.RegisterCodeFix(
-            CodeAction.Create("Add documentation element", token => InsertElementAsync(context.Document, member, element, token), equivalenceKey: "Add:" + element),
+            CodeAction.Create("Add documentation element", token => InsertElementAsync(context.Document, member, element, token), equivalenceKey: $"Add:{element}"),
             diagnostic);
     }
 
@@ -151,7 +151,7 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         if (id == DocumentationRules.ParametersMustBeDocumented.Id || id == DocumentationRules.ExtensionBlockParametersMustBeDocumented.Id)
         {
             return node.FirstAncestorOrSelf<ParameterSyntax>() is { } parameter
-                ? "<param name=\"" + parameter.Identifier.ValueText + "\"></param>"
+                ? $"<param name=\"{parameter.Identifier.ValueText}\"></param>"
                 : null;
         }
 
@@ -161,7 +161,7 @@ public sealed class DocumentationStubCodeFixProvider : CodeFixProvider
         }
 
         return node.FirstAncestorOrSelf<TypeParameterSyntax>() is { } typeParameter
-            ? "<typeparam name=\"" + typeParameter.Identifier.ValueText + "\"></typeparam>"
+            ? $"<typeparam name=\"{typeParameter.Identifier.ValueText}\"></typeparam>"
             : null;
     }
 

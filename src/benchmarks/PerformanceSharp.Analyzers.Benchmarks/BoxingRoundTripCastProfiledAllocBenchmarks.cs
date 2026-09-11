@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for boxing round-trip cast analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("BoxingRoundTripCastProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class BoxingRoundTripCastProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class BoxingRoundTripCastProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean boxing round-trip cast path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BoxingRoundTripCast_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating boxing round-trip cast path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BoxingRoundTripCast_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

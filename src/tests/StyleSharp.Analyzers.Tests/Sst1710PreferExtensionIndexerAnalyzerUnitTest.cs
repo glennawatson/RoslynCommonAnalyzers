@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyIndexer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1710PreferExtensionIndexerAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 {
     /// <summary>Verifies an accessor-shaped extension method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AccessorShapedExtensionReportedAsync()
-        => await RunAsync(
+    public Task AccessorShapedExtensionReportedAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -25,9 +27,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a string-keyed lookup extension is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringKeyedAccessorReportedAsync()
-        => await RunAsync(
+    public Task StringKeyedAccessorReportedAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -37,9 +40,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a method that returns nothing is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidReturnIsCleanAsync()
-        => await RunAsync(
+    public Task VoidReturnIsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -49,9 +53,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a method taking more than one index parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtraParameterIsCleanAsync()
-        => await RunAsync(
+    public Task ExtraParameterIsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -61,9 +66,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a method whose name does not read as an accessor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAccessorNameIsCleanAsync()
-        => await RunAsync(
+    public Task NonAccessorNameIsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -73,9 +79,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a plain static method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExtensionIsCleanAsync()
-        => await RunAsync(
+    public Task NonExtensionIsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -85,9 +92,10 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported below C# 15, where extension indexers do not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BelowCSharp15IsCleanAsync()
-        => await RunAsync(
+    public Task BelowCSharp15IsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -102,10 +110,7 @@ public class Sst1710PreferExtensionIndexerAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
     {
-        var test = new VerifyIndexer.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyIndexer.Test { TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

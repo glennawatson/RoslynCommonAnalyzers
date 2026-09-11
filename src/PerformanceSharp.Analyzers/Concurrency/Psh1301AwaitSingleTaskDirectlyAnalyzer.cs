@@ -80,7 +80,7 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsSingleArgumentCombinatorShape(invocation, out var isWaitAll)
@@ -116,8 +116,8 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the invocation is a static task combinator call.</returns>
-    private static bool BindsToTaskCombinator(SemanticModel model, InvocationExpressionSyntax invocation, INamedTypeSymbol taskType, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: true } method
+    private static bool BindsToTaskCombinator(SemanticModel model, InvocationExpressionSyntax invocation, INamedTypeSymbol taskType, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: true } method
             && SymbolEqualityComparer.Default.Equals(method.ContainingType, taskType);
 
     /// <summary>Returns whether the single argument is a non-generic or generic task of the expected types.</summary>
@@ -148,6 +148,6 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is awaited as a standalone expression statement, discarding the result.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> for the <c>await Task.WhenAll(t);</c> statement shape.</returns>
-    private static bool IsDirectlyAwaitedStatement(InvocationExpressionSyntax invocation)
-        => invocation.Parent is AwaitExpressionSyntax { Parent: ExpressionStatementSyntax };
+    private static bool IsDirectlyAwaitedStatement(InvocationExpressionSyntax invocation) =>
+        invocation.Parent is AwaitExpressionSyntax { Parent: ExpressionStatementSyntax };
 }

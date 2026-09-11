@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for documentation-comment style analysis (SST1626).</summary>
+[System.Diagnostics.DebuggerDisplay("DocumentationCommentStyleBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DocumentationCommentStyleBenchmarks
@@ -24,11 +26,13 @@ public class DocumentationCommentStyleBenchmarks
 
     /// <summary>Benchmarks the clean documentation-comment style path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DocumentationCommentStyle_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating documentation-comment style path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DocumentationCommentStyle_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

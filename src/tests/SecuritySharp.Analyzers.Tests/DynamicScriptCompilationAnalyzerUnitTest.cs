@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeScript = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -29,9 +30,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a runtime variable passed to <c>EvaluateAsync</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantVariableToEvaluateAsyncReportedAsync()
-        => await VerifyAsync(
+    public Task NonConstantVariableToEvaluateAsyncReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -46,9 +48,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation that folds in a variable passed to <c>RunAsync</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenationWithVariableToRunAsyncReportedAsync()
-        => await VerifyAsync(
+    public Task ConcatenationWithVariableToRunAsyncReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -63,9 +66,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a runtime variable passed to <c>Create</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantToCreateReportedAsync()
-        => await VerifyAsync(
+    public Task NonConstantToCreateReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -80,9 +84,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies the code argument passed by name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedCodeArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task NamedCodeArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -97,9 +102,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string that folds in a variable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolationWithVariableReportedAsync()
-        => await VerifyAsync(
+    public Task InterpolationWithVariableReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -114,9 +120,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a constant string literal script is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstantLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -131,9 +138,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c> reference script is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstReferenceIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstReferenceIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -150,9 +158,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation of two constants (folded to a constant) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantConcatenationIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstantConcatenationIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.CodeAnalysis.CSharp.Scripting;
 
@@ -167,9 +176,10 @@ public class DynamicScriptCompilationAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on an unrelated type is not reported (only CSharpScript is gated).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedEvaluateAsyncIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedEvaluateAsyncIsCleanAsync() =>
+        VerifyAsync(
             """
             public static class Calculator
             {
@@ -208,11 +218,7 @@ public class DynamicScriptCompilationAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeScript.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeScript.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -223,11 +229,7 @@ public class DynamicScriptCompilationAnalyzerUnitTest
     private static async Task VerifyAsync(string source)
     {
         // The stub follows the source so the source's own using directives still precede all namespaces.
-        var test = new AnalyzeScript.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + "\n\n" + ScriptingStub
-        };
+        var test = new AnalyzeScript.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = $"{source}\n\n{ScriptingStub}" };
 
         await test.RunAsync(CancellationToken.None);
     }

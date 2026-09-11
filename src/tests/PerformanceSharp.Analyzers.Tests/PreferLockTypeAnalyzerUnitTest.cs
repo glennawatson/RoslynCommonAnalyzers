@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
@@ -17,13 +18,6 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1300 (use System.Threading.Lock for a dedicated lock object) and its code fix.</summary>
 public class PreferLockTypeAnalyzerUnitTest
 {
-    /// <summary>The name of the candidate lock field the helper-level fast-path tests ask about.</summary>
-    private const string GateFieldName = "_gate";
-
-    /// <summary>A type whose one object field is used only as a lock target — the shape the fast paths must accept.</summary>
-    private const string LockOnlyGateFieldSource =
-        "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }";
-
     /// <summary>Verifies a lock-only object field is reported (PSH1300) and its type changed to Lock.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -211,9 +205,10 @@ public class PreferLockTypeAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent where System.Threading.Lock does not exist (pre-.NET 9).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenLockTypeUnavailableAsync()
-        => await VerifyLock.VerifyAnalyzerAsync(
+    public Task SilentWhenLockTypeUnavailableAsync() =>
+        VerifyLock.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -267,9 +262,10 @@ public class PreferLockTypeAnalyzerUnitTest
     [Test]
     public async Task SyntaxOnlyUsageCheckAcceptsSimpleLockOnlyField()
     {
-        var type = ParseType(LockOnlyGateFieldSource);
+        var type = ParseType(
+            "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, GateFieldName)).IsTrue();
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsTrue();
     }
 
     /// <summary>Verifies the syntax-only usage fast path rejects non-lock field uses.</summary>
@@ -280,7 +276,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } System.Console.WriteLine(_gate); } }");
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, GateFieldName)).IsFalse();
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
     }
 
     /// <summary>Verifies the syntax-only usage fast path rejects shadowed identifiers.</summary>
@@ -291,7 +287,7 @@ public class PreferLockTypeAnalyzerUnitTest
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, GateFieldName)).IsFalse();
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, "_gate")).IsFalse();
     }
 
     /// <summary>Verifies the single-candidate syntax prepass accepts an unambiguous object field.</summary>
@@ -299,10 +295,11 @@ public class PreferLockTypeAnalyzerUnitTest
     [Test]
     public async Task SyntaxOnlySingleCandidateCheckAcceptsUnambiguousObjectField()
     {
-        var type = ParseType(LockOnlyGateFieldSource);
+        var type = ParseType(
+            "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
 
         await Assert.That(Psh1300PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out var variable)).IsTrue();
-        await Assert.That(variable!.Identifier.ValueText).IsEqualTo(GateFieldName);
+        await Assert.That(variable!.Identifier.ValueText).IsEqualTo("_gate");
     }
 
     /// <summary>Verifies the single-candidate syntax prepass rejects ambiguous Object identifier spellings.</summary>
@@ -321,10 +318,11 @@ public class PreferLockTypeAnalyzerUnitTest
     [Test]
     public async Task FieldNameTokenClassificationRecognizesLockUse()
     {
-        var type = ParseType(LockOnlyGateFieldSource);
-        var token = type.DescendantTokens().Single(static t => t.ValueText == GateFieldName && t.Parent is IdentifierNameSyntax);
+        var type = ParseType(
+            "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is IdentifierNameSyntax);
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, GateFieldName)).IsEqualTo(
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.LockUse);
     }
 
@@ -333,10 +331,11 @@ public class PreferLockTypeAnalyzerUnitTest
     [Test]
     public async Task FieldNameTokenClassificationIgnoresFieldDeclaration()
     {
-        var type = ParseType(LockOnlyGateFieldSource);
-        var token = type.DescendantTokens().Single(static t => t.ValueText == GateFieldName && t.Parent is VariableDeclaratorSyntax);
+        var type = ParseType(
+            "public class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }");
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is VariableDeclaratorSyntax);
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, GateFieldName)).IsEqualTo(
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
     }
 
@@ -347,9 +346,9 @@ public class PreferLockTypeAnalyzerUnitTest
     {
         var type = ParseType(
             "public class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }");
-        var token = type.DescendantTokens().Single(static t => t.ValueText == GateFieldName && t.Parent is ParameterSyntax);
+        var token = type.DescendantTokens().Single(static t => t.ValueText == "_gate" && t.Parent is ParameterSyntax);
 
-        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, GateFieldName)).IsEqualTo(
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, token, "_gate")).IsEqualTo(
             Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.Conflict);
     }
 
@@ -389,12 +388,7 @@ public class PreferLockTypeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyLock.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyLock.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -402,8 +396,8 @@ public class PreferLockTypeAnalyzerUnitTest
     /// <summary>Parses a single field declaration for helper-level fast-path tests.</summary>
     /// <param name="source">The field declaration source.</param>
     /// <returns>The parsed field declaration.</returns>
-    private static FieldDeclarationSyntax ParseField(string source)
-        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($$"""public class C { {{source}} }""")
+    private static FieldDeclarationSyntax ParseField(string source) =>
+        (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($$"""public class C { {{source}} }""")
             .Members[0]
             .ChildNodes()
             .Single();
@@ -411,8 +405,8 @@ public class PreferLockTypeAnalyzerUnitTest
     /// <summary>Parses a single field declaration from a full type declaration for helper-level fast-path tests.</summary>
     /// <param name="source">The full type declaration source.</param>
     /// <returns>The parsed field declaration.</returns>
-    private static FieldDeclarationSyntax ParseFieldFromType(string source)
-        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source)
+    private static FieldDeclarationSyntax ParseFieldFromType(string source) =>
+        (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source)
             .Members[0]
             .ChildNodes()
             .Single();
@@ -420,7 +414,7 @@ public class PreferLockTypeAnalyzerUnitTest
     /// <summary>Parses a single type declaration for helper-level fast-path tests.</summary>
     /// <param name="source">The type declaration source.</param>
     /// <returns>The parsed type declaration.</returns>
-    private static TypeDeclarationSyntax ParseType(string source)
-        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source)
+    private static TypeDeclarationSyntax ParseType(string source) =>
+        (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source)
             .Members[0];
 }

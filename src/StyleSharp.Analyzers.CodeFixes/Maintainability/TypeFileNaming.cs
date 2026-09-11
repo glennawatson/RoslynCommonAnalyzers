@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -26,14 +27,15 @@ internal static class TypeFileNaming
     /// <param name="options">The analyzer config options for the document's tree.</param>
     /// <param name="ruleId">The diagnostic id whose rule-specific override is checked first.</param>
     /// <returns><see langword="true"/> to use the backtick-arity (metadata) convention; otherwise the brace convention.</returns>
-    public static bool UseMetadataConvention(AnalyzerConfigOptions options, string ruleId)
-        => string.Equals(ResolveConvention(options, ruleId), MetadataValue, StringComparison.OrdinalIgnoreCase);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool UseMetadataConvention(AnalyzerConfigOptions options, string ruleId) =>
+        string.Equals(ResolveConvention(options, ruleId), MetadataValue, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Builds the file-name stem (without extension or suffix) for a type declaration.</summary>
     /// <param name="type">The type declaration to name.</param>
     /// <param name="useMetadataConvention"><see langword="true"/> for backtick arity; otherwise braces.</param>
     /// <returns>The conventional file-name stem.</returns>
-    public static string Stem(MemberDeclarationSyntax type, bool useMetadataConvention)
+    internal static string Stem(MemberDeclarationSyntax type, bool useMetadataConvention)
     {
         var identifier = Identifier(type);
         var typeParameters = TypeParameters(type);
@@ -53,25 +55,25 @@ internal static class TypeFileNaming
 
         var builder = new StringBuilder(
             identifier.Length + (typeParameters.Parameters.Count * AssumedTypeParameterWidth) + TypeParameterBraceLength);
-        builder.Append(identifier).Append('{');
+        _ = builder.Append(identifier).Append('{');
         for (var index = 0; index < typeParameters.Parameters.Count; index++)
         {
             if (index > 0)
             {
-                builder.Append(',');
+                _ = builder.Append(',');
             }
 
-            builder.Append(typeParameters.Parameters[index].Identifier.ValueText);
+            _ = builder.Append(typeParameters.Parameters[index].Identifier.ValueText);
         }
 
-        builder.Append('}');
+        _ = builder.Append('}');
         return builder.ToString();
     }
 
     /// <summary>Returns the declared identifier of a top-level type-like member, or an empty string.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The identifier text.</returns>
-    public static string Identifier(MemberDeclarationSyntax member) => member switch
+    internal static string Identifier(MemberDeclarationSyntax member) => member switch
     {
         BaseTypeDeclarationSyntax type => type.Identifier.ValueText,
         DelegateDeclarationSyntax @delegate => @delegate.Identifier.ValueText,
@@ -81,7 +83,7 @@ internal static class TypeFileNaming
     /// <summary>Collects every top-level type-like declaration (types and delegates) in the compilation unit.</summary>
     /// <param name="root">The compilation unit root.</param>
     /// <returns>The list of top-level type-like declarations in source order.</returns>
-    public static List<MemberDeclarationSyntax> TopLevelTypes(CompilationUnitSyntax root)
+    internal static List<MemberDeclarationSyntax> TopLevelTypes(CompilationUnitSyntax root)
     {
         var result = new List<MemberDeclarationSyntax>();
         CollectTopLevelTypes(root.Members, result);

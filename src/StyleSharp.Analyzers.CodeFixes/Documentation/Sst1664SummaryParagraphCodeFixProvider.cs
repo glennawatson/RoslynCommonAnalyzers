@@ -20,8 +20,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.SummaryParagraph.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.SummaryParagraph.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -72,12 +72,7 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null || !TryBuildChange(text, root, diagnostic, out var change))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return root is null || !TryBuildChange(text, root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that rewrites the summary's inner lines with <c>&lt;para&gt;</c> wrappers.</summary>
@@ -110,27 +105,27 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
             {
                 if (!inParagraph)
                 {
-                    builder.Append(indent).Append("/// <para>").Append(newLine);
+                    _ = builder.Append(indent).Append("/// <para>").Append(newLine);
                     inParagraph = true;
                 }
 
-                builder.Append(text.ToString(TextSpan.FromBounds(line.Start, line.EndIncludingLineBreak)));
+                _ = builder.Append(text.ToString(TextSpan.FromBounds(line.Start, line.EndIncludingLineBreak)));
             }
             else if (inParagraph)
             {
-                builder.Append(indent).Append("/// </para>").Append(newLine);
+                _ = builder.Append(indent).Append("/// </para>").Append(newLine);
                 inParagraph = false;
             }
         }
 
         if (inParagraph)
         {
-            builder.Append(indent).Append("/// </para>").Append(newLine);
+            _ = builder.Append(indent).Append("/// </para>").Append(newLine);
         }
 
         var replaceStart = text.Lines[firstInnerLine].Start;
         var replaceEnd = text.Lines[lastInnerLine + 1].Start;
-        change = new TextChange(TextSpan.FromBounds(replaceStart, replaceEnd), builder.ToString());
+        change = new(TextSpan.FromBounds(replaceStart, replaceEnd), builder.ToString());
         return true;
     }
 

@@ -75,6 +75,6 @@ public sealed class Sst1516ElementSpacingCodeFixProvider : CodeFixProvider, ITex
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var contentStartLine = LayoutHelpers.ContentStartLine(text, member);
         var position = text.Lines[contentStartLine].Start;
-        return new TextChange(new(position, 0), newLine);
+        return new(new(position, 0), newLine);
     }
 }

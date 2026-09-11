@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 
@@ -14,9 +15,6 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1114FreezeStaticLookupsAnalyzer"/> (PSH1114 frozen lookups, opt-in).</summary>
 public class FreezeStaticLookupsAnalyzerUnitTest
 {
-    /// <summary>The path the opt-in editorconfig takes in the test's virtual file system.</summary>
-    private const string OptInConfigPath = "/.editorconfig";
-
     /// <summary>The editorconfig that opts into the disabled-by-default rule.</summary>
     private const string OptInConfig = """
         root = true
@@ -49,7 +47,7 @@ public class FreezeStaticLookupsAnalyzerUnitTest
                          """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -129,9 +127,10 @@ public class FreezeStaticLookupsAnalyzerUnitTest
 
     /// <summary>Verifies a mutated dictionary stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedDictionaryIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task MutatedDictionaryIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Collections.Generic;
 
@@ -145,9 +144,10 @@ public class FreezeStaticLookupsAnalyzerUnitTest
 
     /// <summary>Verifies a dictionary that escapes as an argument stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EscapingDictionaryIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task EscapingDictionaryIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Collections.Generic;
 
@@ -163,9 +163,10 @@ public class FreezeStaticLookupsAnalyzerUnitTest
 
     /// <summary>Verifies a non-private field stays clean; other assemblies' usage cannot be seen.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalFieldIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task InternalFieldIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Collections.Generic;
 
@@ -179,9 +180,10 @@ public class FreezeStaticLookupsAnalyzerUnitTest
 
     /// <summary>Verifies a partial type stays clean; another part could mutate the field.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task PartialTypeIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Collections.Generic;
 
@@ -260,8 +262,8 @@ public class FreezeStaticLookupsAnalyzerUnitTest
     /// <summary>Verifies the rule ships disabled by default; freezing only pays off for read-heavy tables.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task RuleIsOffByDefaultAsync()
-        => await Assert.That(CollectionRules.FreezeStaticLookups.IsEnabledByDefault).IsFalse();
+    public async Task RuleIsOffByDefaultAsync() =>
+        await Assert.That(CollectionRules.FreezeStaticLookups.IsEnabledByDefault).IsFalse();
 
     /// <summary>Runs an opted-in verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
@@ -269,16 +271,12 @@ public class FreezeStaticLookupsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOptInAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
-        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;
-            test.FixedState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+            test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         }
 
         await test.RunAsync(CancellationToken.None);

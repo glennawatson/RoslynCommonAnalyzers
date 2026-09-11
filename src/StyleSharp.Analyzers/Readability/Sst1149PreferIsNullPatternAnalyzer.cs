@@ -54,13 +54,13 @@ public sealed class Sst1149PreferIsNullPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the preferred null-check pattern text for a comparison kind.</summary>
     /// <param name="kind">The comparison kind.</param>
     /// <returns><c>is null</c> or <c>is not null</c>.</returns>
-    internal static string PatternText(SyntaxKind kind)
-        => kind == SyntaxKind.NotEqualsExpression ? "is not null" : "is null";
+    internal static string PatternText(SyntaxKind kind) =>
+        kind == SyntaxKind.NotEqualsExpression ? "is not null" : "is null";
 
     /// <summary>Reports SST1149 when a null comparison can be rewritten as an <c>is</c>-pattern.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expressionType">The resolved <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> definition, if any.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
 

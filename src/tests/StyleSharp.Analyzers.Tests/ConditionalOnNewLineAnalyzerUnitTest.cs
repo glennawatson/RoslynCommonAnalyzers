@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConditional = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1146ConditionalOnNewLineAnalyzer,
     StyleSharp.Analyzers.Sst1146ConditionalOnNewLineCodeFixProvider>;
@@ -69,9 +70,10 @@ public class ConditionalOnNewLineAnalyzerUnitTest
 
     /// <summary>Verifies normal multi-line and else-if forms are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NormalFormsAreCleanAsync()
-        => await VerifyConditional.VerifyAnalyzerAsync(
+    public Task NormalFormsAreCleanAsync() =>
+        VerifyConditional.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -84,6 +84,7 @@ public sealed class ArgumentBindingUnitTest
     /// <param name="model">The semantic model.</param>
     /// <param name="name">The method name.</param>
     /// <returns>The declared method symbol.</returns>
+    /// <exception cref="InvalidOperationException">The first type declared in <paramref name="root"/> has no method named <paramref name="name"/>.</exception>
     private static IMethodSymbol GetMethod(CompilationUnitSyntax root, SemanticModel model, string name)
     {
         foreach (var member in ((TypeDeclarationSyntax)root.Members[0]).Members)
@@ -101,6 +102,7 @@ public sealed class ArgumentBindingUnitTest
     /// <typeparam name="T">The node type.</typeparam>
     /// <param name="root">The root to search.</param>
     /// <returns>The first matching descendant.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> has no descendant of type <typeparamref name="T"/>.</exception>
     private static T FirstDescendant<T>(SyntaxNode root)
         where T : SyntaxNode
     {

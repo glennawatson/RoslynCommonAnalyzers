@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyGeneralException = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2409ThrowsGeneralExceptionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 {
     /// <summary>Verifies each of the three general types is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GeneralExceptionTypesAreReportedAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task GeneralExceptionTypesAreReportedAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -29,9 +31,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 
     /// <summary>Verifies each runtime-reserved type the runtime raises to signal a bug is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuntimeReservedExceptionTypesAreReportedAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task RuntimeReservedExceptionTypesAreReportedAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -48,9 +51,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
     /// <summary>Verifies a project type that merely shares a runtime-reserved name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The bind confirms the framework's type; a same-named type of the project's own is a different symbol.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProjectTypeSharingRuntimeReservedNameIsCleanAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task ProjectTypeSharingRuntimeReservedNameIsCleanAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             namespace Contoso
             {
@@ -67,9 +71,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a throw expression is reported like a throw statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowExpressionIsReportedAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task ThrowExpressionIsReportedAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -83,9 +88,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified general type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedGeneralExceptionIsReportedAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task QualifiedGeneralExceptionIsReportedAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -95,9 +101,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a type that names the failure is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpecificExceptionIsCleanAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task SpecificExceptionIsCleanAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -120,9 +127,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
     /// <summary>Verifies a type of the project's own that derives from the general one is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Deriving from <c>Exception</c> is how a project names its failures, which is the fix, not the problem.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedExceptionIsCleanAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task DerivedExceptionIsCleanAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -142,9 +150,10 @@ public class ThrowsGeneralExceptionAnalyzerUnitTest
 
     /// <summary>Verifies a rethrow is not a throw of a new exception.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowIsCleanAsync()
-        => await VerifyGeneralException.VerifyAnalyzerAsync(
+    public Task RethrowIsCleanAsync() =>
+        VerifyGeneralException.VerifyAnalyzerAsync(
             """
             using System;
 

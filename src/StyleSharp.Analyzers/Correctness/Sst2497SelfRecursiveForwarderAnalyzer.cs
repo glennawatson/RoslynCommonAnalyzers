@@ -57,7 +57,7 @@ public sealed class Sst2497SelfRecursiveForwarderAnalyzer : DiagnosticAnalyzer
     /// <param name="parameters">The declared parameter list.</param>
     /// <param name="expressionBody">The expression body, when the member has one.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode declaration,
         SyntaxToken identifier,
         ParameterListSyntax parameters,
@@ -84,8 +84,8 @@ public sealed class Sst2497SelfRecursiveForwarderAnalyzer : DiagnosticAnalyzer
     /// <param name="callee">The invoked expression.</param>
     /// <param name="name">The declared name.</param>
     /// <returns><see langword="true"/> when the call names the member being declared.</returns>
-    private static bool IsSelfNamedCall(ExpressionSyntax callee, string name)
-        => callee switch
+    private static bool IsSelfNamedCall(ExpressionSyntax callee, string name) =>
+        callee switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText == name,
             MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax member } => member.Identifier.ValueText == name,

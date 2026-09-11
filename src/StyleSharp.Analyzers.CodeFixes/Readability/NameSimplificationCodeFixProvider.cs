@@ -95,8 +95,8 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
     /// <summary>Creates the simplified name replacement.</summary>
     /// <param name="node">The reported name node.</param>
     /// <returns>The shortened name, or <see langword="null"/>.</returns>
-    private static SimpleNameSyntax? CreateNameReplacement(SyntaxNode? node)
-        => node switch
+    private static SimpleNameSyntax? CreateNameReplacement(SyntaxNode? node) =>
+        node switch
         {
             QualifiedNameSyntax qualifiedName => qualifiedName.Right.WithTriviaFrom(qualifiedName),
             AliasQualifiedNameSyntax aliasQualifiedName => aliasQualifiedName.Name.WithTriviaFrom(aliasQualifiedName),
@@ -122,8 +122,8 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
     /// <summary>Creates the unqualified member-access replacement.</summary>
     /// <param name="node">The reported member-access node.</param>
     /// <returns>The configured member-access replacement, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? CreateMemberAccessReplacement(SyntaxNode? node)
-        => node switch
+    private static ExpressionSyntax? CreateMemberAccessReplacement(SyntaxNode? node) =>
+        node switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.WithTriviaFrom(memberAccess),
             IdentifierNameSyntax identifier => SyntaxFactory.MemberAccessExpression(

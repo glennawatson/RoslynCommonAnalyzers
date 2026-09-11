@@ -102,7 +102,7 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
     /// <param name="nonGenericType">The non-generic completion-source type, when it exists.</param>
     /// <param name="optionsType">The task creation options enum type.</param>
     private static void AnalyzeCreation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol genericType,
         INamedTypeSymbol? nonGenericType,
         INamedTypeSymbol optionsType)
@@ -130,8 +130,8 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
     /// <param name="genericType">The generic completion-source type.</param>
     /// <param name="nonGenericType">The non-generic completion-source type, when it exists.</param>
     /// <returns><see langword="true"/> when the type matches.</returns>
-    private static bool IsCompletionSourceType(INamedTypeSymbol containingType, INamedTypeSymbol genericType, INamedTypeSymbol? nonGenericType)
-        => SymbolEqualityComparer.Default.Equals(containingType.OriginalDefinition, genericType)
+    private static bool IsCompletionSourceType(INamedTypeSymbol containingType, INamedTypeSymbol genericType, INamedTypeSymbol? nonGenericType) =>
+        SymbolEqualityComparer.Default.Equals(containingType.OriginalDefinition, genericType)
             || (nonGenericType is not null && SymbolEqualityComparer.Default.Equals(containingType, nonGenericType));
 
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
     /// <param name="optionsType">The task creation options enum type.</param>
     /// <returns><see langword="true"/> when the flag is provably absent.</returns>
     private static bool HasProvablyMissingFlag(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BaseObjectCreationExpressionSyntax creation,
         IMethodSymbol constructor,
         INamedTypeSymbol optionsType)
@@ -153,11 +153,13 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
         var parameters = constructor.Parameters;
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (SymbolEqualityComparer.Default.Equals(parameters[i].Type, optionsType))
+            if (!SymbolEqualityComparer.Default.Equals(parameters[i].Type, optionsType))
             {
-                optionsOrdinal = i;
-                break;
+                continue;
             }
+
+            optionsOrdinal = i;
+            break;
         }
 
         if (optionsOrdinal < 0)

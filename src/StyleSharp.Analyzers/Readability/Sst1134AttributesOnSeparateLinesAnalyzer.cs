@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -59,5 +60,6 @@ public sealed class Sst1134AttributesOnSeparateLinesAnalyzer : DiagnosticAnalyze
     /// <param name="text">The source text.</param>
     /// <param name="position">The position to look up.</param>
     /// <returns>The line number.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUnreachableCode = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1453UnreachableCodeAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UnreachableCodeAnalyzerUnitTest
 {
     /// <summary>Verifies statements after a return are reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementAfterReturnIsReportedAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task StatementAfterReturnIsReportedAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -28,9 +30,10 @@ public class UnreachableCodeAnalyzerUnitTest
 
     /// <summary>Verifies sequential reachable statements are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReachableStatementsAreCleanAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task ReachableStatementsAreCleanAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -44,9 +47,10 @@ public class UnreachableCodeAnalyzerUnitTest
 
     /// <summary>Verifies a local function declared after a return is clean; the compiler hoists it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionAfterReturnIsCleanAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task LocalFunctionAfterReturnIsCleanAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -67,9 +71,10 @@ public class UnreachableCodeAnalyzerUnitTest
 
     /// <summary>Verifies a local function declared after a throw is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionAfterThrowIsCleanAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task LocalFunctionAfterThrowIsCleanAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -84,9 +89,10 @@ public class UnreachableCodeAnalyzerUnitTest
 
     /// <summary>Verifies a statement after a hoisted local function is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementAfterLocalFunctionIsReportedAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task StatementAfterLocalFunctionIsReportedAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -103,9 +109,10 @@ public class UnreachableCodeAnalyzerUnitTest
 
     /// <summary>Verifies a labeled statement and what follows it stay clean; a goto can reach them.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LabeledStatementAfterReturnIsCleanAsync()
-        => await VerifyUnreachableCode.VerifyAnalyzerAsync(
+    public Task LabeledStatementAfterReturnIsCleanAsync() =>
+        VerifyUnreachableCode.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

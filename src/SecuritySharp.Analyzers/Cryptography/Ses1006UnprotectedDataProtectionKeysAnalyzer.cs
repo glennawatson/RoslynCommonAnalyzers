@@ -76,7 +76,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <summary>Reports SES1006 for a <c>PersistKeysTo*</c> call whose scope holds no <c>ProtectKeysWith*</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The gated <c>IDataProtectionBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -148,7 +148,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
         }
 
         var scan = new ProtectKeysScan(model, builderType, false, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, ProtectKeysScan>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             scope,
             ref scan,
             static (InvocationExpressionSyntax invocation, ref ProtectKeysScan state) =>
@@ -171,8 +171,8 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <param name="builderType">The gated <c>IDataProtectionBuilder</c> type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a <c>ProtectKeysWith*</c> call on the gated builder.</returns>
-    private static bool IsProtectKeysCall(InvocationExpressionSyntax invocation, SemanticModel model, INamedTypeSymbol builderType, CancellationToken cancellationToken)
-        => GetCalleeName(invocation.Expression) is { } calleeName
+    private static bool IsProtectKeysCall(InvocationExpressionSyntax invocation, SemanticModel model, INamedTypeSymbol builderType, CancellationToken cancellationToken) =>
+        GetCalleeName(invocation.Expression) is { } calleeName
             && NameMatches(calleeName.Identifier.ValueText, ProtectMethodNames)
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && IsBuilderExtension(method, builderType);
@@ -187,7 +187,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
         // the original definition to inspect the receiver type; a static call keeps the definition as-is.
         var definition = method.ReducedFrom ?? method;
         return definition.IsExtensionMethod
-            && definition.Parameters.Length > 0
+            && !definition.Parameters.IsEmpty
             && SymbolEqualityComparer.Default.Equals(definition.Parameters[0].Type, builderType);
     }
 
@@ -211,8 +211,8 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <summary>Returns the simple name a member invocation targets, or <see langword="null"/> when there is no receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The invoked member's simple name, or <see langword="null"/> when it is not a member access.</returns>
-    private static SimpleNameSyntax? GetCalleeName(ExpressionSyntax invoked)
-        => invoked switch
+    private static SimpleNameSyntax? GetCalleeName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name,

@@ -59,7 +59,7 @@ public sealed class Sst2712SetterlessInjectedPropertyCodeFixProvider : CodeFixPr
             return;
         }
 
-        editor.ReplaceNode(property, (current, _) => AddPrivateSetter((PropertyDeclarationSyntax)current));
+        editor.ReplaceNode(property, static (current, _) => AddPrivateSetter((PropertyDeclarationSyntax)current));
     }
 
     /// <summary>Resolves the reported auto-property, or <see langword="null"/> when no fix is offered.</summary>

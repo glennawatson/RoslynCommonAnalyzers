@@ -109,10 +109,10 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <param name="modifier">The candidate modifier.</param>
     /// <param name="modifiers">The member's full modifier list.</param>
     private static void ReportIfRedundant(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         MemberDeclarationSyntax member,
         SyntaxToken modifier,
-        SyntaxTokenList modifiers)
+        in SyntaxTokenList modifiers)
     {
         var redundant = modifier.Kind() switch
         {
@@ -148,7 +148,7 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// because the declaration then has to carry a body.
     /// </para>
     /// </remarks>
-    private static bool IsRedundantOnInterfaceMember(MemberDeclarationSyntax member, SyntaxKind kind, SyntaxTokenList modifiers)
+    private static bool IsRedundantOnInterfaceMember(MemberDeclarationSyntax member, SyntaxKind kind, in SyntaxTokenList modifiers)
     {
         if (member.Parent is not InterfaceDeclarationSyntax
             || member.SyntaxTree.Options is not CSharpParseOptions options
@@ -192,8 +192,8 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// Only instance members are covered. A static member cannot be readonly, and a field must be readonly —
     /// a readonly struct's instance fields have no choice — so neither is a member kind this rule registers.
     /// </remarks>
-    private static bool IsRedundantReadOnly(MemberDeclarationSyntax member, SyntaxTokenList modifiers)
-        => member.Parent is TypeDeclarationSyntax parent
+    private static bool IsRedundantReadOnly(MemberDeclarationSyntax member, in SyntaxTokenList modifiers) =>
+        member.Parent is TypeDeclarationSyntax parent
             && parent.Kind() is SyntaxKind.StructDeclaration or SyntaxKind.RecordStructDeclaration
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)
             && ModifierListHelper.Contains(parent.Modifiers, SyntaxKind.ReadOnlyKeyword);
@@ -206,8 +206,8 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// different reason. The scan that proves the member really is unsafe runs only for a member that is
     /// nested inside an unsafe one, which is rare enough to keep it off any hot path.
     /// </remarks>
-    private static bool IsRedundantUnsafe(MemberDeclarationSyntax member)
-        => IsInsideUnsafeContext(member) && ContainsUnsafeSyntax(member);
+    private static bool IsRedundantUnsafe(MemberDeclarationSyntax member) =>
+        IsInsideUnsafeContext(member) && ContainsUnsafeSyntax(member);
 
     /// <summary>Returns whether a member declares a body.</summary>
     /// <param name="member">The member declaration.</param>
@@ -249,7 +249,7 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     private static bool ContainsUnsafeSyntax(MemberDeclarationSyntax member)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             member,
             ref found,
             static (SyntaxNode node, ref bool state) =>
@@ -269,8 +269,8 @@ public sealed class Sst1491RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node is one of the syntax forms only an unsafe context allows.</summary>
     /// <param name="node">The syntax node.</param>
     /// <returns><see langword="true"/> for pointer, fixed, and address-of forms.</returns>
-    private static bool RequiresUnsafeContext(SyntaxNode node)
-        => node.Kind() is SyntaxKind.PointerType
+    private static bool RequiresUnsafeContext(SyntaxNode node) =>
+        node.Kind() is SyntaxKind.PointerType
             or SyntaxKind.FunctionPointerType
             or SyntaxKind.FixedStatement
             or SyntaxKind.SizeOfExpression

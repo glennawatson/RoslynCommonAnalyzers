@@ -75,7 +75,7 @@ public sealed class Sst1649FileNameAnalyzer : DiagnosticAnalyzer
     private static bool TryGetFirstTypeIdentifier(SyntaxNode root, out SyntaxToken identifier)
     {
         var state = (Found: false, Identifier: default(SyntaxToken));
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, (bool Found, SyntaxToken Identifier)>(root, ref state, VisitTypeLikeDeclaration);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, (bool Found, SyntaxToken Identifier)>(root, ref state, VisitTypeLikeDeclaration);
         identifier = state.Identifier;
         return state.Found;
     }

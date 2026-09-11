@@ -87,11 +87,13 @@ public sealed class Sst2251InferableTypeArgumentsAnalyzer : DiagnosticAnalyzer
 
         for (var i = 0; i < typeArguments.Count; i++)
         {
-            if (typeArguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
+            if (!typeArguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
             {
-                genericName = null;
-                return false;
+                continue;
             }
+
+            genericName = null;
+            return false;
         }
 
         return true;

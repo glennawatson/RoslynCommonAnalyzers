@@ -80,7 +80,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     /// <summary>Reports a foldable guard-then-assignment shape.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="argumentNullFolded">Whether the runtime argument-null helper exists in this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, bool argumentNullFolded)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, bool argumentNullFolded)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
         if (!TryGetFold(ifStatement, context.SemanticModel, argumentNullFolded, context.CancellationToken, out _, out _, out _))
@@ -292,8 +292,7 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     /// </remarks>
     private static bool IsSafeAssignmentTarget(ExpressionSyntax target) => target switch
     {
-        IdentifierNameSyntax => true,
-        MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } => true,
+        IdentifierNameSyntax or MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } => true,
         _ => false,
     };
 
@@ -324,6 +323,6 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether the tree's language version supports throw expressions (C# 7).</summary>
     /// <param name="node">A node in the tree.</param>
     /// <returns><see langword="true"/> when throw expressions are available.</returns>
-    private static bool SupportsThrowExpression(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
+    private static bool SupportsThrowExpression(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
 }

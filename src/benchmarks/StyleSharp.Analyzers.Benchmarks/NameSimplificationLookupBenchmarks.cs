@@ -3,12 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Benchmarks name-simplification paths split by lookup certainty.</summary>
+[System.Diagnostics.DebuggerDisplay("NameSimplificationLookupBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class NameSimplificationLookupBenchmarks
@@ -43,19 +45,22 @@ public class NameSimplificationLookupBenchmarks
 
     /// <summary>Benchmarks unshadowed names that can be decided by symbol lookup.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
-    public Task<int> NameSimplification_UnshadowedLookup()
-        => AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_unshadowedLookupScenario, _analyzers);
+    public Task<int> NameSimplification_UnshadowedLookup() =>
+        AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_unshadowedLookupScenario, _analyzers);
 
     /// <summary>Benchmarks shadowed names that lookup should reject without speculative binding.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
-    public Task<int> NameSimplification_ShadowedLookup()
-        => AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_shadowedLookupScenario, _analyzers);
+    public Task<int> NameSimplification_ShadowedLookup() =>
+        AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_shadowedLookupScenario, _analyzers);
 
     /// <summary>Benchmarks generic names that fall back to speculative binding.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
-    public Task<int> NameSimplification_GenericFallback()
-        => AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_genericFallbackScenario, _analyzers);
+    public Task<int> NameSimplification_GenericFallback() =>
+        AnalyzerBenchmarkRunner.GetDiagnosticCountAsync(_genericFallbackScenario, _analyzers);
 }

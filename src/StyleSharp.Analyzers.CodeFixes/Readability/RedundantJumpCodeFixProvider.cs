@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes a redundant trailing <c>return;</c> or <c>continue;</c> statement (SST1174).</summary>
@@ -16,10 +18,11 @@ public sealed class RedundantJumpCodeFixProvider : CodeFixProvider, IBatchFixabl
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant statement", nameof(RedundantJumpCodeFixProvider), RemoveNodeCodeFix.Node<StatementSyntax>);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant statement", nameof(RedundantJumpCodeFixProvider), RemoveNodeCodeFix.Node<StatementSyntax>);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Node<StatementSyntax>);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Node<StatementSyntax>);
 }

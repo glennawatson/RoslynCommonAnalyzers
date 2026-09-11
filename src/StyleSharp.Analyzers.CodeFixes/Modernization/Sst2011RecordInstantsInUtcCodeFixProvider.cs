@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -79,12 +81,13 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
     /// <param name="access">The reported member access.</param>
     /// <param name="replacement">The UTC member access built for the reported read.</param>
     /// <returns>The updated document.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(
         Document document,
         SyntaxNode root,
         MemberAccessExpressionSyntax access,
-        MemberAccessExpressionSyntax replacement)
-        => document.WithSyntaxRoot(root.ReplaceNode(access, replacement));
+        MemberAccessExpressionSyntax replacement) =>
+        document.WithSyntaxRoot(root.ReplaceNode(access, replacement));
 
     /// <summary>Resolves the reported clock read and builds its UTC replacement, if the rewrite binds.</summary>
     /// <param name="root">The syntax root.</param>
@@ -152,15 +155,12 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
                 // The clock moves to UtcNow and the projection moves with it: taking '.DateTime' off
                 // 'UtcNow' would hand back the right ticks with DateTimeKind.Unspecified, which is the
                 // ambiguity being fixed. '.UtcDateTime' carries DateTimeKind.Utc.
-                if (access.Expression is not MemberAccessExpressionSyntax clock)
-                {
-                    return null;
-                }
-
-                return access
+                return access.Expression is not MemberAccessExpressionSyntax clock
+                    ? null
+                    : access
                     .WithExpression(WithName(clock, ClockPropertyAccess.UtcNowName))
                     .WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcDateTimePropertyName).WithTriviaFrom(access.Name));
-            }
+                }
 
             default:
             {
@@ -195,6 +195,7 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
     /// <param name="access">The member access to rename.</param>
     /// <param name="name">The member to read instead.</param>
     /// <returns>The renamed member access.</returns>
-    private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name)
-        => access.WithName(SyntaxFactory.IdentifierName(name).WithTriviaFrom(access.Name));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name) =>
+        access.WithName(SyntaxFactory.IdentifierName(name).WithTriviaFrom(access.Name));
 }

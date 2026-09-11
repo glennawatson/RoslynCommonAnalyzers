@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyUnsafe = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2289UnnecessaryUnsafeContextAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 {
     /// <summary>Verifies a block that only takes an address is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddressOfReportedAsync()
-        => await RunAsync(
+    public Task AddressOfReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -32,9 +34,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block that applies sizeof to a user-defined struct is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SizeOfReportedAsync()
-        => await RunAsync(
+    public Task SizeOfReportedAsync() =>
+        RunAsync(
             """
             public struct Point
             {
@@ -56,9 +59,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block that pins with fixed but never dereferences is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixedWithoutDereferenceReportedAsync()
-        => await RunAsync(
+    public Task FixedWithoutDereferenceReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -76,9 +80,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block that dereferences a pointer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DereferenceIsCleanAsync()
-        => await RunAsync(
+    public Task DereferenceIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -96,9 +101,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block that indexes through a pointer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PointerIndexingIsCleanAsync()
-        => await RunAsync(
+    public Task PointerIndexingIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -117,9 +123,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block that reaches a member through a pointer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PointerMemberAccessIsCleanAsync()
-        => await RunAsync(
+    public Task PointerMemberAccessIsCleanAsync() =>
+        RunAsync(
             """
             public struct Point
             {
@@ -142,9 +149,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies a block with no pointer operations at all is left to the unnecessary-modifier rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoPointerOperationIsCleanAsync()
-        => await RunAsync(
+    public Task NoPointerOperationIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -160,9 +168,10 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported below C# 15, where the relaxations do not apply.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BelowCSharp15IsCleanAsync()
-        => await RunAsync(
+    public Task BelowCSharp15IsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -184,10 +193,7 @@ public class Sst2289UnnecessaryUnsafeContextAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
     {
-        var test = new VerifyUnsafe.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyUnsafe.Test { TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,23 +15,24 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(ModernSyntaxRules.UseLogicalOperatorOverConditional.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(ModernSyntaxRules.UseLogicalOperatorOverConditional.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use the logical operator",
             nameof(Sst2288UseLogicalOperatorCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported conditional and replaces it with the equivalent logical expression.</summary>
     /// <param name="root">The syntax root.</param>
@@ -73,7 +76,7 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <summary>Returns whether a trivia list ends a line.</summary>
     /// <param name="trivia">The trivia to inspect.</param>
     /// <returns><see langword="true"/> when it holds a line break.</returns>
-    private static bool ContainsLineBreak(SyntaxTriviaList trivia)
+    private static bool ContainsLineBreak(in SyntaxTriviaList trivia)
     {
         foreach (var item in trivia)
         {
@@ -142,15 +145,15 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <summary>Returns whether the tree was parsed at a language version that has <c>not</c> patterns.</summary>
     /// <param name="condition">The condition being negated.</param>
     /// <returns><see langword="true"/> from C# 9 on.</returns>
-    private static bool SupportsNotPattern(ExpressionSyntax condition)
-        => condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
+    private static bool SupportsNotPattern(ExpressionSyntax condition) =>
+        condition.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
 
     /// <summary>Parenthesizes an operand whose own operator would regroup under the one being built.</summary>
     /// <param name="operand">The non-literal branch.</param>
     /// <param name="conjunction">Whether the expression being built is a conjunction.</param>
     /// <returns>The operand, parenthesized when precedence requires it.</returns>
-    private static ExpressionSyntax Parenthesize(ExpressionSyntax operand, bool conjunction)
-        => conjunction && operand.IsKind(SyntaxKind.LogicalOrExpression)
+    private static ExpressionSyntax Parenthesize(ExpressionSyntax operand, bool conjunction) =>
+        conjunction && operand.IsKind(SyntaxKind.LogicalOrExpression)
             ? SyntaxFactory.ParenthesizedExpression(operand)
             : operand;
 }

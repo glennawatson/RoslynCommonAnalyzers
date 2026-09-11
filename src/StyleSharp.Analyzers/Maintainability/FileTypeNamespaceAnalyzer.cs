@@ -63,7 +63,7 @@ public sealed class FileTypeNamespaceAnalyzer : DiagnosticAnalyzer
     /// <param name="firstNamespaceSeen">Whether the first namespace has been seen.</param>
     private static void ScanMembers(
         SyntaxList<MemberDeclarationSyntax> members,
-        SyntaxTreeAnalysisContext context,
+        in SyntaxTreeAnalysisContext context,
         HashSet<string> typeKeys,
         ref bool firstTypeSeen,
         ref bool firstNamespaceSeen)

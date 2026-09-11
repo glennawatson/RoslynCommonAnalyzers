@@ -64,7 +64,7 @@ public sealed class Sst2010UseTimeProviderAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one direct clock read inside a type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="clockTypes">The clock types resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!ClockPropertyAccess.MatchesSpelling(access, localOnly: false) || !IsInsideTypeDeclaration(access))

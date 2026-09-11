@@ -115,7 +115,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1204 for a comparison of a string against the empty string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryGetOperands(binary, out var empty, out var value, out var emptyIsLiteral))
@@ -158,7 +158,7 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// flow analysis has already proven the operand is not null at this point. When it has not, the style
     /// degrades to the pattern, which agrees with <c>== ""</c> on every input including null.
     /// </remarks>
-    private static EmptyStringStyle ResolveStyle(SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, TypeInfo valueType)
+    private static EmptyStringStyle ResolveStyle(in SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, in TypeInfo valueType)
     {
         var configured = EmptyStringStyleOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(binary.SyntaxTree)).Style;
         return configured == EmptyStringStyle.Pattern || valueType.Nullability.FlowState == NullableFlowState.NotNull
@@ -169,16 +169,16 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the literal <c>""</c>.</summary>
     /// <param name="expression">The candidate operand expression.</param>
     /// <returns><see langword="true"/> for a string literal whose value is empty.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && literal.Token.ValueText.Length == 0;
 
     /// <summary>Returns whether an expression is a member access ending in <c>.Empty</c>, syntactically.</summary>
     /// <param name="expression">The candidate operand expression.</param>
     /// <returns><see langword="true"/> for a simple member access named <c>Empty</c>.</returns>
-    private static bool IsEmptyMemberAccess(ExpressionSyntax expression)
-        => expression is MemberAccessExpressionSyntax access
+    private static bool IsEmptyMemberAccess(ExpressionSyntax expression) =>
+        expression is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Name is IdentifierNameSyntax { Identifier.ValueText: "Empty" };
 
@@ -187,8 +187,8 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="empty">The <c>.Empty</c> member access to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the access is the static <c>Empty</c> field on <see cref="string"/>.</returns>
-    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax empty, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(empty, cancellationToken).Symbol is IFieldSymbol
+    private static bool IsStringEmptyField(SemanticModel model, ExpressionSyntax empty, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(empty, cancellationToken).Symbol is IFieldSymbol
         {
             IsStatic: true,
             ContainingType.SpecialType: SpecialType.System_String
@@ -199,8 +199,8 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="binary">The comparison expression to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for string equality; a user-defined operator on another type is excluded.</returns>
-    private static bool IsStringEqualityOperator(SemanticModel model, BinaryExpressionSyntax binary, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(binary, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsStringEqualityOperator(SemanticModel model, BinaryExpressionSyntax binary, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(binary, cancellationToken).Symbol is IMethodSymbol
         {
             ContainingType.SpecialType: SpecialType.System_String
         };

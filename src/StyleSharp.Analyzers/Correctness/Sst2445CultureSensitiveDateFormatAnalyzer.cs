@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace StyleSharp.Analyzers;
@@ -46,16 +47,6 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     /// <summary>The parameter name of the format argument across the date/time methods.</summary>
     private const string FormatParameterName = "format";
 
-    /// <summary>The metadata names of the date/time types whose separators the rule understands.</summary>
-    private static readonly string[] DateTimeMetadataNames =
-    [
-        "System.DateTime",
-        "System.DateTimeOffset",
-        "System.DateOnly",
-        "System.TimeOnly",
-        "System.TimeSpan",
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.CultureSensitiveDateFormat);
 
@@ -92,7 +83,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     /// <summary>Analyzes one method call for a culture-sensitive custom date/time format.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="formatContext">The resolved date/time types.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList is not { } arguments || !IsCandidateName(invocation) || !HasSeparatorLiteral(arguments))
@@ -121,7 +112,7 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     /// <summary>Analyzes one interpolated string for a culture-sensitive custom date/time format.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="formatContext">The resolved date/time types.</param>
-    private static void AnalyzeInterpolation(SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
+    private static void AnalyzeInterpolation(in SyntaxNodeAnalysisContext context, DateFormatContext formatContext)
     {
         var interpolated = (InterpolatedStringExpressionSyntax)context.Node;
         if (!HasSeparatorFormatClause(interpolated)
@@ -176,14 +167,14 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
             }
         }
 
-        return new FormatCall(format, formatLocation, provider);
+        return new(format, formatLocation, provider);
     }
 
     /// <summary>Returns whether a parameter is the string format parameter.</summary>
     /// <param name="parameter">The bound parameter.</param>
     /// <returns><see langword="true"/> when it is the format parameter.</returns>
-    private static bool IsFormatParameter(IParameterSymbol parameter)
-        => parameter.Name == FormatParameterName && parameter.Type.SpecialType == SpecialType.System_String;
+    private static bool IsFormatParameter(IParameterSymbol parameter) =>
+        parameter.Name == FormatParameterName && parameter.Type.SpecialType == SpecialType.System_String;
 
     /// <summary>Returns whether any argument is a string literal carrying a date or time separator.</summary>
     /// <param name="arguments">The call's argument list.</param>
@@ -220,16 +211,14 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a string carries a date or time separator character.</summary>
     /// <param name="text">The text to scan.</param>
     /// <returns><see langword="true"/> when a <c>/</c> or <c>:</c> is present.</returns>
-    private static bool ContainsSeparator(string text)
-        => text.IndexOf('/') >= 0 || text.IndexOf(':') >= 0;
+    private static bool ContainsSeparator(string text) =>
+        text.IndexOf('/') >= 0 || text.IndexOf(':') >= 0;
 
     /// <summary>Formats a span as <c>start:length</c> for a diagnostic property.</summary>
     /// <param name="span">The span to format.</param>
     /// <returns>The formatted span.</returns>
-    private static string FormatSpan(Microsoft.CodeAnalysis.Text.TextSpan span)
-        => span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            + ":"
-            + span.Length.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    private static string FormatSpan(Microsoft.CodeAnalysis.Text.TextSpan span) =>
+        $"{span.Start.ToString(System.Globalization.CultureInfo.InvariantCulture)}:{span.Length.ToString(System.Globalization.CultureInfo.InvariantCulture)}";
 
     /// <summary>Returns the invoked member's simple name text for the supported call shapes.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
@@ -250,6 +239,16 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
     /// <summary>The date/time and provider types resolved once per compilation.</summary>
     private sealed class DateFormatContext
     {
+        /// <summary>The metadata names of the date/time types whose separators the rule understands.</summary>
+        private static readonly string[] DateTimeMetadataNames =
+        [
+            "System.DateTime",
+            "System.DateTimeOffset",
+            "System.DateOnly",
+            "System.TimeOnly",
+            "System.TimeSpan",
+        ];
+
         /// <summary>The resolved date/time types.</summary>
         private readonly ImmutableArray<INamedTypeSymbol> _dateTimeTypes;
 
@@ -318,15 +317,16 @@ public sealed class Sst2445CultureSensitiveDateFormatAnalyzer : DiagnosticAnalyz
         /// <summary>Returns whether a parameter is the format-provider parameter.</summary>
         /// <param name="parameter">The bound parameter.</param>
         /// <returns><see langword="true"/> when it is the provider parameter.</returns>
-        public bool IsProviderParameter(IParameterSymbol parameter)
-            => SymbolEqualityComparer.Default.Equals(parameter.Type, _formatProvider);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsProviderParameter(IParameterSymbol parameter) =>
+            SymbolEqualityComparer.Default.Equals(parameter.Type, _formatProvider);
 
         /// <summary>Returns whether an expression is the current culture or current UI culture.</summary>
         /// <param name="model">The semantic model.</param>
         /// <param name="expression">The provider expression.</param>
         /// <returns><see langword="true"/> when the provider is culture-sensitive.</returns>
-        public bool IsCurrentCultureProvider(SemanticModel model, ExpressionSyntax expression)
-            => model.GetSymbolInfo(expression).Symbol is IPropertySymbol { Name: "CurrentCulture" or "CurrentUICulture" } property
+        public bool IsCurrentCultureProvider(SemanticModel model, ExpressionSyntax expression) =>
+            model.GetSymbolInfo(expression).Symbol is IPropertySymbol { Name: "CurrentCulture" or "CurrentUICulture" } property
                 && SymbolEqualityComparer.Default.Equals(property.ContainingType, _cultureInfo);
     }
 }

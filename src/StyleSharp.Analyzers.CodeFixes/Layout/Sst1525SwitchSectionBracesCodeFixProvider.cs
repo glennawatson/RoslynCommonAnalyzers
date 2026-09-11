@@ -54,7 +54,7 @@ public sealed class Sst1525SwitchSectionBracesCodeFixProvider : CodeFixProvider,
             return;
         }
 
-        LayoutFixHelpers.TryAppendSwitchSectionBraceWrap(
+        _ = LayoutFixHelpers.TryAppendSwitchSectionBraceWrap(
             text,
             section.Statements[0],
             section.Statements[section.Statements.Count - 1],

@@ -25,7 +25,7 @@ internal static class FileTooLongBenchmarkCases
     /// <summary>Creates the prepared benchmark state for the requested node count.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
-    public static SingleAnalyzerBenchmarkState Create(int nodes)
+    internal static SingleAnalyzerBenchmarkState Create(int nodes)
     {
         var source = FileTooLongBenchmarkSource.Generate(nodes);
         return SingleAnalyzerBenchmarkHelper.Create(
@@ -37,8 +37,8 @@ internal static class FileTooLongBenchmarkCases
     /// <summary>Builds an options provider that sets the rule's maximum for every tree.</summary>
     /// <param name="maximum">The maximum to configure.</param>
     /// <returns>The options provider.</returns>
-    private static BenchmarkAnalyzerConfigOptionsProvider CreateOptions(string maximum)
-        => new(
+    private static BenchmarkAnalyzerConfigOptionsProvider CreateOptions(string maximum) =>
+        new(
             new Dictionary<string, string>(StringComparer.Ordinal),
             new Dictionary<string, string>(StringComparer.Ordinal) { [MaximumKey] = maximum });
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeInterop = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -57,9 +58,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>InvokeVoidAsync("eval", ...)</c> on <c>IJSRuntime</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvokeVoidAsyncEvalReportedAsync()
-        => await VerifyAsync(
+    public Task InvokeVoidAsyncEvalReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -72,9 +74,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies the generic <c>InvokeAsync</c> naming the <c>Function</c> constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvokeAsyncFunctionReportedAsync()
-        => await VerifyAsync(
+    public Task InvokeAsyncFunctionReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -87,9 +90,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>document.write</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentWriteReportedAsync()
-        => await VerifyAsync(
+    public Task DocumentWriteReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -102,9 +106,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>document.writeln</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentWritelnReportedAsync()
-        => await VerifyAsync(
+    public Task DocumentWritelnReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -117,9 +122,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies an eval call through an <c>IJSObjectReference</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectReferenceEvalReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectReferenceEvalReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -132,9 +138,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies a call on a concrete <c>IJSRuntime</c> implementation is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteRuntimeImplementationReportedAsync()
-        => await VerifyAsync(
+    public Task ConcreteRuntimeImplementationReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -152,9 +159,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies a constant-field identifier of <c>eval</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstFieldIdentifierReportedAsync()
-        => await VerifyAsync(
+    public Task ConstFieldIdentifierReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -169,9 +177,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>setTimeout</c> with a string body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetTimeoutStringBodyReportedAsync()
-        => await VerifyAsync(
+    public Task SetTimeoutStringBodyReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -184,9 +193,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>setInterval</c> with a string-literal body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetIntervalStringLiteralBodyReportedAsync()
-        => await VerifyAsync(
+    public Task SetIntervalStringLiteralBodyReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -199,9 +209,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>setTimeout</c> passed a non-string handler reference is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetTimeoutFunctionReferenceIsCleanAsync()
-        => await VerifyAsync(
+    public Task SetTimeoutFunctionReferenceIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -214,9 +225,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>setTimeout</c> with no following argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetTimeoutWithoutBodyIsCleanAsync()
-        => await VerifyAsync(
+    public Task SetTimeoutWithoutBodyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -229,9 +241,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies <c>setTimeout</c> passed a typeless <c>null</c> body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetTimeoutNullBodyIsCleanAsync()
-        => await VerifyAsync(
+    public Task SetTimeoutNullBodyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -244,9 +257,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary named function identifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BenignIdentifierIsCleanAsync()
-        => await VerifyAsync(
+    public Task BenignIdentifierIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -259,9 +273,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant identifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantIdentifierIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantIdentifierIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.JSInterop;
@@ -274,9 +289,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies a call with no arguments at all is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoArgumentsIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoArgumentsIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.JSInterop;
 
@@ -293,9 +309,10 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
 
     /// <summary>Verifies a same-named invoke on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedInvokeOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedInvokeOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.JSInterop;
 
@@ -388,11 +405,7 @@ public class JsInteropScriptEvaluationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeInterop.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + InteropStub,
-        };
+        var test = new AnalyzeInterop.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + InteropStub, };
 
         await test.RunAsync(CancellationToken.None);
     }

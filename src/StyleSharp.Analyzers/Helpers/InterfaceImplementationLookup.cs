@@ -19,7 +19,7 @@ internal static class InterfaceImplementationLookup
     /// reported — it is the declaration that owns the shape. The lookup is by name first, so only the
     /// handful of same-named interface members are ever resolved.
     /// </remarks>
-    public static bool ImplementsInterfaceMember(ISymbol symbol)
+    internal static bool ImplementsInterfaceMember(ISymbol symbol)
     {
         var containingType = symbol.ContainingType;
         if (containingType is null || containingType.TypeKind == TypeKind.Interface)

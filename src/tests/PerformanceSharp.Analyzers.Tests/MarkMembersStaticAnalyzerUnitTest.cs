@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeStatic = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -21,9 +22,10 @@ public class MarkMembersStaticAnalyzerUnitTest
     /// The call is an implicit read of <c>this</c>, so making the caller static is CS0120 rather than a
     /// cleanup. The unqualified spelling has to count the same as writing the receiver out.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberCallingAnInstanceMethodUnqualifiedIsCleanAsync()
-        => await VerifyReportedNet90Async(
+    public Task MemberCallingAnInstanceMethodUnqualifiedIsCleanAsync() =>
+        VerifyReportedNet90Async(
             """
             public class C
             {
@@ -43,9 +45,10 @@ public class MarkMembersStaticAnalyzerUnitTest
     /// A generic member is called through a <c>GenericNameSyntax</c> rather than a bare identifier, so a scan
     /// that only reads identifiers walks past it and leaves the caller looking free of <c>this</c>.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnqualifiedInstanceMemberUsesAreCleanAsync()
-        => await VerifyReportedNet90Async(
+    public Task UnqualifiedInstanceMemberUsesAreCleanAsync() =>
+        VerifyReportedNet90Async(
             """
             public class C
             {
@@ -389,12 +392,12 @@ public class MarkMembersStaticAnalyzerUnitTest
     }
 
     /// <summary>Verifies a member that names a captured primary constructor parameter is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// Naming the parameter captures it into a synthesized instance field, so the member does depend on
     /// its receiver — and the compiler agrees: adding <c>static</c> here is CS9105, a build error. The
     /// rule must not hand out a diagnostic whose only remedy does not compile.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MemberUsingCapturedPrimaryConstructorParameterIsNotReportedAsync()
     {
@@ -413,9 +416,10 @@ public class MarkMembersStaticAnalyzerUnitTest
 
     /// <summary>Verifies a semi-auto property reading its backing field is not reported (issue 57).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemiAutoPropertyIsCleanAsync()
-        => await VerifyReportedNet90Async(
+    public Task SemiAutoPropertyIsCleanAsync() =>
+        VerifyReportedNet90Async(
             """
             using System.Collections.Generic;
 
@@ -433,12 +437,7 @@ public class MarkMembersStaticAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyStatic.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyStatic.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -448,11 +447,7 @@ public class MarkMembersStaticAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportedNet90Async(string source)
     {
-        var test = new AnalyzeStatic.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeStatic.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

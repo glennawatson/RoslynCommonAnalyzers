@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantCtor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer,
     StyleSharp.Analyzers.RedundantConstructorCodeFixProvider>;
@@ -37,9 +38,10 @@ public class RedundantConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a private, parameterized, or non-empty constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MeaningfulConstructorsAreCleanAsync()
-        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+    public Task MeaningfulConstructorsAreCleanAsync() =>
+        VerifyRedundantCtor.VerifyAnalyzerAsync(
             """
             public class Locked
             {
@@ -121,9 +123,10 @@ public class RedundantConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a struct with a property initializer keeps the constructor those initializers require.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructWithPropertyInitializerIsCleanAsync()
-        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+    public Task StructWithPropertyInitializerIsCleanAsync() =>
+        VerifyRedundantCtor.VerifyAnalyzerAsync(
             """
             public struct Position
             {
@@ -137,9 +140,10 @@ public class RedundantConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a struct with a field initializer keeps the constructor those initializers require.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructWithFieldInitializerIsCleanAsync()
-        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+    public Task StructWithFieldInitializerIsCleanAsync() =>
+        VerifyRedundantCtor.VerifyAnalyzerAsync(
             """
             public struct Position
             {
@@ -153,9 +157,10 @@ public class RedundantConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a struct without initializers still reports its redundant constructor.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructWithoutInitializersStillReportsAsync()
-        => await VerifyRedundantCtor.VerifyAnalyzerAsync(
+    public Task StructWithoutInitializersStillReportsAsync() =>
+        VerifyRedundantCtor.VerifyAnalyzerAsync(
             """
             public struct Position
             {

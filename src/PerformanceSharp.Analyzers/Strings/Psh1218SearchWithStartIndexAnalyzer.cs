@@ -92,8 +92,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// A named argument is rejected because <c>Substring</c> calls its parameter <c>startIndex</c>
     /// while <c>AsSpan</c> calls it <c>start</c>, so the rename would not compile.
     /// </remarks>
-    internal static bool IsSubstringSliceShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 1
+    internal static bool IsSubstringSliceShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 1
             && invocation.ArgumentList.Arguments[0] is { NameColon: null, RefOrOutKeyword.RawKind: (int)SyntaxKind.None }
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == SubstringMethodName;
@@ -101,8 +101,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name is one of the searches the rule rewrites.</summary>
     /// <param name="name">The invoked member name.</param>
     /// <returns><see langword="true"/> for a reported search.</returns>
-    internal static bool IsSearchName(string name)
-        => name is "IndexOf" or "LastIndexOf" or ContainsMethodName or "StartsWith" or "EndsWith";
+    internal static bool IsSearchName(string name) =>
+        name is "IndexOf" or "LastIndexOf" or ContainsMethodName or "StartsWith" or "EndsWith";
 
     /// <summary>Reports PSH1218 for a substring that exists only to be searched.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -165,8 +165,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <param name="slice">The inner invocation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the slice takes a start index off a string.</returns>
-    private static bool BindsToStringSubstring(SemanticModel model, InvocationExpressionSyntax slice, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(slice, cancellationToken).Symbol is IMethodSymbol
+    private static bool BindsToStringSubstring(SemanticModel model, InvocationExpressionSyntax slice, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(slice, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Parameters: [{ Type.SpecialType: SpecialType.System_Int32 }],
@@ -208,8 +208,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <see cref="StringComparison"/>.</summary>
     /// <param name="type">The parameter type to inspect.</param>
     /// <returns><see langword="true"/> for <c>System.StringComparison</c>.</returns>
-    private static bool IsStringComparison(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsStringComparison(ITypeSymbol type) =>
+        type is INamedTypeSymbol
         {
             Name: nameof(StringComparison),
             TypeKind: TypeKind.Enum,

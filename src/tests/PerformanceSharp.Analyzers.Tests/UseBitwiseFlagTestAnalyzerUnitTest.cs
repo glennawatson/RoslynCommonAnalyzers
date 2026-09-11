@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzerVerify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -158,20 +159,17 @@ public class UseBitwiseFlagTestAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzerVerify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzerVerify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a user-defined HasFlag method on a non-enum type stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedHasFlagIsCleanAsync()
-        => await VerifyAsync(
+    public Task UserDefinedHasFlagIsCleanAsync() =>
+        VerifyAsync(
             """
             public struct Mask
             {
@@ -186,9 +184,10 @@ public class UseBitwiseFlagTestAnalyzerUnitTest
 
     /// <summary>Verifies HasFlag on a receiver typed as the abstract <c>System.Enum</c> stays clean; the bitwise rewrite could not compile there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumTypedReceiverIsCleanAsync()
-        => await VerifyAsync(
+    public Task EnumTypedReceiverIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -255,11 +254,7 @@ public class UseBitwiseFlagTestAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

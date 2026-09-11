@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInstanceExtension = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2256UseInstanceExtensionInvocationAnalyzer,
     StyleSharp.Analyzers.Sst2256UseInstanceExtensionInvocationCodeFixProvider>;
@@ -103,9 +104,10 @@ public class UseInstanceExtensionInvocationAnalyzerUnitTest
 
     /// <summary>Verifies a call already in instance form is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceFormIsCleanAsync()
-        => await VerifyInstanceExtension.VerifyAnalyzerAsync(
+    public Task InstanceFormIsCleanAsync() =>
+        VerifyInstanceExtension.VerifyAnalyzerAsync(
             """
             internal static class Extensions
             {
@@ -120,9 +122,10 @@ public class UseInstanceExtensionInvocationAnalyzerUnitTest
 
     /// <summary>Verifies a plain static method that is not an extension is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExtensionStaticCallIsCleanAsync()
-        => await VerifyInstanceExtension.VerifyAnalyzerAsync(
+    public Task NonExtensionStaticCallIsCleanAsync() =>
+        VerifyInstanceExtension.VerifyAnalyzerAsync(
             """
             internal class C
             {

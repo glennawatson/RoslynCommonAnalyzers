@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyInheritDoc = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class InheritDocAnalyzerUnitTest
 {
     /// <summary>Verifies inheritdoc on an element with no base is reported (SST1648).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocWithoutBaseReportedAsync()
-        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+    public Task InheritDocWithoutBaseReportedAsync() =>
+        VerifyInheritDoc.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -29,9 +31,10 @@ public class InheritDocAnalyzerUnitTest
 
     /// <summary>Verifies inheritdoc on an interface implementation is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocOnImplementationIsCleanAsync()
-        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+    public Task InheritDocOnImplementationIsCleanAsync() =>
+        VerifyInheritDoc.VerifyAnalyzerAsync(
             """
             internal interface I
             {
@@ -49,9 +52,10 @@ public class InheritDocAnalyzerUnitTest
 
     /// <summary>Verifies inheritdoc on an explicit interface implementation is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocOnExplicitImplementationIsCleanAsync()
-        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+    public Task InheritDocOnExplicitImplementationIsCleanAsync() =>
+        VerifyInheritDoc.VerifyAnalyzerAsync(
             """
             internal interface IViewFor
             {
@@ -80,9 +84,10 @@ public class InheritDocAnalyzerUnitTest
 
     /// <summary>Verifies inheritdoc naming its source with a cref is not flagged, whatever the member derives from.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocWithCrefIsCleanAsync()
-        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+    public Task InheritDocWithCrefIsCleanAsync() =>
+        VerifyInheritDoc.VerifyAnalyzerAsync(
             """
             internal interface ISource
             {
@@ -99,9 +104,10 @@ public class InheritDocAnalyzerUnitTest
 
     /// <summary>Verifies a cref on the closing form of the element is recognised too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocWithCrefOnAPairedElementIsCleanAsync()
-        => await VerifyInheritDoc.VerifyAnalyzerAsync(
+    public Task InheritDocWithCrefOnAPairedElementIsCleanAsync() =>
+        VerifyInheritDoc.VerifyAnalyzerAsync(
             """
             internal interface ISource
             {
@@ -124,10 +130,7 @@ public class InheritDocAnalyzerUnitTest
     [Test]
     public async Task InheritDocOnExplicitImplWithUnresolvedInterfaceIsCleanAsync()
     {
-        var test = new VerifyInheritDoc.Test
-        {
-            CompilerDiagnostics = CompilerDiagnostics.None,
-        };
+        var test = new VerifyInheritDoc.Test { CompilerDiagnostics = CompilerDiagnostics.None, };
 
         test.TestState.Sources.Add(("App.cs", """
             namespace App

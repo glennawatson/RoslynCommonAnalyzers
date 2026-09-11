@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces a positional record's empty <c>{ }</c> body with a semicolon (SST1804).</summary>
@@ -16,34 +18,29 @@ public sealed class Sst1804EmptyPositionalRecordBodyCodeFixProvider : CodeFixPro
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Replace the empty body with a semicolon",
             nameof(Sst1804EmptyPositionalRecordBodyCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported record and drops its empty body for a semicolon.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<RecordDeclarationSyntax>() is not { } record
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<RecordDeclarationSyntax>() is not { } record
             || record.ParameterList is null
             || record.Members.Count != 0
             || record.OpenBraceToken.IsKind(SyntaxKind.None)
-            || record.CloseBraceToken.IsKind(SyntaxKind.None))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(record, ToSemicolonForm(record));
-    }
+            || record.CloseBraceToken.IsKind(SyntaxKind.None)
+        ? null
+        : new NodeReplacement(record, ToSemicolonForm(record));
 
     /// <summary>Rewrites a positional record with an empty body into its semicolon-terminated form.</summary>
     /// <param name="record">The record declaration.</param>

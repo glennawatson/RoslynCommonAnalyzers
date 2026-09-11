@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for parameter-count analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("TooManyParametersBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class TooManyParametersBenchmarks
@@ -24,11 +26,13 @@ public class TooManyParametersBenchmarks
 
     /// <summary>Benchmarks the clean parameter-count path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TooManyParameters_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating parameter-count path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TooManyParameters_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

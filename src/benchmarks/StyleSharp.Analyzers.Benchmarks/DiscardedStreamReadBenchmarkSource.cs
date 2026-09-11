@@ -11,8 +11,8 @@ internal static class DiscardedStreamReadBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.IO;
            using System.Threading.Tasks;
@@ -25,8 +25,8 @@ internal static class DiscardedStreamReadBenchmarkSource
     /// <summary>Builds one type whose reads all use their count.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public async Task<int> Read(Stream stream, Memory<byte> buffer)
@@ -45,8 +45,8 @@ internal static class DiscardedStreamReadBenchmarkSource
     /// <summary>Builds one type whose reads discard the count through a configured awaiter.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public async Task Read(Stream stream, Memory<byte> buffer)

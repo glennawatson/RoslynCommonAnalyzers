@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -57,9 +59,9 @@ internal sealed class EmptyCollectionTypes
 
     /// <summary>Returns whether the compilation offers the shared empty array.</summary>
     /// <returns><see langword="true"/> when <c>Array.Empty&lt;T&gt;()</c> can be written.</returns>
-    public bool HasEmptyArray()
+    internal bool HasEmptyArray()
     {
-        _arrayEmpty ??= _compilation.GetSpecialType(SpecialType.System_Array).GetMembers(EmptyArrayMemberName).Length > 0;
+        _arrayEmpty ??= !_compilation.GetSpecialType(SpecialType.System_Array).GetMembers(EmptyArrayMemberName).IsEmpty;
         return _arrayEmpty.Value;
     }
 
@@ -67,12 +69,13 @@ internal sealed class EmptyCollectionTypes
     /// <param name="model">The semantic model.</param>
     /// <param name="position">The position the name is written at.</param>
     /// <returns>The array type's minimal name there.</returns>
-    public string GetArrayName(SemanticModel model, int position)
-        => _compilation.GetSpecialType(SpecialType.System_Array).ToMinimalDisplayString(model, position);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal string GetArrayName(SemanticModel model, int position) =>
+        _compilation.GetSpecialType(SpecialType.System_Array).ToMinimalDisplayString(model, position);
 
     /// <summary>Gets the compilation's generic set type.</summary>
     /// <returns>The set type, or <see langword="null"/> when the compilation has none.</returns>
-    public INamedTypeSymbol? GetHashSet()
+    internal INamedTypeSymbol? GetHashSet()
     {
         if (!_hashSetResolved)
         {
@@ -85,7 +88,7 @@ internal sealed class EmptyCollectionTypes
 
     /// <summary>Gets the compilation's generic dictionary type.</summary>
     /// <returns>The dictionary type, or <see langword="null"/> when the compilation has none.</returns>
-    public INamedTypeSymbol? GetDictionary()
+    internal INamedTypeSymbol? GetDictionary()
     {
         if (!_dictionaryResolved)
         {

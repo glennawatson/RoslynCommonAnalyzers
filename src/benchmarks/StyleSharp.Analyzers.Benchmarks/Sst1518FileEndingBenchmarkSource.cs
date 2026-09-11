@@ -11,22 +11,19 @@ internal static class Sst1518FileEndingBenchmarkSource
     /// <param name="members">The number of synthetic members used to scale the file size.</param>
     /// <param name="violating">Whether to omit the single trailing newline.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
+    internal static string Generate(int members, bool violating)
     {
-        var body = "namespace Bench;\n\n"
-            + "internal sealed class FileEndingBench\n{\n"
-            + BenchmarkSourceText.JoinBlocks(members, GenerateMethod)
-            + "\n}";
+        var body = $"namespace Bench;\n\ninternal sealed class FileEndingBench\n{{\n{BenchmarkSourceText.JoinBlocks(members, GenerateMethod)}\n}}";
 
         // Clean ends with exactly one newline after the final closing brace; violating omits it.
-        return violating ? body : body + "\n";
+        return violating ? body : $"{body}\n";
     }
 
     /// <summary>Builds one simple method body used to scale the benchmark file size.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMethod(int index)
-        => $$"""
+    private static string GenerateMethod(int index) =>
+        $$"""
            private static int M{{index}}()
            {
                return {{index}};

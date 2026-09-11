@@ -111,21 +111,21 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the literal <c>0</c>.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a zero literal.</returns>
-    private static bool IsZero(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression, Token.ValueText: "0" };
+    private static bool IsZero(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression, Token.ValueText: "0" };
 
     /// <summary>Returns whether an expression is a plain <c>x.IndexOf(...)</c> call.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    private static bool IsIndexOfShape(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } invocation
+    private static bool IsIndexOfShape(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } invocation
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == IndexOfMethodName;
 
     /// <summary>Reports PSH1221 for a prefix question asked with a whole-string search.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="overloads">The <c>StartsWith</c> overloads available in this compilation.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context, in StartsWithOverloads overloads)
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, in StartsWithOverloads overloads)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (TryGetIndexOfCall(comparison) is not { } indexOf)
@@ -159,17 +159,14 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     private static bool PreservesComparison(IMethodSymbol search, in StartsWithOverloads overloads)
     {
         var parameters = search.Parameters;
-        if (parameters.Length == 1)
-        {
-            return parameters[0].Type.SpecialType switch
+        return parameters.Length == 1
+            ? parameters[0].Type.SpecialType switch
             {
                 SpecialType.System_Char => overloads.Char,
                 SpecialType.System_String => overloads.String,
                 _ => false,
-            };
-        }
-
-        return parameters.Length == 2
+            }
+            : parameters.Length == 2
             && parameters[0].Type.SpecialType == SpecialType.System_String
             && SpanRewriteGuard.IsStringComparison(parameters[1].Type)
             && overloads.StringComparison;
@@ -215,7 +212,7 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
         /// <summary>Probes the compilation's <see cref="string"/> member list once for the prefix tests.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The available overloads.</returns>
-        public static StartsWithOverloads Resolve(Compilation compilation)
+        internal static StartsWithOverloads Resolve(Compilation compilation)
         {
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             var hasChar = false;

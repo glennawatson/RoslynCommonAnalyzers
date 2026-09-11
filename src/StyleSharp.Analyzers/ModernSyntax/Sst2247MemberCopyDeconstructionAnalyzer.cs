@@ -77,7 +77,7 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
         }
 
         var last = (LocalDeclarationStatementSyntax)block.Statements[startIndex + count - 1];
-        candidate = new MemberCopyDeconstruction(first, last, block, startIndex, count, sourceName, names);
+        candidate = new(first, last, block, startIndex, count, sourceName, names);
         return true;
     }
 
@@ -158,7 +158,7 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        info = new MemberCopyInfo(variable.Identifier.ValueText, source, source.Identifier.ValueText, memberAccess);
+        info = new(variable.Identifier.ValueText, source, source.Identifier.ValueText, memberAccess);
         return true;
     }
 
@@ -192,8 +192,8 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
     /// <param name="startIndex">The candidate first-statement index.</param>
     /// <param name="sourceName">The shared source identifier name.</param>
     /// <returns><see langword="true"/> when an earlier statement already starts the run.</returns>
-    private static bool IsContinuationOfRun(BlockSyntax block, int startIndex, string sourceName)
-        => startIndex > 0
+    private static bool IsContinuationOfRun(BlockSyntax block, int startIndex, string sourceName) =>
+        startIndex > 0
             && TryReadMemberCopy(block.Statements[startIndex - 1], out var previous)
             && previous.SourceName == sourceName;
 
@@ -324,11 +324,13 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
             var matches = 0;
             for (var i = 0; i < members.Length; i++)
             {
-                if (IsDeconstructMethod(members[i], arity))
+                if (!IsDeconstructMethod(members[i], arity))
                 {
-                    found = (IMethodSymbol)members[i];
-                    matches++;
+                    continue;
                 }
+
+                found = (IMethodSymbol)members[i];
+                matches++;
             }
 
             if (matches == 1)
@@ -349,8 +351,8 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
     /// <param name="symbol">The candidate symbol.</param>
     /// <param name="arity">The required parameter count.</param>
     /// <returns><see langword="true"/> when the symbol is a usable <c>Deconstruct</c>.</returns>
-    private static bool IsDeconstructMethod(ISymbol symbol, int arity)
-        => symbol is IMethodSymbol { IsStatic: false, DeclaredAccessibility: Accessibility.Public, ReturnsVoid: true } method
+    private static bool IsDeconstructMethod(ISymbol symbol, int arity) =>
+        symbol is IMethodSymbol { IsStatic: false, DeclaredAccessibility: Accessibility.Public, ReturnsVoid: true } method
             && method.Parameters.Length == arity
             && AllParametersAreOut(method);
 
@@ -399,11 +401,13 @@ public sealed class Sst2247MemberCopyDeconstructionAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < block.Statements.Count; i++)
         {
-            if (block.Statements[i].Span == statement.Span)
+            if (block.Statements[i].Span != statement.Span)
             {
-                index = i;
-                return true;
+                continue;
             }
+
+            index = i;
+            return true;
         }
 
         index = -1;

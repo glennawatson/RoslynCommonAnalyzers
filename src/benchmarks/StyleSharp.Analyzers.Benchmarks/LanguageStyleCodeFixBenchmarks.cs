@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for grouped language-style code fixes.</summary>
+[System.Diagnostics.DebuggerDisplay("LanguageStyleCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LanguageStyleCodeFixBenchmarks : IDisposable
@@ -40,7 +42,7 @@ public class LanguageStyleCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, LanguageStyleCodeFixBenchmarkSource.Generate(Nodes));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var conditional = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<ConditionalExpressionSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true);
@@ -48,6 +50,7 @@ public class LanguageStyleCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

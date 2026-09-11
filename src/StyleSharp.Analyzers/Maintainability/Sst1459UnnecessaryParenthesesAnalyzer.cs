@@ -43,14 +43,14 @@ public sealed class Sst1459UnnecessaryParenthesesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the inner expression has no operator-precedence ambiguity.</summary>
     /// <param name="expression">The inner expression.</param>
     /// <returns><see langword="true"/> for simple operands.</returns>
-    private static bool IsSimpleOperand(ExpressionSyntax expression)
-        => IsNameOrAccess(expression.Kind()) || IsCreationOrLiteral(expression.Kind());
+    private static bool IsSimpleOperand(ExpressionSyntax expression) =>
+        IsNameOrAccess(expression.Kind()) || IsCreationOrLiteral(expression.Kind());
 
     /// <summary>Returns whether a syntax kind is a simple name, receiver, access, or call.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> for name-like operands.</returns>
-    private static bool IsNameOrAccess(SyntaxKind kind)
-        => kind is
+    private static bool IsNameOrAccess(SyntaxKind kind) =>
+        kind is
             SyntaxKind.IdentifierName or
             SyntaxKind.GenericName or
             SyntaxKind.SimpleMemberAccessExpression or
@@ -62,8 +62,8 @@ public sealed class Sst1459UnnecessaryParenthesesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is a creation or literal operand.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> for creation and literal operands.</returns>
-    private static bool IsCreationOrLiteral(SyntaxKind kind)
-        => kind is
+    private static bool IsCreationOrLiteral(SyntaxKind kind) =>
+        kind is
             SyntaxKind.ObjectCreationExpression or
             SyntaxKind.ImplicitObjectCreationExpression or
             SyntaxKind.DefaultLiteralExpression or
@@ -77,8 +77,8 @@ public sealed class Sst1459UnnecessaryParenthesesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the parent syntax already isolates this expression.</summary>
     /// <param name="parenthesized">The parenthesized expression.</param>
     /// <returns><see langword="true"/> when removing parentheses cannot affect grouping.</returns>
-    private static bool IsIsolatedByParent(ParenthesizedExpressionSyntax parenthesized)
-        => parenthesized.Parent switch
+    private static bool IsIsolatedByParent(ParenthesizedExpressionSyntax parenthesized) =>
+        parenthesized.Parent switch
         {
             ReturnStatementSyntax { Expression: var expression } => expression == parenthesized,
             ThrowStatementSyntax { Expression: var expression } => expression == parenthesized,

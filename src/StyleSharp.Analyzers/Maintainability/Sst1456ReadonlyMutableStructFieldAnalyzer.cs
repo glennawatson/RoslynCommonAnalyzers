@@ -48,9 +48,9 @@ public sealed class Sst1456ReadonlyMutableStructFieldAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a type is a mutable struct declared in source.</summary>
     /// <param name="type">The type symbol.</param>
     /// <returns><see langword="true"/> for non-readonly source structs.</returns>
-    private static bool IsMutableSourceStruct(INamedTypeSymbol type)
-        => type.TypeKind == TypeKind.Struct
+    private static bool IsMutableSourceStruct(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Struct
             && type.SpecialType == SpecialType.None
             && !type.IsReadOnly
-            && type.DeclaringSyntaxReferences.Length > 0;
+            && !type.DeclaringSyntaxReferences.IsEmpty;
 }

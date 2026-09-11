@@ -51,7 +51,7 @@ internal sealed class NestedTypeOnlyMember
     /// <summary>Records one use of the member from inside a nested type.</summary>
     /// <param name="nested">The nested type the use was found in.</param>
     /// <param name="qualified">Whether the use named a receiver.</param>
-    public void AddNestedUse(BaseTypeDeclarationSyntax nested, bool qualified)
+    internal void AddNestedUse(BaseTypeDeclarationSyntax nested, bool qualified)
     {
         if (NestedUser is null)
         {

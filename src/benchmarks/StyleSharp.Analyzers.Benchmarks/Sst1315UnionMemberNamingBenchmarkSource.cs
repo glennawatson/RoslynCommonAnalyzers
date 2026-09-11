@@ -18,8 +18,8 @@ internal static class Sst1315UnionMemberNamingBenchmarkSource
     /// <param name="types">The number of synthetic union cases to emit.</param>
     /// <param name="violating">Whether to emit union-member naming rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace System.Runtime.CompilerServices
            {
                public interface IUnion
@@ -38,14 +38,14 @@ internal static class Sst1315UnionMemberNamingBenchmarkSource
     /// <param name="index">The synthetic case index.</param>
     /// <param name="violating">Whether to emit a violating case.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one clean union case whose name is PascalCase.</summary>
     /// <param name="index">The synthetic case index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class Circle{{index}} : Shape
            {
            }
@@ -54,8 +54,8 @@ internal static class Sst1315UnionMemberNamingBenchmarkSource
     /// <summary>Builds one violating union case whose name is not PascalCase.</summary>
     /// <param name="index">The synthetic case index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class circle{{index}} : Shape
            {
            }

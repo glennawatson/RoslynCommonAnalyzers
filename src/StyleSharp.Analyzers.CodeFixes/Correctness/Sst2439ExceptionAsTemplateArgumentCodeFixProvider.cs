@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,16 +21,17 @@ public sealed class Sst2439ExceptionAsTemplateArgumentCodeFixProvider : CodeFixP
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Pass the exception as the exception argument",
             nameof(Sst2439ExceptionAsTemplateArgumentCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported exception value and hoists it into the exception argument.</summary>
     /// <param name="root">The syntax root.</param>
@@ -65,11 +68,6 @@ public sealed class Sst2439ExceptionAsTemplateArgumentCodeFixProvider : CodeFixP
     private static InvocationExpressionSyntax? Apply(InvocationExpressionSyntax invocation, int insertIndex, int removeIndex, int tailStart)
     {
         var arguments = invocation.ArgumentList.Arguments;
-        if (removeIndex < 0 || removeIndex >= arguments.Count)
-        {
-            return null;
-        }
-
-        return LoggerExceptionHoist.Rewrite(invocation, arguments[removeIndex].Expression, insertIndex, removeIndex, tailStart);
+        return removeIndex < 0 || removeIndex >= arguments.Count ? null : LoggerExceptionHoist.Rewrite(invocation, arguments[removeIndex].Expression, insertIndex, removeIndex, tailStart);
     }
 }

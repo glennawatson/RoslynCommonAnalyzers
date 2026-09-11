@@ -99,8 +99,8 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
         ITypeSymbol localType,
         EqualsValueClauseSyntax initializer,
         LocalDeclarationStatementSyntax local,
-        VariableDeclaratorSyntax variable)
-        => AdmitsConst(localType)
+        VariableDeclaratorSyntax variable) =>
+        AdmitsConst(localType)
             && context.SemanticModel.GetConstantValue(initializer.Value, context.CancellationToken).HasValue
             && GetEnclosingScope(local) is { } scope
             && !IsWrittenInScope(scope, variable.Identifier.ValueText);
@@ -146,12 +146,13 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
     /// real code and can never fold. It only rejects; every other shape is still verified with
     /// <see cref="SemanticModel.GetConstantValue(SyntaxNode, CancellationToken)"/>.
     /// </remarks>
-    private static bool IsNeverConstant(ExpressionSyntax value)
-        => value switch
+    private static bool IsNeverConstant(ExpressionSyntax value) =>
+        value switch
         {
-            BaseObjectCreationExpressionSyntax => true,
-            ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax => true,
-            CollectionExpressionSyntax or ElementAccessExpressionSyntax or AwaitExpressionSyntax => true,
+            BaseObjectCreationExpressionSyntax
+                or ArrayCreationExpressionSyntax
+                or ImplicitArrayCreationExpressionSyntax
+                or CollectionExpressionSyntax or ElementAccessExpressionSyntax or AwaitExpressionSyntax => true,
             InvocationExpressionSyntax invocation => invocation.Expression is not IdentifierNameSyntax { Identifier.ValueText: "nameof" },
             _ => false,
         };
@@ -191,7 +192,7 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
     private static bool IsWrittenInScope(SyntaxNode scope, string name)
     {
         var state = new WriteScanState(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WriteScanState>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             scope,
             ref state,
             static (IdentifierNameSyntax identifier, ref WriteScanState scan) => scan.Observe(identifier));
@@ -201,7 +202,7 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
     /// <summary>Returns whether a modifier list is <c>static readonly</c> without public exposure.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>
     /// <returns><see langword="true"/> when both <c>static</c> and <c>readonly</c> are present and neither <c>public</c> nor <c>protected</c> is.</returns>
-    private static bool HasConstConvertibleModifiers(SyntaxTokenList modifiers)
+    private static bool HasConstConvertibleModifiers(in SyntaxTokenList modifiers)
     {
         var hasStatic = false;
         var hasReadonly = false;
@@ -210,20 +211,21 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
             switch (modifiers[i].Kind())
             {
                 case SyntaxKind.StaticKeyword:
-                {
-                    hasStatic = true;
-                    break;
-                }
+                    {
+                        hasStatic = true;
+                        break;
+                    }
 
                 case SyntaxKind.ReadOnlyKeyword:
-                {
-                    hasReadonly = true;
-                    break;
-                }
+                    {
+                        hasReadonly = true;
+                        break;
+                    }
 
-                case SyntaxKind.PublicKeyword:
-                case SyntaxKind.ProtectedKeyword:
+                case SyntaxKind.PublicKeyword or SyntaxKind.ProtectedKeyword:
                     return false;
+                default:
+                    break;
             }
         }
 
@@ -238,12 +240,16 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
     /// contiguous run covering exactly the const-capable primitives: bool, char, the integral types,
     /// decimal, float, double, and string.
     /// </remarks>
-    private static bool AdmitsConst(ITypeSymbol type)
-        => type.TypeKind == TypeKind.Enum
+    private static bool AdmitsConst(ITypeSymbol type) =>
+        type.TypeKind == TypeKind.Enum
             || type.SpecialType is >= SpecialType.System_Boolean and <= SpecialType.System_String;
 
     /// <summary>Tracks whether one named local has been written, and stops the walk as soon as it has.</summary>
-    private struct WriteScanState : IEquatable<WriteScanState>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct WriteScanState
     {
         /// <summary>The local's name.</summary>
         private readonly string _name;
@@ -258,17 +264,6 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
 
         /// <summary>Gets a value indicating whether a write has been seen.</summary>
         public bool Written { get; private set; }
-
-        /// <summary>Returns whether two scan states are equivalent.</summary>
-        /// <param name="other">The other state.</param>
-        /// <returns><see langword="true"/> when the tracked state is equal.</returns>
-        public readonly bool Equals(WriteScanState other) => Written == other.Written && _name == other._name;
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is WriteScanState other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => unchecked((_name.GetHashCode() * 397) ^ (Written ? 1 : 0));
 
         /// <summary>Observes one identifier and returns whether scanning should continue.</summary>
         /// <param name="identifier">The identifier.</param>
@@ -291,8 +286,8 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
         /// its assignment target is the member access rather than the identifier, so it falls through
         /// to the read default on its own.
         /// </remarks>
-        private static bool IsWriteReference(IdentifierNameSyntax identifier)
-            => identifier.Parent switch
+        private static bool IsWriteReference(IdentifierNameSyntax identifier) =>
+            identifier.Parent switch
             {
                 AssignmentExpressionSyntax assignment => assignment.Left == identifier,
                 PostfixUnaryExpressionSyntax postfix => postfix.IsKind(SyntaxKind.PostIncrementExpression) || postfix.IsKind(SyntaxKind.PostDecrementExpression),
@@ -305,8 +300,8 @@ public sealed class Psh1402PreferConstOverStaticReadonlyAnalyzer : DiagnosticAna
         /// <summary>Returns whether a prefix operator writes or takes the address of its operand.</summary>
         /// <param name="prefix">The prefix expression to classify.</param>
         /// <returns><see langword="true"/> for pre-increment, pre-decrement, and address-of.</returns>
-        private static bool IsMutatingPrefix(PrefixUnaryExpressionSyntax prefix)
-            => prefix.IsKind(SyntaxKind.PreIncrementExpression)
+        private static bool IsMutatingPrefix(PrefixUnaryExpressionSyntax prefix) =>
+            prefix.IsKind(SyntaxKind.PreIncrementExpression)
                 || prefix.IsKind(SyntaxKind.PreDecrementExpression)
                 || prefix.IsKind(SyntaxKind.AddressOfExpression);
 

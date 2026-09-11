@@ -19,7 +19,7 @@ internal static class EnumFlagValues
     /// <summary>Returns whether a type carries the <c>[System.Flags]</c> attribute.</summary>
     /// <param name="type">The enum to test.</param>
     /// <returns><see langword="true"/> when the type promises its members combine with bitwise or.</returns>
-    public static bool HasFlagsAttribute(INamedTypeSymbol type)
+    internal static bool HasFlagsAttribute(INamedTypeSymbol type)
     {
         var attributes = type.GetAttributes();
         for (var i = 0; i < attributes.Length; i++)
@@ -42,7 +42,7 @@ internal static class EnumFlagValues
     /// The underlying type can be any integral type, signed or not; every value is read as the bit pattern it
     /// stores, so a negative member on a signed enum is measured on its bits rather than its arithmetic value.
     /// </remarks>
-    public static bool TryGetValue(ISymbol member, out ulong value)
+    internal static bool TryGetValue(ISymbol member, out ulong value)
     {
         if (member is not IFieldSymbol { HasConstantValue: true, ConstantValue: { } constant })
         {
@@ -57,5 +57,5 @@ internal static class EnumFlagValues
     /// <summary>Returns whether a value owns exactly one bit.</summary>
     /// <param name="value">The member's value.</param>
     /// <returns><see langword="true"/> for a power of two.</returns>
-    public static bool IsSingleBit(ulong value) => value != 0 && (value & (value - 1)) == 0;
+    internal static bool IsSingleBit(ulong value) => value != 0 && (value & (value - 1)) == 0;
 }

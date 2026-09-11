@@ -31,8 +31,8 @@ public sealed class Sst2492GuardOnNullableParameterAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.GuardOnNullableParameter);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -75,7 +75,7 @@ public sealed class Sst2492GuardOnNullableParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="guardedExpression">The expression the guard rejects when null.</param>
     /// <param name="location">The location to report.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, ExpressionSyntax guardedExpression, Location location)
+    private static void Report(in SyntaxNodeAnalysisContext context, ExpressionSyntax guardedExpression, Location location)
     {
         if (guardedExpression is not IdentifierNameSyntax identifier
             || context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not IParameterSymbol parameter

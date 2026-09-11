@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFieldStyle = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.FieldNameStyleAnalyzer>;
 
@@ -12,9 +13,10 @@ public class FieldNameStyleAnalyzerUnitTest
 {
     /// <summary>Verifies a field name containing an underscore is reported (SST1310) when the rule is enabled.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnderscoreFieldReportedAsync()
-        => await VerifyFieldStyle.VerifyAnalyzerAsync(
+    public Task UnderscoreFieldReportedAsync() =>
+        VerifyFieldStyle.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -24,9 +26,10 @@ public class FieldNameStyleAnalyzerUnitTest
 
     /// <summary>Verifies a field name beginning with an upper-case letter is reported (SST1306).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UpperCaseFieldReportedAsync()
-        => await VerifyFieldStyle.VerifyAnalyzerAsync(
+    public Task UpperCaseFieldReportedAsync() =>
+        VerifyFieldStyle.VerifyAnalyzerAsync(
             """
             internal class C
             {

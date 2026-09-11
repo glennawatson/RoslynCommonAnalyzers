@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2320AmbiguousInheritedInterfaceMemberAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2320AmbiguousInheritedInterfaceMemberAnalyzerUnitTest
 {
     /// <summary>Verifies an interface inheriting one member from two unrelated interfaces is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberInheritedFromTwoInterfacesReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberInheritedFromTwoInterfacesReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface ILeft
             {
@@ -32,9 +34,10 @@ public class Sst2320AmbiguousInheritedInterfaceMemberAnalyzerUnitTest
 
     /// <summary>Verifies a method inherited from two unrelated interfaces is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodInheritedFromTwoInterfacesReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MethodInheritedFromTwoInterfacesReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface ILeft
             {
@@ -53,9 +56,10 @@ public class Sst2320AmbiguousInheritedInterfaceMemberAnalyzerUnitTest
 
     /// <summary>Verifies re-declaring the member with 'new' resolves the ambiguity and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReDeclaredMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReDeclaredMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface ILeft
             {
@@ -75,9 +79,10 @@ public class Sst2320AmbiguousInheritedInterfaceMemberAnalyzerUnitTest
 
     /// <summary>Verifies a diamond where both members trace to one common base interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiamondFromCommonBaseIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DiamondFromCommonBaseIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IBase
             {
@@ -99,9 +104,10 @@ public class Sst2320AmbiguousInheritedInterfaceMemberAnalyzerUnitTest
 
     /// <summary>Verifies overloads with different signatures across the two interfaces are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentSignaturesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentSignaturesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface ILeft
             {

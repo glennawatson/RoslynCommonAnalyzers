@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyStraySemicolon = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2259RemoveStrayEmptyStatementAnalyzer,
     StyleSharp.Analyzers.Sst2259RemoveStrayEmptyStatementCodeFixProvider>;
@@ -69,9 +70,10 @@ public class RemoveStrayEmptyStatementAnalyzerUnitTest
 
     /// <summary>Verifies a type with no stray semicolon is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NormalTypeIsCleanAsync()
-        => await VerifyStraySemicolon.VerifyAnalyzerAsync(
+    public Task NormalTypeIsCleanAsync() =>
+        VerifyStraySemicolon.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -80,18 +82,20 @@ public class RemoveStrayEmptyStatementAnalyzerUnitTest
 
     /// <summary>Verifies a positional record's required semicolon is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordSemicolonIsCleanAsync()
-        => await VerifyStraySemicolon.VerifyAnalyzerAsync(
+    public Task PositionalRecordSemicolonIsCleanAsync() =>
+        VerifyStraySemicolon.VerifyAnalyzerAsync(
             """
             internal record R(int X);
             """);
 
     /// <summary>Verifies a method body with a trailing semicolon is left to the compiler (CS1597) and not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodBodySemicolonIsNotReportedAsync()
-        => await VerifyStraySemicolon.VerifyAnalyzerAsync(
+    public Task MethodBodySemicolonIsNotReportedAsync() =>
+        VerifyStraySemicolon.VerifyAnalyzerAsync(
             """
             internal class C
             {

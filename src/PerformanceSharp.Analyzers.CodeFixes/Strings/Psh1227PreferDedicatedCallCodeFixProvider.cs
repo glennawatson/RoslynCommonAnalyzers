@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -28,12 +30,13 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported invocation and builds its purpose-built replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -95,6 +98,7 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
 
     /// <summary>Creates a comma token followed by a single space.</summary>
     /// <returns>The comma token.</returns>
-    private static SyntaxToken CommaWithTrailingSpace()
-        => SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken CommaWithTrailingSpace() =>
+        SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

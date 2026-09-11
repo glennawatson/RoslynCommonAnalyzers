@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -45,8 +47,8 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingNonGenericContract);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -68,13 +70,13 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports each generic contract on a type whose non-generic counterpart is missing.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="contracts">The comparison contracts resolved for the compilation.</param>
-    private static void Analyze(SymbolAnalysisContext context, in ComparisonContractTypes contracts)
+    private static void Analyze(in SymbolAnalysisContext context, in ComparisonContractTypes contracts)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
             || type.IsStatic
             || !SymbolVisibility.IsExternallyVisible(type)
-            || type.Locations.Length == 0
+            || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource)
         {
             return;
@@ -90,8 +92,9 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="contracts">The comparison contracts resolved for the compilation.</param>
     /// <param name="type">The type being analyzed.</param>
-    private static void ReportComparable(SymbolAnalysisContext context, in ComparisonContractTypes contracts, INamedTypeSymbol type)
-        => ReportForInterfaceCounterpart(context, type, contracts.ComparableOfT, contracts.Comparable, ComparableContract);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ReportComparable(in SymbolAnalysisContext context, in ComparisonContractTypes contracts, INamedTypeSymbol type) =>
+        ReportForInterfaceCounterpart(context, type, contracts.ComparableOfT, contracts.Comparable, ComparableContract);
 
     /// <summary>Reports a generic interface contract whose non-generic interface counterpart is missing.</summary>
     /// <param name="context">The symbol analysis context.</param>
@@ -100,7 +103,7 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <param name="nonGenericContract">The non-generic interface counterpart.</param>
     /// <param name="contractName">The contract property value.</param>
     private static void ReportForInterfaceCounterpart(
-        SymbolAnalysisContext context,
+        in SymbolAnalysisContext context,
         INamedTypeSymbol type,
         INamedTypeSymbol? genericContract,
         INamedTypeSymbol? nonGenericContract,
@@ -120,7 +123,7 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="contracts">The comparison contracts resolved for the compilation.</param>
     /// <param name="type">The type being analyzed.</param>
-    private static void ReportEquatable(SymbolAnalysisContext context, in ComparisonContractTypes contracts, INamedTypeSymbol type)
+    private static void ReportEquatable(in SymbolAnalysisContext context, in ComparisonContractTypes contracts, INamedTypeSymbol type)
     {
         if (ComparisonContractTypes.GetImplementedArgument(type, contracts.EquatableOfT) is not { } argument || OverridesObjectEquals(type))
         {
@@ -138,7 +141,7 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <param name="counterpartDisplay">The display form of the missing counterpart.</param>
     /// <param name="contractName">The contract property value.</param>
     private static void Report(
-        SymbolAnalysisContext context,
+        in SymbolAnalysisContext context,
         INamedTypeSymbol type,
         INamedTypeSymbol genericContract,
         ITypeSymbol argument,
@@ -165,7 +168,7 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     {
         for (INamedTypeSymbol? current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
-            var members = current.GetMembers("Equals");
+            var members = current.GetMembers(nameof(Equals));
             for (var i = 0; i < members.Length; i++)
             {
                 if (members[i] is IMethodSymbol { IsOverride: true, Parameters.Length: 1, ReturnType.SpecialType: SpecialType.System_Boolean } method

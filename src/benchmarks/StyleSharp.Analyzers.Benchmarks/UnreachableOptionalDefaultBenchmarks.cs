@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for unreachable-optional-default analysis (SST2319).</summary>
+[System.Diagnostics.DebuggerDisplay("UnreachableOptionalDefaultBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UnreachableOptionalDefaultBenchmarks
@@ -24,11 +26,13 @@ public class UnreachableOptionalDefaultBenchmarks
 
     /// <summary>Benchmarks the clean unreachable-optional-default path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnreachableOptionalDefault_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating unreachable-optional-default path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnreachableOptionalDefault_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

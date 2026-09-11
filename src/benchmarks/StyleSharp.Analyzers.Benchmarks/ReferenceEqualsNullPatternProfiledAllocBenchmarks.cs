@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for reference-equality null-pattern analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ReferenceEqualsNullPatternProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class ReferenceEqualsNullPatternProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class ReferenceEqualsNullPatternProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean null-check path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ReferenceEqualsNullPattern_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating null-check path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ReferenceEqualsNullPattern_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -39,6 +43,7 @@ public class ReferenceEqualsNullPatternProfiledAllocBenchmarks
     /// The floor to subtract: what the compiler costs to bind this corpus, before the rule under
     /// test does any work of its own.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark(Baseline = true)]
     public Task<int> ReferenceEqualsNullPattern_HarnessBaseline() => SingleAnalyzerBenchmarkHelper.RunCompilerBaselineAsync(_state);
 }

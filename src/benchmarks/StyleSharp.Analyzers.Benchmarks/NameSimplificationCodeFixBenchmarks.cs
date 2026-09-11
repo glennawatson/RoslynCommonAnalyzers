@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for shortest-equivalent-name code fixes.</summary>
+[System.Diagnostics.DebuggerDisplay("NameSimplificationCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class NameSimplificationCodeFixBenchmarks : IDisposable
@@ -42,7 +44,7 @@ public class NameSimplificationCodeFixBenchmarks : IDisposable
     {
         // Two of the four cycled member shapes emit a this-qualified access, so half the generated members carry one.
         const int GeneratedMembersPerThisAccess = 2;
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, NameSimplificationBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var access = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MemberAccessExpressionSyntax>(
@@ -53,6 +55,7 @@ public class NameSimplificationCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

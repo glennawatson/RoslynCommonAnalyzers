@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -82,9 +83,10 @@ public class ReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a mutable field keeps the struct clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutableFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             public struct Accumulator
             {
@@ -98,9 +100,10 @@ public class ReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a settable auto-property keeps the struct clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SettableAutoPropertyIsCleanAsync()
-        => await VerifyAsync(
+    public Task SettableAutoPropertyIsCleanAsync() =>
+        VerifyAsync(
             """
             public struct Box
             {
@@ -110,9 +113,10 @@ public class ReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a method reassigning <c>this</c> keeps the struct clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisReassignmentIsCleanAsync()
-        => await VerifyAsync(
+    public Task ThisReassignmentIsCleanAsync() =>
+        VerifyAsync(
             """
             public struct Resettable
             {
@@ -128,9 +132,10 @@ public class ReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a record struct with a primary constructor stays clean; its properties are settable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordStructIsCleanAsync()
-        => await VerifyAsync(
+    public Task PositionalRecordStructIsCleanAsync() =>
+        VerifyAsync(
             """
             public record struct Pair(int First, int Second);
             """);
@@ -177,11 +182,7 @@ public class ReadonlyStructAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

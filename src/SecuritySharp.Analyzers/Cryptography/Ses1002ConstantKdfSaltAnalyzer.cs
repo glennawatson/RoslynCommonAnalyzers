@@ -77,7 +77,7 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
     /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -94,14 +94,14 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportIfFixedSalt(context, operation.Arguments, encodingType, "the " + Rfc2898TypeSimpleName + " constructor");
+        ReportIfFixedSalt(context, operation.Arguments, encodingType, $"the {Rfc2898TypeSimpleName} constructor");
     }
 
     /// <summary>Reports SES1002 for a <c>Rfc2898DeriveBytes.Pbkdf2(…)</c> call whose salt argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
     /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -118,7 +118,7 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportIfFixedSalt(context, operation.Arguments, encodingType, Rfc2898TypeSimpleName + "." + Pbkdf2MethodName);
+        ReportIfFixedSalt(context, operation.Arguments, encodingType, $"{Rfc2898TypeSimpleName}.{Pbkdf2MethodName}");
     }
 
     /// <summary>Reports SES1002 when the salt argument of a bound key-derivation call is a fixed value.</summary>
@@ -127,7 +127,7 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
     /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
     /// <param name="apiLabel">The human-readable label for the call, used in the diagnostic message.</param>
     private static void ReportIfFixedSalt(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ImmutableArray<IArgumentOperation> arguments,
         INamedTypeSymbol? encodingType,
         string apiLabel)
@@ -171,8 +171,8 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
     /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the salt is a fixed value.</returns>
-    private static bool IsFixedSalt(SemanticModel model, ExpressionSyntax expression, INamedTypeSymbol? encodingType, CancellationToken cancellationToken)
-        => expression switch
+    private static bool IsFixedSalt(SemanticModel model, ExpressionSyntax expression, INamedTypeSymbol? encodingType, CancellationToken cancellationToken) =>
+        expression switch
         {
             // An inline 'new byte[N]' has no writes before the call: no initializer means an all-zero
             // buffer, and an initializer is fixed only when every element is a compile-time constant.
@@ -253,8 +253,8 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The salt reference expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a static readonly field reference.</returns>
-    private static bool IsFixedFieldReference(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true, IsReadOnly: true };
+    private static bool IsFixedFieldReference(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true, IsReadOnly: true };
 
     /// <summary>Returns whether an object-creation type name is spelled <c>Rfc2898DeriveBytes</c>.</summary>
     /// <param name="type">The created type syntax.</param>

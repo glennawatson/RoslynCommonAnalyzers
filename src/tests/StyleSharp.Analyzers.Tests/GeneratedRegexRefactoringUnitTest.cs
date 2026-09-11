@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeRefactoringVerifier<StyleSharp.Analyzers.Sst2444GeneratedRegexRefactoringProvider>;
@@ -72,9 +73,10 @@ public class GeneratedRegexRefactoringUnitTest
 
     /// <summary>Verifies an invalid pattern is not offered the refactoring.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvalidPatternIsNotOfferedAsync()
-        => await VerifyNoRefactoringAsync(
+    public Task InvalidPatternIsNotOfferedAsync() =>
+        VerifyNoRefactoringAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -86,9 +88,10 @@ public class GeneratedRegexRefactoringUnitTest
 
     /// <summary>Verifies a construction with an options argument is not offered the refactoring.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructionWithOptionsIsNotOfferedAsync()
-        => await VerifyNoRefactoringAsync(
+    public Task ConstructionWithOptionsIsNotOfferedAsync() =>
+        VerifyNoRefactoringAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -100,9 +103,10 @@ public class GeneratedRegexRefactoringUnitTest
 
     /// <summary>Verifies a generic host type is not offered the refactoring.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericHostTypeIsNotOfferedAsync()
-        => await VerifyNoRefactoringAsync(
+    public Task GenericHostTypeIsNotOfferedAsync() =>
+        VerifyNoRefactoringAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -114,9 +118,10 @@ public class GeneratedRegexRefactoringUnitTest
 
     /// <summary>Verifies a nested host type is not offered the refactoring.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedHostTypeIsNotOfferedAsync()
-        => await VerifyNoRefactoringAsync(
+    public Task NestedHostTypeIsNotOfferedAsync() =>
+        VerifyNoRefactoringAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -135,12 +140,7 @@ public class GeneratedRegexRefactoringUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -148,8 +148,9 @@ public class GeneratedRegexRefactoringUnitTest
     /// <summary>Runs a verification that no refactoring is offered at the selection.</summary>
     /// <param name="source">The source with the selection span.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNoRefactoringAsync(string source)
-        => await VerifyAsync(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNoRefactoringAsync(string source) =>
+        VerifyAsync(
             source,
             source.Replace("[|", string.Empty, StringComparison.Ordinal).Replace("|]", string.Empty, StringComparison.Ordinal));
 }

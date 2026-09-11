@@ -42,8 +42,8 @@ public sealed class Sst1516ElementSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previousEndLine">The previous member's ending line.</param>
     /// <param name="currentStartLine">The current member's content starting line.</param>
     /// <returns><see langword="true"/> when the current member is not separated by a blank line.</returns>
-    internal static bool ShouldReportSpacing(int previousEndLine, int currentStartLine)
-        => currentStartLine <= previousEndLine + 1;
+    internal static bool ShouldReportSpacing(int previousEndLine, int currentStartLine) =>
+        currentStartLine <= previousEndLine + 1;
 
     /// <summary>Walks the container's members and reports any pair without a blank line between them.</summary>
     /// <param name="context">The syntax node analysis context.</param>

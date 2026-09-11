@@ -11,8 +11,8 @@ internal static class EmptyCodeBenchmarkSource
     /// <param name="members">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit redundant empty constructors.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class EmptyCodeBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a redundant empty constructor.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating
+    private static string GenerateType(int index, bool violating) =>
+        violating
             ? $"internal sealed class Bench{index} {{ public Bench{index}() {{ }} }}"
             : $"internal sealed class Bench{index} {{ public Bench{index}(int value) {{ }} }}";
 }

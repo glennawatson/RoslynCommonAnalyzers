@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -19,9 +20,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 {
     /// <summary>Verifies an opening parenthesis off the declaration line is reported (SST1110).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OpeningParenOffDeclarationLineReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task OpeningParenOffDeclarationLineReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -32,9 +34,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a closing parenthesis off the last parameter's line is reported (SST1111).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClosingParenOffLastParameterLineReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task ClosingParenOffLastParameterLineReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -46,9 +49,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies an empty list's closing parenthesis on another line is reported (SST1112).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyListClosingParenOnOtherLineReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task EmptyListClosingParenOnOtherLineReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -61,9 +65,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a comma off the previous parameter's line is reported (SST1113).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommaOffPreviousParameterLineReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task CommaOffPreviousParameterLineReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -74,9 +79,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a blank line before the first parameter is reported (SST1114).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineBeforeFirstParameterReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task BlankLineBeforeFirstParameterReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -88,9 +94,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a blank line before a later parameter is reported (SST1115).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineBeforeLaterParameterReportedAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task BlankLineBeforeLaterParameterReportedAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -102,9 +109,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a multi-line argument is reported (SST1118, opt-in) and exempt callbacks are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiLineArgumentReportedButCallbacksExemptAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task MultiLineArgumentReportedButCallbacksExemptAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             using System;
             using System.Linq;
@@ -129,9 +137,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a single-line parameter list is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineListIsCleanAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task SingleLineListIsCleanAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -141,9 +150,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a dictionary-initializer indexer element starting its own line is clean (SST1110 false positive).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DictionaryInitializerIndexerElementIsCleanAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task DictionaryInitializerIndexerElementIsCleanAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -238,9 +248,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies a parenthesized callback lambda on the next argument line is not flagged as SST1110.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedCallbackArgumentOnNextLineIsCleanAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task ParenthesizedCallbackArgumentOnNextLineIsCleanAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -267,9 +278,10 @@ public class ParameterListLayoutAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied callback lambda on the next argument line is not flagged as SST1110.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedCallbackArgumentOnNextLineIsCleanAsync()
-        => await VerifyParameterLayout.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedCallbackArgumentOnNextLineIsCleanAsync() =>
+        VerifyParameterLayout.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading;
@@ -321,6 +333,7 @@ public class ParameterListLayoutAnalyzerUnitTest
     /// <summary>Parses the first parameter-list opening parenthesis token from the source.</summary>
     /// <param name="source">The source containing the parameter list.</param>
     /// <returns>The opening parenthesis token.</returns>
-    private static SyntaxToken ParseOpenParenToken(string source)
-        => ((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[0]).ParameterList.OpenParenToken;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken ParseOpenParenToken(string source) =>
+        ((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[0]).ParameterList.OpenParenToken;
 }

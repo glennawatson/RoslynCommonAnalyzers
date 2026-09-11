@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyEmptyCollection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -191,9 +192,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a property getter and an indexer getter are measured like a method.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GettersAreMeasuredAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task GettersAreMeasuredAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -210,9 +212,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a nullable return type is the author saying null is a value here.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableReturnTypeIsCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task NullableReturnTypeIsCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             #nullable enable
             using System.Collections.Generic;
@@ -227,9 +230,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a string is never treated as a collection of characters.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringReturnIsCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task StringReturnIsCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -244,9 +248,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a task of a collection is left to the rules that own asynchronous returns.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TaskOfCollectionIsCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task TaskOfCollectionIsCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Threading.Tasks;
@@ -267,9 +272,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a lambda takes its shape from its delegate, and a scalar is not a collection.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdasAndScalarsAreCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task LambdasAndScalarsAreCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -287,9 +293,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a member with no body has nothing to return.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractAndInterfaceMembersAreCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task AbstractAndInterfaceMembersAreCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -306,9 +313,10 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
 
     /// <summary>Verifies a local function is measured, and a non-empty return is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionIsMeasuredAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task LocalFunctionIsMeasuredAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -363,11 +371,7 @@ public class ReturnEmptyCollectionNotNullAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyEmptyCollection.Test
-        {
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new VerifyEmptyCollection.Test { TestCode = Source, FixedCode = FixedSource, };
 
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {

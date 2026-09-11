@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeNonPublicReflection = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 {
     /// <summary>Verifies a lookup passing the literal <c>BindingFlags.NonPublic</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicLiteralReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonPublicLiteralReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -29,9 +31,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies the <c>NonPublic</c> bit folded inside an <c>|</c> expression is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicInsideOrReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonPublicInsideOrReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -44,9 +47,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c> field whose constant value carries <c>NonPublic</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicConstantFieldReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonPublicConstantFieldReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -61,9 +65,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies <c>InvokeMember</c> with <c>NonPublic</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvokeMemberNonPublicReportedAsync()
-        => await VerifyNet90Async(
+    public Task InvokeMemberNonPublicReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -76,9 +81,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies a lookup on a <c>TypeInfo</c> receiver (inheriting the method from <c>Type</c>) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeInfoReceiverReportedAsync()
-        => await VerifyNet90Async(
+    public Task TypeInfoReceiverReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -90,9 +96,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies a public-only flags value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicOnlyFlagsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PublicOnlyFlagsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -105,9 +112,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies a lookup overload with no <c>BindingFlags</c> argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoBindingFlagsOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NoBindingFlagsOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -119,9 +127,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies a flags value assembled at run time (a non-<c>const</c> field) is out of scope and not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantFlagsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantFlagsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -136,9 +145,10 @@ public class NonPublicReflectionAnalyzerUnitTest
 
     /// <summary>Verifies unrelated calls (a local call, a non-lookup member call, and a zero-argument lookup) are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedCallsAreCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedCallsAreCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -162,9 +172,10 @@ public class NonPublicReflectionAnalyzerUnitTest
     /// a look-alike type and flags enum carrying a <c>NonPublic</c> member of the same shape are not reported.
     /// </summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookalikeTypeAndFlagsAreCleanAsync()
-        => await VerifyNet90Async(
+    public Task LookalikeTypeAndFlagsAreCleanAsync() =>
+        VerifyNet90Async(
             """
             namespace Fake
             {
@@ -191,11 +202,7 @@ public class NonPublicReflectionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeNonPublicReflection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeNonPublicReflection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

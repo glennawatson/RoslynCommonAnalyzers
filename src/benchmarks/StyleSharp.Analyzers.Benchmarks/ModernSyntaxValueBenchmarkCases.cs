@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds shared benchmark state for modern-syntax value analysis.</summary>
@@ -22,8 +24,9 @@ internal static class ModernSyntaxValueBenchmarkCases
     /// <summary>Creates the prepared benchmark state for the requested node count.</summary>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
-    public static SingleAnalyzerBenchmarkState Create(int nodes)
-        => SingleAnalyzerBenchmarkHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SingleAnalyzerBenchmarkState Create(int nodes) =>
+        SingleAnalyzerBenchmarkHelper.Create(
             new ModernSyntaxValueAnalyzer(),
             CreateScenario(nodes, violating: false),
             CreateScenario(nodes, violating: true));
@@ -32,8 +35,8 @@ internal static class ModernSyntaxValueBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <param name="violating">Whether to build the violating source.</param>
     /// <returns>The benchmark scenario.</returns>
-    private static AnalyzerBenchmarkScenario CreateScenario(int nodes, bool violating)
-        => new(
+    private static AnalyzerBenchmarkScenario CreateScenario(int nodes, bool violating) =>
+        new(
             BenchmarkCompilationFactory.CreateCompilation(
                 ModernSyntaxValueBenchmarkSource.Generate(nodes, violating),
                 EnabledRuleIds).Compilation,

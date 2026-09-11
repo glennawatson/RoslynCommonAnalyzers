@@ -38,11 +38,11 @@ internal sealed class ClosedHierarchyTally
 
     /// <summary>Records what one type contributes: a candidate base, a descendant, or both.</summary>
     /// <param name="type">The declared type.</param>
-    public void Observe(INamedTypeSymbol type)
+    internal void Observe(INamedTypeSymbol type)
     {
         if (IsCandidate(type))
         {
-            _candidates.TryAdd(type, true);
+            _ = _candidates.TryAdd(type, true);
         }
 
         var baseType = type.BaseType;
@@ -51,12 +51,12 @@ internal sealed class ClosedHierarchyTally
             return;
         }
 
-        _derivedCounts.AddOrUpdate(baseType.OriginalDefinition, 1, static (_, count) => count + 1);
+        _ = _derivedCounts.AddOrUpdate(baseType.OriginalDefinition, 1, static (_, count) => count + 1);
     }
 
     /// <summary>Reports every candidate whose descendant set is already complete.</summary>
     /// <param name="context">The compilation analysis context.</param>
-    public void Report(CompilationAnalysisContext context)
+    internal void Report(CompilationAnalysisContext context)
     {
         foreach (var candidate in _candidates)
         {
@@ -83,19 +83,19 @@ internal sealed class ClosedHierarchyTally
     /// <summary>Gets whether a type could carry the modifier without changing what callers may do.</summary>
     /// <param name="type">The declared type.</param>
     /// <returns><see langword="true"/> for an assembly-internal abstract class or record.</returns>
-    private static bool IsCandidate(INamedTypeSymbol type)
-        => type.TypeKind == TypeKind.Class
+    private static bool IsCandidate(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Class
             && type.IsAbstract
             && !type.IsStatic
-            && type.DeclaringSyntaxReferences.Length > 0
+            && !type.DeclaringSyntaxReferences.IsEmpty
             && !SymbolVisibility.IsExternallyVisible(type);
 
     /// <summary>Gets the first declaration of a type.</summary>
     /// <param name="type">The declared type.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns>The declaration, or <see langword="null"/> when it is not a type declaration.</returns>
-    private static TypeDeclarationSyntax? Declaration(INamedTypeSymbol type, CancellationToken cancellationToken)
-        => type.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) as TypeDeclarationSyntax;
+    private static TypeDeclarationSyntax? Declaration(INamedTypeSymbol type, CancellationToken cancellationToken) =>
+        type.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) as TypeDeclarationSyntax;
 
     /// <summary>Gets whether a declaration already carries the <c>closed</c> modifier.</summary>
     /// <param name="declaration">The type declaration.</param>
@@ -116,6 +116,6 @@ internal sealed class ClosedHierarchyTally
     /// <summary>Gets whether a modifier token is the C# 15 <c>closed</c> keyword.</summary>
     /// <param name="modifier">The modifier token.</param>
     /// <returns><see langword="true"/> for the <c>closed</c> keyword.</returns>
-    private static bool IsClosedKeyword(SyntaxToken modifier)
-        => ClosedKeywordKind != SyntaxKind.None && modifier.IsKind(ClosedKeywordKind);
+    private static bool IsClosedKeyword(SyntaxToken modifier) =>
+        ClosedKeywordKind != SyntaxKind.None && modifier.IsKind(ClosedKeywordKind);
 }

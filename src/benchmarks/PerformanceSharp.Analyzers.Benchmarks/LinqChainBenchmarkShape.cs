@@ -8,11 +8,11 @@ namespace PerformanceSharp.Analyzers.Benchmarks;
 public enum LinqChainBenchmarkShape
 {
     /// <summary>LINQ Where applied after a sort (PSH1107).</summary>
-    FilterBeforeSort,
+    FilterBeforeSort = 0,
 
     /// <summary>LINQ OrderBy applied to an already ordered sequence (PSH1108).</summary>
-    UseThenBy,
+    UseThenBy = 1,
 
     /// <summary>Consecutive LINQ Where calls (PSH1109).</summary>
-    MergeConsecutiveWhere
+    MergeConsecutiveWhere = 2,
 }

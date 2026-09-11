@@ -33,8 +33,8 @@ public sealed class Sst1143BooleanLiteralComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the <c>true</c> or <c>false</c> literal.</summary>
     /// <param name="expression">The expression to test.</param>
     /// <returns><see langword="true"/> for a boolean literal.</returns>
-    internal static bool IsBooleanLiteral(ExpressionSyntax expression)
-        => expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
+    internal static bool IsBooleanLiteral(ExpressionSyntax expression) =>
+        expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
 
     /// <summary>
     /// Returns whether an expression's result type is syntactically guaranteed to be a non-nullable

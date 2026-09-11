@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyGlobalSuppressionTarget = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.GlobalSuppressionTargetAnalyzer>;
 
@@ -12,9 +13,10 @@ public class GlobalSuppressionTargetAnalyzerUnitTest
 {
     /// <summary>Verifies a global suppression target that cannot resolve is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingDeclarationTargetIsReportedAsync()
-        => await VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
+    public Task MissingDeclarationTargetIsReportedAsync() =>
+        VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
 
@@ -27,9 +29,10 @@ public class GlobalSuppressionTargetAnalyzerUnitTest
 
     /// <summary>Verifies a legacy tilde-prefixed target is reported before target resolution.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LegacyTargetPrefixIsReportedAsync()
-        => await VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
+    public Task LegacyTargetPrefixIsReportedAsync() =>
+        VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
 
@@ -45,9 +48,10 @@ public class GlobalSuppressionTargetAnalyzerUnitTest
 
     /// <summary>Verifies a target that resolves to a declaration is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResolvedDeclarationTargetIsCleanAsync()
-        => await VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
+    public Task ResolvedDeclarationTargetIsCleanAsync() =>
+        VerifyGlobalSuppressionTarget.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
 

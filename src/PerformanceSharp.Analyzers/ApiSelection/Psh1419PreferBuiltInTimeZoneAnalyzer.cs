@@ -98,8 +98,8 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a single-argument <c>GetTimeZoneInfo</c> call, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the code fix can rewrite it one-to-one.</returns>
-    internal static bool IsGetTimeZoneInfoInvocation(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 1
+    internal static bool IsGetTimeZoneInfoInvocation(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 1
             && GetInvokedSimpleName(invocation.Expression) == GetTimeZoneInfoMethodName;
 
     /// <summary>Reports PSH1419 for a converter call whose built-in replacement is available.</summary>
@@ -108,7 +108,7 @@ public sealed class Psh1419PreferBuiltInTimeZoneAnalyzer : DiagnosticAnalyzer
     /// <param name="hasIanaToWindows">Whether the IANA-to-Windows conversion helper resolves.</param>
     /// <param name="hasWindowsToIana">Whether the Windows-to-IANA conversion helper resolves.</param>
     private static void AnalyzeInvocation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol converterType,
         bool hasIanaToWindows,
         bool hasWindowsToIana)

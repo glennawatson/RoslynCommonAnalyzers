@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyLoad = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2486PreferAssemblyLoadAnalyzer>;
@@ -16,9 +17,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 {
     /// <summary>Verifies a LoadFrom call is reported and not offered a fix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromIsReportedWithoutFixAsync()
-        => await VerifyReportAsync(
+    public Task LoadFromIsReportedWithoutFixAsync() =>
+        VerifyReportAsync(
             """
             using System.Reflection;
             public class C
@@ -29,9 +31,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a LoadFile call is reported and not offered a fix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFileIsReportedWithoutFixAsync()
-        => await VerifyReportAsync(
+    public Task LoadFileIsReportedWithoutFixAsync() =>
+        VerifyReportAsync(
             """
             using System.Reflection;
             public class C
@@ -80,9 +83,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies Assembly.Load itself is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssemblyLoadIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task AssemblyLoadIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System.Reflection;
             public class C
@@ -93,9 +97,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a plain, non-member-access invocation is never a candidate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainInvocationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task PlainInvocationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -109,9 +114,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies an instance method named LoadFrom on another type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceMethodWithSameNameIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InstanceMethodWithSameNameIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -125,9 +131,10 @@ public class PreferAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a static method named LoadFrom on a different type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMethodOnOtherTypeIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StaticMethodOnOtherTypeIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public static class MyLoader
             {
@@ -148,12 +155,7 @@ public class PreferAssemblyLoadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyLoadFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyLoadFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -163,11 +165,7 @@ public class PreferAssemblyLoadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new VerifyLoad.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyLoad.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -175,5 +173,6 @@ public class PreferAssemblyLoadAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyReportAsync(source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyReportAsync(source);
 }

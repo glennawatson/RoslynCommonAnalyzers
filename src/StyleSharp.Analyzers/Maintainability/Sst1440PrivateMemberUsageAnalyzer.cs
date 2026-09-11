@@ -53,7 +53,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The semantic model context.</param>
     /// <param name="usages">The accumulated type usage state.</param>
     private static void AnalyzeSemanticModel(
-        SemanticModelAnalysisContext context,
+        in SemanticModelAnalysisContext context,
         ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
     {
         var root = context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken);
@@ -85,7 +85,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one type declaration whose full body is available in the current semantic model.</summary>
     /// <param name="context">The semantic model context.</param>
     /// <param name="typeDeclaration">The type declaration.</param>
-    private static void AnalyzeSinglePartType(SemanticModelAnalysisContext context, TypeDeclarationSyntax typeDeclaration)
+    private static void AnalyzeSinglePartType(in SemanticModelAnalysisContext context, TypeDeclarationSyntax typeDeclaration)
     {
         var usage = new PrivateTypeUsage();
         CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
@@ -322,20 +322,20 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation context.</param>
     /// <param name="usages">The accumulated type usage state.</param>
     private static void ReportCandidates(
-        CompilationAnalysisContext context,
+        in CompilationAnalysisContext context,
         ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
     {
-        foreach (var usage in usages.Values)
+        foreach (var usage in usages)
         {
             context.CancellationToken.ThrowIfCancellationRequested();
-            ReportCandidates(context, usage);
+            ReportCandidates(context, usage.Value);
         }
     }
 
     /// <summary>Reports the unused or unread candidates.</summary>
     /// <param name="context">The compilation context.</param>
     /// <param name="usage">The type usage state.</param>
-    private static void ReportCandidates(CompilationAnalysisContext context, PrivateTypeUsage usage)
+    private static void ReportCandidates(in CompilationAnalysisContext context, PrivateTypeUsage usage)
     {
         var (candidates, references) = usage.Snapshot();
         if (candidates.Count == 0)
@@ -431,7 +431,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether modifiers declare private accessibility.</summary>
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when the declaration is private.</returns>
-    private static bool IsPrivate(SyntaxTokenList modifiers) =>
+    private static bool IsPrivate(in SyntaxTokenList modifiers) =>
         HasModifier(modifiers, SyntaxKind.PrivateKeyword)
             && !HasModifier(modifiers, SyntaxKind.ProtectedKeyword)
             && !HasModifier(modifiers, SyntaxKind.InternalKeyword)
@@ -441,7 +441,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The modifiers.</param>
     /// <param name="kind">The modifier kind.</param>
     /// <returns><see langword="true"/> when the modifier is present.</returns>
-    private static bool HasModifier(SyntaxTokenList modifiers, SyntaxKind kind)
+    private static bool HasModifier(in SyntaxTokenList modifiers, SyntaxKind kind)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyNameSimplification = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -13,9 +14,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for shortest-equivalent-name analysis (SST1116/SST1117).</summary>
 public class NameSimplificationAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the qualification option is read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>The editorconfig body that requires explicit <c>this.</c> on instance members.</summary>
     private const string RequireThisEditorConfig = """
                                                    root = true
@@ -136,10 +134,7 @@ public class NameSimplificationAnalyzerUnitTest
                                   public void M() => this.Log().Debug("x");
                               }
                               """;
-        var test = new VerifyNameSimplification.Test
-        {
-            TestCode = Source
-        };
+        var test = new VerifyNameSimplification.Test { TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -165,10 +160,7 @@ public class NameSimplificationAnalyzerUnitTest
                                   public int M() => this.Compute();
                               }
                               """;
-        var test = new VerifyNameSimplification.Test
-        {
-            TestCode = Source
-        };
+        var test = new VerifyNameSimplification.Test { TestCode = Source };
         ApplyPreviewParseOptions(test.SolutionTransforms);
 
         await test.RunAsync(CancellationToken.None);
@@ -211,11 +203,8 @@ public class NameSimplificationAnalyzerUnitTest
                                   public int M() => this._value;
                               }
                               """;
-        var test = new VerifyNameSimplification.Test
-        {
-            TestCode = Source
-        };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
+        var test = new VerifyNameSimplification.Test { TestCode = Source };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -266,11 +255,8 @@ public class NameSimplificationAnalyzerUnitTest
                                   private C Create() => new C { _field = 1 };
                               }
                               """;
-        var test = new VerifyNameSimplification.Test
-        {
-            TestCode = Source
-        };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
+        var test = new VerifyNameSimplification.Test { TestCode = Source };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -430,24 +416,18 @@ public class NameSimplificationAnalyzerUnitTest
     /// <returns>The configured verifier test.</returns>
     private static VerifyNameSimplification.Test CreateRequireThisTest(string source, string fixedSource)
     {
-        var test = new VerifyNameSimplification.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
+        var test = new VerifyNameSimplification.Test { TestCode = source, FixedCode = fixedSource };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", RequireThisEditorConfig));
         return test;
     }
 
     /// <summary>Applies preview parse options so extension blocks parse.</summary>
     /// <param name="solutionTransforms">The solution-transform collection to update.</param>
-    private static void ApplyPreviewParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms)
-    {
-        solutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ApplyPreviewParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms) => solutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
         });
-    }
 }

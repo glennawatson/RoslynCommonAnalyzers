@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A code fix provider for the <see cref="Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
-/// </summary>
+/// <summary>A code fix provider for the <see cref="Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
 public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
@@ -18,27 +18,29 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, $"{nameof(Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFixProvider)}-Add", TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites the indexer declaration so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The indexer declaration to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    internal static Task<Document> FixAsync(Document document, SyntaxNode root, IndexerDeclarationSyntax node)
-        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, IndexerDeclarationSyntax node) =>
+        Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
 
     /// <summary>Resolves the reported indexer declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is IndexerDeclarationSyntax node
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is IndexerDeclarationSyntax node
             ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((IndexerDeclarationSyntax)current))
             : null;
 
@@ -50,12 +52,12 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
     /// makes the lambda a closure, which allocates a display class on every rewrite. The node the
     /// rewrite receives is the one it would have been read from.
     /// </remarks>
-    private static IndexerDeclarationSyntax Rewrite(IndexerDeclarationSyntax node)
-        => node.ConvertNodeIfAble(
+    private static IndexerDeclarationSyntax Rewrite(IndexerDeclarationSyntax node) =>
+        node.ConvertNodeIfAble(
                static inner => inner.ParameterList?.Parameters,
                static (inner, parameters) => inner.WithParameterList(
                    SyntaxFactory.BracketedParameterList(parameters)
                        .WithOpenBracketToken(inner.ParameterList.OpenBracketToken
-                           .WithTrailingTrivia(UniqueLineCodeFixerHelper.GetEndOfLine(inner, elastic: true)))))
+                           .WithTrailingTrivia(UniqueLineCodeFixerHelperExtensions.GetEndOfLine(inner, elastic: true)))))
            ?? node;
 }

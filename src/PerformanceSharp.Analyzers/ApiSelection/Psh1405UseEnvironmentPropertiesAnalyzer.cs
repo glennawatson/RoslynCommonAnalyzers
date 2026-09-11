@@ -136,7 +136,7 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1405 for a chain whose replacement Environment property exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gate">The per-compilation gate state.</param>
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, EnvironmentGate gate)
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, EnvironmentGate gate)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!TryGetReplacementPropertyName(access, out var propertyName))
@@ -169,7 +169,7 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
     /// <param name="propertyName">The replacement property the shape mapped to.</param>
     /// <param name="gate">The per-compilation gate state.</param>
     /// <returns><see langword="true"/> when the chain starts from the current process or thread.</returns>
-    private static bool IsBoundChain(SyntaxNodeAnalysisContext context, MemberAccessExpressionSyntax access, string propertyName, EnvironmentGate gate)
+    private static bool IsBoundChain(in SyntaxNodeAnalysisContext context, MemberAccessExpressionSyntax access, string propertyName, EnvironmentGate gate)
     {
         if (propertyName == CurrentManagedThreadIdPropertyName)
         {
@@ -190,8 +190,8 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation has the argument-free <c>GetCurrentProcess()</c> syntax shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the syntax-only factory shape matches (member access or using-static call).</returns>
-    private static bool IsGetCurrentProcessShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    private static bool IsGetCurrentProcessShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetCurrentProcessMethodName }
                 or IdentifierNameSyntax { Identifier.ValueText: GetCurrentProcessMethodName };
 

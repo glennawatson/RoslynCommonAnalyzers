@@ -4,10 +4,7 @@
 
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>
-/// Validates a composite format string before PSH1223 offers to hoist it into a
-/// <c>CompositeFormat</c> field.
-/// </summary>
+/// <summary>Validates a composite format string before PSH1223 offers to hoist it into a <c>CompositeFormat</c> field.</summary>
 /// <remarks>
 /// The point is not to reimplement the runtime's parser. It is to be sure that a format the rule
 /// hoists is one <c>CompositeFormat.Parse</c> will accept, because a format it rejects would throw
@@ -25,7 +22,7 @@ internal static class CompositeFormatText
     /// <summary>Returns whether a constant format string is one the rule is willing to hoist.</summary>
     /// <param name="text">The constant format string.</param>
     /// <returns><see langword="true"/> when the format is well-formed and carries at least one placeholder.</returns>
-    public static bool IsWellFormed(string text)
+    internal static bool IsWellFormed(string text)
     {
         var index = 0;
         var sawPlaceholder = false;

@@ -71,7 +71,7 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1003 for a <c>Pbkdf2</c> call whose constant iteration count is below the floor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="rfc2898Type">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol rfc2898Type)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol rfc2898Type)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -126,15 +126,12 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
 
         // 'iterations' is the third parameter of every Pbkdf2 overload, so a positional third argument
         // is the count -- but only when nothing before it is named, since a name shifts the mapping.
-        if (arguments.Count <= IterationsPosition
+        return arguments.Count <= IterationsPosition
             || arguments[0].NameColon is not null
             || arguments[1].NameColon is not null
-            || arguments[IterationsPosition].NameColon is not null)
-        {
-            return null;
-        }
-
-        return arguments[IterationsPosition].Expression;
+            || arguments[IterationsPosition].NameColon is not null
+            ? null
+            : arguments[IterationsPosition].Expression;
     }
 
     /// <summary>Reads the iteration floor, preferring the rule-specific key over the project-wide key.</summary>

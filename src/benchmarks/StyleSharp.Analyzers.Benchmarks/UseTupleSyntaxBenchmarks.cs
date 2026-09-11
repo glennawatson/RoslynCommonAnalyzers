@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for use-tuple-syntax analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseTupleSyntaxBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseTupleSyntaxBenchmarks
@@ -24,11 +26,13 @@ public class UseTupleSyntaxBenchmarks
 
     /// <summary>Benchmarks the clean use-tuple-syntax path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseTupleSyntax_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating use-tuple-syntax path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseTupleSyntax_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

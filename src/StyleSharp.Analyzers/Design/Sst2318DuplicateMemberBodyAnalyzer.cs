@@ -74,8 +74,7 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var type = (TypeDeclarationSyntax)context.Node;
-        var members = type.Members;
+        var members = ((TypeDeclarationSyntax)context.Node).Members;
 
         // Cheap prepass: a type needs at least two methods with a non-trivial body before any token key or
         // tracking dictionary is worth allocating. Most types never clear this bar.
@@ -117,13 +116,15 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
         var eligible = 0;
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i] is MethodDeclarationSyntax method && HasNonTrivialBody(method))
+            if (members[i] is not MethodDeclarationSyntax method || !HasNonTrivialBody(method))
             {
-                eligible++;
-                if (eligible >= MinimumDuplicateCandidates)
-                {
-                    return eligible;
-                }
+                continue;
+            }
+
+            eligible++;
+            if (eligible >= MinimumDuplicateCandidates)
+            {
+                return eligible;
             }
         }
 
@@ -133,21 +134,14 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method has a body substantial enough to be worth comparing.</summary>
     /// <param name="method">The method to test.</param>
     /// <returns><see langword="true"/> when the method has a non-trivial block or expression body.</returns>
-    private static bool HasNonTrivialBody(MethodDeclarationSyntax method)
-    {
-        if (method.Body is { } block)
-        {
-            return block.Statements.Count >= MinimumBlockStatements;
-        }
-
-        return method.ExpressionBody is { } arrow && !IsTrivialExpression(arrow.Expression);
-    }
+    private static bool HasNonTrivialBody(MethodDeclarationSyntax method) =>
+        method.Body is { } block ? block.Statements.Count >= MinimumBlockStatements : method.ExpressionBody is { } arrow && !IsTrivialExpression(arrow.Expression);
 
     /// <summary>Returns whether an expression-bodied member says too little to be a meaningful duplicate.</summary>
     /// <param name="expression">The expression body's expression.</param>
     /// <returns><see langword="true"/> for a literal, a name, a member access, a throw, or a default.</returns>
-    private static bool IsTrivialExpression(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax
+    private static bool IsTrivialExpression(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax
             or IdentifierNameSyntax
             or MemberAccessExpressionSyntax
             or ThrowExpressionSyntax
@@ -165,12 +159,12 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
     {
         var builder = new StringBuilder();
         AppendParameterTypes(method.ParameterList, builder);
-        builder.Append(SectionSeparator);
+        _ = builder.Append(SectionSeparator);
 
         SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!.Expression;
         foreach (var token in body.DescendantTokens())
         {
-            builder.Append(token.ValueText).Append(TokenSeparator);
+            _ = builder.Append(token.ValueText).Append(TokenSeparator);
         }
 
         return builder.ToString();
@@ -193,18 +187,18 @@ public sealed class Sst2318DuplicateMemberBodyAnalyzer : DiagnosticAnalyzer
             var modifiers = parameter.Modifiers;
             for (var m = 0; m < modifiers.Count; m++)
             {
-                builder.Append(modifiers[m].ValueText).Append(TokenSeparator);
+                _ = builder.Append(modifiers[m].ValueText).Append(TokenSeparator);
             }
 
             if (parameter.Type is { } type)
             {
                 foreach (var token in type.DescendantTokens())
                 {
-                    builder.Append(token.ValueText).Append(TokenSeparator);
+                    _ = builder.Append(token.ValueText).Append(TokenSeparator);
                 }
             }
 
-            builder.Append(SectionSeparator);
+            _ = builder.Append(SectionSeparator);
         }
     }
 }

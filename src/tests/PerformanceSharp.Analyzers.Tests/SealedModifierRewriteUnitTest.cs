@@ -7,10 +7,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="SealedModifierRewrite"/>, the <c>sealed</c> insertion shared by the
-/// PSH1401 and PSH1411 code fixes.
-/// </summary>
+/// <summary>Direct tests for <see cref="SealedModifierRewrite"/>, the <c>sealed</c> insertion shared by the PSH1401 and PSH1411 code fixes.</summary>
 public class SealedModifierRewriteUnitTest
 {
     /// <summary>Verifies <c>sealed</c> lands after an accessibility modifier.</summary>
@@ -57,8 +54,8 @@ public class SealedModifierRewriteUnitTest
     /// <summary>Parses a class declaration.</summary>
     /// <param name="text">The declaration source.</param>
     /// <returns>The parsed class declaration.</returns>
-    private static ClassDeclarationSyntax Class(string text)
-        => (ClassDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!;
+    private static ClassDeclarationSyntax Class(string text) =>
+        (ClassDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!;
 
     /// <summary>Renders a declaration's modifiers as a space-separated string.</summary>
     /// <param name="declaration">The class declaration.</param>
@@ -70,10 +67,10 @@ public class SealedModifierRewriteUnitTest
         {
             if (builder.Length > 0)
             {
-                builder.Append(' ');
+                _ = builder.Append(' ');
             }
 
-            builder.Append(modifier.Text);
+            _ = builder.Append(modifier.Text);
         }
 
         return builder.ToString();

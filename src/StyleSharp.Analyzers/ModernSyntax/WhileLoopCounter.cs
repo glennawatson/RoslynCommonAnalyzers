@@ -17,7 +17,7 @@ internal static class WhileLoopCounter
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <param name="parts">The declaration, the step, and the counter's name.</param>
     /// <returns><see langword="true"/> when the loop can become a for loop.</returns>
-    public static bool TryMatch(
+    internal static bool TryMatch(
         WhileStatementSyntax loop,
         SemanticModel model,
         CancellationToken cancellationToken,
@@ -49,7 +49,7 @@ internal static class WhileLoopCounter
             return false;
         }
 
-        parts = new WhileLoopCounterParts(declaration!, step!, name);
+        parts = new(declaration!, step!, name);
         return true;
     }
 
@@ -59,16 +59,10 @@ internal static class WhileLoopCounter
     /// <returns>The declaration statement and its one declarator, or nulls when the shape does not match.</returns>
     private static (LocalDeclarationStatementSyntax? Declaration, VariableDeclaratorSyntax? Declarator) TryGetCounterDeclarator(
         BlockSyntax enclosing,
-        WhileStatementSyntax loop)
-    {
-        if (TryGetPrecedingDeclaration(enclosing, loop) is not { Declaration.Variables: { Count: 1 } variables } declaration
-            || variables[0].Initializer is null)
-        {
-            return (null, null);
-        }
-
-        return (declaration, variables[0]);
-    }
+        WhileStatementSyntax loop) => TryGetPrecedingDeclaration(enclosing, loop) is not { Declaration.Variables: { Count: 1 } variables } declaration
+            || variables[0].Initializer is null
+            ? (null, null)
+            : (declaration, variables[0]);
 
     /// <summary>Gets the loop body's last statement when it steps the counter.</summary>
     /// <param name="body">The loop body.</param>
@@ -118,8 +112,8 @@ internal static class WhileLoopCounter
     /// <param name="expression">The expression to inspect.</param>
     /// <param name="name">The counter's name.</param>
     /// <returns><see langword="true"/> when the expression names the counter.</returns>
-    private static bool IsNamed(ExpressionSyntax expression, string name)
-        => expression is IdentifierNameSyntax identifier && string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal);
+    private static bool IsNamed(ExpressionSyntax expression, string name) =>
+        expression is IdentifierNameSyntax identifier && string.Equals(identifier.Identifier.ValueText, name, StringComparison.Ordinal);
 
     /// <summary>Returns whether an expression mentions the named identifier anywhere.</summary>
     /// <param name="expression">The expression to scan.</param>
@@ -133,7 +127,7 @@ internal static class WhileLoopCounter
         }
 
         var state = (Name: name, Found: false);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
             expression,
             ref state,
             static (node, ref current) =>
@@ -183,8 +177,8 @@ internal static class WhileLoopCounter
     /// <summary>Returns whether a node captures <c>continue</c> statements written inside it.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for a nested loop or a nested function body.</returns>
-    private static bool OwnsItsOwnContinue(SyntaxNode node)
-        => node is ForStatementSyntax
+    private static bool OwnsItsOwnContinue(SyntaxNode node) =>
+        node is ForStatementSyntax
             or ForEachStatementSyntax
             or ForEachVariableStatementSyntax
             or WhileStatementSyntax
@@ -234,7 +228,7 @@ internal static class WhileLoopCounter
         for (var i = start; i < statements.Count; i++)
         {
             var state = (Name: name, Found: false);
-            DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
+            _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (string Name, bool Found)>(
                 statements[i],
                 ref state,
                 static (node, ref current) =>

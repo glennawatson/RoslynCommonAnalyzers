@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRestrictedSummary = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer,
     StyleSharp.Analyzers.RestrictedPropertySummaryCodeFixProvider>;
@@ -73,9 +74,10 @@ public class RestrictedPropertySummaryAnalyzerUnitTest
 
     /// <summary>Verifies equal accessor accessibility remains governed by SST1623.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualAccessibilityIsCleanAsync()
-        => await VerifyRestrictedSummary.VerifyAnalyzerAsync(
+    public Task EqualAccessibilityIsCleanAsync() =>
+        VerifyRestrictedSummary.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             internal class C

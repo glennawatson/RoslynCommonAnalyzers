@@ -15,7 +15,7 @@ internal readonly record struct SecretScanningSettings(bool AllowDocumentationEx
     /// <summary>Returns whether a literal is one the project has named as a published sample.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the value matches a configured entry exactly.</returns>
-    public bool IsAllowedExample(string value)
+    internal bool IsAllowedExample(string value)
     {
         var allowed = AllowedExamples;
         if (allowed is null)

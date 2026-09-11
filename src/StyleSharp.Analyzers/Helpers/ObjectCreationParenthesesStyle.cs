@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum ObjectCreationParenthesesStyle
 {
     /// <summary><c>new T { ... }</c> — no empty parentheses.</summary>
-    Omit,
+    Omit = 0,
 
     /// <summary><c>new T() { ... }</c> — keep the empty parentheses.</summary>
-    Include
+    Include = 1,
 }

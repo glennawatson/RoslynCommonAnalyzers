@@ -25,7 +25,7 @@ internal static class SummaryParagraphLayout
     /// <param name="firstInnerLine">The first content line number when the method returns <see langword="true"/>.</param>
     /// <param name="lastInnerLine">The last content line number when the method returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> for a canonical multi-line summary with at least one inner line.</returns>
-    public static bool TryGetInnerLineRange(SourceText text, XmlElementSyntax element, out int firstInnerLine, out int lastInnerLine)
+    internal static bool TryGetInnerLineRange(SourceText text, XmlElementSyntax element, out int firstInnerLine, out int lastInnerLine)
     {
         firstInnerLine = 0;
         lastInnerLine = 0;
@@ -55,7 +55,7 @@ internal static class SummaryParagraphLayout
     /// <param name="firstInnerLine">The first inner line number.</param>
     /// <param name="lastInnerLine">The last inner line number.</param>
     /// <returns><see langword="true"/> when at least two paragraphs are separated by a blank line.</returns>
-    public static bool HasBlankSeparatedParagraphs(SourceText text, int firstInnerLine, int lastInnerLine)
+    internal static bool HasBlankSeparatedParagraphs(SourceText text, int firstInnerLine, int lastInnerLine)
     {
         var seenProse = false;
         var pendingBlank = false;
@@ -83,7 +83,7 @@ internal static class SummaryParagraphLayout
     /// <param name="text">The source text.</param>
     /// <param name="span">The line span.</param>
     /// <returns><see langword="true"/> when the line has non-exterior content.</returns>
-    public static bool LineHasProse(SourceText text, TextSpan span)
+    internal static bool LineHasProse(SourceText text, TextSpan span)
     {
         var i = span.Start;
         while (i < span.End && char.IsWhiteSpace(text[i]))

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -191,9 +192,10 @@ public class ChainedConditionalToSwitchAnalyzerUnitTest
 
     /// <summary>Verifies chains that mix subjects or are not constant chains are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantSameValueChainsAreCleanAsync()
-        => await VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
+    public Task NonConstantSameValueChainsAreCleanAsync() =>
+        VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -213,9 +215,10 @@ public class ChainedConditionalToSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a chain over a property is not reported because reading it may have a side effect.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertySubjectChainIsCleanAsync()
-        => await VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
+    public Task PropertySubjectChainIsCleanAsync() =>
+        VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -228,9 +231,10 @@ public class ChainedConditionalToSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a floating-point chain is not reported because its equality can differ from a pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FloatingPointChainIsCleanAsync()
-        => await VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
+    public Task FloatingPointChainIsCleanAsync() =>
+        VerifyChainedConditionalToSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -253,11 +257,7 @@ public class ChainedConditionalToSwitchAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyChainedConditionalToSwitch.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyChainedConditionalToSwitch.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;

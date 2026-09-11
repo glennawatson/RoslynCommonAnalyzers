@@ -26,14 +26,14 @@ internal readonly record struct AllowedThrowTypes(INamedTypeSymbol? NotImplement
     /// <summary>Resolves the well-known types once per compilation.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The resolved symbols; either may be <see langword="null"/>.</returns>
-    public static AllowedThrowTypes Create(Compilation compilation) => new(
-        compilation.GetTypeByMetadataName("System." + NotImplementedName),
-        compilation.GetTypeByMetadataName("System." + NotSupportedName));
+    internal static AllowedThrowTypes Create(Compilation compilation) => new(
+        compilation.GetTypeByMetadataName($"System.{NotImplementedName}"),
+        compilation.GetTypeByMetadataName($"System.{NotSupportedName}"));
 
     /// <summary>Returns whether a thrown type is one of the allowed types, or derives from one.</summary>
     /// <param name="type">The thrown expression's type.</param>
     /// <returns><see langword="true"/> when the throw marks the member as deliberately absent.</returns>
-    public bool Contains(ITypeSymbol? type)
+    internal bool Contains(ITypeSymbol? type)
     {
         for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
         {

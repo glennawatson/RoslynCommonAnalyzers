@@ -11,8 +11,8 @@ internal static class AmbiguousInheritedInterfaceMemberBenchmarkSource
     /// <param name="types">The number of synthetic interface groups to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingGroup(i) : GenerateCleanGroup(i))}}
@@ -21,8 +21,8 @@ internal static class AmbiguousInheritedInterfaceMemberBenchmarkSource
     /// <summary>Builds one interface whose two base interfaces declare distinct members.</summary>
     /// <param name="index">The synthetic group index.</param>
     /// <returns>The generated interface block.</returns>
-    private static string GenerateCleanGroup(int index)
-        => $$"""
+    private static string GenerateCleanGroup(int index) =>
+        $$"""
            public interface ICleanLeft{{index}}
            {
                string Left{{index}} { get; }
@@ -41,8 +41,8 @@ internal static class AmbiguousInheritedInterfaceMemberBenchmarkSource
     /// <summary>Builds one interface that inherits one member from two unrelated base interfaces.</summary>
     /// <param name="index">The synthetic group index.</param>
     /// <returns>The generated interface block.</returns>
-    private static string GenerateViolatingGroup(int index)
-        => $$"""
+    private static string GenerateViolatingGroup(int index) =>
+        $$"""
            public interface IViolatingLeft{{index}}
            {
                string Name{{index}} { get; }

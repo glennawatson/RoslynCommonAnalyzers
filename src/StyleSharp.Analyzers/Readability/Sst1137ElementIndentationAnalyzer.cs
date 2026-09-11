@@ -102,7 +102,7 @@ public sealed class Sst1137ElementIndentationAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="element">The sibling element.</param>
     /// <param name="reference">The running reference indentation (-1 until the first own-line sibling is seen).</param>
-    private static void ProcessElement(SyntaxNodeAnalysisContext context, SourceText text, SyntaxNode element, ref int reference)
+    private static void ProcessElement(in SyntaxNodeAnalysisContext context, SourceText text, SyntaxNode element, ref int reference)
     {
         var indent = OwnLineIndent(text, element);
         if (indent < 0)

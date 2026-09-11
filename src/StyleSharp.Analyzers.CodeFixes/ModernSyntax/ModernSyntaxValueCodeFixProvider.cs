@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Applies mechanical fixes for value, cast, and LINQ modern syntax rules (SST2220-SST2232).</summary>
@@ -110,8 +112,9 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => Apply(document, root, model: null, diagnostic);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        Apply(document, root, model: null, diagnostic);
 
     /// <summary>Applies one value-syntax fix.</summary>
     /// <param name="document">The document.</param>
@@ -133,7 +136,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return document;
         }
 
-        SyntaxNode? updated = replacement is null
+        var updated = replacement is null
             ? tracked.RemoveNode(trackedOld, SyntaxRemoveOptions.KeepNoTrivia)
             : tracked.ReplaceNode(trackedOld, replacement);
         if (updated is null)
@@ -170,14 +173,14 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <summary>Returns a code action title.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The title, or <see langword="null"/>.</returns>
-    private static string? GetTitle(string diagnosticId)
-        => GetValueTitle(diagnosticId) ?? GetLinqAndPatternTitle(diagnosticId);
+    private static string? GetTitle(string diagnosticId) =>
+        GetValueTitle(diagnosticId) ?? GetLinqAndPatternTitle(diagnosticId);
 
     /// <summary>Returns a code action title for the first value-syntax batch.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The title, or <see langword="null"/>.</returns>
-    private static string? GetValueTitle(string diagnosticId)
-        => diagnosticId switch
+    private static string? GetValueTitle(string diagnosticId) =>
+        diagnosticId switch
         {
             "SST2220" => "Move ToString into interpolation",
             "SST2221" => "Assign ignored value to discard",
@@ -193,8 +196,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <summary>Returns a code action title for LINQ, pattern, and nameof rules.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The title, or <see langword="null"/>.</returns>
-    private static string? GetLinqAndPatternTitle(string diagnosticId)
-        => diagnosticId switch
+    private static string? GetLinqAndPatternTitle(string diagnosticId) =>
+        diagnosticId switch
         {
             "SST2228" => "Use a local function",
             "SST2231" => "Use a direct null pattern",
@@ -208,8 +211,9 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="oldNode">The node to replace or remove.</param>
     /// <param name="removeNode">An additional node to remove after replacement.</param>
     /// <returns>The replacement node, <see langword="null"/> for remove-only, or <see langword="null"/> with no old node when no fix is available.</returns>
-    private static SyntaxNode? CreateEdit(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out SyntaxNode? removeNode)
-        => CreateEdit(root, model: null, diagnostic, out oldNode, out removeNode, CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxNode? CreateEdit(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode, out SyntaxNode? removeNode) =>
+        CreateEdit(root, model: null, diagnostic, out oldNode, out removeNode, CancellationToken.None);
 
     /// <summary>Creates the syntax edit for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
@@ -247,8 +251,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         Diagnostic diagnostic,
         ref SyntaxNode? oldNode,
         ref SyntaxNode? removeNode,
-        CancellationToken cancellationToken)
-        => diagnostic.Id switch
+        CancellationToken cancellationToken) =>
+        diagnostic.Id switch
         {
             "SST2220" => CreateInterpolationFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2221" => CreateIgnoredValueFix(root, model, diagnostic.Location.SourceSpan, out oldNode, cancellationToken),
@@ -266,8 +270,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="diagnostic">The diagnostic.</param>
     /// <param name="oldNode">The node to replace or remove.</param>
     /// <returns>The replacement node, or <see langword="null"/>.</returns>
-    private static SyntaxNode? CreateLinqAndPatternEdit(SyntaxNode root, Diagnostic diagnostic, ref SyntaxNode? oldNode)
-        => diagnostic.Id switch
+    private static SyntaxNode? CreateLinqAndPatternEdit(SyntaxNode root, Diagnostic diagnostic, ref SyntaxNode? oldNode) =>
+        diagnostic.Id switch
         {
             "SST2228" => CreateLocalFunctionFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2231" => CreateNullPatternFix(root, diagnostic.Location.SourceSpan, out oldNode),
@@ -361,8 +365,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <summary>Returns whether an expression already assigns an ignored value to the discard.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression is an explicit discard assignment.</returns>
-    private static bool IsDiscardAssignment(ExpressionSyntax expression)
-        => expression is AssignmentExpressionSyntax
+    private static bool IsDiscardAssignment(ExpressionSyntax expression) =>
+        expression is AssignmentExpressionSyntax
         {
             RawKind: (int)SyntaxKind.SimpleAssignmentExpression,
             Left: IdentifierNameSyntax { Identifier.ValueText: "_" }
@@ -420,7 +424,7 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <returns><see langword="true"/> when the expression, possibly parenthesized, is a return value.</returns>
     private static bool IsReturnedExpression(ExpressionSyntax expression)
     {
-        SyntaxNode? current = expression.Parent;
+        var current = expression.Parent;
         while (current is ParenthesizedExpressionSyntax)
         {
             current = current.Parent;
@@ -732,8 +736,8 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <summary>Gets the final generic name from a simple or qualified type.</summary>
     /// <param name="type">The type syntax.</param>
     /// <returns>The generic name, or <see langword="null"/>.</returns>
-    private static GenericNameSyntax? GetGenericName(TypeSyntax type)
-        => type switch
+    private static GenericNameSyntax? GetGenericName(TypeSyntax type) =>
+        type switch
         {
             GenericNameSyntax generic => generic,
             QualifiedNameSyntax { Right: GenericNameSyntax generic } => generic,
@@ -811,9 +815,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="root">The syntax root.</param>
     /// <param name="span">The span.</param>
     /// <returns>The ancestor node, or <see langword="null"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static T? FindAncestor<T>(SyntaxNode root, TextSpan span)
-        where T : SyntaxNode
-        => root.FindNode(span).FirstAncestorOrSelf<T>();
+        where T : SyntaxNode =>
+        root.FindNode(span).FirstAncestorOrSelf<T>();
 
     /// <summary>Gets the previous statement in a block.</summary>
     /// <param name="ifStatement">The if statement.</param>
@@ -830,11 +835,13 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         var statements = block.Statements;
         for (var i = 1; i < statements.Count; i++)
         {
-            if (statements[i] == ifStatement)
+            if (statements[i] != ifStatement)
             {
-                previous = statements[i - 1];
-                return true;
+                continue;
             }
+
+            previous = statements[i - 1];
+            return true;
         }
 
         return false;

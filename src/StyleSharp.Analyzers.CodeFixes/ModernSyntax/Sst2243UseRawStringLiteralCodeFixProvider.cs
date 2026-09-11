@@ -70,8 +70,8 @@ public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider,
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => TryGetLiteral(root, diagnostic, out var literal)
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetLiteral(root, diagnostic, out var literal)
             ? document.WithSyntaxRoot(root.ReplaceNode(literal!, BuildReplacement(literal!)))
             : document;
 
@@ -130,7 +130,7 @@ public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider,
             + (OpeningAndClosingDelimiterCount * delimiter.Length)
             + ((lineCount + 1) * (indent.Length + newLine.Length));
         var builder = new StringBuilder(capacity);
-        builder.Append(delimiter).Append(newLine);
+        _ = builder.Append(delimiter).Append(newLine);
 
         var start = 0;
         var index = 0;
@@ -164,19 +164,21 @@ public sealed class Sst2243UseRawStringLiteralCodeFixProvider : CodeFixProvider,
         var whitespaceOnly = true;
         for (var i = start; i < end; i++)
         {
-            if (!char.IsWhiteSpace(value[i]))
+            if (char.IsWhiteSpace(value[i]))
             {
-                whitespaceOnly = false;
-                break;
+                continue;
             }
+
+            whitespaceOnly = false;
+            break;
         }
 
         if (!whitespaceOnly)
         {
-            builder.Append(indent).Append(value, start, end - start);
+            _ = builder.Append(indent).Append(value, start, end - start);
         }
 
-        builder.Append(newLine);
+        _ = builder.Append(newLine);
     }
 
     /// <summary>Returns the raw string delimiter length: one past the longest quote run in the value, at least three.</summary>

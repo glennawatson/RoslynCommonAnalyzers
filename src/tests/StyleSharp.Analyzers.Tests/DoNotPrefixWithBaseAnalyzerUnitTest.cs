@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using VerifyBasePrefix = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 {
     /// <summary>Verifies a base call to a non-overridden member is reported (SST1100).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedundantBasePrefixReportedAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task RedundantBasePrefixReportedAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -41,9 +43,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 
     /// <summary>Verifies a base call to an overridden member is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallToOverriddenMemberIsCleanAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task BaseCallToOverriddenMemberIsCleanAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -60,9 +63,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 
     /// <summary>Verifies a base access to a member hidden by a <c>new</c> declaration is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallToHiddenMemberIsCleanAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task BaseCallToHiddenMemberIsCleanAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -81,9 +85,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 
     /// <summary>Verifies a generic type hiding a base property with <c>new</c> is not flagged (the StateSignal case).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallToHiddenMemberInGenericTypeIsCleanAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task BaseCallToHiddenMemberInGenericTypeIsCleanAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             internal class Behavior<T>
             {
@@ -109,9 +114,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 
     /// <summary>Verifies a base call to a method hidden by a <c>new</c> declaration is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallToHiddenMethodIsCleanAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task BaseCallToHiddenMethodIsCleanAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -126,9 +132,10 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
 
     /// <summary>Verifies delegate arguments followed by a parameterless lambda are not misclassified as SST1100.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SubscribeLambdaSequenceIsCleanAsync()
-        => await VerifyBasePrefix.VerifyAnalyzerAsync(
+    public Task SubscribeLambdaSequenceIsCleanAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -215,6 +222,6 @@ public class DoNotPrefixWithBaseAnalyzerUnitTest
     /// <summary>Parses the last type declaration from the supplied source.</summary>
     /// <param name="source">The source containing the type declarations.</param>
     /// <returns>The parsed containing type.</returns>
-    private static TypeDeclarationSyntax ParseType(string source)
-        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1];
+    private static TypeDeclarationSyntax ParseType(string source) =>
+        (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1];
 }

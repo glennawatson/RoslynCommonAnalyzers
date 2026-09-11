@@ -150,6 +150,6 @@ public sealed class Sst2256UseInstanceExtensionInvocationAnalyzer : DiagnosticAn
     /// <summary>Wraps a would-be receiver in parentheses unless it is already a primary expression.</summary>
     /// <param name="expression">The receiver expression.</param>
     /// <returns>The receiver, parenthesized when its precedence requires it.</returns>
-    private static ExpressionSyntax AsReceiver(ExpressionSyntax expression)
-        => PrimaryExpressionClassification.IsPrimary(expression) ? expression : SyntaxFactory.ParenthesizedExpression(expression);
+    private static ExpressionSyntax AsReceiver(ExpressionSyntax expression) =>
+        PrimaryExpressionClassification.IsPrimary(expression) ? expression : SyntaxFactory.ParenthesizedExpression(expression);
 }

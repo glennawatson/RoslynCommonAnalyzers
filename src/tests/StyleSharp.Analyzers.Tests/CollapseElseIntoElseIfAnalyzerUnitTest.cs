@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCollapseElse = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1465CollapseElseIntoElseIfAnalyzer,
     StyleSharp.Analyzers.Sst1465CollapseElseIntoElseIfCodeFixProvider>;
@@ -190,9 +191,10 @@ public class CollapseElseIntoElseIfAnalyzerUnitTest
 
     /// <summary>Verifies an else block with more than one statement is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElseBlockWithTwoStatementsIsCleanAsync()
-        => await VerifyCollapseElse.VerifyAnalyzerAsync(
+    public Task ElseBlockWithTwoStatementsIsCleanAsync() =>
+        VerifyCollapseElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -218,9 +220,10 @@ public class CollapseElseIntoElseIfAnalyzerUnitTest
 
     /// <summary>Verifies an existing brace-free else-if chain is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BraceFreeElseIfIsCleanAsync()
-        => await VerifyCollapseElse.VerifyAnalyzerAsync(
+    public Task BraceFreeElseIfIsCleanAsync() =>
+        VerifyCollapseElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -238,9 +241,10 @@ public class CollapseElseIntoElseIfAnalyzerUnitTest
 
     /// <summary>Verifies an else block whose single statement is a while loop is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElseBlockWrappingWhileIsCleanAsync()
-        => await VerifyCollapseElse.VerifyAnalyzerAsync(
+    public Task ElseBlockWrappingWhileIsCleanAsync() =>
+        VerifyCollapseElse.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

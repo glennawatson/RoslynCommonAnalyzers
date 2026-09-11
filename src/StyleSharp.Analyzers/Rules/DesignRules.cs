@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,7 +13,7 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 internal static partial class DesignRules
 {
-    /// <summary>The diagnostic category every SST23xx descriptor is filed under.</summary>
+    /// <summary>The diagnostic category every descriptor in this range is filed under.</summary>
     private const string Category = "Design";
 
     /// <summary>Creates a Warning-severity Design descriptor whose help link points at the rule's docs page.</summary>
@@ -20,6 +22,7 @@ internal static partial class DesignRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, Category, description);
 

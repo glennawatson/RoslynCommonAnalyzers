@@ -216,8 +216,8 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the accessor-summary requirement for a property.</summary>
     /// <param name="property">The property declaration.</param>
     /// <returns>The required prefix and diagnostic rule.</returns>
-    private static SummaryPrefix PropertySummaryRequirement(PropertyDeclarationSyntax property)
-        => DocumentationConventions.HasRestrictedWriteAccessor(property)
+    private static SummaryPrefix PropertySummaryRequirement(PropertyDeclarationSyntax property) =>
+        DocumentationConventions.HasRestrictedWriteAccessor(property)
             ? new("Gets ", DocumentationRules.PropertySummaryOmitsRestrictedSetter)
             : new SummaryPrefix(DocumentationConventions.PropertyAccessorPrefix(property), DocumentationRules.PropertySummaryAccessors);
 
@@ -225,7 +225,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="member">The member declaration.</param>
     /// <param name="shape">The member's documentation shape.</param>
-    private static void Check(SyntaxNodeAnalysisContext context, SyntaxNode member, in MemberDoc shape)
+    private static void Check(in SyntaxNodeAnalysisContext context, SyntaxNode member, in MemberDoc shape)
     {
         var documentation = XmlDocumentationHelper.GetDocumentationComment(member);
         if (documentation is null)
@@ -272,7 +272,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="summary">The first <c>&lt;summary&gt;</c> element, if any.</param>
     /// <param name="returns">The first <c>&lt;returns&gt;</c> element, if any.</param>
     private static void ScanContent(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         DocumentationCommentTriviaSyntax documentation,
         in MemberDoc shape,
         out XmlNodeSyntax? summary,
@@ -318,7 +318,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The documentation content node.</param>
     /// <param name="name">The node's element name.</param>
-    private static void CheckProseTerminalPeriod(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, string? name)
+    private static void CheckProseTerminalPeriod(in SyntaxNodeAnalysisContext context, XmlNodeSyntax node, string? name)
     {
         if (node is not XmlElementSyntax prose
             || !IsProseElement(name)
@@ -337,7 +337,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="requirement">A required leading-text convention, or <see langword="null"/>.</param>
     /// <param name="documentsContent">Whether this part describes what it adds instead of repeating the summary.</param>
     private static void CheckSummary(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         XmlNodeSyntax? summary,
         SyntaxToken nameToken,
         SummaryPrefix? requirement,
@@ -395,24 +395,17 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="element">The <c>&lt;summary&gt;</c> element.</param>
     /// <param name="required">The required leading-text convention.</param>
     /// <returns><see langword="true"/> when the leading text matches the convention.</returns>
-    private static bool SummaryHasRequiredPrefix(XmlElementSyntax element, SummaryPrefix required)
-    {
-        if (required.Rule.Id == DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id)
-        {
-            // A "Gets " requirement for a restricted setter must not be satisfied by "Gets or sets ".
-            return XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
-                && !XmlDocumentationHelper.LeadingTextStartsWith(element, "Gets or sets ".AsSpan());
-        }
-
-        return XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
+    private static bool SummaryHasRequiredPrefix(XmlElementSyntax element, SummaryPrefix required) => required.Rule.Id == DocumentationRules.PropertySummaryOmitsRestrictedSetter.Id
+        ? XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
+                && !XmlDocumentationHelper.LeadingTextStartsWith(element, "Gets or sets ".AsSpan())
+        : XmlDocumentationHelper.LeadingTextStartsWith(element, required.Text.AsSpan())
             || (required.AlternativeText is { } alternative && XmlDocumentationHelper.LeadingTextStartsWith(element, alternative.AsSpan()));
-    }
 
     /// <summary>Reports parameters that lack a matching <c>&lt;param&gt;</c> element.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="documentation">The documentation comment.</param>
     /// <param name="parameters">The member's parameters.</param>
-    private static void CheckParameters(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<ParameterSyntax> parameters)
+    private static void CheckParameters(in SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation, in SeparatedSyntaxList<ParameterSyntax> parameters)
     {
         foreach (var parameter in parameters)
         {
@@ -440,7 +433,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The <c>&lt;param&gt;</c> element node.</param>
     /// <param name="parameters">The member's parameters.</param>
-    private static void CheckParameterDoc(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<ParameterSyntax> parameters)
+    private static void CheckParameterDoc(in SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<ParameterSyntax> parameters)
     {
         var name = XmlDocumentationHelper.NameAttribute(node);
         if (name is null)
@@ -486,7 +479,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// a sibling's documentation.
     /// </remarks>
     private static void CheckTypeParameters(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         DocumentationCommentTriviaSyntax documentation,
         in SeparatedSyntaxList<TypeParameterSyntax> typeParameters,
         bool isPartial)
@@ -521,7 +514,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="name">The type parameter's name.</param>
     /// <returns><see langword="true"/> when a sibling declaration carries the <c>&lt;typeparam&gt;</c>.</returns>
-    private static bool IsTypeParameterDocumentedOnAnotherPart(SyntaxNodeAnalysisContext context, string name)
+    private static bool IsTypeParameterDocumentedOnAnotherPart(in SyntaxNodeAnalysisContext context, string name)
     {
         if (context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken) is not { } symbol)
         {
@@ -551,7 +544,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The <c>&lt;typeparam&gt;</c> element node.</param>
     /// <param name="typeParameters">The member's type parameters.</param>
-    private static void CheckTypeParameterDoc(SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
+    private static void CheckTypeParameterDoc(in SyntaxNodeAnalysisContext context, XmlNodeSyntax node, in SeparatedSyntaxList<TypeParameterSyntax> typeParameters)
     {
         var name = XmlDocumentationHelper.NameAttribute(node);
         if (name is null)
@@ -590,7 +583,7 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="returns">The first <c>&lt;returns&gt;</c> element captured during the single content pass, or <see langword="null"/>.</param>
     /// <param name="nameToken">The member's identifier.</param>
     /// <param name="returnType">The return type, or <see langword="null"/>.</param>
-    private static void CheckReturns(SyntaxNodeAnalysisContext context, XmlNodeSyntax? returns, SyntaxToken nameToken, TypeSyntax? returnType)
+    private static void CheckReturns(in SyntaxNodeAnalysisContext context, XmlNodeSyntax? returns, SyntaxToken nameToken, TypeSyntax? returnType)
     {
         if (returnType is null)
         {
@@ -627,27 +620,27 @@ public sealed class MemberDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The member's modifiers.</param>
     /// <param name="explicitInterface">The explicit interface specifier, if any.</param>
     /// <returns><see langword="true"/> when coverage should be skipped.</returns>
-    private static bool Skips(SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface)
-        => explicitInterface is not null
+    private static bool Skips(in SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface) =>
+        explicitInterface is not null
             || ModifierListHelper.ContainsEither(modifiers, SyntaxKind.OverrideKeyword, SyntaxKind.PartialKeyword);
 
     /// <summary>Returns whether a return type is <see langword="void"/>.</summary>
     /// <param name="returnType">The return type.</param>
     /// <returns><see langword="true"/> when the type carries no documentable return value.</returns>
-    private static bool IsVoidLike(TypeSyntax returnType)
-        => returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+    private static bool IsVoidLike(TypeSyntax returnType) =>
+        returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
 
     /// <summary>Returns the type parameters of an optional type parameter list.</summary>
     /// <param name="list">The type parameter list, or <see langword="null"/>.</param>
     /// <returns>The type parameters, or an empty list.</returns>
-    private static SeparatedSyntaxList<TypeParameterSyntax> TypeParametersOf(TypeParameterListSyntax? list)
-        => list?.Parameters ?? default;
+    private static SeparatedSyntaxList<TypeParameterSyntax> TypeParametersOf(TypeParameterListSyntax? list) =>
+        list?.Parameters ?? default;
 
     /// <summary>Returns whether an element name carries prose subject to the terminal-period rule.</summary>
     /// <param name="name">The element name.</param>
     /// <returns><see langword="true"/> for prose elements.</returns>
-    private static bool IsProseElement(string? name)
-        => name is "summary" or "returns" or "remarks" or "value";
+    private static bool IsProseElement(string? name) =>
+        name is "summary" or "returns" or "remarks" or "value";
 
     /// <summary>The documentation-relevant shape of a member declaration.</summary>
     /// <param name="NameToken">The member's identifier (used for naming and report locations).</param>

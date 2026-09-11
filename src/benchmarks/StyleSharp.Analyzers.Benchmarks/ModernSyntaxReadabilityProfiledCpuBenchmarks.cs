@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for modern syntax readability analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ModernSyntaxReadabilityProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class ModernSyntaxReadabilityProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class ModernSyntaxReadabilityProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean modern-syntax-readability path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ModernSyntaxReadability_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating modern-syntax-readability path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ModernSyntaxReadability_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

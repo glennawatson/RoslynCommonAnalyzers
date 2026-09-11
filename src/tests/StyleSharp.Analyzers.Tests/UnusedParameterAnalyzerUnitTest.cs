@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUnusedParameter = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1461UnusedParameterAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UnusedParameterAnalyzerUnitTest
 {
     /// <summary>Verifies an unused private method parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateMethodParameterIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task PrivateMethodParameterIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -24,9 +26,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies public method parameters are not reported because they are API surface.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMethodParameterIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task PublicMethodParameterIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -36,9 +39,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an (object, EventArgs) event handler is exempt even when both parameters are unread.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventHandlerSignatureIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task EventHandlerSignatureIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -52,9 +56,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a PropertyChanged handler with a nullable sender and a derived EventArgs is exempt.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyChangedHandlerIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task PropertyChangedHandlerIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             #nullable enable
             using System.ComponentModel;
@@ -68,9 +73,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies the exemption is narrow: a two-parameter method whose second parameter is not EventArgs still reports.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectFirstParameterWithNonEventArgsSecondIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ObjectFirstParameterWithNonEventArgsSecondIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -81,9 +87,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies the exemption is narrow: an EventArgs second parameter with a non-object first parameter still reports.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonObjectFirstParameterIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task NonObjectFirstParameterIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -96,9 +103,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an internal member's unread parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalMethodParameterIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task InternalMethodParameterIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -108,9 +116,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a public member on a non-externally-visible type is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMemberOfInternalTypeIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task PublicMemberOfInternalTypeIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -162,9 +171,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a constructor's unread parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorParameterIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ConstructorParameterIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -176,9 +186,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a parameter passed to a constructor initializer counts as read.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterUsedInConstructorInitializerIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ParameterUsedInConstructorInitializerIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -198,9 +209,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a local function's unread parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionParameterIsReportedAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task LocalFunctionParameterIsReportedAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -215,9 +227,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a parameter read only inside a lambda counts as read.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterReadInsideALambdaIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ParameterReadInsideALambdaIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -229,9 +242,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a parameter named only by nameof counts as read.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterNamedByNameofIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ParameterNamedByNameofIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -241,9 +255,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an interface implementation, whose signature the interface fixes, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceImplementationIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task InterfaceImplementationIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal interface ICompute
             {
@@ -258,9 +273,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an explicit interface implementation is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceImplementationIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceImplementationIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal interface ICompute
             {
@@ -275,9 +291,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an override, whose signature the base fixes, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task OverrideIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal abstract class Base
             {
@@ -292,9 +309,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a partial method, whose other part may read the parameter, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialMethodIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task PartialMethodIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal partial class C
             {
@@ -309,9 +327,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a stub whose body only throws is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowOnlyBodyIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ThrowOnlyBodyIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -328,9 +347,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a serialization callback, whose delegate fixes the signature, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SerializationCallbackShapeIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task SerializationCallbackShapeIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System.Runtime.Serialization;
 
@@ -344,9 +364,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a method handed on as a method group, which must keep the delegate's shape, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupUseIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task MethodGroupUseIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -360,9 +381,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an attribute constructor, whose parameters every usage site depends on, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeConstructorIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task AttributeConstructorIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -377,9 +399,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies an extension method's unread receiver is left to SST1708, which asks for a different edit.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionReceiverIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task ExtensionReceiverIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal static class Extensions
             {
@@ -389,9 +412,10 @@ public class UnusedParameterAnalyzerUnitTest
 
     /// <summary>Verifies a discard-named parameter, which already says it is unused, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardNamedParameterIsCleanAsync()
-        => await VerifyUnusedParameter.VerifyAnalyzerAsync(
+    public Task DiscardNamedParameterIsCleanAsync() =>
+        VerifyUnusedParameter.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -19,6 +19,6 @@ public sealed class ElementSpacingAnalyzerUnitTest
     /// <summary>Verifies a blank intervening line stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task ShouldReportSpacingSkipsBlankLineSeparatedMembersAsync()
-        => await Assert.That(Sst1516ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 4)).IsFalse();
+    public async Task ShouldReportSpacingSkipsBlankLineSeparatedMembersAsync() =>
+        await Assert.That(Sst1516ElementSpacingAnalyzer.ShouldReportSpacing(previousEndLine: 2, currentStartLine: 4)).IsFalse();
 }

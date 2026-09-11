@@ -70,7 +70,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1106 for an HttpClient request method given a cleartext URL literal.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -97,7 +97,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1106 for a <c>HttpClient.BaseAddress = new Uri("http://…")</c> assignment.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -163,15 +163,12 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     private static LiteralExpressionSyntax? GetUriCreationLiteral(ExpressionSyntax expression, out string host)
     {
         host = string.Empty;
-        if (expression is not ObjectCreationExpressionSyntax { ArgumentList: { } argumentList }
+        return expression is not ObjectCreationExpressionSyntax { ArgumentList: { } argumentList }
             || argumentList.Arguments.Count == 0
             || GetUriStringArgument(argumentList) is not LiteralExpressionSyntax stringLiteral
-            || !IsCleartextHttpLiteral(stringLiteral, out host))
-        {
-            return null;
-        }
-
-        return stringLiteral;
+            || !IsCleartextHttpLiteral(stringLiteral, out host)
+            ? null
+            : stringLiteral;
     }
 
     /// <summary>Returns the URI-string argument of a <c>new Uri(...)</c>, honouring an explicit <c>uriString:</c> name.</summary>
@@ -194,11 +191,10 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment target names the <c>BaseAddress</c> member.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns><see langword="true"/> for a <c>.BaseAddress</c> or bare <c>BaseAddress</c> target.</returns>
-    private static bool IsBaseAddressTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsBaseAddressTarget(ExpressionSyntax left) =>
+        left switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: BaseAddressPropertyName } => true,
-            IdentifierNameSyntax { Identifier.ValueText: BaseAddressPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: BaseAddressPropertyName } or IdentifierNameSyntax { Identifier.ValueText: BaseAddressPropertyName } => true,
             _ => false,
         };
 

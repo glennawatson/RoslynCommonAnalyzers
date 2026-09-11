@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCombination = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2330FlagsCombinationLiteralAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 {
     /// <summary>Verifies a literal equal to the OR of every single bit is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralCombiningEveryBitIsReportedAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task LiteralCombiningEveryBitIsReportedAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -30,9 +32,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a literal equal to two of the single bits is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralCombiningTwoBitsIsReportedAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task LiteralCombiningTwoBitsIsReportedAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -48,9 +51,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a value written as the OR of its members is already self-documenting and clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueWrittenAsMembersIsCleanAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task ValueWrittenAsMembersIsCleanAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -67,9 +71,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a single-bit member is a flag definition, not a combination, and is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleBitMemberIsCleanAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task SingleBitMemberIsCleanAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -85,9 +90,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a literal carrying a bit no member declares is not a clean combination and is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralWithUndeclaredBitIsCleanAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task LiteralWithUndeclaredBitIsCleanAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -103,9 +109,10 @@ public class Sst2330FlagsCombinationLiteralAnalyzerUnitTest
 
     /// <summary>Verifies an enum without the attribute makes no combination promise and is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumWithoutTheAttributeIsCleanAsync()
-        => await VerifyCombination.VerifyAnalyzerAsync(
+    public Task EnumWithoutTheAttributeIsCleanAsync() =>
+        VerifyCombination.VerifyAnalyzerAsync(
             """
             public enum Access
             {

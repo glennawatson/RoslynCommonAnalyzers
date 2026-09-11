@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyExtensionBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -15,14 +16,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the C# 14 extension-block rules (SST1700/SST1701).</summary>
 public class ExtensionBlockAnalyzerUnitTest
 {
-    /// <summary>The receiver shape the analyzer classifies a <see langword="string"/> receiver as.</summary>
-    private const string StringReceiverShape = "string";
-
     /// <summary>Verifies an empty extension block is reported (SST1700).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyExtensionBlockReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task EmptyExtensionBlockReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -34,9 +33,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a second extension block with the same receiver type is reported (SST1701).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuplicateReceiverTypeReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task DuplicateReceiverTypeReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -54,9 +54,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies two blocks with the same receiver type but different generic constraints are not merged (SST1701).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameReceiverDifferentConstraintsIsCleanAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task SameReceiverDifferentConstraintsIsCleanAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public interface IThing<T>
             {
@@ -79,9 +80,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies two blocks with the same receiver type and the same constraints are still reported (SST1701).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameReceiverSameConstraintsReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task SameReceiverSameConstraintsReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public interface IThing<T>
             {
@@ -105,9 +107,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies an extension block separated from the others by a member is reported (SST1702).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparatedExtensionBlockReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task SeparatedExtensionBlockReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -127,9 +130,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies an extension block on a broad receiver type is reported (SST1706).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BroadReceiverReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task BroadReceiverReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class ObjectExtensions
             {
@@ -142,9 +146,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies extension blocks out of receiver-type order are reported (SST1707, opt-in).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnorderedExtensionBlocksReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task UnorderedExtensionBlocksReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -162,9 +167,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a container class not named with an 'Extensions' suffix is reported (SST1704).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContainerWithoutExtensionsSuffixReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task ContainerWithoutExtensionsSuffixReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class {|SST1704:StringStuff|}
             {
@@ -177,9 +183,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a container class suffixed with <c>Mixins</c> is accepted by SST1704.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContainerWithMixinsSuffixIsCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task ContainerWithMixinsSuffixIsCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class StringMixins
             {
@@ -251,9 +258,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a classic extension method mixed with an extension block is reported (SST1705).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicMethodMixedWithBlockReportedAsync()
-        => await VerifyExtensionBlock.VerifyAnalyzerAsync(
+    public Task ClassicMethodMixedWithBlockReportedAsync() =>
+        VerifyExtensionBlock.VerifyAnalyzerAsync(
             """
             public static class TextExtensions
             {
@@ -272,9 +280,10 @@ public class ExtensionBlockAnalyzerUnitTest
     /// There is nothing to mix. Such a class is consistent as written, and moving it to the C# 14 syntax is
     /// the opt-in call SST1703 makes.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicMethodsWithoutABlockAreCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task ClassicMethodsWithoutABlockAreCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class TextExtensions
             {
@@ -286,9 +295,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a classic extension method on <c>object</c> is reported (SST1706).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicObjectReceiverReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task ClassicObjectReceiverReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class BroadExtensions
             {
@@ -298,9 +308,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a classic extension method on an unconstrained type parameter is reported (SST1706).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicUnconstrainedTypeParameterReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task ClassicUnconstrainedTypeParameterReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class IdentityExtensions
             {
@@ -310,9 +321,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a classic extension method on a constrained type parameter draws no broad-receiver report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicConstrainedTypeParameterDrawsNoBroadReceiverAsync()
-        => await RunAnalyzerAsync(
+    public Task ClassicConstrainedTypeParameterDrawsNoBroadReceiverAsync() =>
+        RunAnalyzerAsync(
             """
             using System;
 
@@ -325,9 +337,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a classic extension method on a specific type draws no broad-receiver report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicSpecificReceiverDrawsNoBroadReceiverAsync()
-        => await RunAnalyzerAsync(
+    public Task ClassicSpecificReceiverDrawsNoBroadReceiverAsync() =>
+        RunAnalyzerAsync(
             """
             public static class TextExtensions
             {
@@ -337,9 +350,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies non-empty blocks with distinct receiver types are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctNonEmptyBlocksAreCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task DistinctNonEmptyBlocksAreCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -363,7 +377,7 @@ public class ExtensionBlockAnalyzerUnitTest
         var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
 
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsTrue();
-        await Assert.That(shape).IsEqualTo(StringReceiverShape);
+        await Assert.That(shape).IsEqualTo("string");
     }
 
     /// <summary>Verifies unsupported receiver shapes fall back to the slower receiver-text path.</summary>
@@ -373,7 +387,7 @@ public class ExtensionBlockAnalyzerUnitTest
     {
         var receiverType = SyntaxFactory.QualifiedName(
             SyntaxFactory.IdentifierName("System"),
-            SyntaxFactory.IdentifierName("String"));
+            SyntaxFactory.IdentifierName(nameof(String)));
 
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiverShape(receiverType, out var shape)).IsFalse();
         await Assert.That(shape).IsNull();
@@ -399,7 +413,7 @@ public class ExtensionBlockAnalyzerUnitTest
         var receiverType = SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword));
 
         await Assert.That(ExtensionBlockHelper.TryClassifyReceiver(receiverType, out var shape, out var isBroadReceiver)).IsTrue();
-        await Assert.That(shape).IsEqualTo(StringReceiverShape);
+        await Assert.That(shape).IsEqualTo("string");
         await Assert.That(isBroadReceiver).IsFalse();
     }
 
@@ -408,9 +422,9 @@ public class ExtensionBlockAnalyzerUnitTest
     [Test]
     public async Task ReceiverOrderHelperClassifiesDescendingOnlyAsync()
     {
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver(StringReceiverShape, null)).IsFalse();
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver(StringReceiverShape, "int")).IsFalse();
-        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("int", StringReceiverShape)).IsTrue();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", null)).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("string", "int")).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsOutOfOrderReceiver("int", "string")).IsTrue();
     }
 
     /// <summary>Verifies duplicate detection only reports equal immediate receivers.</summary>
@@ -418,8 +432,8 @@ public class ExtensionBlockAnalyzerUnitTest
     [Test]
     public async Task DuplicateReceiverHelperMatchesOrdinalEqualityAsync()
     {
-        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver(StringReceiverShape, StringReceiverShape)).IsTrue();
-        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver(StringReceiverShape, "int")).IsFalse();
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "string")).IsTrue();
+        await Assert.That(ExtensionBlockAnalyzer.IsDuplicateImmediateReceiver("string", "int")).IsFalse();
     }
 
     /// <summary>Runs the analyzer verifier with the language version set to one that supports extension blocks.</summary>
@@ -427,10 +441,7 @@ public class ExtensionBlockAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAnalyzerAsync(string source)
     {
-        var test = new VerifyExtensionBlock.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyExtensionBlock.Test { TestCode = source };
 
         ApplyExtensionBlockParseOptions(test.SolutionTransforms);
         await test.RunAsync(CancellationToken.None);
@@ -443,11 +454,7 @@ public class ExtensionBlockAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunCodeFixAsync(string source, string fixedSource, string? editorConfig = null)
     {
-        var test = new VerifyExtensionBlockFix.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyExtensionBlockFix.Test { TestCode = source, FixedCode = fixedSource };
 
         if (editorConfig is not null)
         {
@@ -460,12 +467,10 @@ public class ExtensionBlockAnalyzerUnitTest
 
     /// <summary>Applies preview parse options to a verifier so extension blocks parse.</summary>
     /// <param name="solutionTransforms">The solution-transform collection to update.</param>
-    private static void ApplyExtensionBlockParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms)
-    {
-        solutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ApplyExtensionBlockParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms) => solutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
         });
-    }
 }

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for test-without-assertion analysis (SST2500).</summary>
+[System.Diagnostics.DebuggerDisplay("TestWithoutAssertionBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class TestWithoutAssertionBenchmarks
@@ -24,11 +26,13 @@ public class TestWithoutAssertionBenchmarks
 
     /// <summary>Benchmarks the clean test-without-assertion path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TestWithoutAssertion_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating test-without-assertion path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TestWithoutAssertion_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

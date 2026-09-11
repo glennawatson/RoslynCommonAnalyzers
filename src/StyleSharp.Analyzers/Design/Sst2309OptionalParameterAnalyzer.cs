@@ -83,8 +83,8 @@ public sealed class Sst2309OptionalParameterAnalyzer : DiagnosticAnalyzer
     /// The cheap tests come first, so a member with no optional parameter — nearly every member — never
     /// reaches the interface walk.
     /// </remarks>
-    private static bool IsCandidate(IMethodSymbol method)
-        => method.MethodKind is MethodKind.Ordinary or MethodKind.Constructor
+    private static bool IsCandidate(IMethodSymbol method) =>
+        method.MethodKind is MethodKind.Ordinary or MethodKind.Constructor
             && !method.IsOverride
             && method.ExplicitInterfaceImplementations.IsEmpty
             && !IsPrimaryConstructor(method)
@@ -114,8 +114,8 @@ public sealed class Sst2309OptionalParameterAnalyzer : DiagnosticAnalyzer
     /// A <c>params</c> array has no default value, so it never reaches this rule; omitting its arguments is
     /// the language building an empty array, not a constant baked into the call site.
     /// </remarks>
-    private static bool IsReportable(IParameterSymbol parameter)
-        => parameter.HasExplicitDefaultValue && !IsCallerInfo(parameter);
+    private static bool IsReportable(IParameterSymbol parameter) =>
+        parameter.HasExplicitDefaultValue && !IsCallerInfo(parameter);
 
     /// <summary>Returns whether a parameter is filled in by the compiler from the call site.</summary>
     /// <param name="parameter">The parameter to test.</param>

@@ -66,7 +66,7 @@ public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, PrefixUnaryExpressionSyntax not, BinaryExpressionSyntax binary)
     {
-        ExpressionSimplificationAnalyzer.TryGetOpposite(binary.Kind(), out var expressionKind, out var tokenKind, out _);
+        _ = ExpressionSimplificationAnalyzer.TryGetOpposite(binary.Kind(), out var expressionKind, out var tokenKind, out _);
 
         var left = binary.Left.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space);
         var operatorToken = SyntaxFactory.Token(default, tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space));

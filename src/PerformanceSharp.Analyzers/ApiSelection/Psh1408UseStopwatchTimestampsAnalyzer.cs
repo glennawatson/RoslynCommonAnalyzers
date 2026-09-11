@@ -55,7 +55,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1408 for a StartNew local used only to read elapsed time.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="stopwatchType">The stopwatch type.</param>
-    private static void AnalyzeDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol stopwatchType)
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol stopwatchType)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (declaration.Declaration.Variables.Count != 1
@@ -68,7 +68,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
 
         var variable = declaration.Declaration.Variables[0];
         var scan = new UsageScan(variable.Identifier.ValueText, variable.Identifier.SpanStart);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
         if (!scan.OnlyElapsedReads || scan.FirstElapsedMember is not { } elapsedMember)
         {
             return;

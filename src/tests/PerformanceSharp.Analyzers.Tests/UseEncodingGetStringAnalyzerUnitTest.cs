@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -87,9 +88,10 @@ public class UseEncodingGetStringAnalyzerUnitTest
 
     /// <summary>Verifies a char buffer kept as a buffer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CharBufferKeptAsIsIsCleanAsync()
-        => await VerifyAsync(
+    public Task CharBufferKeptAsIsIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -101,9 +103,10 @@ public class UseEncodingGetStringAnalyzerUnitTest
 
     /// <summary>Verifies a string built from a char buffer that came from somewhere else is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringFromUnrelatedBufferIsCleanAsync()
-        => await VerifyAsync(
+    public Task StringFromUnrelatedBufferIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -113,9 +116,10 @@ public class UseEncodingGetStringAnalyzerUnitTest
 
     /// <summary>Verifies a GetChars on something that is not an encoding is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEncodingGetCharsIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonEncodingGetCharsIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Decoder
             {
@@ -142,9 +146,10 @@ public class UseEncodingGetStringAnalyzerUnitTest
     /// rewrite before offering it, so it stays silent here rather than suggesting something that would
     /// not compile.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecodeWithoutMatchingGetStringIsCleanAsync()
-        => await VerifyAsync(
+    public Task DecodeWithoutMatchingGetStringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -161,9 +166,10 @@ public class UseEncodingGetStringAnalyzerUnitTest
 
     /// <summary>Verifies a decode inside an expression tree is not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecodeInsideExpressionTreeIsCleanAsync()
-        => await VerifyAsync(
+    public Task DecodeInsideExpressionTreeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -175,10 +181,7 @@ public class UseEncodingGetStringAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the rule still reports against netstandard2.0, because the overload it suggests exists
-    /// there.
-    /// </summary>
+    /// <summary>Verifies the rule still reports against netstandard2.0, because the overload it suggests exists there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// This is the one string rule in the batch whose suggestion is not new: <c>GetString(byte[])</c>
@@ -207,12 +210,7 @@ public class UseEncodingGetStringAnalyzerUnitTest
                                        public string M(byte[] bytes) => Encoding.UTF8.GetString(bytes);
                                    }
                                    """;
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = FixedSource, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -222,11 +220,7 @@ public class UseEncodingGetStringAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

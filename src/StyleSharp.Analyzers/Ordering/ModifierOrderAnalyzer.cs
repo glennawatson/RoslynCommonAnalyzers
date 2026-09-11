@@ -71,22 +71,24 @@ public sealed class ModifierOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the first modifier whose rank is lower than that of the modifier before it.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="modifiers">The modifier list.</param>
-    private static void ReportKeywordOrder(SyntaxNodeAnalysisContext context, SyntaxTokenList modifiers)
+    private static void ReportKeywordOrder(in SyntaxNodeAnalysisContext context, in SyntaxTokenList modifiers)
     {
         for (var index = 1; index < modifiers.Count; index++)
         {
-            if (ModifierOrdering.Rank(modifiers[index - 1]) > ModifierOrdering.Rank(modifiers[index]))
+            if (ModifierOrdering.Rank(modifiers[index - 1]) <= ModifierOrdering.Rank(modifiers[index]))
             {
-                context.ReportDiagnostic(Diagnostic.Create(OrderingRules.DeclarationKeywordOrder, modifiers[index].GetLocation(), modifiers[index].Text));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(Diagnostic.Create(OrderingRules.DeclarationKeywordOrder, modifiers[index].GetLocation(), modifiers[index].Text));
+            return;
         }
     }
 
     /// <summary>Reports the first access modifier that should precede an earlier access modifier.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="modifiers">The modifier list.</param>
-    private static void ReportAccessOrder(SyntaxNodeAnalysisContext context, SyntaxTokenList modifiers)
+    private static void ReportAccessOrder(in SyntaxNodeAnalysisContext context, in SyntaxTokenList modifiers)
     {
         var previousAccess = -1;
         foreach (var modifier in modifiers)

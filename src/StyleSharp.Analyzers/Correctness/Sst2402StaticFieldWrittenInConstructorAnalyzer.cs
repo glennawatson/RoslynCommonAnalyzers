@@ -56,8 +56,8 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.StaticFieldWrittenInConstructor);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -115,7 +115,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     /// <param name="typeDeclaration">The member's containing type declaration.</param>
     /// <param name="property">The property, indexer, or event.</param>
     private static void ScanAccessors(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax typeDeclaration,
         BasePropertyDeclarationSyntax property)
     {
@@ -147,7 +147,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     /// <param name="excludeDeferredWrites">Whether writes inside lambdas and local functions run outside this
     /// member's story, as they do for a constructor.</param>
     private static void Scan(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax typeDeclaration,
         SyntaxNode? body,
         bool excludeDeferredWrites)
@@ -158,7 +158,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
         }
 
         var scan = new MemberScan(context, typeDeclaration, body, excludeDeferredWrites);
-        DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, MemberScan>(body, ref scan, VisitAssignment);
+        _ = DescendantTraversalHelper.VisitDescendants<AssignmentExpressionSyntax, MemberScan>(body, ref scan, VisitAssignment);
     }
 
     /// <summary>Reports one assignment when it overwrites a static field of the member's own type.</summary>
@@ -221,8 +221,8 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     /// The name match is not proof: a local can shadow a field, and a field of another type can be reached
     /// through a member access. The bind settles it.
     /// </remarks>
-    private static IFieldSymbol? ResolveField(SyntaxNodeAnalysisContext context, ExpressionSyntax target)
-        => context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol is
+    private static IFieldSymbol? ResolveField(in SyntaxNodeAnalysisContext context, ExpressionSyntax target) =>
+        context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol is
             IFieldSymbol { IsStatic: true, IsConst: false } field
             ? field
             : null;
@@ -279,7 +279,7 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     private static bool MentionsName(ExpressionSyntax expression, string name)
     {
         var scan = new NameScan(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
         return scan.Found || (expression is IdentifierNameSyntax self && self.Identifier.ValueText == name);
     }
 
@@ -330,8 +330,8 @@ public sealed class Sst2402StaticFieldWrittenInConstructorAnalyzer : DiagnosticA
     /// <summary>Gets a constructor's, method's, or finalizer's body, in whichever form it is written.</summary>
     /// <param name="member">The member.</param>
     /// <returns>The body, or <see langword="null"/> when the member has none.</returns>
-    private static SyntaxNode? GetBody(BaseMethodDeclarationSyntax member)
-        => (SyntaxNode?)member.Body ?? member.ExpressionBody;
+    private static SyntaxNode? GetBody(BaseMethodDeclarationSyntax member) =>
+        (SyntaxNode?)member.Body ?? member.ExpressionBody;
 
     /// <summary>The state threaded through a member body's assignment scan.</summary>
     /// <param name="Context">The syntax node context.</param>

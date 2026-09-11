@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReversedEquality = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2502ReversedEqualityAssertionAnalyzer,
     StyleSharp.Analyzers.Sst2502ReversedEqualityAssertionCodeFixProvider>;
@@ -237,9 +238,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies the common, correct shape — a constant expected value first — is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantExpectedFirstIsCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task ConstantExpectedFirstIsCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using Xunit;
 
@@ -262,9 +264,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an assertion whose arguments are both constant is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BothConstantArgumentsAreCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task BothConstantArgumentsAreCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using Xunit;
 
@@ -287,9 +290,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an assertion whose arguments are both computed is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BothComputedArgumentsAreCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task BothComputedArgumentsAreCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using Xunit;
 
@@ -312,9 +316,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies the actual-first fluent form is never reported — it is not a reversal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FluentEqualToFormIsCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task FluentEqualToFormIsCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using NUnit.Framework;
 
@@ -346,9 +351,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a named-argument call settles the order at the call site, so nothing is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedArgumentsAreCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task NamedArgumentsAreCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using Xunit;
 
@@ -371,9 +377,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on a type that is not the framework's assertion host is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnOtherTypeIsCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task SameNamedMethodOnOtherTypeIsCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             using Xunit;
 
@@ -401,9 +408,10 @@ public class ReversedEqualityAssertionAnalyzerUnitTest
 
     /// <summary>Verifies that with no test framework referenced the rule registers nothing and reports nothing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoTestFrameworkReferencedIsCleanAsync()
-        => await VerifyReversedEquality.VerifyAnalyzerAsync(
+    public Task NoTestFrameworkReferencedIsCleanAsync() =>
+        VerifyReversedEquality.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +17,7 @@ internal static class EnumSwitchCoverage
     /// <param name="symbol">The candidate member.</param>
     /// <param name="field">The enum value field, when the symbol is one.</param>
     /// <returns><see langword="true"/> for enum value fields.</returns>
-    public static bool IsEnumValue(ISymbol symbol, out IFieldSymbol field)
+    internal static bool IsEnumValue(ISymbol symbol, out IFieldSymbol field)
     {
         if (symbol is IFieldSymbol { HasConstantValue: true } candidate)
         {
@@ -38,7 +40,7 @@ internal static class EnumSwitchCoverage
     /// unconditionally, including one alternative of an <c>or</c>. A label carrying a <c>when</c> clause
     /// covers nothing on its own, because the guard decides whether the section runs.
     /// </remarks>
-    public static bool IsCaseLabelCovered(
+    internal static bool IsCaseLabelCovered(
         IFieldSymbol field,
         SwitchStatementSyntax switchStatement,
         SemanticModel model,
@@ -66,8 +68,8 @@ internal static class EnumSwitchCoverage
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the label names the field outright.</returns>
-    private static bool LabelCovers(IFieldSymbol field, SwitchLabelSyntax label, SemanticModel model, CancellationToken cancellationToken)
-        => label switch
+    private static bool LabelCovers(IFieldSymbol field, SwitchLabelSyntax label, SemanticModel model, CancellationToken cancellationToken) =>
+        label switch
         {
             CaseSwitchLabelSyntax caseLabel => Names(field, caseLabel.Value, model, cancellationToken),
             CasePatternSwitchLabelSyntax { WhenClause: null } patternLabel
@@ -85,8 +87,8 @@ internal static class EnumSwitchCoverage
     /// Only <c>or</c> is walked. An <c>and</c> narrows what matches and a <c>not</c> inverts it, so naming
     /// the value inside either of those says nothing about the value being handled.
     /// </remarks>
-    private static bool PatternNames(IFieldSymbol field, PatternSyntax pattern, SemanticModel model, CancellationToken cancellationToken)
-        => pattern switch
+    private static bool PatternNames(IFieldSymbol field, PatternSyntax pattern, SemanticModel model, CancellationToken cancellationToken) =>
+        pattern switch
         {
             ConstantPatternSyntax constant => Names(field, constant.Expression, model, cancellationToken),
             ParenthesizedPatternSyntax parenthesized => PatternNames(field, parenthesized.Pattern, model, cancellationToken),
@@ -102,6 +104,7 @@ internal static class EnumSwitchCoverage
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the expression names the field.</returns>
-    private static bool Names(IFieldSymbol field, ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(expression, cancellationToken).Symbol);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool Names(IFieldSymbol field, ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(expression, cancellationToken).Symbol);
 }

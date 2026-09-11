@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCombineFields = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1132DoNotCombineFieldsAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DoNotCombineFieldsAnalyzerUnitTest
 {
     /// <summary>Verifies each field beyond the first in a combined declaration is reported (SST1132).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedFieldsReportedAsync()
-        => await VerifyCombineFields.VerifyAnalyzerAsync(
+    public Task CombinedFieldsReportedAsync() =>
+        VerifyCombineFields.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -24,9 +26,10 @@ public class DoNotCombineFieldsAnalyzerUnitTest
 
     /// <summary>Verifies single-field declarations are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateFieldsAreCleanAsync()
-        => await VerifyCombineFields.VerifyAnalyzerAsync(
+    public Task SeparateFieldsAreCleanAsync() =>
+        VerifyCombineFields.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -37,9 +40,10 @@ public class DoNotCombineFieldsAnalyzerUnitTest
 
     /// <summary>Verifies each local beyond the first in a combined local declaration is reported (SST1132).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedLocalsReportedAsync()
-        => await VerifyCombineFields.VerifyAnalyzerAsync(
+    public Task CombinedLocalsReportedAsync() =>
+        VerifyCombineFields.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -52,9 +56,10 @@ public class DoNotCombineFieldsAnalyzerUnitTest
 
     /// <summary>Verifies a single local declaration is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateLocalsAreCleanAsync()
-        => await VerifyCombineFields.VerifyAnalyzerAsync(
+    public Task SeparateLocalsAreCleanAsync() =>
+        VerifyCombineFields.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -69,9 +74,10 @@ public class DoNotCombineFieldsAnalyzerUnitTest
     /// <summary>Verifies a <c>for</c> initializer that declares several loop variables is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A single declaration statement is the only way to declare more than one loop variable there.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForInitializerWithSeveralVariablesIsCleanAsync()
-        => await VerifyCombineFields.VerifyAnalyzerAsync(
+    public Task ForInitializerWithSeveralVariablesIsCleanAsync() =>
+        VerifyCombineFields.VerifyAnalyzerAsync(
             """
             internal class C
             {

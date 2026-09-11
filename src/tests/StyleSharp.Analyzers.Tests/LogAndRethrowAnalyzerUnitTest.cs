@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogAndRethrow = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2488LogAndRethrowAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LogAndRethrowAnalyzerUnitTest
 {
     /// <summary>Verifies a catch that logs on a logger-typed receiver and rethrows is reported, across its shapes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoggerReceiverShapesAreReportedAsync()
-        => await VerifyLogAndRethrow.VerifyAnalyzerAsync(
+    public Task LoggerReceiverShapesAreReportedAsync() =>
+        VerifyLogAndRethrow.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -90,9 +92,10 @@ public class LogAndRethrowAnalyzerUnitTest
 
     /// <summary>Verifies the exception-passed route across an implicit receiver, a static host, and inherited logger names.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionPassedRoutesAreReportedAsync()
-        => await VerifyLogAndRethrow.VerifyAnalyzerAsync(
+    public Task ExceptionPassedRoutesAreReportedAsync() =>
+        VerifyLogAndRethrow.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -202,9 +205,10 @@ public class LogAndRethrowAnalyzerUnitTest
 
     /// <summary>Verifies the shapes a neighbouring rule owns, and genuine handling, are all left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentShapesAreCleanAsync()
-        => await VerifyLogAndRethrow.VerifyAnalyzerAsync(
+    public Task AdjacentShapesAreCleanAsync() =>
+        VerifyLogAndRethrow.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -354,9 +358,10 @@ public class LogAndRethrowAnalyzerUnitTest
 
     /// <summary>Verifies a catch that names no exception is reported on the logger route but not on the exception route.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnnamedCatchesAsync()
-        => await VerifyLogAndRethrow.VerifyAnalyzerAsync(
+    public Task UnnamedCatchesAsync() =>
+        VerifyLogAndRethrow.VerifyAnalyzerAsync(
             """
             #nullable enable
 

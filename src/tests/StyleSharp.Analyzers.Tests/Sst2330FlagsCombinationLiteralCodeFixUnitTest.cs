@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCombination = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2330FlagsCombinationLiteralAnalyzer,
     StyleSharp.Analyzers.Sst2330FlagsCombinationLiteralCodeFixProvider>;
@@ -71,13 +72,15 @@ public class Sst2330FlagsCombinationLiteralCodeFixUnitTest
 
     /// <summary>Verifies the fix rewrites the literal into the OR of every member it combines.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RewritesLiteralToMemberOrAsync()
-        => await VerifyCombination.VerifyCodeFixAsync(ThreeBitSource, ThreeBitFixed);
+    public Task RewritesLiteralToMemberOrAsync() =>
+        VerifyCombination.VerifyCodeFixAsync(ThreeBitSource, ThreeBitFixed);
 
     /// <summary>Verifies the fix names two members for a two-bit combination.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RewritesTwoBitLiteralAsync()
-        => await VerifyCombination.VerifyCodeFixAsync(TwoBitSource, TwoBitFixed);
+    public Task RewritesTwoBitLiteralAsync() =>
+        VerifyCombination.VerifyCodeFixAsync(TwoBitSource, TwoBitFixed);
 }

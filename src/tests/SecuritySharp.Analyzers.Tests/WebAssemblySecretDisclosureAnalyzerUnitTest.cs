@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeDisclosure = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -10,6 +12,7 @@ using AnalyzeDisclosure = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1707 (do not hard-code secrets in code that runs in the browser as WebAssembly).</summary>
+[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class WebAssemblySecretDisclosureAnalyzerUnitTest
 {
     /// <summary>A recognised AWS access-key-id secret shape reused across the reachability tests.</summary>
@@ -69,9 +72,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies a secret in a component with a WebAssembly render-mode attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WebAssemblyComponentSecretReportedAsync()
-        => await VerifyWithRenderModesAsync(
+    public Task WebAssemblyComponentSecretReportedAsync() =>
+        VerifyWithRenderModesAsync(
             $$"""
               [WasmMode]
               public class Counter
@@ -82,9 +86,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies a secret in a component with an Auto render-mode attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AutoComponentSecretReportedAsync()
-        => await VerifyWithRenderModesAsync(
+    public Task AutoComponentSecretReportedAsync() =>
+        VerifyWithRenderModesAsync(
             $$"""
               [AutoMode]
               public class Counter
@@ -95,9 +100,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies a secret in a server-rendered component is not reported: the text never leaves the server.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ServerComponentSecretIsCleanAsync()
-        => await VerifyWithRenderModesAsync(
+    public Task ServerComponentSecretIsCleanAsync() =>
+        VerifyWithRenderModesAsync(
             $$"""
               [ServerMode]
               public class Counter
@@ -108,9 +114,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies a secret in a type with no render-mode attribute is not reported when the assembly is not a host.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnmarkedTypeSecretIsCleanAsync()
-        => await VerifyWithRenderModesAsync(
+    public Task UnmarkedTypeSecretIsCleanAsync() =>
+        VerifyWithRenderModesAsync(
             $$"""
               public class Plain
               {
@@ -120,9 +127,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies any secret is reported in a standalone WebAssembly host, whose whole assembly downloads to the browser.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WebAssemblyHostSecretReportedAsync()
-        => await VerifyWithHostBuilderAsync(
+    public Task WebAssemblyHostSecretReportedAsync() =>
+        VerifyWithHostBuilderAsync(
             $$"""
               public class Program
               {
@@ -132,9 +140,10 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary string in a WebAssembly host is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonSecretInWebAssemblyHostIsCleanAsync()
-        => await VerifyWithHostBuilderAsync(
+    public Task NonSecretInWebAssemblyHostIsCleanAsync() =>
+        VerifyWithHostBuilderAsync(
             """
             public class Program
             {
@@ -155,7 +164,7 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
                         {
                             private const string Key = "{{Secret}}";
                         }
-                        """
+                        """,
         };
 
         await test.RunAsync(CancellationToken.None);
@@ -166,11 +175,7 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithRenderModesAsync(string source)
     {
-        var test = new AnalyzeDisclosure.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + RenderModeStub
-        };
+        var test = new AnalyzeDisclosure.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + RenderModeStub };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -180,11 +185,7 @@ public class WebAssemblySecretDisclosureAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithHostBuilderAsync(string source)
     {
-        var test = new AnalyzeDisclosure.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + HostBuilderStub
-        };
+        var test = new AnalyzeDisclosure.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + HostBuilderStub };
 
         await test.RunAsync(CancellationToken.None);
     }

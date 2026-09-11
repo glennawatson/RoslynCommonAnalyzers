@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeEmptyPassword = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -10,6 +12,7 @@ using AnalyzeEmptyPassword = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifie
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1203 (a connection string must not name a user with an empty or missing password).</summary>
+[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The connection strings are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class EmptyConnectionStringPasswordAnalyzerUnitTest
 {
     /// <summary>Verifies a connection string that names a user with a blank or missing password is recognised.</summary>
@@ -33,8 +36,8 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
     [Arguments("Server=db;;User Id=sa;Password=")]
     [Arguments("Server=db;Encrypt;User Id=sa;Password=")]
     [Arguments("Server=db;Encrypt=true;User Id=sa;Password=")]
-    public async Task RecognisesEmptyOrMissingPasswordAsync(string value)
-        => await Assert.That(EmptyConnectionStringPasswordClassifier.IsEmptyPasswordConnectionString(value)).IsTrue();
+    public async Task RecognisesEmptyOrMissingPasswordAsync(string value) =>
+        await Assert.That(EmptyConnectionStringPasswordClassifier.IsEmptyPasswordConnectionString(value)).IsTrue();
 
     /// <summary>Verifies a safe or unrelated literal is not recognised as an empty-password connection string.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -55,14 +58,15 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
     [Arguments("Server=databasewithnopassword")]
     [Arguments("Server=x;U")]
     [Arguments("hello world, this is an ordinary message")]
-    public async Task LeavesSafeOrUnrelatedLiteralAsync(string value)
-        => await Assert.That(EmptyConnectionStringPasswordClassifier.IsEmptyPasswordConnectionString(value)).IsFalse();
+    public async Task LeavesSafeOrUnrelatedLiteralAsync(string value) =>
+        await Assert.That(EmptyConnectionStringPasswordClassifier.IsEmptyPasswordConnectionString(value)).IsFalse();
 
     /// <summary>Verifies the analyzer reports a connection-string literal whose password is present but empty.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReportsEmptyPasswordLiteralAsync()
-        => await VerifyAsync(
+    public Task ReportsEmptyPasswordLiteralAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -72,9 +76,10 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer reports a connection-string literal that names a user but has no password key.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReportsMissingPasswordLiteralAsync()
-        => await VerifyAsync(
+    public Task ReportsMissingPasswordLiteralAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -84,9 +89,10 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer stays silent when the connection string carries a real password.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeavesPopulatedPasswordAloneAsync()
-        => await VerifyAsync(
+    public Task LeavesPopulatedPasswordAloneAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -96,9 +102,10 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer stays silent when the connection string uses integrated authentication.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeavesIntegratedSecurityAloneAsync()
-        => await VerifyAsync(
+    public Task LeavesIntegratedSecurityAloneAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -108,9 +115,10 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer stays silent on an ordinary string literal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeavesOrdinaryLiteralAloneAsync()
-        => await VerifyAsync(
+    public Task LeavesOrdinaryLiteralAloneAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -123,11 +131,7 @@ public class EmptyConnectionStringPasswordAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeEmptyPassword.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeEmptyPassword.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

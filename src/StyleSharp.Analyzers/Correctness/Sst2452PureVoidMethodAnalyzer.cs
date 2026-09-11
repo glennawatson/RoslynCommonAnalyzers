@@ -45,8 +45,8 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.PureMethodWithoutResult);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -59,8 +59,8 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an attribute name is written as the pure-contract one.</summary>
     /// <param name="name">The attribute's name.</param>
     /// <returns><see langword="true"/> when the rightmost name matches, with or without the suffix.</returns>
-    internal static bool IsPureAttributeName(NameSyntax name)
-        => GetSimpleName(name) is "Pure" or PureAttributeTypeName;
+    internal static bool IsPureAttributeName(NameSyntax name) =>
+        GetSimpleName(name) is "Pure" or PureAttributeTypeName;
 
     /// <summary>Analyzes one method declaration.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -163,8 +163,8 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// The name match is not proof: other libraries also declare a <c>Pure</c> attribute, and those
     /// carry their own meanings. The bind settles it.
     /// </remarks>
-    private static bool BindsToContractsPure(SyntaxNodeAnalysisContext context, AttributeSyntax attribute)
-        => context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
+    private static bool BindsToContractsPure(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute) =>
+        context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
             && constructor.ContainingType is { Name: PureAttributeTypeName } type
             && IsNamespace(type.ContainingNamespace, "Contracts", "Diagnostics");
 
@@ -172,8 +172,8 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="returnType">The return type whose name matched.</param>
     /// <returns><see langword="true"/> when the type is the real non-generic awaitable.</returns>
-    private static bool ReturnsBclAwaitable(SyntaxNodeAnalysisContext context, TypeSyntax returnType)
-        => context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is
+    private static bool ReturnsBclAwaitable(in SyntaxNodeAnalysisContext context, TypeSyntax returnType) =>
+        context.SemanticModel.GetSymbolInfo(returnType, context.CancellationToken).Symbol is
             INamedTypeSymbol { Arity: 0, Name: TaskTypeName or ValueTaskTypeName } named
             && IsNamespace(named.ContainingNamespace, "Tasks", "Threading");
 
@@ -182,8 +182,8 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="innerName">The expected innermost name.</param>
     /// <param name="outerName">The expected middle name.</param>
     /// <returns><see langword="true"/> when the chain is System, the outer name, then the inner name.</returns>
-    private static bool IsNamespace(INamespaceSymbol? inner, string innerName, string outerName)
-        => inner is { } current
+    private static bool IsNamespace(INamespaceSymbol? inner, string innerName, string outerName) =>
+        inner is { } current
             && current.Name == innerName
             && current.ContainingNamespace is { Name: { } middle } outer
             && middle == outerName

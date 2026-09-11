@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -77,7 +78,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="tablesByType">The per-type-declaration member table cache.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
         ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
     {
@@ -126,7 +127,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="parameter">The parameter declaration.</param>
     /// <param name="tablesByType">The per-type-declaration member table cache.</param>
     private static void AnalyzeParameter(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ParameterSyntax parameter,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
     {
@@ -157,7 +158,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// to, which is the mistake this rule exists to catch.
     /// </remarks>
     private static void AnalyzeVariableDeclarator(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         VariableDeclaratorSyntax declarator,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
         ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
@@ -199,7 +200,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <c>new</c> says the hiding is deliberate, and is taken at its word.
     /// </remarks>
     private static void AnalyzeField(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         VariableDeclaratorSyntax declarator,
         FieldDeclarationSyntax field,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
@@ -238,7 +239,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// make nothing ambiguous.
     /// </remarks>
     private static void AnalyzeProperty(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
     {
@@ -247,7 +248,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        TryReportNestedTypeMember(context, property, property.Modifiers, property.Identifier, tablesByType);
+        _ = TryReportNestedTypeMember(context, property, property.Modifiers, property.Identifier, tablesByType);
     }
 
     /// <summary>Reports a nested type's field or property that shadows a containing type's static member.</summary>
@@ -265,9 +266,9 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <c>override</c> keeps the name its base declared, so neither is this declaration's naming choice.
     /// </remarks>
     private static bool TryReportNestedTypeMember(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         MemberDeclarationSyntax member,
-        SyntaxTokenList modifiers,
+        in SyntaxTokenList modifiers,
         SyntaxToken identifier,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
     {
@@ -311,7 +312,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The declared identifier.</param>
     /// <param name="tablesByType">The per-type-declaration member table cache.</param>
     private static void AnalyzeLocal(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode declaration,
         SyntaxToken identifier,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
@@ -337,7 +338,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// because only a name that already collided can care about it.
     /// </remarks>
     private static bool TryGetShadowedMember(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode declaration,
         SyntaxToken identifier,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
@@ -368,8 +369,9 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="identifier">The declared identifier.</param>
     /// <param name="member">The member it shadows.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxToken identifier, in ShadowedMember member)
-        => context.ReportDiagnostic(Diagnostic.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken identifier, in ShadowedMember member) =>
+        context.ReportDiagnostic(Diagnostic.Create(
             MaintainabilityRules.ShadowedDeclaration,
             identifier.GetLocation(),
             identifier.ValueText,
@@ -381,7 +383,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="tablesByType">The per-type-declaration member table cache.</param>
     /// <returns>The member table.</returns>
     private static ShadowedMemberTable GetTable(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax typeDeclaration,
         ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
     {
@@ -393,7 +395,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         table = context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is INamedTypeSymbol type
             ? ShadowedMemberTable.Create(type)
             : ShadowedMemberTable.Empty;
-        tablesByType.TryAdd(typeDeclaration, table);
+        _ = tablesByType.TryAdd(typeDeclaration, table);
         return table;
     }
 
@@ -402,7 +404,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static ShadowedDeclarationOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -412,7 +414,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         }
 
         options = ShadowedDeclarationOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 

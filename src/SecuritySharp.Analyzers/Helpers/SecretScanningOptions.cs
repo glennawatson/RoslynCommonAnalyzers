@@ -27,8 +27,8 @@ internal static class SecretScanningOptions
     /// literals a project vouches for; the marker switch trusts a convention a live credential can also
     /// satisfy, so it stays a deliberate choice.
     /// </remarks>
-    public static SecretScanningSettings Read(AnalyzerConfigOptions options)
-        => new(ReadAllowDocumentationExamples(options), ReadAllowedExamples(options));
+    internal static SecretScanningSettings Read(AnalyzerConfigOptions options) =>
+        new(ReadAllowDocumentationExamples(options), ReadAllowedExamples(options));
 
     /// <summary>Reads whether any key carrying a published-sample marker is accepted.</summary>
     /// <param name="options">The analyzer config options for the literal's tree.</param>
@@ -65,10 +65,13 @@ internal static class SecretScanningOptions
         for (var i = 0; i < parts.Length; i++)
         {
             var entry = parts[i].Trim();
-            if (entry.Length > 0)
+            if (entry.Length == 0)
             {
-                kept[count++] = entry;
+                continue;
             }
+
+            kept[count] = entry;
+            count++;
         }
 
         if (count == 0)

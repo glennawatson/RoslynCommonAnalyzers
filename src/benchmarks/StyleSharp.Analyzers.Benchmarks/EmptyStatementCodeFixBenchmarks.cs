@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the empty-statement code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("EmptyStatementCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class EmptyStatementCodeFixBenchmarks
@@ -22,13 +24,14 @@ public class EmptyStatementCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative stray semicolon.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             StructuralCodeFixBenchmarkSource.GenerateEmptyStatement,
             static (root, index) => CodeFixBenchmarkSyntaxLookup.GetNthDescendant<EmptyStatementSyntax>(root, index, static _ => true)).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

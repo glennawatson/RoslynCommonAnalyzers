@@ -49,7 +49,7 @@ public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a non-public method that carries the invokable attribute.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="marker">The resolved invokable attribute type.</param>
-    private static void AnalyzeMethod(SymbolAnalysisContext context, INamedTypeSymbol marker)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol marker)
     {
         var method = (IMethodSymbol)context.Symbol;
         if (method.MethodKind != MethodKind.Ordinary || method.DeclaredAccessibility == Accessibility.Public)

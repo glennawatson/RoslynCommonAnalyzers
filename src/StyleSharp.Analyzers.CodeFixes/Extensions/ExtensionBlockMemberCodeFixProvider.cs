@@ -162,7 +162,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// </remarks>
     private static bool TrySplitTypeParameters(MethodDeclarationSyntax method, TypeSyntax receiverType, out TypeParameterSplit split)
     {
-        split = new TypeParameterSplit(null, default, method.TypeParameterList, method.ConstraintClauses);
+        split = new(null, default, method.TypeParameterList, method.ConstraintClauses);
         if (method.TypeParameterList is not { } declared)
         {
             return true;
@@ -179,7 +179,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return false;
         }
 
-        split = new TypeParameterSplit(
+        split = new(
             onBlock.Count == 0 ? null : SyntaxFactory.TypeParameterList(SyntaxFactory.SeparatedList(onBlock)),
             SyntaxFactory.List(blockClauses),
             onMember.Count == 0 ? null : declared.WithParameters(SyntaxFactory.SeparatedList(onMember)),
@@ -316,10 +316,10 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         {
             if (index > 0)
             {
-                rendered.Append(", ");
+                _ = rendered.Append(", ");
             }
 
-            rendered.Append(parameters.Parameters[index].WithoutTrivia().ToString());
+            _ = rendered.Append(parameters.Parameters[index].WithoutTrivia().ToString());
         }
 
         return rendered.Append('>').ToString();
@@ -338,7 +338,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         var rendered = new StringBuilder();
         for (var index = 0; index < clauses.Count; index++)
         {
-            rendered.Append('\n').Append(clauses[index].NormalizeWhitespace().ToString());
+            _ = rendered.Append('\n').Append(clauses[index].NormalizeWhitespace().ToString());
         }
 
         return rendered.ToString();
@@ -390,8 +390,8 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         string? receiverText,
         string receiverName,
         string receiverModifiers,
-        in TypeParameterSplit split)
-        => block.ParameterList?.Parameters is { Count: 1 } parameters
+        in TypeParameterSplit split) =>
+        block.ParameterList?.Parameters is { Count: 1 } parameters
             && parameters[0].Identifier.ValueText == receiverName
             && ReceiverModifierText(parameters[0].Modifiers) == receiverModifiers
             && ExtensionBlockHelper.ReceiverTypeText(block) == receiverText
@@ -417,10 +417,10 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
 
             if (rendered.Length > 0)
             {
-                rendered.Append(' ');
+                _ = rendered.Append(' ');
             }
 
-            rendered.Append(modifiers[i].ValueText);
+            _ = rendered.Append(modifiers[i].ValueText);
         }
 
         return rendered.ToString();
@@ -444,7 +444,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         string receiverModifiers,
         in TypeParameterSplit split)
     {
-        var prefix = receiverModifiers.Length == 0 ? string.Empty : receiverModifiers + " ";
+        var prefix = receiverModifiers.Length == 0 ? string.Empty : $"{receiverModifiers} ";
         var typeParameters = RenderTypeParameters(split.BlockTypeParameters);
         var parsed = SyntaxFactory.ParseMemberDeclaration(
             $"extension{typeParameters}({prefix}{receiverType} {receiverName})\n{{\n}}\n");
@@ -519,7 +519,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// The receiver and the block's type parameters belong to the block, so documenting them on the member
     /// describes what the member no longer declares (CS1572, CS1711).
     /// </remarks>
-    private static SyntaxTriviaList WithoutMovedDocumentation(SyntaxTriviaList trivia, string receiverName, in TypeParameterSplit split)
+    private static SyntaxTriviaList WithoutMovedDocumentation(in SyntaxTriviaList trivia, string receiverName, in TypeParameterSplit split)
     {
         var blockTypeParameters = split.BlockTypeParameters;
         for (var i = 0; i < trivia.Count; i++)

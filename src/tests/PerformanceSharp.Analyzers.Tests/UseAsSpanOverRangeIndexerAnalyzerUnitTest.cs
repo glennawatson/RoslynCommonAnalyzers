@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -99,9 +100,10 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a slice the caller keeps as an array is not reported — the copy is the point.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RangeIndexerKeptAsArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task RangeIndexerKeptAsArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -118,9 +120,10 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
     /// a private copy it may freely scribble on; <c>data.AsSpan(1..5)</c> hands it a window onto
     /// <c>data</c>. Those are not the same program, so the allocation is left alone.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableSpanTargetIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutableSpanTargetIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -136,9 +139,10 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a mutable memory target is not reported for the same reason.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableMemoryTargetIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutableMemoryTargetIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -150,9 +154,10 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a range indexer on a string is not reported — there is no array to alias.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringRangeIndexerIsCleanAsync()
-        => await VerifyAsync(
+    public Task StringRangeIndexerIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -164,9 +169,10 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
 
     /// <summary>Verifies a range slice of a span is not reported — it never allocated in the first place.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpanRangeIndexerIsCleanAsync()
-        => await VerifyAsync(
+    public Task SpanRangeIndexerIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -251,11 +257,7 @@ public class UseAsSpanOverRangeIndexerAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

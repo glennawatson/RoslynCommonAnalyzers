@@ -56,7 +56,7 @@ public sealed class Sst1423TooManySwitchLabelsAnalyzer : DiagnosticAnalyzer
     /// <param name="maximumByTree">The per-tree cache of resolved maximums for this compilation.</param>
     /// <param name="factory">The cache-miss factory that resolves and parses a tree's maximum.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConditionalWeakTable<SyntaxTree, StrongBox<int>> maximumByTree,
         ConditionalWeakTable<SyntaxTree, StrongBox<int>>.CreateValueCallback factory)
     {

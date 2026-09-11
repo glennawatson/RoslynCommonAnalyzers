@@ -58,11 +58,6 @@ internal readonly struct Index : IEquatable<Index>
     /// <returns><see langword="true"/> when the indices differ.</returns>
     public static bool operator !=(Index left, Index right) => left._value != right._value;
 
-    /// <summary>Calculates the offset from the start of a collection of the given length.</summary>
-    /// <param name="length">The length of the collection.</param>
-    /// <returns>The zero-based offset from the start.</returns>
-    public int GetOffset(int length) => IsFromEnd ? _value + length + 1 : _value;
-
     /// <inheritdoc/>
     public bool Equals(Index other) => _value == other._value;
 
@@ -71,6 +66,11 @@ internal readonly struct Index : IEquatable<Index>
 
     /// <inheritdoc/>
     public override int GetHashCode() => _value;
+
+    /// <summary>Calculates the offset from the start of a collection of the given length.</summary>
+    /// <param name="length">The length of the collection.</param>
+    /// <returns>The zero-based offset from the start.</returns>
+    internal int GetOffset(int length) => IsFromEnd ? _value + length + 1 : _value;
 }
 
 #else

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1445UnnecessaryUsingDirectiveAnalyzer,
     StyleSharp.Analyzers.Sst1445UnnecessaryUsingDirectiveCodeFixProvider>;
@@ -77,19 +78,22 @@ public class Sst1445UnnecessaryUsingDirectiveCodeFixUnitTest
 
     /// <summary>Verifies the fix removes an unused using and its line.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RemovesUnusedUsingAsync()
-        => await Verify.VerifyCodeFixAsync(SingleUnusedSource, SingleUnusedFixed);
+    public Task RemovesUnusedUsingAsync() =>
+        Verify.VerifyCodeFixAsync(SingleUnusedSource, SingleUnusedFixed);
 
     /// <summary>Verifies removing the first using keeps a leading comment banner.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeepsLeadingCommentBannerAsync()
-        => await Verify.VerifyCodeFixAsync(BannerSource, BannerFixed);
+    public Task KeepsLeadingCommentBannerAsync() =>
+        Verify.VerifyCodeFixAsync(BannerSource, BannerFixed);
 
     /// <summary>Verifies fix-all removes every unused using in the document.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRemovesEveryUnusedUsingAsync()
-        => await Verify.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
+    public Task FixAllRemovesEveryUnusedUsingAsync() =>
+        Verify.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
 }

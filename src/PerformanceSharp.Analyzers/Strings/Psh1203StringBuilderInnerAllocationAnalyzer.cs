@@ -16,9 +16,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the string builder type.</summary>
-    private const string StringBuilderMetadataName = "System.Text.StringBuilder";
-
     /// <summary>The message argument suggesting <c>AppendFormat</c>.</summary>
     private const string AppendFormatSuggestion = "AppendFormat";
 
@@ -41,16 +38,16 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     private enum InnerCallShape
     {
         /// <summary>The argument is not a rewritable inner call.</summary>
-        None,
+        None = 0,
 
         /// <summary>The argument is a <c>string.Format(...)</c> call.</summary>
-        Format,
+        Format = 1,
 
         /// <summary>The argument is a parameterless <c>x.ToString()</c> call.</summary>
-        ToString,
+        ToString = 2,
 
         /// <summary>The argument is an <c>s.Substring(...)</c> call on a simple receiver.</summary>
-        Substring,
+        Substring = 3,
     }
 
     /// <inheritdoc/>
@@ -87,8 +84,7 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         {
             switch (current)
             {
-                case IdentifierNameSyntax:
-                case ThisExpressionSyntax:
+                case IdentifierNameSyntax or ThisExpressionSyntax:
                     return true;
                 case MemberAccessExpressionSyntax member when member.IsKind(SyntaxKind.SimpleMemberAccessExpression):
                 {
@@ -105,7 +101,7 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     /// <summary>Reports PSH1203 for an Append argument the builder could format itself.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="surface">The string builder overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, in StringBuilderAppendSurface surface)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in StringBuilderAppendSurface surface)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var shape = ClassifyShape(invocation, surface, out var inner, out var innerAccess, out var name);
@@ -233,8 +229,8 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol builderType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
             && SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType);
 
     /// <summary>Returns whether the inner call binds to a static <c>string.Format</c> overload.</summary>
@@ -242,8 +238,8 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     /// <param name="inner">The inner call passed as the Append argument.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the inner call is <c>string.Format</c>.</returns>
-    private static bool IsStringFormat(SemanticModel model, InvocationExpressionSyntax inner, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(inner, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsStringFormat(SemanticModel model, InvocationExpressionSyntax inner, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(inner, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: true,
             Name: "Format",
@@ -285,8 +281,8 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
     /// <param name="inner">The inner call passed as the Append argument.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the inner call is <c>string.Substring</c>.</returns>
-    private static bool IsStringSubstring(SemanticModel model, InvocationExpressionSyntax inner, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(inner, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsStringSubstring(SemanticModel model, InvocationExpressionSyntax inner, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(inner, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Name: "Substring",
@@ -304,11 +300,14 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         bool HasAppendFormat,
         bool HasAppendSegment)
     {
+        /// <summary>The metadata name of the string builder type.</summary>
+        private const string StringBuilderMetadataName = "System.Text.StringBuilder";
+
         /// <summary>Probes the compilation once for <c>StringBuilder</c> and the Append overloads the rule rewrites to.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <param name="surface">The resolved overload availability.</param>
         /// <returns><see langword="true"/> when the string builder type exists.</returns>
-        public static bool TryResolve(Compilation compilation, out StringBuilderAppendSurface surface)
+        internal static bool TryResolve(Compilation compilation, out StringBuilderAppendSurface surface)
         {
             if (compilation.GetTypeByMetadataName(StringBuilderMetadataName) is not { } builderType)
             {
@@ -345,8 +344,8 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         /// <summary>Returns whether a typed <c>Append</c> overload exists for a receiver's special type.</summary>
         /// <param name="specialType">The receiver's special type.</param>
         /// <returns><see langword="true"/> when the overload exists.</returns>
-        public bool HasTypedAppend(SpecialType specialType)
-            => (TypedAppendMask & (1UL << (int)specialType)) != 0;
+        internal bool HasTypedAppend(SpecialType specialType) =>
+            (TypedAppendMask & (1UL << (int)specialType)) != 0;
 
         /// <summary>Returns whether any instance <c>AppendFormat</c> overload exists on the string builder type.</summary>
         /// <param name="builderType">The string builder type.</param>
@@ -367,20 +366,24 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         /// <summary>Returns whether a parameter list matches the <c>Append(string, int, int)</c> segment overload.</summary>
         /// <param name="parameters">The candidate parameter list.</param>
         /// <returns><see langword="true"/> for the three-parameter string-segment overload.</returns>
-        private static bool IsAppendSegmentSignature(ImmutableArray<IParameterSymbol> parameters)
-            => parameters is [{ Type.SpecialType: SpecialType.System_String }, { Type.SpecialType: SpecialType.System_Int32 }, { Type.SpecialType: SpecialType.System_Int32 }];
+        private static bool IsAppendSegmentSignature(ImmutableArray<IParameterSymbol> parameters) =>
+            parameters is [{ Type.SpecialType: SpecialType.System_String }, { Type.SpecialType: SpecialType.System_Int32 }, { Type.SpecialType: SpecialType.System_Int32 }];
 
         /// <summary>Returns whether a special type has a dedicated typed <c>Append</c> overload worth probing for.</summary>
         /// <param name="specialType">The candidate parameter special type.</param>
         /// <returns><see langword="true"/> for the bool, char, and numeric primitives.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Minor Code Smell", "S1541", Justification = "Explicit primitive list is clearer than a range check over SpecialType ordering.")]
-        private static bool IsTypedAppendParameter(SpecialType specialType)
-            => specialType is SpecialType.System_Boolean
-                or SpecialType.System_Char
-                or SpecialType.System_Decimal
-                or SpecialType.System_Double
-                or SpecialType.System_Single
-                or SpecialType.System_Byte
+        /// <remarks>
+        /// The members are listed rather than tested as a <see cref="SpecialType"/> range, so the set stays tied
+        /// to the overloads the builder actually declares instead of to the enum's ordering.
+        /// </remarks>
+        private static bool IsTypedAppendParameter(SpecialType specialType) =>
+            IsIntegerAppendParameter(specialType) || IsNonIntegerAppendParameter(specialType);
+
+        /// <summary>Returns whether a special type is one of the integer <c>Append</c> overloads.</summary>
+        /// <param name="specialType">The candidate parameter special type.</param>
+        /// <returns><see langword="true"/> for the signed and unsigned integers.</returns>
+        private static bool IsIntegerAppendParameter(SpecialType specialType) =>
+            specialType is SpecialType.System_Byte
                 or SpecialType.System_SByte
                 or SpecialType.System_Int16
                 or SpecialType.System_UInt16
@@ -388,5 +391,15 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
                 or SpecialType.System_UInt32
                 or SpecialType.System_Int64
                 or SpecialType.System_UInt64;
+
+        /// <summary>Returns whether a special type is one of the remaining typed <c>Append</c> overloads.</summary>
+        /// <param name="specialType">The candidate parameter special type.</param>
+        /// <returns><see langword="true"/> for boolean, character, and the types carrying a fractional part.</returns>
+        private static bool IsNonIntegerAppendParameter(SpecialType specialType) =>
+            specialType is SpecialType.System_Boolean
+                or SpecialType.System_Char
+                or SpecialType.System_Decimal
+                or SpecialType.System_Double
+                or SpecialType.System_Single;
     }
 }

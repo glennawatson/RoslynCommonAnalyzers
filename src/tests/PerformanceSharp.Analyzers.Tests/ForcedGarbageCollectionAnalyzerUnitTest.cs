@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1021ForcedGarbageCollectionAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 {
     /// <summary>Verifies a parameterless <c>GC.Collect()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GcCollectIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GcCollectIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -26,9 +28,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a <c>GC.Collect(generation)</c> overload is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GcCollectWithGenerationArgumentIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GcCollectWithGenerationArgumentIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -40,9 +43,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a <c>GC.WaitForPendingFinalizers()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GcWaitForPendingFinalizersIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GcWaitForPendingFinalizersIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -54,9 +58,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified <c>System.GC.Collect()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedGcCollectIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task FullyQualifiedGcCollectIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -66,9 +71,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named user <c>GC.Collect()</c> is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserGcCollectIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UserGcCollectIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace My
             {
@@ -88,9 +94,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated call is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedCallIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnrelatedCallIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -106,9 +113,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies forced-GC calls that settle the heap for an allocation sample are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForcedGcInAllocationMeasurementIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForcedGcInAllocationMeasurementIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -129,9 +137,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a forced collection beside a <c>GC.GetTotalMemory</c> read is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForcedGcBesideGetTotalMemoryIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForcedGcBesideGetTotalMemoryIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -147,9 +156,10 @@ public class ForcedGarbageCollectionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named sampling method that is not <c>System.GC</c> does not exempt the forced collection.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForcedGcWithLookalikeSampleIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForcedGcWithLookalikeSampleIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

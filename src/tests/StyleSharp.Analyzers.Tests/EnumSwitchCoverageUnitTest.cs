@@ -62,6 +62,7 @@ public sealed class EnumSwitchCoverageUnitTest
     /// <typeparam name="T">The node type.</typeparam>
     /// <param name="root">The root to search.</param>
     /// <returns>The first matching descendant.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> has no descendant of type <typeparamref name="T"/>.</exception>
     private static T FirstDescendant<T>(SyntaxNode root)
         where T : SyntaxNode
     {

@@ -20,8 +20,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit trivial property wrappers.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateTrivialAutoProperty(int members, bool violating)
-        => $$"""
+    internal static string GenerateTrivialAutoProperty(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class TrivialAutoPropertyBench
@@ -34,8 +34,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit single-part partial declarations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRedundantModifier(int members, bool violating)
-        => $$"""
+    internal static string GenerateRedundantModifier(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateRedundantModifierMember(i, violating))}}
@@ -45,8 +45,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit parameterless struct constructions.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateDefaultValueTypeConstructor(int members, bool violating)
-        => $$"""
+    internal static string GenerateDefaultValueTypeConstructor(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class DefaultValueTypeConstructorBench
@@ -64,8 +64,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit empty string literals.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUseStringEmpty(int members, bool violating)
-        => $$"""
+    internal static string GenerateUseStringEmpty(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class UseStringEmptyBench
@@ -78,8 +78,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit Nullable&lt;T&gt; spellings.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUseNullableShorthand(int members, bool violating)
-        => $$"""
+    internal static string GenerateUseNullableShorthand(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class UseNullableShorthandBench
@@ -92,8 +92,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit ValueTuple spellings.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUseTupleSyntax(int members, bool violating)
-        => $$"""
+    internal static string GenerateUseTupleSyntax(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class UseTupleSyntaxBench
@@ -106,8 +106,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit redundant base member access.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateDoNotPrefixWithBase(int members, bool violating)
-        => $$"""
+    internal static string GenerateDoNotPrefixWithBase(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class DoNotPrefixWithBaseBench
@@ -124,8 +124,8 @@ internal static class SemanticTypeBenchmarkSource
     /// The violating members rotate through the accessor-list, expression-bodied and static shapes the rule
     /// converts, and the clean members include a write-only property, which has no auto-property form.
     /// </remarks>
-    private static string GenerateTrivialAutoPropertyMember(int index, bool violating)
-        => violating
+    private static string GenerateTrivialAutoPropertyMember(int index, bool violating) =>
+        violating
             ? GenerateTrivialAutoPropertyViolation(index, index % TrivialAutoPropertyShapes)
             : GenerateTrivialAutoPropertyCleanMember(index, index % TrivialAutoPropertyShapes);
 
@@ -198,8 +198,8 @@ internal static class SemanticTypeBenchmarkSource
     /// arithmetic; the clean block pairs a meaningful <c>sealed</c> with a <c>checked</c> context whose
     /// addition can overflow, so the context is kept.
     /// </remarks>
-    private static string GenerateRedundantModifierMember(int index, bool violating)
-        => violating
+    private static string GenerateRedundantModifierMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal partial class C{{index}}
                {
@@ -229,8 +229,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a parameterless value-type construction.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateDefaultValueTypeConstructorMember(int index, bool violating)
-        => violating
+    private static string GenerateDefaultValueTypeConstructorMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static ValueType M{{index}}() => new ValueType();
                """
@@ -242,8 +242,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an empty string literal.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUseStringEmptyMember(int index, bool violating)
-        => violating
+    private static string GenerateUseStringEmptyMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static string M{{index}}() => "";
                """
@@ -255,8 +255,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a Nullable&lt;T&gt; spelling.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUseNullableShorthandMember(int index, bool violating)
-        => violating
+    private static string GenerateUseNullableShorthandMember(int index, bool violating) =>
+        violating
             ? $$"""
                private global::System.Nullable<int> _value{{index}} = {{index}};
                """
@@ -268,8 +268,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a ValueTuple spelling.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUseTupleSyntaxMember(int index, bool violating)
-        => violating
+    private static string GenerateUseTupleSyntaxMember(int index, bool violating) =>
+        violating
             ? $$"""
                private global::System.ValueTuple<int, int> _value{{index}} = ({{index}}, {{index + 1}});
                """
@@ -281,8 +281,8 @@ internal static class SemanticTypeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a redundant base member access.</param>
     /// <returns>The generated nested type block.</returns>
-    private static string GenerateDoNotPrefixWithBaseMember(int index, bool violating)
-        => $$"""
+    private static string GenerateDoNotPrefixWithBaseMember(int index, bool violating) =>
+        $$"""
            private class Base{{index}}
            {
                protected int Value{{index}} = {{index}};

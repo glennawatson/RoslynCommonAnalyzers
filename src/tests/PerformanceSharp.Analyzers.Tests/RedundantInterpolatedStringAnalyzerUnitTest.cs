@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyRedundantInterpolation = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -35,9 +36,10 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a hole whose expression is not a string is not reported (ToString semantics differ).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectHoleIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task ObjectHoleIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -87,9 +89,10 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a hole with a format clause is not reported — the interpolation does formatting work.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormatClauseIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task FormatClauseIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -99,9 +102,10 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a hole with an alignment clause is not reported — the interpolation does padding work.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlignmentClauseIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task AlignmentClauseIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -111,9 +115,10 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies mixed literal text and a hole is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedTextAndHoleIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task MixedTextAndHoleIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -143,9 +148,10 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string converted to <c>FormattableString</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormattableStringTargetIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task FormattableStringTargetIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -203,12 +209,7 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyRedundantInterpolation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyRedundantInterpolation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -216,6 +217,7 @@ public class RedundantInterpolatedStringAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

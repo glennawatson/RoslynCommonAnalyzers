@@ -16,22 +16,22 @@ internal static class FieldShouldBeReadonlyBenchmarkSource
     /// <param name="fields">The number of private fields to emit in the single synthetic type.</param>
     /// <param name="violating">Whether to emit readonly-field violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int fields, bool violating)
-        => violating ? GenerateViolating(fields) : GenerateClean(fields);
+    internal static string Generate(int fields, bool violating) =>
+        violating ? GenerateViolating(fields) : GenerateClean(fields);
 
     /// <summary>Builds one type whose fields are all assigned only in the constructor (every field is reported).</summary>
     /// <param name="fields">The number of private fields to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateViolating(int fields)
-        => $$"""
+    private static string GenerateViolating(int fields) =>
+        $$"""
            namespace Bench;
 
            internal sealed class Big
            {
-           {{BenchmarkSourceText.JoinLines(fields, i => $"private int _f{i};")}}
+           {{BenchmarkSourceText.JoinLines(fields, static i => $"private int _f{i};")}}
            internal Big(int value)
            {
-           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           {{BenchmarkSourceText.JoinLines(fields, static i => $"_f{i} = value;")}}
            }
            }
            """;
@@ -39,20 +39,20 @@ internal static class FieldShouldBeReadonlyBenchmarkSource
     /// <summary>Builds one type whose fields are also written in a method, so none are reported.</summary>
     /// <param name="fields">The number of private fields to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateClean(int fields)
-        => $$"""
+    private static string GenerateClean(int fields) =>
+        $$"""
            namespace Bench;
 
            internal sealed class Big
            {
-           {{BenchmarkSourceText.JoinLines(fields, i => $"private int _f{i};")}}
+           {{BenchmarkSourceText.JoinLines(fields, static i => $"private int _f{i};")}}
            internal Big(int value)
            {
-           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           {{BenchmarkSourceText.JoinLines(fields, static i => $"_f{i} = value;")}}
            }
            internal void Reset(int value)
            {
-           {{BenchmarkSourceText.JoinLines(fields, i => $"_f{i} = value;")}}
+           {{BenchmarkSourceText.JoinLines(fields, static i => $"_f{i} = value;")}}
            }
            }
            """;

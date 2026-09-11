@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDispose = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2300DisposePatternAnalyzer,
     StyleSharp.Analyzers.Sst2300DisposePatternCodeFixProvider>;
@@ -197,31 +198,36 @@ public class Sst2300DisposePatternCodeFixUnitTest
 
     /// <summary>Verifies the fix appends the suppression call to a block-bodied <c>Dispose()</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsSuppressFinalizeToBlockBodyAsync()
-        => await VerifyDispose.VerifyCodeFixAsync(BlockBodySource, BlockBodyFixed);
+    public Task AddsSuppressFinalizeToBlockBodyAsync() =>
+        VerifyDispose.VerifyCodeFixAsync(BlockBodySource, BlockBodyFixed);
 
     /// <summary>Verifies an expression-bodied <c>Dispose()</c> becomes a block, because it now says two things.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedDisposeBecomesABlockAsync()
-        => await VerifyDispose.VerifyCodeFixAsync(ExpressionBodySource, ExpressionBodyFixed);
+    public Task ExpressionBodiedDisposeBecomesABlockAsync() =>
+        VerifyDispose.VerifyCodeFixAsync(ExpressionBodySource, ExpressionBodyFixed);
 
     /// <summary>Verifies a public <c>Dispose(bool)</c> becomes protected virtual on a type that can be derived from.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicOverloadBecomesProtectedVirtualAsync()
-        => await VerifyDispose.VerifyCodeFixAsync(PublicOverloadSource, PublicOverloadFixed);
+    public Task PublicOverloadBecomesProtectedVirtualAsync() =>
+        VerifyDispose.VerifyCodeFixAsync(PublicOverloadSource, PublicOverloadFixed);
 
     /// <summary>Verifies a public <c>Dispose(bool)</c> becomes private on a sealed type, which nothing can override.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicOverloadBecomesPrivateOnASealedTypeAsync()
-        => await VerifyDispose.VerifyCodeFixAsync(SealedOverloadSource, SealedOverloadFixed);
+    public Task PublicOverloadBecomesPrivateOnASealedTypeAsync() =>
+        VerifyDispose.VerifyCodeFixAsync(SealedOverloadSource, SealedOverloadFixed);
 
     /// <summary>Verifies the emitted call stays qualified where the short name would not bind.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmittedCallBindsWithoutAUsingDirectiveAsync()
-        => await VerifyDispose.VerifyCodeFixAsync(UnqualifiedSource, UnqualifiedFixed);
+    public Task EmittedCallBindsWithoutAUsingDirectiveAsync() =>
+        VerifyDispose.VerifyCodeFixAsync(UnqualifiedSource, UnqualifiedFixed);
 }

@@ -96,13 +96,13 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <summary>Returns the canonical rank of an accessor — get/add before set/init/remove.</summary>
     /// <param name="accessor">The accessor.</param>
     /// <returns>0 for the primary accessor, 1 otherwise.</returns>
-    private static int Rank(AccessorDeclarationSyntax accessor)
-        => accessor.Keyword.IsKind(SyntaxKind.GetKeyword) || accessor.Keyword.IsKind(SyntaxKind.AddKeyword) ? 0 : 1;
+    private static int Rank(AccessorDeclarationSyntax accessor) =>
+        accessor.Keyword.IsKind(SyntaxKind.GetKeyword) || accessor.Keyword.IsKind(SyntaxKind.AddKeyword) ? 0 : 1;
 
     /// <summary>Compares two accessors by the canonical accessor order.</summary>
     /// <param name="left">The left accessor.</param>
     /// <param name="right">The right accessor.</param>
     /// <returns>A negative value when <paramref name="left"/> sorts first, positive when last, zero when equal.</returns>
-    private static int CompareAccessors(AccessorDeclarationSyntax left, AccessorDeclarationSyntax right)
-        => Rank(left) - Rank(right);
+    private static int CompareAccessors(AccessorDeclarationSyntax left, AccessorDeclarationSyntax right) =>
+        Rank(left) - Rank(right);
 }

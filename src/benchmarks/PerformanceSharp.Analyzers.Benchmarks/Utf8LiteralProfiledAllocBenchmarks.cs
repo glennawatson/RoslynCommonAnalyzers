@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for u8 literal analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Utf8LiteralProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class Utf8LiteralProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class Utf8LiteralProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean u8 literal path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8Literal_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating u8 literal path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8Literal_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

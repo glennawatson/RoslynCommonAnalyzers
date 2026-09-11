@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyIsNotPattern = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class IsNotPatternAnalyzerUnitTest
 {
     /// <summary>Verifies a negated null pattern is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegatedPatternIsReportedAsync()
-        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+    public Task NegatedPatternIsReportedAsync() =>
+        VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -30,9 +32,10 @@ public class IsNotPatternAnalyzerUnitTest
     /// A name bound under a <c>not</c> is assigned on exactly the branch it was assigned on before, so the
     /// early-return form this produces compiles and reads the same.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegatedDeclarationPatternIsReportedAsync()
-        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+    public Task NegatedDeclarationPatternIsReportedAsync() =>
+        VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -50,9 +53,10 @@ public class IsNotPatternAnalyzerUnitTest
 
     /// <summary>Verifies a negated recursive pattern that binds a name is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegatedRecursivePatternWithDesignationIsReportedAsync()
-        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+    public Task NegatedRecursivePatternWithDesignationIsReportedAsync() =>
+        VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -74,9 +78,10 @@ public class IsNotPatternAnalyzerUnitTest
     /// A <c>var</c> pattern accepts every value, so the negated form is unsatisfiable and the compiler
     /// rejects it outright.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegatedVarPatternIsCleanAsync()
-        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+    public Task NegatedVarPatternIsCleanAsync() =>
+        VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -87,9 +92,10 @@ public class IsNotPatternAnalyzerUnitTest
     /// <summary>Verifies a <c>var</c> reached through a subpattern does not withhold the report.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The enclosing pattern can still fail, so negating the whole thing remains satisfiable.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VarInsideASubpatternIsStillReportedAsync()
-        => await VerifyIsNotPattern.VerifyAnalyzerAsync(
+    public Task VarInsideASubpatternIsStillReportedAsync() =>
+        VerifyIsNotPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

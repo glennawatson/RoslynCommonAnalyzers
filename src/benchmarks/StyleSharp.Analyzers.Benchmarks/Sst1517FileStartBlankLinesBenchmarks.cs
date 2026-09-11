@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1517 file-start-blank-lines analyzer.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1517FileStartBlankLinesBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1517FileStartBlankLinesBenchmarks
@@ -24,11 +26,13 @@ public class Sst1517FileStartBlankLinesBenchmarks
 
     /// <summary>Benchmarks the clean file-start-blank-lines path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1517FileStartBlankLines_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating file-start-blank-lines path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1517FileStartBlankLines_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

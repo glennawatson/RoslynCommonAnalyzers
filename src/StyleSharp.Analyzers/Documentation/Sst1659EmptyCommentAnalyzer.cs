@@ -6,10 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a documentation comment that carries no text at all (SST1659) — one whose every line is a bare
-/// <c>///</c>.
-/// </summary>
+/// <summary>Reports a documentation comment that carries no text at all (SST1659) — one whose every line is a bare <c></c>.</summary>
 /// <remarks>
 /// <para>
 /// An empty documentation comment is worse than a missing one. Every tool that asks "is this member
@@ -96,7 +93,7 @@ public sealed class Sst1659EmptyCommentAnalyzer : DiagnosticAnalyzer
     /// comment. The result is trimmed back to the last character the comment actually wrote, which keeps the
     /// reported span — and the removal the code fix computes from it — off the following line.
     /// </remarks>
-    internal static bool TryGetEmptyCommentSpan(SourceText text, SyntaxTrivia trivia, out TextSpan span)
+    internal static bool TryGetEmptyCommentSpan(SourceText text, in SyntaxTrivia trivia, out TextSpan span)
     {
         switch (trivia.Kind())
         {
@@ -144,7 +141,7 @@ public sealed class Sst1659EmptyCommentAnalyzer : DiagnosticAnalyzer
     /// <param name="allowStars">Whether <c>*</c> is part of the delimiters (a <c>/** */</c> comment).</param>
     /// <param name="span">The trimmed span of the empty comment when one is found.</param>
     /// <returns><see langword="true"/> when no line of the comment carries text.</returns>
-    private static bool TryGetEmptyDocumentationSpan(SourceText text, SyntaxTrivia trivia, bool allowStars, out TextSpan span)
+    private static bool TryGetEmptyDocumentationSpan(SourceText text, in SyntaxTrivia trivia, bool allowStars, out TextSpan span)
     {
         var full = trivia.FullSpan;
         span = default;

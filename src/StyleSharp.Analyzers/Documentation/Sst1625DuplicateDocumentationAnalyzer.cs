@@ -66,7 +66,7 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
             }
 
             builder ??= new StringBuilder();
-            builder.Clear();
+            _ = builder.Clear();
             XmlDocumentationHelper.AppendDuplicateComparisonKey(element, builder);
             if (builder.Length == 0)
             {
@@ -82,7 +82,7 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
 
             if (!IsDuplicate(seen, hash, builder))
             {
-                seen.Add(new ElementKey(hash, element));
+                seen.Add(new(hash, element));
                 continue;
             }
 
@@ -111,7 +111,7 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
             }
 
             candidate ??= builder.ToString();
-            builder.Clear();
+            _ = builder.Clear();
             XmlDocumentationHelper.AppendDuplicateComparisonKey(seen[index].Element, builder);
             if (string.Equals(candidate, builder.ToString(), StringComparison.Ordinal))
             {

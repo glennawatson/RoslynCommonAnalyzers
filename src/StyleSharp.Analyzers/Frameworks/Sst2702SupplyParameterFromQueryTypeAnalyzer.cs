@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -25,9 +27,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the query-parameter supply attribute.</summary>
-    private const string SupplyParameterFromQueryAttributeMetadataName = "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.SupplyParameterFromQueryUnsupportedType);
 
@@ -55,7 +54,7 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
     /// <summary>Reports a supplied query property whose type is outside the bindable set.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="model">The resolved marker and supported-type set.</param>
-    private static void AnalyzeProperty(SymbolAnalysisContext context, QueryBindingModel model)
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, QueryBindingModel model)
     {
         var property = (IPropertySymbol)context.Symbol;
         if (!model.HasMarker(property))
@@ -81,6 +80,9 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
     /// </summary>
     private sealed class QueryBindingModel
     {
+        /// <summary>The metadata name of the query-parameter supply attribute.</summary>
+        private const string SupplyParameterFromQueryAttributeMetadataName = "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute";
+
         /// <summary>The supply-from-query marker attribute.</summary>
         private readonly INamedTypeSymbol _marker;
 
@@ -127,7 +129,7 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
             AddResolved(supported, compilation, "System.DateOnly");
             AddResolved(supported, compilation, "System.TimeOnly");
 
-            return new QueryBindingModel(marker, supported);
+            return new(marker, supported);
         }
 
         /// <summary>Returns whether a property carries the supply-from-query marker attribute.</summary>
@@ -176,8 +178,9 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
         /// <param name="set">The supported-type set.</param>
         /// <param name="compilation">The compilation to resolve against.</param>
         /// <param name="specialType">The special type to add.</param>
-        private static void AddSpecial(HashSet<ITypeSymbol> set, Compilation compilation, SpecialType specialType)
-            => set.Add(compilation.GetSpecialType(specialType));
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void AddSpecial(HashSet<ITypeSymbol> set, Compilation compilation, SpecialType specialType) =>
+            set.Add(compilation.GetSpecialType(specialType));
 
         /// <summary>Adds a metadata-named type to the supported set when it resolves.</summary>
         /// <param name="set">The supported-type set.</param>
@@ -191,7 +194,7 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
                 return;
             }
 
-            set.Add(resolved);
+            _ = set.Add(resolved);
         }
     }
 }

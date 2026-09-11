@@ -55,8 +55,8 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a bare <c>x.ToCharArray()</c>, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsToCharArrayShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsToCharArrayShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == ToCharArrayMethodName;
 
@@ -131,9 +131,9 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a bound member is the framework's parameterless <c>string.ToCharArray()</c>.</summary>
     /// <param name="copy">The bound copying method.</param>
     /// <returns><see langword="true"/> when the call is the string copy the rule knows how to drop.</returns>
-    private static bool IsStringToCharArray(IMethodSymbol copy)
-        => !copy.IsStatic
-            && copy.Parameters.Length == 0
+    private static bool IsStringToCharArray(IMethodSymbol copy) =>
+        !copy.IsStatic
+            && copy.Parameters.IsEmpty
             && !copy.IsExtensionMethod
             && copy.ReducedFrom is null
             && copy.Name == ToCharArrayMethodName
@@ -209,9 +209,9 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
     private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess) => elementAccess.Parent switch
     {
         AssignmentExpressionSyntax assignment => assignment.Left == elementAccess,
-        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression } => true,
-        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression } => true,
-        RefExpressionSyntax => true,
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression }
+            or PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression }
+            or RefExpressionSyntax => true,
         ArgumentSyntax argument => argument.RefOrOutKeyword.RawKind != (int)SyntaxKind.None,
         _ => false,
     };

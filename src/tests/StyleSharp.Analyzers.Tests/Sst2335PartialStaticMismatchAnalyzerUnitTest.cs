@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2335PartialStaticMismatchAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2335PartialStaticMismatchAnalyzerUnitTest
 {
     /// <summary>Verifies the part that omits <c>static</c> is reported when another part declares it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartOmittingStaticIsReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartOmittingStaticIsReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             static partial class Widget
             {
@@ -26,9 +28,10 @@ public class Sst2335PartialStaticMismatchAnalyzerUnitTest
 
     /// <summary>Verifies every part that omits <c>static</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryOmittingPartIsReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task EveryOmittingPartIsReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             static partial class Gadget
             {
@@ -45,9 +48,10 @@ public class Sst2335PartialStaticMismatchAnalyzerUnitTest
 
     /// <summary>Verifies parts that all declare <c>static</c> are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllStaticPartsAreCleanAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task AllStaticPartsAreCleanAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             static partial class Widget
             {
@@ -60,9 +64,10 @@ public class Sst2335PartialStaticMismatchAnalyzerUnitTest
 
     /// <summary>Verifies parts that all omit <c>static</c> are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllInstancePartsAreCleanAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task AllInstancePartsAreCleanAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             partial class Widget
             {
@@ -75,9 +80,10 @@ public class Sst2335PartialStaticMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a single, non-partial static class is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleStaticClassIsCleanAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task SingleStaticClassIsCleanAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             static class Widget
             {

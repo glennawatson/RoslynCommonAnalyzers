@@ -11,8 +11,8 @@ internal static class InheritanceDepthBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit inheritance-depth rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            public class D0
@@ -50,14 +50,14 @@ internal static class InheritanceDepthBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type three levels deep, below the default maximum.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class C{{index}} : D2
            {
            }
@@ -66,8 +66,8 @@ internal static class InheritanceDepthBenchmarkSource
     /// <summary>Builds one type seven levels deep, above the default maximum.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class C{{index}} : D6
            {
            }

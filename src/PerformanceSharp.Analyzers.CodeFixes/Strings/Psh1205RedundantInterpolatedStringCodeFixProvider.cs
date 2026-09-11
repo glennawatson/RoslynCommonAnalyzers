@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,20 +23,21 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant interpolation", nameof(Psh1205RedundantInterpolatedStringCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant interpolation", nameof(Psh1205RedundantInterpolatedStringCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported interpolated string with its value or literal form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="interpolated">The interpolated string to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InterpolatedStringExpressionSyntax interpolated)
-        => TryGetReplacement(interpolated, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, InterpolatedStringExpressionSyntax interpolated) =>
+        TryGetReplacement(interpolated, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(interpolated, replacement!))
             : document;
 
@@ -42,8 +45,8 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InterpolatedStringExpressionSyntax interpolated
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InterpolatedStringExpressionSyntax interpolated
             && TryGetReplacement(interpolated, out var replacement)
             ? new NodeReplacement(interpolated, replacement!)
             : null;
@@ -80,8 +83,9 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     /// <summary>Builds the plain string literal for the no-holes shape.</summary>
     /// <param name="interpolated">The text-only interpolated string.</param>
     /// <returns>A regular string literal whose value equals the interpolated text, with <c>{{</c>/<c>}}</c> unescaped.</returns>
-    private static LiteralExpressionSyntax BuildLiteralReplacement(InterpolatedStringExpressionSyntax interpolated)
-        => SyntaxFactory.LiteralExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LiteralExpressionSyntax BuildLiteralReplacement(InterpolatedStringExpressionSyntax interpolated) =>
+        SyntaxFactory.LiteralExpression(
             SyntaxKind.StringLiteralExpression,
             SyntaxFactory.Literal(GetTextValue(interpolated)));
 
@@ -113,14 +117,15 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     /// <summary>Collapses the doubled braces an interpolated string uses to escape literal braces.</summary>
     /// <param name="text">The interpolated text segment value.</param>
     /// <returns>The text with <c>{{</c>/<c>}}</c> reduced to <c>{</c>/<c>}</c>.</returns>
-    private static string UnescapeBraces(string text)
-        => text.Replace("{{", "{").Replace("}}", "}");
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string UnescapeBraces(string text) =>
+        text.Replace("{{", "{").Replace("}}", "}");
 
     /// <summary>Returns whether a hole expression must be parenthesized once it stands alone.</summary>
     /// <param name="expression">The hole's expression.</param>
     /// <returns><see langword="true"/> for anything that is not a primary expression (conditionals, binaries, assignments, lambdas, and similar).</returns>
-    private static bool NeedsParentheses(ExpressionSyntax expression)
-        => expression is not (LiteralExpressionSyntax
+    private static bool NeedsParentheses(ExpressionSyntax expression) =>
+        expression is not (LiteralExpressionSyntax
             or IdentifierNameSyntax
             or MemberAccessExpressionSyntax
             or ConditionalAccessExpressionSyntax

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for lock-target analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("LockTargetBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LockTargetBenchmarks
@@ -24,11 +26,13 @@ public class LockTargetBenchmarks
 
     /// <summary>Benchmarks the clean lock-target path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LockTarget_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating lock-target path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LockTarget_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1653SingleLineSummaryAnalyzer,
     StyleSharp.Analyzers.Sst1653SingleLineSummaryCodeFixProvider>;
@@ -11,14 +12,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1653 (short summaries should be on a single line).</summary>
 public class SingleLineSummaryAnalyzerUnitTest
 {
-    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a single-line summary produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidSingleLineAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValidSingleLineAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>Short text.</summary>
             public class C { }
@@ -26,9 +25,10 @@ public class SingleLineSummaryAnalyzerUnitTest
 
     /// <summary>Verifies a long multi-line summary (over the limit) produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidLongMultiLineAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValidLongMultiLineAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>
             /// This is a deliberately long summary that comfortably exceeds the configured one hundred character single-line limit.
@@ -38,9 +38,10 @@ public class SingleLineSummaryAnalyzerUnitTest
 
     /// <summary>Verifies an empty multi-line summary is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptySummaryIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptySummaryIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>
             /// </summary>
@@ -103,9 +104,10 @@ public class SingleLineSummaryAnalyzerUnitTest
 
     /// <summary>Verifies a summary stays wrapped when collapsing it would push the line past the length budget.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SummaryTooLongToCollapseWithinTheLineBudgetIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SummaryTooLongToCollapseWithinTheLineBudgetIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>
             /// Returns the fully materialized projection for the supplied query, including every dependent value.
@@ -148,18 +150,18 @@ public class SingleLineSummaryAnalyzerUnitTest
             FixedCode = """
                         /// <summary>Returns the fully materialized projection for the supplied query, including every dependent value.</summary>
                         public class C { }
-                        """
+                        """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.max_line_length = 200
 
             """));
         test.FixedState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.max_line_length = 200
@@ -181,11 +183,11 @@ public class SingleLineSummaryAnalyzerUnitTest
                        /// Short text.
                        /// </summary>
                        public class C { }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.summary_single_line_max_length = 5

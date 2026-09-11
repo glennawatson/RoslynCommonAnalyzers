@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -22,12 +24,13 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported combination and builds its is-pattern replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -50,7 +53,7 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
     /// <param name="original">The reported logical expression, source of the outer trivia.</param>
     /// <param name="merge">The extracted merge pieces.</param>
     /// <returns>The is-pattern expression that replaces the combination.</returns>
-    private static IsPatternExpressionSyntax BuildReplacement(BinaryExpressionSyntax original, ComparisonPatternMerge merge)
+    private static IsPatternExpressionSyntax BuildReplacement(BinaryExpressionSyntax original, in ComparisonPatternMerge merge)
     {
         var pattern = SyntaxFactory.BinaryPattern(
             merge.IsConjunction ? SyntaxKind.AndPattern : SyntaxKind.OrPattern,
@@ -87,8 +90,8 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
     /// <summary>Maps a relational comparison kind to its pattern operator token.</summary>
     /// <param name="comparison">The subject-on-left relational comparison kind.</param>
     /// <returns>The token kind used in the relational pattern.</returns>
-    private static SyntaxKind RelationalToken(SyntaxKind comparison)
-        => comparison switch
+    private static SyntaxKind RelationalToken(SyntaxKind comparison) =>
+        comparison switch
         {
             SyntaxKind.LessThanExpression => SyntaxKind.LessThanToken,
             SyntaxKind.LessThanOrEqualExpression => SyntaxKind.LessThanEqualsToken,
@@ -99,6 +102,7 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
     /// <summary>Builds a contextual keyword token padded with a single space on each side.</summary>
     /// <param name="kind">The keyword kind.</param>
     /// <returns>The spaced keyword token.</returns>
-    private static SyntaxToken Keyword(SyntaxKind kind)
-        => SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), kind, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken Keyword(SyntaxKind kind) =>
+        SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), kind, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

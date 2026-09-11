@@ -16,7 +16,7 @@ internal static class InstanceMemberQualificationOptions
     /// <summary>Reads the configured instance-member qualification style.</summary>
     /// <param name="options">The analyzer config options.</param>
     /// <returns>The configured style, or the default when the option is unset or unknown.</returns>
-    public static InstanceMemberQualification Read(AnalyzerConfigOptions options)
+    internal static InstanceMemberQualification Read(AnalyzerConfigOptions options)
     {
         if (!options.TryGetValue(GeneralKey, out var value))
         {

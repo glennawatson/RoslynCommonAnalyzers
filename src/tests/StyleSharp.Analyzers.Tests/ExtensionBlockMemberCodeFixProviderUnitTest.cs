@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyMixedStylesFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExtensionBlockAnalyzer,
@@ -370,11 +371,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunPreferBlockAsync(string source, string fixedSource)
     {
-        var test = new VerifyPreferBlockFix.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyPreferBlockFix.Test { TestCode = source, FixedCode = fixedSource };
 
         AddPreviewLanguageVersion(test);
         await test.RunAsync(CancellationToken.None);
@@ -386,11 +383,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunMixedStylesAsync(string source, string fixedSource)
     {
-        var test = new VerifyMixedStylesFix.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyMixedStylesFix.Test { TestCode = source, FixedCode = fixedSource };
 
         AddPreviewLanguageVersion(test);
         await test.RunAsync(CancellationToken.None);
@@ -398,8 +391,9 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
 
     /// <summary>Parses the test project at the language version that supports extension blocks.</summary>
     /// <param name="test">The test to configure.</param>
-    private static void AddPreviewLanguageVersion(Microsoft.CodeAnalysis.Testing.AnalyzerTest<Microsoft.CodeAnalysis.Testing.DefaultVerifier> test)
-        => test.SolutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddPreviewLanguageVersion(Microsoft.CodeAnalysis.Testing.AnalyzerTest<Microsoft.CodeAnalysis.Testing.DefaultVerifier> test) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(

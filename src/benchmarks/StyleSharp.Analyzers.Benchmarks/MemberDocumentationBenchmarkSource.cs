@@ -11,8 +11,8 @@ internal static class MemberDocumentationBenchmarkSource
     /// <param name="members">The number of methods to emit.</param>
     /// <param name="violating">Whether to omit required parameter and return docs.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal sealed class DocumentationBench
            {
@@ -24,14 +24,14 @@ internal static class MemberDocumentationBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit incomplete documentation.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
+    private static string GenerateMember(int index, bool violating) =>
+        violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
     /// <summary>Builds one clean documented member (a method and an accessor-prefixed property).</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            /// <summary>Does the work.</summary>
            /// <param name="value">The input value.</param>
            /// <returns>The input value.</returns>
@@ -44,8 +44,8 @@ internal static class MemberDocumentationBenchmarkSource
     /// <summary>Builds one violating documented member (missing docs and a non-conforming property summary).</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            /// <summary>Does the work.</summary>
            internal int M{{index}}(int value) => value;
 

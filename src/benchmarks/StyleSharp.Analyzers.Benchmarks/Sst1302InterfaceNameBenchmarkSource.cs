@@ -11,8 +11,8 @@ internal static class Sst1302InterfaceNameBenchmarkSource
     /// <param name="types">The number of synthetic interfaces to emit.</param>
     /// <param name="violating">Whether to emit interface-prefix rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,14 +22,14 @@ internal static class Sst1302InterfaceNameBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating interface.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one clean interface whose name begins with the capital letter 'I'.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public interface IWidget{{index}}
            {
            }
@@ -38,8 +38,8 @@ internal static class Sst1302InterfaceNameBenchmarkSource
     /// <summary>Builds one violating interface whose name does not begin with 'I'.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public interface Widget{{index}}
            {
            }

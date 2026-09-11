@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUncreatableClass = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2451UncreatableClassAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class UncreatableClassAnalyzerUnitTest
 {
     /// <summary>Verifies a private-constructor class whose members never create an instance is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UninstantiatedSelfOnlyClassIsReportedAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task UninstantiatedSelfOnlyClassIsReportedAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2451:C|}
             {
@@ -27,9 +29,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a private-constructor class holding only instance members is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceOnlyMembersClassIsReportedAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task InstanceOnlyMembersClassIsReportedAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2451:C|}
             {
@@ -43,9 +46,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a constructor with no access modifier defaults to private and is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModifierlessConstructorIsReportedAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task ModifierlessConstructorIsReportedAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2451:C|}
             {
@@ -59,9 +63,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies creating an unrelated type that shares the class's name does not count as self-creation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNameOtherTypeCreationIsStillReportedAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task SameNameOtherTypeCreationIsStillReportedAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             namespace Other
             {
@@ -82,9 +87,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a sealed class whose private-protected constructor no one can chain is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedPrivateProtectedClassIsReportedAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task SealedPrivateProtectedClassIsReportedAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2451:C|}
             {
@@ -98,9 +104,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a singleton exposed through a static field initializer is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticFieldSingletonIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task StaticFieldSingletonIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -114,9 +121,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a singleton built by a target-typed new in a static property initializer is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPropertySingletonWithImplicitNewIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task StaticPropertySingletonWithImplicitNewIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -130,9 +138,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a static factory method discharges the type's creation duty.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticFactoryMethodIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task StaticFactoryMethodIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -146,9 +155,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a lazily-built singleton whose creation hides inside a Lazy initializer is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyInitializerIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task LazyInitializerIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -166,9 +176,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a class anyone can construct is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicConstructorIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task PublicConstructorIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -180,9 +191,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies an internal constructor leaves creation open to the assembly and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalConstructorIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task InternalConstructorIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -194,9 +206,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies an open class with a private-protected constructor is clean: a derived class elsewhere in the assembly can chain it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateProtectedConstructorOnOpenClassIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task PrivateProtectedConstructorOnOpenClassIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -208,9 +221,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a static class is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task StaticClassIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -220,9 +234,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract class with private constructors is clean: nested subclasses are its instances.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractClassIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task AbstractClassIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public abstract class C
             {
@@ -238,9 +253,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a struct is never analyzed: the default value always exists.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task StructIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public struct S
             {
@@ -252,9 +268,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies creation from a nested type's members counts as the type creating itself.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedFactoryTypeIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task NestedFactoryTypeIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -271,9 +288,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a nested derived class keeps the type alive by chaining its private constructor.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedDerivedTypeIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task NestedDerivedTypeIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -289,9 +307,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a partial class is not analyzed: another part may hold the creation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialClassIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task PartialClassIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed partial class C
             {
@@ -303,9 +322,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a serialization-shaped constructor marks the type as created by a deserializer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SerializationConstructorIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task SerializationConstructorIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             using System.Runtime.Serialization;
 
@@ -319,9 +339,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a constructor designated for a deserializer by attribute marks the type as externally created.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DesignatedDeserializationConstructorIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task DesignatedDeserializationConstructorIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -346,9 +367,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a generic class creating a constructed instance of itself is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericSelfCreationIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task GenericSelfCreationIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C<T>
             {
@@ -362,9 +384,10 @@ public class UncreatableClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with no declared constructor keeps its implicit public one and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoDeclaredConstructorIsCleanAsync()
-        => await VerifyUncreatableClass.VerifyAnalyzerAsync(
+    public Task NoDeclaredConstructorIsCleanAsync() =>
+        VerifyUncreatableClass.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for intermediate ToString analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RemoveIntermediateToStringBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RemoveIntermediateToStringBenchmarks
@@ -24,11 +26,13 @@ public class RemoveIntermediateToStringBenchmarks
 
     /// <summary>Benchmarks the clean intermediate ToString path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RemoveIntermediateToString_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating intermediate ToString path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RemoveIntermediateToString_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

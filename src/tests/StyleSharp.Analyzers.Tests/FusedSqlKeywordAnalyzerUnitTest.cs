@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifySql = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2470FusedSqlKeywordAnalyzer>;
@@ -96,9 +97,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a verbatim right operand is reported but not fixed, leaving the seam to the author.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerbatimRightOperandIsReportedWithoutFixAsync()
-        => await VerifyReportAsync(
+    public Task VerbatimRightOperandIsReportedWithoutFixAsync() =>
+        VerifyReportAsync(
             """"
             public class C
             {
@@ -108,9 +110,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a raw-string right operand is reported but not fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawStringRightOperandIsReportedWithoutFixAsync()
-        => await VerifyReportAsync(
+    public Task RawStringRightOperandIsReportedWithoutFixAsync() =>
+        VerifyReportAsync(
             """"
             public class C
             {
@@ -120,9 +123,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a space at the seam is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpaceAtSeamIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task SpaceAtSeamIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -132,9 +136,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a punctuation token boundary at the seam is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PunctuationBoundaryAtSeamIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task PunctuationBoundaryAtSeamIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -144,9 +149,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a keyword that is only a prefix of a longer word is never treated as fused.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeywordPrefixOfLongerWordIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task KeywordPrefixOfLongerWordIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -156,9 +162,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies prose whose left side is not SQL is never reported even when the right starts with a weak keyword.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProseWithWeakKeywordIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ProseWithWeakKeywordIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -168,9 +175,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated operand is never a candidate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedOperandIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InterpolatedOperandIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -180,9 +188,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies an empty operand is never a candidate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyOperandIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task EmptyOperandIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -192,9 +201,10 @@ public class FusedSqlKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a non-literal right operand is never a candidate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralOperandIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonLiteralOperandIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -208,12 +218,7 @@ public class FusedSqlKeywordAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifySqlFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifySqlFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -223,11 +228,7 @@ public class FusedSqlKeywordAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new VerifySql.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifySql.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -235,5 +236,6 @@ public class FusedSqlKeywordAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyReportAsync(source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyReportAsync(source);
 }

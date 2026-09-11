@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for prefer-typeof-assembly analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("PreferTypeofAssemblyProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class PreferTypeofAssemblyProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class PreferTypeofAssemblyProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean prefer-typeof-assembly path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferTypeofAssembly_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating prefer-typeof-assembly path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferTypeofAssembly_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

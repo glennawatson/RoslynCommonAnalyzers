@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the LINQ chain code-fix paths (PSH1107, PSH1108, PSH1109).</summary>
+[System.Diagnostics.DebuggerDisplay("LinqChainCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LinqChainCodeFixBenchmarks : IDisposable
@@ -44,7 +46,7 @@ public class LinqChainCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             LinqChainBenchmarkSource.GenerateCodeFix(Nodes, CurrentShape));
@@ -53,6 +55,7 @@ public class LinqChainCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -87,8 +90,8 @@ public class LinqChainCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates the representative diagnostic for the selected shape.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateDiagnostic()
-        => CurrentShape switch
+    private Diagnostic CreateDiagnostic() =>
+        CurrentShape switch
         {
             LinqChainBenchmarkShape.FilterBeforeSort => CreateFilterBeforeSortDiagnostic(),
             LinqChainBenchmarkShape.UseThenBy => CreateUseThenByDiagnostic(),

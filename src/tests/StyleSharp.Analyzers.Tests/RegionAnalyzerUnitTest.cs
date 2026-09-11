@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRegion = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.RegionAnalyzer>;
 
@@ -12,9 +13,10 @@ public class RegionAnalyzerUnitTest
 {
     /// <summary>Verifies a type-level region is reported as a region (SST1124) only.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeLevelRegionReportedAsync()
-        => await VerifyRegion.VerifyAnalyzerAsync(
+    public Task TypeLevelRegionReportedAsync() =>
+        VerifyRegion.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -26,9 +28,10 @@ public class RegionAnalyzerUnitTest
 
     /// <summary>Verifies a region inside a method body is reported as both a region (SST1124) and a nested region (SST1123).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegionWithinMethodReportedAsync()
-        => await VerifyRegion.VerifyAnalyzerAsync(
+    public Task RegionWithinMethodReportedAsync() =>
+        VerifyRegion.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -43,9 +46,10 @@ public class RegionAnalyzerUnitTest
 
     /// <summary>Verifies code without regions is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoRegionIsCleanAsync()
-        => await VerifyRegion.VerifyAnalyzerAsync(
+    public Task NoRegionIsCleanAsync() =>
+        VerifyRegion.VerifyAnalyzerAsync(
             """
             internal class C
             {

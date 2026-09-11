@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.LoopConditionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 {
     /// <summary>Verifies a for loop with an empty incrementer that never touches the counter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyIncrementerIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task EmptyIncrementerIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -31,9 +33,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a for loop that steps the wrong variable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StepsTheWrongVariableIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task StepsTheWrongVariableIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -52,9 +55,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a declared, never-stepped counter is reported even when the body can break out.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReportedEvenWithABreakAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task ReportedEvenWithABreakAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -75,9 +79,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a counter advanced in the incrementer is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SteppedCounterIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task SteppedCounterIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -95,9 +100,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a bound local declared alongside a stepped counter is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclaredBoundBesideSteppedCounterIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task DeclaredBoundBesideSteppedCounterIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -116,9 +122,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a flag tested with a break, where the counter is not tested, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagWithBreakIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task FlagWithBreakIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -139,9 +146,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a condition that reads a field is clean: something else may change it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionReadingAFieldIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task ConditionReadingAFieldIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -161,9 +169,10 @@ public class LoopCounterNeverSteppedAnalyzerUnitTest
 
     /// <summary>Verifies a body whose lambda could advance the counter is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyWithALambdaIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BodyWithALambdaIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 

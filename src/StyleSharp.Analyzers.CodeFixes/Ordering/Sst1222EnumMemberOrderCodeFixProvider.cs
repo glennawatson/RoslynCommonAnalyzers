@@ -18,8 +18,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(OrderingRules.EnumMemberOrder.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(OrderingRules.EnumMemberOrder.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

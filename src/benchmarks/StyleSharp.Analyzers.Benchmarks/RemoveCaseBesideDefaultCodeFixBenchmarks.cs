@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -11,6 +12,7 @@ using RoslynCommon.Analyzers.CodeFixes;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the case-beside-default code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("RemoveCaseBesideDefaultCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RemoveCaseBesideDefaultCodeFixBenchmarks : IDisposable
@@ -42,7 +44,7 @@ public class RemoveCaseBesideDefaultCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, RemoveCaseBesideDefaultBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _label = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<CaseSwitchLabelSyntax>(
@@ -52,6 +54,7 @@ public class RemoveCaseBesideDefaultCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

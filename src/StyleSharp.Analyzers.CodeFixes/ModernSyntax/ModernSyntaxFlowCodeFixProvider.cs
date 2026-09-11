@@ -64,12 +64,9 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         CancellationToken cancellationToken)
     {
         var model = await document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
-        if (model is null)
-        {
-            return document;
-        }
-
-        return diagnostic.Id switch
+        return model is null
+            ? document
+            : diagnostic.Id switch
         {
             "SST2207" => ApplyThrowExpression(document, root, diagnostic, model, cancellationToken),
             "SST2208" => ApplyInlineOutDeclaration(document, root, diagnostic, model, cancellationToken),

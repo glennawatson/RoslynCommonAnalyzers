@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the using-sort code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("UsingSortCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UsingSortCodeFixBenchmarks
@@ -22,13 +24,14 @@ public class UsingSortCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects the root container that owns the unsorted using directives.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             StructuralCodeFixBenchmarkSource.GenerateUsingSort,
             static (root, _) => root).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

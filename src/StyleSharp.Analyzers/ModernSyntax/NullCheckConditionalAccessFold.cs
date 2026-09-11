@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -25,7 +27,7 @@ internal static class NullCheckConditionalAccessFold
     /// <param name="receiver">The guarded value, repeated on both sides.</param>
     /// <param name="guardedUse">The right operand of the conjunction.</param>
     /// <returns>The fold shape, or <see cref="NullCheckFoldKind.None"/> when the conjunction does not match.</returns>
-    public static NullCheckFoldKind Classify(
+    internal static NullCheckFoldKind Classify(
         BinaryExpressionSyntax conjunction,
         SemanticModel model,
         CancellationToken cancellationToken,
@@ -53,7 +55,7 @@ internal static class NullCheckConditionalAccessFold
     /// <param name="use">The expression built on the guarded value.</param>
     /// <param name="receiver">The guarded value.</param>
     /// <returns>The member access to turn into a member binding, or <see langword="null"/> when there is none.</returns>
-    public static MemberAccessExpressionSyntax? FindRootAccess(ExpressionSyntax use, ExpressionSyntax receiver)
+    internal static MemberAccessExpressionSyntax? FindRootAccess(ExpressionSyntax use, ExpressionSyntax receiver)
     {
         for (var current = use; current is not null;)
         {
@@ -83,8 +85,9 @@ internal static class NullCheckConditionalAccessFold
     /// <param name="left">The first expression.</param>
     /// <param name="right">The second expression.</param>
     /// <returns><see langword="true"/> when the two are written identically.</returns>
-    public static bool IsSameValue(ExpressionSyntax left, ExpressionSyntax right)
-        => SyntaxFactory.AreEquivalent(left, right, topLevel: false);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsSameValue(ExpressionSyntax left, ExpressionSyntax right) =>
+        SyntaxFactory.AreEquivalent(left, right, topLevel: false);
 
     /// <summary>Classifies what the conjunction does with the guarded value.</summary>
     /// <param name="use">The conjunction's right operand.</param>
@@ -142,8 +145,9 @@ internal static class NullCheckConditionalAccessFold
     /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a bare <c>null</c>.</returns>
-    private static bool IsNullLiteral(ExpressionSyntax expression)
-        => expression.IsKind(SyntaxKind.NullLiteralExpression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsNullLiteral(ExpressionSyntax expression) =>
+        expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a comparison keeps its answer when an operand becomes null.</summary>
     /// <param name="comparison">The candidate comparison.</param>
@@ -154,10 +158,7 @@ internal static class NullCheckConditionalAccessFold
     /// </remarks>
     private static bool IsFoldableComparison(BinaryExpressionSyntax comparison) => comparison.Kind() switch
     {
-        SyntaxKind.GreaterThanExpression => true,
-        SyntaxKind.GreaterThanOrEqualExpression => true,
-        SyntaxKind.LessThanExpression => true,
-        SyntaxKind.LessThanOrEqualExpression => true,
+        SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression or SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression => true,
         SyntaxKind.EqualsExpression => !IsNullLiteral(comparison.Right),
         _ => false,
     };
@@ -203,7 +204,7 @@ internal static class NullCheckConditionalAccessFold
         }
 
         var state = (Receiver: receiver, Found: false);
-        DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, (ExpressionSyntax Receiver, bool Found)>(
+        _ = DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, (ExpressionSyntax Receiver, bool Found)>(
             expression,
             ref state,
             static (node, ref current) =>

@@ -35,17 +35,17 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>The fixed range of every integer type this rule reasons about, keyed by its special type.</summary>
     private static readonly Dictionary<SpecialType, IntegerDomain> Domains = new()
     {
-        [SpecialType.System_Byte] = new IntegerDomain("byte", byte.MinValue, byte.MaxValue),
-        [SpecialType.System_SByte] = new IntegerDomain("sbyte", sbyte.MinValue, sbyte.MaxValue),
-        [SpecialType.System_Int16] = new IntegerDomain("short", short.MinValue, short.MaxValue),
-        [SpecialType.System_UInt16] = new IntegerDomain("ushort", ushort.MinValue, ushort.MaxValue),
-        [SpecialType.System_Int32] = new IntegerDomain("int", int.MinValue, int.MaxValue),
-        [SpecialType.System_UInt32] = new IntegerDomain("uint", uint.MinValue, uint.MaxValue),
-        [SpecialType.System_Int64] = new IntegerDomain("long", long.MinValue, long.MaxValue),
-        [SpecialType.System_UInt64] = new IntegerDomain("ulong", ulong.MinValue, ulong.MaxValue),
+        [SpecialType.System_Byte] = new("byte", byte.MinValue, byte.MaxValue),
+        [SpecialType.System_SByte] = new("sbyte", sbyte.MinValue, sbyte.MaxValue),
+        [SpecialType.System_Int16] = new("short", short.MinValue, short.MaxValue),
+        [SpecialType.System_UInt16] = new("ushort", ushort.MinValue, ushort.MaxValue),
+        [SpecialType.System_Int32] = new("int", int.MinValue, int.MaxValue),
+        [SpecialType.System_UInt32] = new("uint", uint.MinValue, uint.MaxValue),
+        [SpecialType.System_Int64] = new("long", long.MinValue, long.MaxValue),
+        [SpecialType.System_UInt64] = new("ulong", ulong.MinValue, ulong.MaxValue),
 
         // The native unsigned integer has a fixed minimum but a platform-dependent maximum, so only its floor is set.
-        [SpecialType.System_UIntPtr] = new IntegerDomain("nuint", 0m, null),
+        [SpecialType.System_UIntPtr] = new("nuint", 0M, null),
     };
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
@@ -120,8 +120,8 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a numeric literal token.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a numeric literal.</returns>
-    private static bool IsNumericLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression };
+    private static bool IsNumericLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression };
 
     /// <summary>Mirrors a comparison so the operand can always be read as the left side.</summary>
     /// <param name="kind">The comparison as written.</param>
@@ -139,9 +139,9 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The bound expression.</param>
     /// <param name="value">The constant, widened to <see cref="decimal"/> so every integer type compares exactly.</param>
     /// <returns><see langword="true"/> when the bound is an integral constant.</returns>
-    private static bool TryGetIntegralConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, out decimal value)
+    private static bool TryGetIntegralConstant(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, out decimal value)
     {
-        value = 0m;
+        value = 0M;
         var constant = context.SemanticModel.GetConstantValue(expression, context.CancellationToken);
         if (constant is not { HasValue: true, Value: { } boxed } || !IsIntegral(boxed))
         {
@@ -155,8 +155,8 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a boxed constant is one of the fixed-width integer types.</summary>
     /// <param name="value">The boxed constant.</param>
     /// <returns><see langword="true"/> for a signed or unsigned integer.</returns>
-    private static bool IsIntegral(object value)
-        => value is int or long or short or byte or sbyte or ushort or uint or ulong;
+    private static bool IsIntegral(object value) =>
+        value is int or long or short or byte or sbyte or ushort or uint or ulong;
 
     /// <summary>Resolves the fixed range of an integer operand type.</summary>
     /// <param name="type">The operand's type.</param>
@@ -179,7 +179,7 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="domain">The operand type's range.</param>
     /// <param name="verdict">The message tail describing why the comparison is decided.</param>
     /// <returns><see langword="true"/> when the constant sits on the type's minimum or maximum edge.</returns>
-    private static bool TryGetVerdict(SyntaxKind kind, decimal constant, IntegerDomain domain, out string verdict)
+    private static bool TryGetVerdict(SyntaxKind kind, decimal constant, in IntegerDomain domain, out string verdict)
     {
         if (constant == domain.Min)
         {
@@ -200,7 +200,7 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="domain">The operand type's range.</param>
     /// <param name="verdict">The message tail.</param>
     /// <returns><see langword="true"/> when the operator makes the minimum decide the result.</returns>
-    private static bool TryGetMinimumVerdict(SyntaxKind kind, IntegerDomain domain, out string verdict)
+    private static bool TryGetMinimumVerdict(SyntaxKind kind, in IntegerDomain domain, out string verdict)
     {
         switch (kind)
         {
@@ -235,7 +235,7 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="domain">The operand type's range.</param>
     /// <param name="verdict">The message tail.</param>
     /// <returns><see langword="true"/> when the operator makes the maximum decide the result.</returns>
-    private static bool TryGetMaximumVerdict(SyntaxKind kind, IntegerDomain domain, out string verdict)
+    private static bool TryGetMaximumVerdict(SyntaxKind kind, in IntegerDomain domain, out string verdict)
     {
         switch (kind)
         {
@@ -263,8 +263,8 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="domain">The operand type's range.</param>
     /// <param name="atMin">Whether the bound is the type's minimum rather than its maximum.</param>
     /// <returns>The message tail.</returns>
-    private static string AlwaysTrue(IntegerDomain domain, bool atMin)
-        => atMin
+    private static string AlwaysTrue(in IntegerDomain domain, bool atMin) =>
+        atMin
             ? $"is always true because a '{domain.Keyword}' value is never {BelowMin(domain)}"
             : $"is always true because a '{domain.Keyword}' value never exceeds its maximum";
 
@@ -272,15 +272,15 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <param name="domain">The operand type's range.</param>
     /// <param name="atMin">Whether the bound is the type's minimum rather than its maximum.</param>
     /// <returns>The message tail.</returns>
-    private static string AlwaysFalse(IntegerDomain domain, bool atMin)
-        => atMin
+    private static string AlwaysFalse(in IntegerDomain domain, bool atMin) =>
+        atMin
             ? $"is always false because a '{domain.Keyword}' value is never {BelowMin(domain)}"
             : $"is always false because a '{domain.Keyword}' value never exceeds its maximum";
 
     /// <summary>Builds the tail for a strict comparison against the minimum, which is an inequality in disguise.</summary>
     /// <param name="domain">The operand type's range.</param>
     /// <returns>The message tail.</returns>
-    private static string ReallyNotEqual(IntegerDomain domain)
+    private static string ReallyNotEqual(in IntegerDomain domain)
     {
         var minimum = domain.Min.ToString(CultureInfo.InvariantCulture);
         return $"is only false when the value equals {minimum}, so on a '{domain.Keyword}' it is really a '!= {minimum}' check";
@@ -289,8 +289,8 @@ public sealed class Sst2489TypeDecidedComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Names the edge a value can never fall below the minimum.</summary>
     /// <param name="domain">The operand type's range.</param>
     /// <returns><c>negative</c> for an unsigned type, otherwise a phrase naming the minimum.</returns>
-    private static string BelowMin(IntegerDomain domain)
-        => domain.Min == 0m ? "negative" : "below its minimum";
+    private static string BelowMin(in IntegerDomain domain) =>
+        domain.Min == 0M ? "negative" : "below its minimum";
 
     /// <summary>The fixed range of an integer type, and its keyword for the diagnostic message.</summary>
     /// <param name="Keyword">The C# keyword naming the type.</param>

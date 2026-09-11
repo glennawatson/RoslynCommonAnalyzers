@@ -17,14 +17,14 @@ internal static class Sst1649FileNameBenchmarkSource
     /// <param name="types">The number of synthetic filler members to emit.</param>
     /// <param name="violating">Whether to emit a file-name rule violation.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => violating ? GenerateViolating(types) : GenerateClean(types);
+    internal static string Generate(int types, bool violating) =>
+        violating ? GenerateViolating(types) : GenerateClean(types);
 
     /// <summary>Builds the clean variant whose first type name matches the file stem <c>Bench</c>.</summary>
     /// <param name="types">The number of synthetic filler members to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateClean(int types)
-        => $$"""
+    private static string GenerateClean(int types) =>
+        $$"""
            namespace Bench;
 
            public sealed class Bench
@@ -36,8 +36,8 @@ internal static class Sst1649FileNameBenchmarkSource
     /// <summary>Builds the violating variant whose first type name does not match the file stem <c>Bench</c>.</summary>
     /// <param name="types">The number of synthetic filler members to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateViolating(int types)
-        => $$"""
+    private static string GenerateViolating(int types) =>
+        $$"""
            namespace Bench;
 
            public sealed class Mismatch
@@ -49,6 +49,6 @@ internal static class Sst1649FileNameBenchmarkSource
     /// <summary>Builds one filler member so the synthetic file scales in size.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member text.</returns>
-    private static string GenerateMember(int index)
-        => $"    public int Value{index} => {index};";
+    private static string GenerateMember(int index) =>
+        $"    public int Value{index} => {index};";
 }

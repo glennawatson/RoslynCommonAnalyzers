@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDiagnosticId = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2314ObsoleteWithoutDiagnosticIdAnalyzer>;
@@ -13,9 +14,10 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
 {
     /// <summary>Verifies an explained deprecation with no id is reported: the caller cannot act on it alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MessageWithoutDiagnosticIdIsReportedAsync()
-        => await VerifyOnNet80Async(
+    public Task MessageWithoutDiagnosticIdIsReportedAsync() =>
+        VerifyOnNet80Async(
             """
             using System;
 
@@ -41,9 +43,10 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
 
     /// <summary>Verifies a deprecation carrying an id is what the rule is asking for.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiagnosticIdIsCleanAsync()
-        => await VerifyOnNet80Async(
+    public Task DiagnosticIdIsCleanAsync() =>
+        VerifyOnNet80Async(
             """
             using System;
 
@@ -68,9 +71,10 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
 
     /// <summary>Verifies an attribute with no message at all is left to SST2308, so the two never both report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeWithoutMessageIsLeftToSst2308Async()
-        => await VerifyOnNet80Async(
+    public Task AttributeWithoutMessageIsLeftToSst2308Async() =>
+        VerifyOnNet80Async(
             """
             using System;
 
@@ -113,20 +117,17 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyDiagnosticId.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new VerifyDiagnosticId.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies an attribute of the same name that is not the framework's is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignObsoleteAttributeIsCleanAsync()
-        => await VerifyOnNet80Async(
+    public Task ForeignObsoleteAttributeIsCleanAsync() =>
+        VerifyOnNet80Async(
             """
             namespace Vendor
             {
@@ -167,11 +168,7 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
                                      }
                                  }
                                  """;
-        var test = new VerifyDiagnosticId.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestState = { Sources = { ("Proxy.g.cs", Generated) } },
-        };
+        var test = new VerifyDiagnosticId.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestState = { Sources = { ("Proxy.g.cs", Generated) } }, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -181,11 +178,7 @@ public class ObsoleteWithoutDiagnosticIdAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOnNet80Async(string source)
     {
-        var test = new VerifyDiagnosticId.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyDiagnosticId.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

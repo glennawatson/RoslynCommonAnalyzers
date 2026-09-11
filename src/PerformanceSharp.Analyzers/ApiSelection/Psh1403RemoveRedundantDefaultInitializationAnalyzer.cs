@@ -66,7 +66,7 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationAnalyzer : Diagno
     /// <param name="fieldType">The lazily resolved field type, cached across declarators.</param>
     /// <returns><see langword="true"/> when the initializer is redundant.</returns>
     private static bool IsRedundantDefaultInitializer(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         FieldDeclarationSyntax field,
         ExpressionSyntax value,
         ref ITypeSymbol? fieldType)
@@ -100,15 +100,15 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationAnalyzer : Diagno
     /// <summary>Returns whether a field is declared inside a struct (or record struct) declaration.</summary>
     /// <param name="field">The field declaration.</param>
     /// <returns><see langword="true"/> when the containing type is a struct.</returns>
-    private static bool IsDeclaredInStruct(FieldDeclarationSyntax field)
-        => field.Parent is { } parent
+    private static bool IsDeclaredInStruct(FieldDeclarationSyntax field) =>
+        field.Parent is { } parent
             && (parent.IsKind(SyntaxKind.StructDeclaration) || parent.IsKind(SyntaxKind.RecordStructDeclaration));
 
     /// <summary>Returns whether an initializer shape can never produce a constant default value.</summary>
     /// <param name="kind">The initializer expression kind.</param>
     /// <returns><see langword="true"/> when the semantic checks can be skipped.</returns>
-    private static bool CanNeverBeDefaultValue(SyntaxKind kind)
-        => kind is SyntaxKind.ObjectCreationExpression
+    private static bool CanNeverBeDefaultValue(SyntaxKind kind) =>
+        kind is SyntaxKind.ObjectCreationExpression
             or SyntaxKind.ImplicitObjectCreationExpression
             or SyntaxKind.ArrayCreationExpression
             or SyntaxKind.ImplicitArrayCreationExpression
@@ -139,20 +139,15 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationAnalyzer : Diagno
             return fieldType.IsReferenceType || fieldType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
         }
 
-        if (fieldType.TypeKind == TypeKind.Enum)
-        {
-            return IsIntegralZero(value);
-        }
-
-        return IsDefaultForSpecialType(fieldType.SpecialType, value);
+        return fieldType.TypeKind == TypeKind.Enum ? IsIntegralZero(value) : IsDefaultForSpecialType(fieldType.SpecialType, value);
     }
 
     /// <summary>Returns whether a constant equals the default of a const-capable special type.</summary>
     /// <param name="specialType">The field type's special type.</param>
     /// <param name="value">The boxed constant value.</param>
     /// <returns><see langword="true"/> when the constant is the special type's default.</returns>
-    private static bool IsDefaultForSpecialType(SpecialType specialType, object value)
-        => specialType switch
+    private static bool IsDefaultForSpecialType(SpecialType specialType, object value) =>
+        specialType switch
         {
             SpecialType.System_Boolean => value is false,
             SpecialType.System_Char => value is '\0',
@@ -165,8 +160,8 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationAnalyzer : Diagno
     /// <summary>Returns whether a constant is positive floating-point zero (negative zero is intentional).</summary>
     /// <param name="value">The boxed constant value.</param>
     /// <returns><see langword="true"/> for <c>+0.0</c> constants only.</returns>
-    private static bool IsPositiveZeroFloating(object value)
-        => value switch
+    private static bool IsPositiveZeroFloating(object value) =>
+        value switch
         {
             float singleValue => BitConverter.DoubleToInt64Bits(singleValue) == 0,
             double doubleValue => BitConverter.DoubleToInt64Bits(doubleValue) == 0,
@@ -176,14 +171,14 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationAnalyzer : Diagno
     /// <summary>Returns whether a constant is decimal (or integral) zero.</summary>
     /// <param name="value">The boxed constant value.</param>
     /// <returns><see langword="true"/> when the constant is zero.</returns>
-    private static bool IsDecimalZero(object value)
-        => value is decimal decimalValue ? decimalValue == decimal.Zero : IsIntegralZero(value);
+    private static bool IsDecimalZero(object value) =>
+        value is decimal decimalValue ? decimalValue == decimal.Zero : IsIntegralZero(value);
 
     /// <summary>Returns whether a boxed integral constant is zero.</summary>
     /// <param name="value">The boxed constant value.</param>
     /// <returns><see langword="true"/> when the constant is an integral zero.</returns>
-    private static bool IsIntegralZero(object value)
-        => value switch
+    private static bool IsIntegralZero(object value) =>
+        value switch
         {
             int intValue => intValue == 0,
             sbyte sbyteValue => sbyteValue == 0,

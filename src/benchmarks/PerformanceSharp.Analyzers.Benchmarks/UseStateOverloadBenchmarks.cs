@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for state overload analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseStateOverloadBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseStateOverloadBenchmarks
@@ -24,11 +26,13 @@ public class UseStateOverloadBenchmarks
 
     /// <summary>Benchmarks the clean state overload path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseStateOverload_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating state overload path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseStateOverload_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

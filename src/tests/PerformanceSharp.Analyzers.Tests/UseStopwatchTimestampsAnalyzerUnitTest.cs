@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UseStopwatchTimestampsAnalyzerUnitTest
 {
     /// <summary>Verifies a stopwatch used only for elapsed reads is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElapsedOnlyStopwatchIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task ElapsedOnlyStopwatchIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -37,9 +39,10 @@ public class UseStopwatchTimestampsAnalyzerUnitTest
 
     /// <summary>Verifies a stopped stopwatch that only reads elapsed time is still flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StoppedElapsedOnlyStopwatchIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task StoppedElapsedOnlyStopwatchIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Diagnostics;
@@ -62,9 +65,10 @@ public class UseStopwatchTimestampsAnalyzerUnitTest
 
     /// <summary>Verifies a restarted stopwatch stays clean; timestamps cannot express Restart.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RestartedStopwatchIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RestartedStopwatchIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -87,9 +91,10 @@ public class UseStopwatchTimestampsAnalyzerUnitTest
 
     /// <summary>Verifies a stopwatch that escapes as an argument stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EscapingStopwatchIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EscapingStopwatchIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -136,11 +141,7 @@ public class UseStopwatchTimestampsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

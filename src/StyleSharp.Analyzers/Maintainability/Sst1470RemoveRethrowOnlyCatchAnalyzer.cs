@@ -31,8 +31,8 @@ public sealed class Sst1470RemoveRethrowOnlyCatchAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a catch clause has no filter and a body that is exactly a bare <c>throw;</c>.</summary>
     /// <param name="catchClause">The catch clause.</param>
     /// <returns><see langword="true"/> for a filterless, rethrow-only clause.</returns>
-    internal static bool IsRethrowOnly(CatchClauseSyntax catchClause)
-        => catchClause.Filter is null
+    internal static bool IsRethrowOnly(CatchClauseSyntax catchClause) =>
+        catchClause.Filter is null
             && catchClause.Block.Statements.Count == 1
             && catchClause.Block.Statements[0] is ThrowStatementSyntax { Expression: null };
 

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeValidator = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
 {
     /// <summary>Verifies assigning the validator to the custom-validation callback is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedToValidationCallbackReportedAsync()
-        => await VerifyNet90Async(
+    public Task AssignedToValidationCallbackReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -33,9 +35,10 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
 
     /// <summary>Verifies a bare read of the validator into a local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareReadReportedAsync()
-        => await VerifyNet90Async(
+    public Task BareReadReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -51,9 +54,10 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified read of the validator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedReadReportedAsync()
-        => await VerifyNet90Async(
+    public Task FullyQualifiedReadReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -64,9 +68,10 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
 
     /// <summary>Verifies a genuine custom validation callback that inspects the errors is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RealValidationCallbackIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RealValidationCallbackIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Net.Security;
@@ -85,9 +90,10 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
 
     /// <summary>Verifies a same-named member on an unrelated type is not reported (binding, not text).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMemberOnUnrelatedTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SameNamedMemberOnUnrelatedTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class HttpClientHandler
             {
@@ -117,11 +123,7 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeValidator.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeValidator.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -131,11 +133,7 @@ public class AcceptAnyServerCertificateAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeValidator.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeValidator.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

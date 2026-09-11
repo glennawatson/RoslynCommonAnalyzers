@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -31,16 +33,17 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Test parity in a way that is correct for negative values",
             nameof(Sst2416SignedRemainderTestCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported parity test and rewrites it.</summary>
     /// <param name="root">The syntax root.</param>
@@ -98,8 +101,8 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
     /// <summary>Returns whether a node is an equality or inequality comparison.</summary>
     /// <param name="node">The candidate comparison.</param>
     /// <returns><see langword="true"/> for <c>==</c> and <c>!=</c>.</returns>
-    private static bool IsEqualityComparison(ExpressionSyntax node)
-        => node.IsKind(SyntaxKind.EqualsExpression) || node.IsKind(SyntaxKind.NotEqualsExpression);
+    private static bool IsEqualityComparison(ExpressionSyntax node) =>
+        node.IsKind(SyntaxKind.EqualsExpression) || node.IsKind(SyntaxKind.NotEqualsExpression);
 
     /// <summary>Builds the replacement expression, preferring the generic-math parity helper.</summary>
     /// <param name="model">The semantic model.</param>

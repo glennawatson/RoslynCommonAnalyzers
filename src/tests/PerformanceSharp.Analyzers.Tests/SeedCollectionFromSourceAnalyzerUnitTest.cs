@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1112SeedCollectionFromSourceAnalyzer,
     PerformanceSharp.Analyzers.Psh1112SeedCollectionFromSourceCodeFixProvider>;
@@ -158,9 +159,10 @@ public class SeedCollectionFromSourceAnalyzerUnitTest
 
     /// <summary>Verifies a creation that already passes a capacity stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapacitySeededCreationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CapacitySeededCreationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -177,9 +179,10 @@ public class SeedCollectionFromSourceAnalyzerUnitTest
 
     /// <summary>Verifies a creation with a collection initializer stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializedCreationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InitializedCreationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -196,9 +199,10 @@ public class SeedCollectionFromSourceAnalyzerUnitTest
 
     /// <summary>Verifies non-adjacent statements stay clean; something in between may matter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentStatementsAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonAdjacentStatementsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -216,9 +220,10 @@ public class SeedCollectionFromSourceAnalyzerUnitTest
 
     /// <summary>Verifies a source that mentions the receiver stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfReferentialSourceIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SelfReferentialSourceIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
@@ -13,58 +14,72 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public class HotPathProfiledAllocBenchmarks : HotPathBenchmarkBase
 {
     /// <inheritdoc cref="HotPathBenchmarkBase.RunLineScanClean"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int LineScan_Clean() => RunLineScanClean();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunLineScanViolating"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int LineScan_Violating() => RunLineScanViolating();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunTupleClean"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int TupleElementName_Clean() => RunTupleClean();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunTupleViolating"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int TupleElementName_Violating() => RunTupleViolating();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunTupleAnalyzerCleanAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TupleElementNameAnalyzer_Clean() => RunTupleAnalyzerCleanAsync();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunTupleAnalyzerViolatingAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TupleElementNameAnalyzer_Violating() => RunTupleAnalyzerViolatingAsync();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunUseNameofClean"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int UseNameof_Clean() => RunUseNameofClean();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunUseNameofViolating"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int UseNameof_Violating() => RunUseNameofViolating();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunArgumentGuardClean"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int ArgumentGuard_Clean() => RunArgumentGuardClean();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunArgumentGuardViolating"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int ArgumentGuard_Violating() => RunArgumentGuardViolating();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunArgumentGuardAnalyzerCleanAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ArgumentGuardAnalyzer_Clean() => RunArgumentGuardAnalyzerCleanAsync();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunArgumentGuardAnalyzerViolatingAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ArgumentGuardAnalyzer_Violating() => RunArgumentGuardAnalyzerViolatingAsync();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunSpacingCleanAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Spacing_Clean() => RunSpacingCleanAsync();
 
     /// <inheritdoc cref="HotPathBenchmarkBase.RunSpacingViolatingAsync"/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Spacing_Violating() => RunSpacingViolatingAsync();
 }

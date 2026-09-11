@@ -158,7 +158,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     private static int FindFirstRedundantArgument(
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
-        SyntaxNodeAnalysisContext context)
+        in SyntaxNodeAnalysisContext context)
     {
         var firstRedundant = arguments.Count;
         for (var i = arguments.Count - 1; i >= 0; i--)
@@ -189,7 +189,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
         IMethodSymbol method,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         int index,
-        SyntaxNodeAnalysisContext context)
+        in SyntaxNodeAnalysisContext context)
     {
         if (ArgumentBinding.FindParameter(method, arguments, index) is not { IsOptional: true, HasExplicitDefaultValue: true } parameter
             || IsCallerInfoParameter(parameter))
@@ -225,7 +225,7 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when dropping the argument would not compile.</returns>
     /// <remarks>Runs only after a redundant argument is found, so a clean call never pays for the lambda bind.</remarks>
-    private static bool IsInsideExpressionTree(SyntaxNodeAnalysisContext context)
+    private static bool IsInsideExpressionTree(in SyntaxNodeAnalysisContext context)
     {
         for (var node = context.Node.Parent; node is not null; node = node.Parent)
         {
@@ -308,16 +308,8 @@ public sealed class Sst1494RedundantDefaultArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="left">The first boxed constant.</param>
     /// <param name="right">The second boxed constant.</param>
     /// <returns><see langword="true"/> when both denote the same number.</returns>
-    private static bool NumbersMatch(object left, object right)
-    {
-        if (left is float or double || right is float or double)
-        {
-            // Bit patterns, not ==: the argument is only redundant when it denotes the very same value, and
-            // -0.0 is a different argument from 0.0 even though the two compare equal.
-            return BitConverter.DoubleToInt64Bits(Convert.ToDouble(left, CultureInfo.InvariantCulture))
-                == BitConverter.DoubleToInt64Bits(Convert.ToDouble(right, CultureInfo.InvariantCulture));
-        }
-
-        return Convert.ToDecimal(left, CultureInfo.InvariantCulture) == Convert.ToDecimal(right, CultureInfo.InvariantCulture);
-    }
+    private static bool NumbersMatch(object left, object right) => left is float or double || right is float or double
+        ? BitConverter.DoubleToInt64Bits(Convert.ToDouble(left, CultureInfo.InvariantCulture))
+                == BitConverter.DoubleToInt64Bits(Convert.ToDouble(right, CultureInfo.InvariantCulture))
+        : Convert.ToDecimal(left, CultureInfo.InvariantCulture) == Convert.ToDecimal(right, CultureInfo.InvariantCulture);
 }

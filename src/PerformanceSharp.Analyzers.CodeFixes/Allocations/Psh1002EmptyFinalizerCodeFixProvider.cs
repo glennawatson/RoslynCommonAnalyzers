@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>Removes an empty finalizer (PSH1002).</summary>
@@ -16,10 +18,11 @@ public sealed class Psh1002EmptyFinalizerCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty finalizer", nameof(Psh1002EmptyFinalizerCodeFixProvider), RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty finalizer", nameof(Psh1002EmptyFinalizerCodeFixProvider), RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<DestructorDeclarationSyntax>);
 }

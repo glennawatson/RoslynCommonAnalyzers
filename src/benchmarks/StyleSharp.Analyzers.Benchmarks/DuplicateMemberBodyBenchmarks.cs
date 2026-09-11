@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for duplicate-member-body analysis (SST2318).</summary>
+[System.Diagnostics.DebuggerDisplay("DuplicateMemberBodyBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DuplicateMemberBodyBenchmarks
@@ -28,11 +30,13 @@ public class DuplicateMemberBodyBenchmarks
 
     /// <summary>Benchmarks the clean duplicate-member-body path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DuplicateMemberBody_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating duplicate-member-body path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DuplicateMemberBody_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

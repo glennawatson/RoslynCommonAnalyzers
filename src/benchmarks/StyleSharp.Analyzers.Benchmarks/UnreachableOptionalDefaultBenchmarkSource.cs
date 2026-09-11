@@ -11,8 +11,8 @@ internal static class UnreachableOptionalDefaultBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
@@ -21,8 +21,8 @@ internal static class UnreachableOptionalDefaultBenchmarkSource
     /// <summary>Builds one type whose optional default is reachable because no shorter overload exists.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void Log(string m, bool echo = false)
@@ -34,8 +34,8 @@ internal static class UnreachableOptionalDefaultBenchmarkSource
     /// <summary>Builds one type whose optional default is shadowed by a shorter overload.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Log(string m)

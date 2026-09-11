@@ -119,7 +119,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="close">The closing bracket token.</param>
     /// <param name="items">The separated list items.</param>
     private static void AnalyzeList<TNode>(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SourceText text,
         SyntaxToken open,
         SyntaxToken close,
@@ -163,7 +163,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="open">The opening bracket token.</param>
     /// <param name="openLine">The opening bracket's line.</param>
-    private static void CheckOpening(SyntaxNodeAnalysisContext context, SourceText text, SyntaxToken open, int openLine)
+    private static void CheckOpening(in SyntaxNodeAnalysisContext context, SourceText text, SyntaxToken open, int openLine)
     {
         if (IsOpeningOnDeclarationLine(text, open, openLine))
         {
@@ -179,7 +179,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="openLine">The opening bracket's line.</param>
     /// <param name="startLine">The item's starting line.</param>
     /// <param name="endLine">The item's ending line.</param>
-    private static void CheckFirstItem(SyntaxNodeAnalysisContext context, SyntaxNode item, int openLine, int startLine, int endLine)
+    private static void CheckFirstItem(in SyntaxNodeAnalysisContext context, SyntaxNode item, int openLine, int startLine, int endLine)
     {
         if (startLine > openLine + 1)
         {
@@ -195,7 +195,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="startLine">The item's starting line.</param>
     /// <param name="endLine">The item's ending line.</param>
     /// <param name="lastCommaLine">The preceding comma's line.</param>
-    private static void CheckTrailingItem(SyntaxNodeAnalysisContext context, SyntaxNode item, int startLine, int endLine, int lastCommaLine)
+    private static void CheckTrailingItem(in SyntaxNodeAnalysisContext context, SyntaxNode item, int startLine, int endLine, int lastCommaLine)
     {
         if (startLine > lastCommaLine + 1)
         {
@@ -212,7 +212,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="previousItemEndLine">The previous item's ending line.</param>
     /// <param name="commaLine">The comma's line.</param>
     private static void CheckComma(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxToken comma,
         bool hasPreviousItem,
         int previousItemEndLine,
@@ -233,7 +233,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="closeLine">The closing bracket's line.</param>
     /// <param name="hasItems">Whether the list contains any items.</param>
     /// <param name="lastItemEndLine">The final item's ending line.</param>
-    private static void CheckClosing(SyntaxNodeAnalysisContext context, SyntaxToken close, int openLine, int closeLine, bool hasItems, int lastItemEndLine)
+    private static void CheckClosing(in SyntaxNodeAnalysisContext context, SyntaxToken close, int openLine, int closeLine, bool hasItems, int lastItemEndLine)
     {
         if (!hasItems)
         {
@@ -249,7 +249,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="condition">Whether to report.</param>
     /// <param name="rule">The descriptor to report.</param>
     /// <param name="token">The token to flag.</param>
-    private static void ReportIf(SyntaxNodeAnalysisContext context, bool condition, DiagnosticDescriptor rule, SyntaxToken token)
+    private static void ReportIf(in SyntaxNodeAnalysisContext context, bool condition, DiagnosticDescriptor rule, SyntaxToken token)
     {
         if (!condition)
         {
@@ -264,7 +264,7 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <param name="condition">Whether to report.</param>
     /// <param name="rule">The descriptor to report.</param>
     /// <param name="node">The node to flag.</param>
-    private static void ReportIf(SyntaxNodeAnalysisContext context, bool condition, DiagnosticDescriptor rule, SyntaxNode node)
+    private static void ReportIf(in SyntaxNodeAnalysisContext context, bool condition, DiagnosticDescriptor rule, SyntaxNode node)
     {
         if (!condition)
         {
@@ -292,16 +292,16 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression kind is conventionally allowed to span multiple lines in an argument list.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> when the kind is exempt from SST1118.</returns>
-    private static bool IsMultiLineFriendlyKind(SyntaxKind kind)
-        => IsLambdaOrAnonymousKind(kind)
+    private static bool IsMultiLineFriendlyKind(SyntaxKind kind) =>
+        IsLambdaOrAnonymousKind(kind)
             || IsCreationOrInitializerKind(kind)
             || IsOtherMultiLineFriendlyKind(kind);
 
     /// <summary>Returns whether the kind is a lambda or anonymous-form expression that commonly spans multiple lines.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> when exempt.</returns>
-    private static bool IsLambdaOrAnonymousKind(SyntaxKind kind)
-        => kind is SyntaxKind.SimpleLambdaExpression
+    private static bool IsLambdaOrAnonymousKind(SyntaxKind kind) =>
+        kind is SyntaxKind.SimpleLambdaExpression
             or SyntaxKind.ParenthesizedLambdaExpression
             or SyntaxKind.AnonymousMethodExpression
             or SyntaxKind.AnonymousObjectCreationExpression;
@@ -309,8 +309,8 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the kind is an object/array creation or initializer that commonly spans multiple lines.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> when exempt.</returns>
-    private static bool IsCreationOrInitializerKind(SyntaxKind kind)
-        => kind is SyntaxKind.ObjectCreationExpression
+    private static bool IsCreationOrInitializerKind(SyntaxKind kind) =>
+        kind is SyntaxKind.ObjectCreationExpression
             or SyntaxKind.ImplicitObjectCreationExpression
             or SyntaxKind.ArrayCreationExpression
             or SyntaxKind.ImplicitArrayCreationExpression
@@ -322,8 +322,8 @@ public sealed class ParameterListLayoutAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the kind is another multi-line-friendly expression form.</summary>
     /// <param name="kind">The expression kind.</param>
     /// <returns><see langword="true"/> when exempt.</returns>
-    private static bool IsOtherMultiLineFriendlyKind(SyntaxKind kind)
-        => kind is SyntaxKind.SwitchExpression
+    private static bool IsOtherMultiLineFriendlyKind(SyntaxKind kind) =>
+        kind is SyntaxKind.SwitchExpression
             or SyntaxKind.QueryExpression
             or SyntaxKind.InterpolatedStringExpression;
 }

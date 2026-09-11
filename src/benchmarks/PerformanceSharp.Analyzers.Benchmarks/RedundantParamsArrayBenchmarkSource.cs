@@ -11,8 +11,8 @@ internal static class RedundantParamsArrayBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RedundantParamsArrayBench
@@ -29,8 +29,8 @@ internal static class RedundantParamsArrayBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating call.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $$"""
                 public void Call{{index}}(object a, object b) => Log(new object[] { a, b });
                 """

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for SST1164 constructor-initializer argument unique-lines analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesBenchmarks
@@ -24,11 +26,13 @@ public class Sst1164ConstructorInitializerArgumentMustBeOnUniqueLinesBenchmarks
 
     /// <summary>Benchmarks the clean SST1164 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1164ConstructorInitializerArgumentMustBeOnUniqueLines_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating SST1164 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1164ConstructorInitializerArgumentMustBeOnUniqueLines_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeCors = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -41,9 +42,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies a fluent chain that allows any origin and then credentials is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnyOriginThenCredentialsChainReportedAsync()
-        => await VerifyAsync(
+    public Task AnyOriginThenCredentialsChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -56,9 +58,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies a reversed chain (credentials then any origin) is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CredentialsThenAnyOriginChainReportedAsync()
-        => await VerifyAsync(
+    public Task CredentialsThenAnyOriginChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -71,9 +74,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies the two calls in separate statements of one policy lambda body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockLambdaSeparateStatementsReportedAsync()
-        => await VerifyAsync(
+    public Task BlockLambdaSeparateStatementsReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -93,9 +97,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies the combination inside an <c>AddDefaultPolicy</c> lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddDefaultPolicyChainReportedAsync()
-        => await VerifyAsync(
+    public Task AddDefaultPolicyChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -108,9 +113,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies a bare fluent chain not inside a policy lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareFluentChainReportedAsync()
-        => await VerifyAsync(
+    public Task BareFluentChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -123,9 +129,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies allowing any origin without credentials is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnyOriginWithoutCredentialsIsCleanAsync()
-        => await VerifyAsync(
+    public Task AnyOriginWithoutCredentialsIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -138,9 +145,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies allowing credentials for specific origins is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CredentialsWithSpecificOriginsIsCleanAsync()
-        => await VerifyAsync(
+    public Task CredentialsWithSpecificOriginsIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -153,9 +161,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies two separate policies -- one any-origin, one credentials -- are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparatePoliciesAreCleanAsync()
-        => await VerifyAsync(
+    public Task SeparatePoliciesAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -171,9 +180,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies the two calls in separate non-lambda statements are not reported (local scope only).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateNonLambdaStatementsAreCleanAsync()
-        => await VerifyAsync(
+    public Task SeparateNonLambdaStatementsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -189,9 +199,10 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
 
     /// <summary>Verifies same-named methods on an unrelated builder type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodsOnUnrelatedTypeAreCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMethodsOnUnrelatedTypeAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -229,11 +240,7 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeCors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeCors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -243,11 +250,7 @@ public class CorsAnyOriginWithCredentialsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeCors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + CorsStubs
-        };
+        var test = new AnalyzeCors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + CorsStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

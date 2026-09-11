@@ -66,12 +66,7 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
             return overridden;
         }
 
-        if (method.ExplicitInterfaceImplementations.Length > 0)
-        {
-            return method.ExplicitInterfaceImplementations[0];
-        }
-
-        return FindImplementedInterfaceMethod(method);
+        return !method.ExplicitInterfaceImplementations.IsEmpty ? method.ExplicitInterfaceImplementations[0] : FindImplementedInterfaceMethod(method);
     }
 
     /// <summary>Analyzes a method declaration for the method-naming rules behind a syntactic gate.</summary>
@@ -159,10 +154,10 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="method">The method declaration.</param>
     /// <param name="symbol">The bound method symbol.</param>
-    private static void AnalyzeAsyncSuffix(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
+    private static void AnalyzeAsyncSuffix(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
     {
         if (symbol.IsOverride
-            || symbol.ExplicitInterfaceImplementations.Length > 0
+            || !symbol.ExplicitInterfaceImplementations.IsEmpty
             || !ReturnsTaskType(symbol.ReturnType)
             || FindImplementedInterfaceMethod(symbol) is not null)
         {
@@ -177,10 +172,10 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="method">The method declaration.</param>
     /// <param name="symbol">The bound method symbol.</param>
-    private static void AnalyzeAsyncSuffixMismatch(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
+    private static void AnalyzeAsyncSuffixMismatch(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
     {
         if (symbol.IsOverride
-            || symbol.ExplicitInterfaceImplementations.Length > 0
+            || !symbol.ExplicitInterfaceImplementations.IsEmpty
             || symbol.ReturnType.TypeKind == TypeKind.Error
             || IsAwaitableReturn(symbol.ReturnType)
             || FindImplementedInterfaceMethod(symbol) is not null)
@@ -230,15 +225,14 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var containingNamespace = type.ContainingNamespace;
-        return containingNamespace is { Name: "Generic", ContainingNamespace: { Name: "Collections", ContainingNamespace.Name: "System" } };
+        return type.ContainingNamespace is { Name: "Generic", ContainingNamespace: { Name: "Collections", ContainingNamespace.Name: "System" } };
     }
 
     /// <summary>Reports SST1318 for each parameter whose name differs from the matched base member's parameter.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="method">The method declaration.</param>
     /// <param name="symbol">The bound method symbol.</param>
-    private static void AnalyzeParameterNames(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
+    private static void AnalyzeParameterNames(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, IMethodSymbol symbol)
     {
         if (ResolveBaseMethod(symbol) is not { } baseMethod)
         {
@@ -310,7 +304,6 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var taskNamespace = type.ContainingNamespace;
-        return taskNamespace is { Name: "Tasks", ContainingNamespace: { Name: "Threading", ContainingNamespace.Name: "System" } };
+        return type.ContainingNamespace is { Name: "Tasks", ContainingNamespace: { Name: "Threading", ContainingNamespace.Name: "System" } };
     }
 }

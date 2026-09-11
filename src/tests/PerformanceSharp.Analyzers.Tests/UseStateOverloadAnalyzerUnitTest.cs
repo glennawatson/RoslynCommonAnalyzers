@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UseStateOverloadAnalyzerUnitTest
 {
     /// <summary>Verifies a capturing ContinueWith lambda is reported; the state overload exists.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturingContinueWithLambdaIsReportedAsync()
-        => await VerifyAsync(
+    public Task CapturingContinueWithLambdaIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -30,9 +32,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a capturing UnsafeRegister callback is reported; the data fits the state argument.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturingRegisterCallbackIsReportedAsync()
-        => await VerifyAsync(
+    public Task CapturingRegisterCallbackIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading;
@@ -46,9 +49,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a capture-free lambda stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaptureFreeLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task CaptureFreeLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -62,9 +66,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a capturing lambda passed to an API with no state overload stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoStateOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoStateOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -78,9 +83,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies LazyInitializer's sync-lock overload is not mistaken for a state overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyInitializerFactoryIsCleanAsync()
-        => await VerifyAsync(
+    public Task LazyInitializerFactoryIsCleanAsync() =>
+        VerifyAsync(
             """
             #nullable enable
             using System.Threading;
@@ -98,9 +104,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a recursive scheduler callback is clean when no recursive state overload exists.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecursiveSchedulerWithoutRecursiveStateOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task RecursiveSchedulerWithoutRecursiveStateOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -124,9 +131,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a keyed-DI factory lambda is clean; the sibling overload adds a service type, not state.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyedServiceFactoryIsCleanAsync()
-        => await VerifyAsync(
+    public Task KeyedServiceFactoryIsCleanAsync() =>
+        VerifyAsync(
             """
             #nullable enable
             using System;
@@ -162,9 +170,10 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Verifies an overload that genuinely adds an object state parameter is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddedObjectStateOverloadIsReportedAsync()
-        => await VerifyAsync(
+    public Task AddedObjectStateOverloadIsReportedAsync() =>
+        VerifyAsync(
             """
             #nullable enable
             using System;
@@ -185,15 +194,16 @@ public class UseStateOverloadAnalyzerUnitTest
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>
     /// <summary>Verifies a capture-free callback is not reported when a sibling lambda captures.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A neighbour's capture is not this lambda's. Reading <c>Captured</c> — which folds in what the other
     /// lambdas in the method closed over — charged this callback with its neighbour's state and told it to
     /// move something it never had.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaptureFreeCallbackBesideACapturingSiblingIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task CaptureFreeCallbackBesideACapturingSiblingIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading;
@@ -214,11 +224,7 @@ public class UseStateOverloadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

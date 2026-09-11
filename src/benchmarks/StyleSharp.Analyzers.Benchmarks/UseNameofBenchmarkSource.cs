@@ -11,7 +11,7 @@ internal static class UseNameofBenchmarkSource
     /// <param name="nodes">The number of constructor calls to emit.</param>
     /// <param name="violating">Whether to emit constructions that should become <c>nameof</c>.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int nodes, bool violating)
+    internal static string Generate(int nodes, bool violating)
     {
         var exceptionType = violating ? "ArgumentNullException" : "InvalidOperationException";
         return $$"""

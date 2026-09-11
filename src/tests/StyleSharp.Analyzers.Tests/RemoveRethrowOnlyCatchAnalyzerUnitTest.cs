@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRethrowOnlyCatch = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1470RemoveRethrowOnlyCatchAnalyzer,
     StyleSharp.Analyzers.Sst1470RemoveRethrowOnlyCatchCodeFixProvider>;
@@ -286,9 +287,10 @@ public class RemoveRethrowOnlyCatchAnalyzerUnitTest
 
     /// <summary>Verifies a catch clause that does work before rethrowing is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClauseWithWorkBeforeRethrowIsCleanAsync()
-        => await VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
+    public Task ClauseWithWorkBeforeRethrowIsCleanAsync() =>
+        VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -311,9 +313,10 @@ public class RemoveRethrowOnlyCatchAnalyzerUnitTest
 
     /// <summary>Verifies a rethrow-only clause with a when filter is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FilteredRethrowOnlyClauseIsCleanAsync()
-        => await VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
+    public Task FilteredRethrowOnlyClauseIsCleanAsync() =>
+        VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -335,9 +338,10 @@ public class RemoveRethrowOnlyCatchAnalyzerUnitTest
 
     /// <summary>Verifies a clause that rethrows the caught variable with 'throw ex;' is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowWithExpressionIsCleanAsync()
-        => await VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
+    public Task RethrowWithExpressionIsCleanAsync() =>
+        VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -359,9 +363,10 @@ public class RemoveRethrowOnlyCatchAnalyzerUnitTest
 
     /// <summary>Verifies a rethrow-only clause followed by another catch clause is clean, since it is not last.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowOnlyClauseFollowedByAnotherClauseIsCleanAsync()
-        => await VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
+    public Task RethrowOnlyClauseFollowedByAnotherClauseIsCleanAsync() =>
+        VerifyRethrowOnlyCatch.VerifyAnalyzerAsync(
             """
             using System;
             using System.IO;

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -18,23 +19,24 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix, IBatchEditKeyProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(CorrectnessRules.AwaitableReturnedFromTeardown.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(CorrectnessRules.AwaitableReturnedFromTeardown.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Make the method 'async' and await the call",
             nameof(Sst2491AwaitableReturnedFromTeardownCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <inheritdoc/>
     bool IBatchEditKeyProvider.TryGetBatchEditSpan(SyntaxNode root, Diagnostic diagnostic, out TextSpan span)
@@ -100,12 +102,9 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         {
             switch (node)
             {
-                case MethodDeclarationSyntax:
-                case LocalFunctionStatementSyntax:
+                case MethodDeclarationSyntax or LocalFunctionStatementSyntax:
                     return node;
-                case AnonymousFunctionExpressionSyntax:
-                case BaseMethodDeclarationSyntax:
-                case AccessorDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or BaseMethodDeclarationSyntax or AccessorDeclarationSyntax:
                     return null;
             }
         }
@@ -203,7 +202,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <param name="returnType">The declaration's return type.</param>
     /// <returns>The modifiers with async, and the return type adjusted when it led the declaration.</returns>
-    private static (SyntaxTokenList Modifiers, TypeSyntax ReturnType) WithAsyncModifier(SyntaxTokenList modifiers, TypeSyntax returnType)
+    private static (SyntaxTokenList Modifiers, TypeSyntax ReturnType) WithAsyncModifier(in SyntaxTokenList modifiers, TypeSyntax returnType)
     {
         var asyncToken = SyntaxFactory.Token(SyntaxKind.AsyncKeyword);
         if (modifiers.Count == 0)

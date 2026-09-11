@@ -58,8 +58,8 @@ public sealed class Sst2451UncreatableClassAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.UncreatableClass);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -81,7 +81,7 @@ public sealed class Sst2451UncreatableClassAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new CreationScan(context, declaration, declaration.Identifier.ValueText);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, CreationScan>(declaration, ref scan, VisitCandidate);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, CreationScan>(declaration, ref scan, VisitCandidate);
         if (scan.Found)
         {
             return;
@@ -161,7 +161,7 @@ public sealed class Sst2451UncreatableClassAnalyzer : DiagnosticAnalyzer
     /// A private-protected constructor can also be chained by a derived class in the same assembly, which
     /// may live in any file; only a sealed class, which forbids the derived class, reduces it to private.
     /// </remarks>
-    private static bool IsSelfOnlyAccessibility(SyntaxTokenList modifiers, bool isSealed)
+    private static bool IsSelfOnlyAccessibility(in SyntaxTokenList modifiers, bool isSealed)
     {
         var hasPrivate = false;
         var hasProtected = false;
@@ -265,8 +265,8 @@ public sealed class Sst2451UncreatableClassAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The base-list entry's type.</param>
     /// <param name="state">The scan state.</param>
     /// <returns><see langword="true"/> when the entry names the class itself.</returns>
-    private static bool IsSelfReference(TypeSyntax type, ref CreationScan state)
-        => CouldNameTheClass(type, state.TypeName)
+    private static bool IsSelfReference(TypeSyntax type, ref CreationScan state) =>
+        CouldNameTheClass(type, state.TypeName)
             && state.Context.SemanticModel.GetSymbolInfo(type, state.Context.CancellationToken).Symbol
                 is INamedTypeSymbol named
             && state.ResolveDeclaredType() is { } declared
@@ -276,8 +276,8 @@ public sealed class Sst2451UncreatableClassAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The written type.</param>
     /// <param name="typeName">The class's name.</param>
     /// <returns><see langword="true"/> for a matching rightmost name, or for a bare identifier that may be an alias.</returns>
-    private static bool CouldNameTheClass(TypeSyntax type, string typeName)
-        => type is IdentifierNameSyntax || GetRightmostIdentifier(type) == typeName;
+    private static bool CouldNameTheClass(TypeSyntax type, string typeName) =>
+        type is IdentifierNameSyntax || GetRightmostIdentifier(type) == typeName;
 
     /// <summary>Gets the rightmost identifier of a written type name.</summary>
     /// <param name="type">The written type, or <see langword="null"/>.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1664SummaryParagraphAnalyzer,
     StyleSharp.Analyzers.Sst1664SummaryParagraphCodeFixProvider>;
@@ -13,9 +14,10 @@ public class SummaryParagraphAnalyzerUnitTest
 {
     /// <summary>Verifies a single-paragraph multi-line summary is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleParagraphIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleParagraphIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -30,9 +32,10 @@ public class SummaryParagraphAnalyzerUnitTest
 
     /// <summary>Verifies a summary that already contains an element is out of scope.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SummaryWithNestedElementIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SummaryWithNestedElementIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {

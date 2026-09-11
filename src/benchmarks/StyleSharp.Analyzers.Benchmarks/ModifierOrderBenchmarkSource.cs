@@ -11,8 +11,8 @@ internal static class ModifierOrderBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit modifier-order violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class C
@@ -25,22 +25,22 @@ internal static class ModifierOrderBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violation.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
+    private static string GenerateMember(int index, bool violating) =>
+        violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
     /// <summary>Builds one clean member with canonical modifier order.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            public static readonly int Value{{index}} = {{index}};
            """;
 
     /// <summary>Builds one violating member with access and keyword modifiers out of order.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            static public readonly int Value{{index}} = {{index}};
            """;
 }

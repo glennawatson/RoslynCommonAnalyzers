@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -59,7 +61,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> method that is not an event handler or an inherited signature.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!method.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(method.ReturnType))
@@ -80,7 +82,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> local function that is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLocalFunction(SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLocalFunction(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
     {
         var localFunction = (LocalFunctionStatementSyntax)context.Node;
         if (!localFunction.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(localFunction.ReturnType))
@@ -100,7 +102,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> lambda or anonymous method whose converted delegate is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLambda(SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLambda(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
         if (function.AsyncKeyword.IsKind(SyntaxKind.None))
@@ -123,8 +125,8 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a return type is spelled as <c>void</c>.</summary>
     /// <param name="returnType">The return type syntax.</param>
     /// <returns><see langword="true"/> when the return type is the <c>void</c> keyword.</returns>
-    private static bool IsVoid(TypeSyntax returnType)
-        => returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
+    private static bool IsVoid(TypeSyntax returnType) =>
+        returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
 
     /// <summary>Returns whether a symbol has the standard <c>(object, TEventArgs)</c> event-handler shape.</summary>
     /// <param name="method">The candidate method symbol.</param>
@@ -144,8 +146,8 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method overrides or implements a signature its author cannot change.</summary>
     /// <param name="method">The method symbol.</param>
     /// <returns><see langword="true"/> when the void return is dictated by a base or an interface.</returns>
-    private static bool IsInheritedSignature(IMethodSymbol method)
-        => method.IsOverride || method.ExplicitInterfaceImplementations.Length > 0 || ImplementsInterfaceMember(method);
+    private static bool IsInheritedSignature(IMethodSymbol method) =>
+        method.IsOverride || !method.ExplicitInterfaceImplementations.IsEmpty || ImplementsInterfaceMember(method);
 
     /// <summary>Returns whether a method implicitly implements an interface member.</summary>
     /// <param name="method">The method symbol.</param>
@@ -195,7 +197,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the <c>async</c> modifier token from a modifier list.</summary>
     /// <param name="modifiers">The modifier list, already known to contain <c>async</c>.</param>
     /// <returns>The <c>async</c> token.</returns>
-    private static SyntaxToken GetAsyncKeyword(SyntaxTokenList modifiers)
+    private static SyntaxToken GetAsyncKeyword(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -212,6 +214,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="asyncKeyword">The <c>async</c> token to point at.</param>
     /// <param name="kind">The member kind, for the message.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxToken asyncKeyword, string kind)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(ConcurrencyRules.DoNotUseAsyncVoid, asyncKeyword.GetLocation(), kind));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken asyncKeyword, string kind) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(ConcurrencyRules.DoNotUseAsyncVoid, asyncKeyword.GetLocation(), kind));
 }

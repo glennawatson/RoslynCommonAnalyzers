@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a static field initializer that reads a static field of the same type declared after it (SST2428).
-/// </summary>
+/// <summary>Reports a static field initializer that reads a static field of the same type declared after it (SST2428).</summary>
 /// <remarks>
 /// <para>
 /// Static field initializers run in textual declaration order, so an initializer that reads a later static
@@ -34,8 +32,8 @@ public sealed class Sst2428StaticInitializerReadsLaterFieldAnalyzer : Diagnostic
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.StaticInitializerReadsLaterField);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -80,7 +78,7 @@ public sealed class Sst2428StaticInitializerReadsLaterFieldAnalyzer : Diagnostic
             }
 
             var scan = new InitializerScan(context, containingType, variable.Identifier.ValueText, variable.SpanStart, field.SyntaxTree);
-            DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, InitializerScan>(initializer.Value, ref scan, VisitIdentifier);
+            _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, InitializerScan>(initializer.Value, ref scan, VisitIdentifier);
         }
     }
 
@@ -93,7 +91,7 @@ public sealed class Sst2428StaticInitializerReadsLaterFieldAnalyzer : Diagnostic
         if (state.Context.SemanticModel.GetSymbolInfo(identifier, state.Context.CancellationToken).Symbol is not
                 IFieldSymbol { IsStatic: true, IsConst: false } referenced
             || !SymbolEqualityComparer.Default.Equals(referenced.ContainingType, state.ContainingType)
-            || referenced.Locations.Length == 0)
+            || referenced.Locations.IsEmpty)
         {
             return true;
         }

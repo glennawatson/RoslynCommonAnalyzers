@@ -50,7 +50,7 @@ public sealed class RecordReadonlyCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
-        editor.ReplaceNode(record, (current, generator) => generator.WithModifiers(current, generator.GetModifiers(current).WithIsReadOnly(true)));
+        editor.ReplaceNode(record, static (current, generator) => generator.WithModifiers(current, generator.GetModifiers(current).WithIsReadOnly(true)));
     }
 
     /// <summary>Adds the readonly modifier to the record struct, keeping canonical modifier order.</summary>

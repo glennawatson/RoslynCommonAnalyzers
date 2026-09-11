@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -23,12 +25,13 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>
     /// Replaces the reported append invocation with its chained per-part form. Benchmark entry
@@ -71,19 +74,13 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
     /// <param name="current">The current invocation node, with nested edits already composed.</param>
     /// <param name="depth">The splittable spine depth computed from the original tree.</param>
     /// <returns>The rewritten invocation, or the node unchanged when the shape no longer matches.</returns>
-    private static SyntaxNode RewriteCurrent(SyntaxNode current, int depth)
-    {
-        if (current is not InvocationExpressionSyntax invocation
+    private static SyntaxNode RewriteCurrent(SyntaxNode current, int depth) => current is not InvocationExpressionSyntax invocation
             || invocation.Expression is not MemberAccessExpressionSyntax
             || invocation.ArgumentList.Arguments.Count != 1
             || invocation.ArgumentList.Arguments[0].Expression is not BinaryExpressionSyntax concatenation
-            || !concatenation.IsKind(SyntaxKind.AddExpression))
-        {
-            return current;
-        }
-
-        return Rewrite(invocation, Math.Min(depth, SyntacticSpineDepth(concatenation)));
-    }
+            || !concatenation.IsKind(SyntaxKind.AddExpression)
+        ? current
+        : Rewrite(invocation, Math.Min(depth, SyntacticSpineDepth(concatenation)));
 
     /// <summary>Builds the chained per-part invocation that replaces the reported one.</summary>
     /// <param name="invocation">The reported append invocation.</param>
@@ -107,7 +104,7 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
 
         return invocation
             .WithExpression(access.WithExpression(chain))
-            .WithArgumentList(SingleArgumentList(operands[operands.Length - 1]).WithTriviaFrom(invocation.ArgumentList))
+            .WithArgumentList(SingleArgumentList(operands[^1]).WithTriviaFrom(invocation.ArgumentList))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 
@@ -179,13 +176,14 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
     /// <param name="model">The semantic model.</param>
     /// <param name="concatenation">The candidate spine <c>+</c> expression.</param>
     /// <returns><see langword="true"/> when the operands can become separate appends.</returns>
-    private static bool IsSplittableConcatenation(SemanticModel model, BinaryExpressionSyntax concatenation)
-        => model.GetSymbolInfo(concatenation).Symbol is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ContainingType.SpecialType: SpecialType.System_String }
+    private static bool IsSplittableConcatenation(SemanticModel model, BinaryExpressionSyntax concatenation) =>
+        model.GetSymbolInfo(concatenation).Symbol is IMethodSymbol { MethodKind: MethodKind.BuiltinOperator, ContainingType.SpecialType: SpecialType.System_String }
             && !model.GetConstantValue(concatenation).HasValue;
 
     /// <summary>Wraps one operand, stripped of outer trivia, as a single-argument list.</summary>
     /// <param name="operand">The operand to pass as the argument.</param>
     /// <returns>The argument list.</returns>
-    private static ArgumentListSyntax SingleArgumentList(ExpressionSyntax operand)
-        => SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(operand.WithoutTrivia())));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArgumentListSyntax SingleArgumentList(ExpressionSyntax operand) =>
+        SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(operand.WithoutTrivia())));
 }

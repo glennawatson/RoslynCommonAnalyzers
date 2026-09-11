@@ -68,15 +68,12 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
     {
         // The member is appended after the last one and before the closing brace, which is where the
         // directive closing a region over the tail sits — so the new member would land inside it.
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
+        return root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
             || DirectiveBoundaries.SeparateMembers(declaration)
             || !diagnostic.Properties.TryGetValue(Sst2315OwnsDisposableFieldAnalyzer.MembersToDisposeKey, out var members)
-            || string.IsNullOrEmpty(members))
-        {
-            return null;
-        }
-
-        return (declaration, members!.Split(','));
+            || string.IsNullOrEmpty(members)
+            ? null
+            : (declaration, members!.Split(','));
     }
 
     /// <summary>Adds <c>IDisposable</c> and a <c>Dispose()</c> that releases each owned member.</summary>
@@ -88,7 +85,7 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
         var statements = new List<StatementSyntax>(members.Length);
         for (var i = 0; i < members.Length; i++)
         {
-            statements.Add(SyntaxFactory.ParseStatement(members[i] + ".Dispose();"));
+            statements.Add(SyntaxFactory.ParseStatement($"{members[i]}.Dispose();"));
         }
 
         var dispose = SyntaxFactory.MethodDeclaration(

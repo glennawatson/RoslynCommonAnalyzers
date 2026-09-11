@@ -36,8 +36,8 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="comment">The comment trivia.</param>
     /// <returns><see langword="true"/> when the comment has no content.</returns>
-    internal static bool ShouldReportComment(SourceText text, SyntaxTrivia comment)
-        => comment.Kind() switch
+    internal static bool ShouldReportComment(SourceText text, in SyntaxTrivia comment) =>
+        comment.Kind() switch
         {
             SyntaxKind.SingleLineCommentTrivia => IsEmptySingleLine(text, comment.Span),
             SyntaxKind.MultiLineCommentTrivia => IsEmptyMultiLine(text, comment.Span),
@@ -61,7 +61,7 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="text">The source text.</param>
     /// <param name="triviaList">The trivia list to inspect.</param>
-    private static void AnalyzeTriviaList(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTriviaList triviaList)
+    private static void AnalyzeTriviaList(in SyntaxTreeAnalysisContext context, SourceText text, in SyntaxTriviaList triviaList)
     {
         for (var i = 0; i < triviaList.Count; i++)
         {
@@ -79,15 +79,15 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="span">The comment span.</param>
     /// <returns><see langword="true"/> when no non-whitespace character follows the '//'.</returns>
-    private static bool IsEmptySingleLine(SourceText text, TextSpan span)
-        => !HasContent(text, span.Start + OpenerLength, span.End);
+    private static bool IsEmptySingleLine(SourceText text, TextSpan span) =>
+        !HasContent(text, span.Start + OpenerLength, span.End);
 
     /// <summary>Returns whether a <c>/* */</c> comment contains only whitespace between the delimiters.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="span">The comment span.</param>
     /// <returns><see langword="true"/> when no non-whitespace character sits between '/*' and '*/'.</returns>
-    private static bool IsEmptyMultiLine(SourceText text, TextSpan span)
-        => !HasContent(text, span.Start + OpenerLength, span.End - OpenerLength);
+    private static bool IsEmptyMultiLine(SourceText text, TextSpan span) =>
+        !HasContent(text, span.Start + OpenerLength, span.End - OpenerLength);
 
     /// <summary>Returns whether any non-whitespace character appears in the half-open range.</summary>
     /// <param name="text">The source text.</param>

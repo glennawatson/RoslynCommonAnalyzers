@@ -15,6 +15,6 @@ internal static class HotPathBenchmarkRunner
     /// <param name="compilation">The compilation to analyze.</param>
     /// <param name="analyzers">The analyzers to execute.</param>
     /// <returns>The number of diagnostics produced.</returns>
-    public static async Task<int> GetDiagnosticCountAsync(CSharpCompilation compilation, ImmutableArray<DiagnosticAnalyzer> analyzers)
-        => (await compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync().ConfigureAwait(false)).Length;
+    internal static async Task<int> GetDiagnosticCountAsync(CSharpCompilation compilation, ImmutableArray<DiagnosticAnalyzer> analyzers) =>
+        (await compilation.WithAnalyzers(analyzers).GetAnalyzerDiagnosticsAsync().ConfigureAwait(false)).Length;
 }

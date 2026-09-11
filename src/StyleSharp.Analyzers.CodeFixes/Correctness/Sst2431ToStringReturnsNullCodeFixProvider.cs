@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Replaces a null a <c>ToString</c> override could return with <c>string.Empty</c> (SST2431).
-/// </summary>
+/// <summary>Replaces a null a <c>ToString</c> override could return with <c>string.Empty</c> (SST2431).</summary>
 /// <remarks>
 /// The whole reported node is swapped — <c>null</c>, <c>null!</c>, a parenthesised or cast null, or the null
 /// branch of a conditional — and it keeps its surrounding trivia, so the fix is the smallest edit that turns a
@@ -23,16 +23,17 @@ public sealed class Sst2431ToStringReturnsNullCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Return string.Empty instead of null",
             nameof(Sst2431ToStringReturnsNullCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported null and replaces it with <c>string.Empty</c>.</summary>
     /// <param name="root">The syntax root.</param>

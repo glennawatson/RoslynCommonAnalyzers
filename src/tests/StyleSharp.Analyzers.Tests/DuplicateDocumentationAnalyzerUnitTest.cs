@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDuplicate = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1625DuplicateDocumentationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DuplicateDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies documentation copied between elements is reported (SST1625).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuplicateDocumentationReportedAsync()
-        => await VerifyDuplicate.VerifyAnalyzerAsync(
+    public Task DuplicateDocumentationReportedAsync() =>
+        VerifyDuplicate.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -28,9 +30,10 @@ public class DuplicateDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies distinct documentation text is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctDocumentationIsCleanAsync()
-        => await VerifyDuplicate.VerifyAnalyzerAsync(
+    public Task DistinctDocumentationIsCleanAsync() =>
+        VerifyDuplicate.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -44,9 +47,10 @@ public class DuplicateDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies prose that matches but differs only in an inline cref reference is not flagged (SST1625).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParametersDifferingOnlyByCrefAreCleanAsync()
-        => await VerifyDuplicate.VerifyAnalyzerAsync(
+    public Task ParametersDifferingOnlyByCrefAreCleanAsync() =>
+        VerifyDuplicate.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -82,9 +86,10 @@ public class DuplicateDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies prose that matches and shares the same inline cref is still reported as a copy (SST1625).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParametersWithIdenticalProseAndCrefAreReportedAsync()
-        => await VerifyDuplicate.VerifyAnalyzerAsync(
+    public Task ParametersWithIdenticalProseAndCrefAreReportedAsync() =>
+        VerifyDuplicate.VerifyAnalyzerAsync(
             """
             internal class C
             {

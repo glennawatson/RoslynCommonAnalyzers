@@ -18,14 +18,14 @@ internal static class ThrowGuardPatterns
     /// <summary>The <c>string.IsNullOrWhiteSpace</c> guard method name.</summary>
     public const string IsNullOrWhiteSpace = "IsNullOrWhiteSpace";
 
-    /// <summary>The identifier text of the <c>nameof</c> operator, which parses as an ordinary invocation.</summary>
+    /// <summary>The <c>nameof</c> operator, as it appears in a guard's parameter-name argument.</summary>
     private const string NameOfOperator = "nameof";
 
     /// <summary>Matches a standard instance disposed guard.</summary>
     /// <param name="ifStatement">The candidate if statement.</param>
     /// <param name="condition">The disposed condition.</param>
     /// <returns><see langword="true"/> when the guard can use <c>ObjectDisposedException.ThrowIf</c>.</returns>
-    public static bool TryMatchObjectDisposed(IfStatementSyntax ifStatement, out ExpressionSyntax? condition)
+    internal static bool TryMatchObjectDisposed(IfStatementSyntax ifStatement, out ExpressionSyntax? condition)
     {
         condition = null;
         if (ifStatement.Else is not null
@@ -44,7 +44,7 @@ internal static class ThrowGuardPatterns
     /// <param name="ifStatement">The candidate if statement.</param>
     /// <param name="match">The helper and operands when matched.</param>
     /// <returns><see langword="true"/> when a replacement is available.</returns>
-    public static bool TryMatchRangeGuard(IfStatementSyntax ifStatement, out RangeGuardMatch match)
+    internal static bool TryMatchRangeGuard(IfStatementSyntax ifStatement, out RangeGuardMatch match)
     {
         match = default;
         if (!TryGetRangeGuardParts(ifStatement, out var binary, out var parameterName))
@@ -83,7 +83,7 @@ internal static class ThrowGuardPatterns
     /// <param name="ifStatement">The candidate if statement.</param>
     /// <param name="checkedExpression">The null-checked expression when matched.</param>
     /// <returns><see langword="true"/> when the statement is a replaceable null guard.</returns>
-    public static bool TryMatchArgumentNull(IfStatementSyntax ifStatement, out ExpressionSyntax? checkedExpression)
+    internal static bool TryMatchArgumentNull(IfStatementSyntax ifStatement, out ExpressionSyntax? checkedExpression)
     {
         checkedExpression = null;
         if (ifStatement.Else is not null
@@ -110,7 +110,7 @@ internal static class ThrowGuardPatterns
     /// <param name="guardMethod">The matched guard method name (<see cref="IsNullOrEmpty"/> or <see cref="IsNullOrWhiteSpace"/>).</param>
     /// <param name="checkedExpression">The checked string expression when matched.</param>
     /// <returns><see langword="true"/> when the statement is a replaceable string guard.</returns>
-    public static bool TryMatchStringGuard(IfStatementSyntax ifStatement, out string? guardMethod, out ExpressionSyntax? checkedExpression)
+    internal static bool TryMatchStringGuard(IfStatementSyntax ifStatement, out string? guardMethod, out ExpressionSyntax? checkedExpression)
     {
         guardMethod = null;
         checkedExpression = null;
@@ -229,16 +229,13 @@ internal static class ThrowGuardPatterns
             return false;
         }
 
-        if (only.Expression is InvocationExpressionSyntax
+        return only.Expression is InvocationExpressionSyntax
             {
                 Expression: IdentifierNameSyntax { Identifier.Text: NameOfOperator },
                 ArgumentList.Arguments: [var named]
-            })
-        {
-            return SyntaxFactory.AreEquivalent(named.Expression, checkedExpression);
-        }
-
-        return only.Expression is LiteralExpressionSyntax literal
+            }
+            ? SyntaxFactory.AreEquivalent(named.Expression, checkedExpression)
+            : only.Expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && MatchesExplicitParameterName(literal.Token.ValueText, checkedExpression);
     }
@@ -247,8 +244,8 @@ internal static class ThrowGuardPatterns
     /// <param name="name">The explicit parameter name.</param>
     /// <param name="checkedExpression">The checked expression.</param>
     /// <returns><see langword="true"/> when the explicit name matches a supported checked-expression shape.</returns>
-    private static bool MatchesExplicitParameterName(string name, ExpressionSyntax checkedExpression)
-        => checkedExpression switch
+    private static bool MatchesExplicitParameterName(string name, ExpressionSyntax checkedExpression) =>
+        checkedExpression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText == name,
             MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax identifier } => identifier.Identifier.ValueText == name,
@@ -277,8 +274,8 @@ internal static class ThrowGuardPatterns
     /// <summary>Returns whether disposed-exception arguments carry no custom message.</summary>
     /// <param name="arguments">The constructor arguments.</param>
     /// <returns><see langword="true"/> for zero arguments or one type-name argument.</returns>
-    private static bool HasStandardDisposedArguments(ArgumentListSyntax? arguments)
-        => arguments is null
+    private static bool HasStandardDisposedArguments(ArgumentListSyntax? arguments) =>
+        arguments is null
             || arguments.Arguments.Count == 0
             || (arguments.Arguments.Count == 1
                 && arguments.Arguments[0].Expression is InvocationExpressionSyntax
@@ -311,8 +308,8 @@ internal static class ThrowGuardPatterns
     /// <param name="expression">The expression.</param>
     /// <param name="name">The expected identifier name.</param>
     /// <returns><see langword="true"/> when the expression is that identifier.</returns>
-    private static bool IsIdentifier(ExpressionSyntax expression, string name)
-        => expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
+    private static bool IsIdentifier(ExpressionSyntax expression, string name) =>
+        expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
 
     /// <summary>Reverses a comparison kind when the guarded value is on the right.</summary>
     /// <param name="kind">The original comparison kind.</param>
@@ -330,8 +327,8 @@ internal static class ThrowGuardPatterns
     /// <param name="kind">The normalized comparison kind.</param>
     /// <param name="bound">The comparison bound.</param>
     /// <returns>The helper name, or <see langword="null"/>.</returns>
-    private static string? RangeHelper(SyntaxKind kind, ExpressionSyntax bound)
-        => IsZero(bound) ? ZeroRangeHelper(kind) : BoundRangeHelper(kind);
+    private static string? RangeHelper(SyntaxKind kind, ExpressionSyntax bound) =>
+        IsZero(bound) ? ZeroRangeHelper(kind) : BoundRangeHelper(kind);
 
     /// <summary>Maps a comparison against zero to a single-argument helper.</summary>
     /// <param name="kind">The comparison kind.</param>
@@ -361,16 +358,16 @@ internal static class ThrowGuardPatterns
     /// <summary>Returns whether an expression is the numeric zero literal.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> when it is zero.</returns>
-    private static bool IsZero(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsZero(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.NumericLiteralExpression)
             && literal.Token.ValueText.AsSpan().SequenceEqual("0".AsSpan());
 
     /// <summary>Returns whether a helper takes only the guarded value.</summary>
     /// <param name="helper">The helper name.</param>
     /// <returns><see langword="true"/> for single-argument helpers.</returns>
-    private static bool HelperHasSingleArgument(string helper)
-        => helper is "ThrowIfNegative" or "ThrowIfNegativeOrZero" or "ThrowIfZero";
+    private static bool HelperHasSingleArgument(string helper) =>
+        helper is "ThrowIfNegative" or "ThrowIfNegativeOrZero" or "ThrowIfZero";
 
     /// <summary>Returns whether a simple type name is <c>ArgumentException</c> or <c>ArgumentNullException</c>.</summary>
     /// <param name="name">The simple type name.</param>

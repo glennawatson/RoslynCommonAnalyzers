@@ -46,8 +46,8 @@ public sealed class Sst1144PreferOrPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a switch label can be merged into an <c>or</c> pattern.</summary>
     /// <param name="label">The switch label.</param>
     /// <returns><see langword="true"/> for a value label or a guard-free pattern label.</returns>
-    internal static bool IsCombinable(SwitchLabelSyntax label)
-        => label is CaseSwitchLabelSyntax or CasePatternSwitchLabelSyntax { WhenClause: null };
+    internal static bool IsCombinable(SwitchLabelSyntax label) =>
+        label is CaseSwitchLabelSyntax or CasePatternSwitchLabelSyntax { WhenClause: null };
 
     /// <summary>Reports SST1144 when every label of a multi-label section can be combined.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -88,7 +88,7 @@ public sealed class Sst1144PreferOrPatternAnalyzer : DiagnosticAnalyzer
     /// Several labels that each fit on their own line can be one label that does not. Reporting that is
     /// asking for a line the layout rules reject, so the merge yields.
     /// </remarks>
-    private static bool MergedLabelFits(SyntaxNodeAnalysisContext context, SyntaxList<SwitchLabelSyntax> labels)
+    private static bool MergedLabelFits(in SyntaxNodeAnalysisContext context, SyntaxList<SwitchLabelSyntax> labels)
     {
         var tree = context.Node.SyntaxTree;
         var length = tree.GetLineSpan(labels[0].Span, context.CancellationToken).StartLinePosition.Character

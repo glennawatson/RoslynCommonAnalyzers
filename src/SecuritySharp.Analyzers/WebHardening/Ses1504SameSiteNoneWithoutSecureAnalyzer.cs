@@ -74,7 +74,7 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <summary>Reports SES1504 for a gated cookie initializer that sets <c>SameSite = None</c> without securing the cookie.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The gated cookie types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, CookieInitializerTypes types)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in CookieInitializerTypes types)
     {
         // Syntactic prefilter: an initializer that contains a 'SameSite = <...>.None' member. No semantic
         // model is touched until this cheap shape check passes, so the clean path stays allocation-free.
@@ -106,7 +106,7 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <param name="isCookieOptions">Set to <see langword="true"/> when the created type is <c>CookieOptions</c>.</param>
     /// <returns>The gated cookie type, or <see langword="null"/> when the creation is not a gated type.</returns>
-    private static INamedTypeSymbol? GetGatedCookieType(SemanticModel model, SyntaxNode node, CookieInitializerTypes types, CancellationToken cancellationToken, out bool isCookieOptions)
+    private static INamedTypeSymbol? GetGatedCookieType(SemanticModel model, SyntaxNode node, in CookieInitializerTypes types, CancellationToken cancellationToken, out bool isCookieOptions)
     {
         isCookieOptions = false;
         if (model.GetTypeInfo(node, cancellationToken).Type is not INamedTypeSymbol createdType)
@@ -129,16 +129,16 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <param name="sameSiteNone">The resolved <c>SameSiteMode.None</c> field.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the member sets the cookie's <c>SameSite</c> to <c>None</c>.</returns>
-    private static bool IsSameSiteNoneAssignment(SemanticModel model, AssignmentExpressionSyntax member, IFieldSymbol sameSiteNone, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(member.Left, cancellationToken).Symbol is IPropertySymbol { Name: SameSiteMemberName }
+    private static bool IsSameSiteNoneAssignment(SemanticModel model, AssignmentExpressionSyntax member, IFieldSymbol sameSiteNone, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(member.Left, cancellationToken).Symbol is IPropertySymbol { Name: SameSiteMemberName }
             && model.GetSymbolInfo(member.Right, cancellationToken).Symbol is IFieldSymbol assignedValue
             && SymbolEqualityComparer.Default.Equals(assignedValue, sameSiteNone);
 
     /// <summary>Returns the object initializer of an explicit or implicit object-creation node, if any.</summary>
     /// <param name="node">The object-creation node.</param>
     /// <returns>The initializer, or <see langword="null"/> when the creation has none.</returns>
-    private static InitializerExpressionSyntax? GetInitializer(SyntaxNode node)
-        => node switch
+    private static InitializerExpressionSyntax? GetInitializer(SyntaxNode node) =>
+        node switch
         {
             ObjectCreationExpressionSyntax objectCreation => objectCreation.Initializer,
             ImplicitObjectCreationExpressionSyntax implicitCreation => implicitCreation.Initializer,
@@ -170,7 +170,7 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <param name="types">The gated cookie types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a securing member is present.</returns>
-    private static bool HasSecuringSibling(SemanticModel model, InitializerExpressionSyntax initializer, bool isCookieOptions, CookieInitializerTypes types, CancellationToken cancellationToken)
+    private static bool HasSecuringSibling(SemanticModel model, InitializerExpressionSyntax initializer, bool isCookieOptions, in CookieInitializerTypes types, CancellationToken cancellationToken)
     {
         var expressions = initializer.Expressions;
         for (var i = 0; i < expressions.Count; i++)
@@ -232,8 +232,8 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <summary>Returns the trailing simple name of a member access or identifier expression.</summary>
     /// <param name="expression">The value expression to read.</param>
     /// <returns>The trailing name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTrailingName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetTrailingName(ExpressionSyntax expression) =>
+        expression switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,

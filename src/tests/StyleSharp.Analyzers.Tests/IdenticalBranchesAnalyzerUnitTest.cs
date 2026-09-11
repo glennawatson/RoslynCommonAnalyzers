@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyIdenticalBranches = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.IdenticalBranchesAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1476 (conditional branches should not have identical bodies).</summary>
 public class IdenticalBranchesAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the minimum-statements option is read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies an if/else whose two bodies are the same is reported on the if keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IfElseWithIdenticalBodiesIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task IfElseWithIdenticalBodiesIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -36,9 +35,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a whole if/else-if/else chain of identical bodies is reported once.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IfChainWithIdenticalBodiesIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task IfChainWithIdenticalBodiesIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -62,9 +62,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a braced body and a bare one are still the same duplicate.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BracesDoNotHideAnIdenticalBodyAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task BracesDoNotHideAnIdenticalBodyAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -86,9 +87,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies an if with no else is not reported, because its unwritten branch does nothing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IfWithoutElseIsCleanAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task IfWithoutElseIsCleanAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -106,9 +108,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a chain that never reaches a trailing else is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainWithoutTerminalElseIsCleanAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task ChainWithoutTerminalElseIsCleanAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -130,9 +133,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies branches that actually differ are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentBodiesAreCleanAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task DifferentBodiesAreCleanAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -156,9 +160,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a conditional expression whose arms produce the same value is reported on the question mark.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalExpressionWithIdenticalArmsIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task ConditionalExpressionWithIdenticalArmsIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -170,9 +175,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a switch statement whose sections all run the same body is reported on the switch keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchStatementWithIdenticalSectionsIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task SwitchStatementWithIdenticalSectionsIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -194,9 +200,10 @@ public class IdenticalBranchesAnalyzerUnitTest
     /// <summary>Verifies a switch statement with no default label is not the SST1476 all-branches case, but its two identical sections are the SST2414 pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>An unmatched value falls out of the switch, so SST1476 stays silent; the two identical sections are still a shared implementation.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchStatementWithoutDefaultReportsDuplicatePairAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task SwitchStatementWithoutDefaultReportsDuplicatePairAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -217,9 +224,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a switch statement whose sections differ is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchStatementWithDifferentSectionsIsCleanAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task SwitchStatementWithDifferentSectionsIsCleanAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -240,9 +248,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a switch expression whose arms produce the same value is reported on the switch keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchExpressionWithIdenticalArmsIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task SwitchExpressionWithIdenticalArmsIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -258,9 +267,10 @@ public class IdenticalBranchesAnalyzerUnitTest
     /// <summary>Verifies a switch expression the compiler considers exhaustive is reported even without a discard arm.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Exhaustiveness is the compiler's own answer, so a complete bool switch counts without spelling out <c>_</c>.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExhaustiveSwitchExpressionWithoutDiscardIsReportedAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task ExhaustiveSwitchExpressionWithoutDiscardIsReportedAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -274,9 +284,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a non-exhaustive switch expression is not the SST1476 all-arms case, but its two identical arms are the SST2414 pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExhaustiveSwitchExpressionReportsDuplicatePairAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task NonExhaustiveSwitchExpressionReportsDuplicatePairAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -290,9 +301,10 @@ public class IdenticalBranchesAnalyzerUnitTest
 
     /// <summary>Verifies a switch expression whose arms differ is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchExpressionWithDifferentArmsIsCleanAsync()
-        => await VerifyIdenticalBranches.VerifyAnalyzerAsync(
+    public Task SwitchExpressionWithDifferentArmsIsCleanAsync() =>
+        VerifyIdenticalBranches.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -335,7 +347,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = 1
@@ -391,7 +403,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = 2
@@ -433,7 +445,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.minimum_statements = 2
@@ -469,7 +481,7 @@ public class IdenticalBranchesAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1476.minimum_statements = several

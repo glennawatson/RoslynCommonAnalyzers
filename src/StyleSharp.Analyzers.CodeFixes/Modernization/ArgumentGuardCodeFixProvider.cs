@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -75,12 +77,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
     internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement, string diagnosticId)
     {
         var replacement = BuildReplacementStatement(diagnosticId, ifStatement);
-        if (replacement is null)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement)));
+        return replacement is null ? document : document.WithSyntaxRoot(root.ReplaceNode(ifStatement, replacement.WithTriviaFrom(ifStatement)));
     }
 
     /// <summary>Builds the throw-helper statement syntax for the matched guard, or null when it no longer matches.</summary>
@@ -92,7 +89,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
         if (diagnosticId == ModernizationRules.UseThrowIfNull.Id)
         {
             return ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out var expression)
-                ? CreateHelperStatement("ArgumentNullException", "ThrowIfNull", SyntaxFactory.Argument(expression!.WithoutTrivia()))
+                ? CreateHelperStatement(nameof(ArgumentNullException), "ThrowIfNull", SyntaxFactory.Argument(expression!.WithoutTrivia()))
                 : null;
         }
 
@@ -100,7 +97,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
         {
             return ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out var condition)
                 ? CreateHelperStatement(
-                    "ObjectDisposedException",
+                    nameof(ObjectDisposedException),
                     "ThrowIf",
                     SyntaxFactory.Argument(condition!.WithoutTrivia()),
                     SyntaxFactory.Argument(SyntaxFactory.ThisExpression()))
@@ -116,11 +113,11 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
 
             return match.Bound is null
                 ? CreateHelperStatement(
-                    "ArgumentOutOfRangeException",
+                    nameof(ArgumentOutOfRangeException),
                     match.Helper,
                     SyntaxFactory.Argument(match.Value.WithoutTrivia()))
                 : CreateHelperStatement(
-                    "ArgumentOutOfRangeException",
+                    nameof(ArgumentOutOfRangeException),
                     match.Helper,
                     SyntaxFactory.Argument(match.Value.WithoutTrivia()),
                     SyntaxFactory.Argument(match.Bound.WithoutTrivia()));
@@ -132,7 +129,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         var method = diagnosticId == ModernizationRules.UseThrowIfNullOrEmpty.Id ? "ThrowIfNullOrEmpty" : "ThrowIfNullOrWhiteSpace";
-        return CreateHelperStatement("ArgumentException", method, SyntaxFactory.Argument(stringExpression!.WithoutTrivia()));
+        return CreateHelperStatement(nameof(ArgumentException), method, SyntaxFactory.Argument(stringExpression!.WithoutTrivia()));
     }
 
     /// <summary>Builds an expression statement that invokes the selected throw-helper.</summary>
@@ -140,8 +137,9 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <param name="methodName">The helper method name.</param>
     /// <param name="arguments">The helper-call arguments.</param>
     /// <returns>The helper-call statement.</returns>
-    private static ExpressionStatementSyntax CreateHelperStatement(string typeName, string methodName, params ArgumentSyntax[] arguments)
-        => SyntaxFactory.ExpressionStatement(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionStatementSyntax CreateHelperStatement(string typeName, string methodName, params ArgumentSyntax[] arguments) =>
+        SyntaxFactory.ExpressionStatement(
             SyntaxFactory.InvocationExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEqualsOverCompare = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -263,12 +264,7 @@ public class UseEqualsOverCompareAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyEqualsOverCompare.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyEqualsOverCompare.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -276,6 +272,7 @@ public class UseEqualsOverCompareAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

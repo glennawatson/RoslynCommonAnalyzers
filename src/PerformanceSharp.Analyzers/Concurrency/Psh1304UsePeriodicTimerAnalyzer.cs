@@ -58,7 +58,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1304 for an awaited delay that unconditionally paces a while/do loop.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The task type providing Delay.</param>
-    private static void AnalyzeAwait(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
+    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
     {
         var awaitExpression = (AwaitExpressionSyntax)context.Node;
         if (awaitExpression.Expression is not InvocationExpressionSyntax invocation
@@ -157,7 +157,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         }
 
         var state = default(RelationalScanState);
-        DescendantTraversalHelper.VisitDescendants<BinaryExpressionSyntax, RelationalScanState>(condition, ref state, VisitConditionOperand);
+        _ = DescendantTraversalHelper.VisitDescendants<BinaryExpressionSyntax, RelationalScanState>(condition, ref state, VisitConditionOperand);
         return state.Found;
     }
 
@@ -179,8 +179,8 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression compares two operands for order.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> for <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c>, and <c>&gt;=</c>.</returns>
-    private static bool IsRelational(SyntaxNode expression)
-        => expression.IsKind(SyntaxKind.LessThanExpression)
+    private static bool IsRelational(SyntaxNode expression) =>
+        expression.IsKind(SyntaxKind.LessThanExpression)
             || expression.IsKind(SyntaxKind.LessThanOrEqualExpression)
             || expression.IsKind(SyntaxKind.GreaterThanExpression)
             || expression.IsKind(SyntaxKind.GreaterThanOrEqualExpression);
@@ -201,7 +201,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     {
         var written = new HashSet<string>(StringComparer.Ordinal);
         var writeState = new WrittenNameScanState(written);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WrittenNameScanState>(loopBody, ref writeState, VisitWrittenName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WrittenNameScanState>(loopBody, ref writeState, VisitWrittenName);
 
         if (written.Count == 0)
         {
@@ -209,7 +209,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         }
 
         var readState = new DelayIdentifierScanState(written);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, DelayIdentifierScanState>(invocation.ArgumentList, ref readState, VisitDelayIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, DelayIdentifierScanState>(invocation.ArgumentList, ref readState, VisitDelayIdentifier);
         return readState.Found;
     }
 
@@ -224,7 +224,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        state.Names.Add(identifier.Identifier.ValueText);
+        _ = state.Names.Add(identifier.Identifier.ValueText);
         return true;
     }
 
@@ -246,8 +246,8 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
     /// <param name="identifier">The identifier occurrence.</param>
     /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-    private static bool IsWriteTarget(IdentifierNameSyntax identifier)
-        => identifier.Parent switch
+    private static bool IsWriteTarget(IdentifierNameSyntax identifier) =>
+        identifier.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == identifier,
             PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
@@ -264,7 +264,7 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Collects the names a loop body writes, in one pass over it.</summary>
     /// <param name="Names">The names collected so far.</param>
-    private record struct WrittenNameScanState(HashSet<string> Names);
+    private readonly record struct WrittenNameScanState(HashSet<string> Names);
 
     /// <summary>Decides whether the delay argument reads any name the loop body writes.</summary>
     /// <param name="Written">The names the loop body writes.</param>

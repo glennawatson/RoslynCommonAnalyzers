@@ -12,7 +12,8 @@ internal static class DocumentationCodeFixBenchmarkHelper
     /// <summary>Gets the documented member's summary element.</summary>
     /// <param name="member">The documented member declaration.</param>
     /// <returns>The summary element.</returns>
-    public static XmlElementSyntax GetSummary(MemberDeclarationSyntax member)
+    /// <exception cref="InvalidOperationException"><paramref name="member"/> has no documentation comment, or that comment has no <c>summary</c> element.</exception>
+    internal static XmlElementSyntax GetSummary(MemberDeclarationSyntax member)
     {
         if (XmlDocumentationHelper.GetDocumentationComment(member) is not { } documentation
             || XmlDocumentationHelper.FindElement(documentation, "summary") is not XmlElementSyntax summary)

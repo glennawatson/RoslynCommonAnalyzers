@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UseSearchValuesAnalyzerUnitTest
 {
     /// <summary>Verifies an inline array passed to IndexOfAny is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineArrayIndexOfAnyIsReportedAsync()
-        => await VerifyAsync(
+    public Task InlineArrayIndexOfAnyIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -26,9 +28,10 @@ public class UseSearchValuesAnalyzerUnitTest
 
     /// <summary>Verifies a collection expression passed to a span search is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionExpressionSpanSearchIsReportedAsync()
-        => await VerifyAsync(
+    public Task CollectionExpressionSpanSearchIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -40,9 +43,10 @@ public class UseSearchValuesAnalyzerUnitTest
 
     /// <summary>Verifies a hoisted field argument stays clean; only inline creations are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task FieldArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -54,9 +58,10 @@ public class UseSearchValuesAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant inline set stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantSetIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantSetIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -87,11 +92,7 @@ public class UseSearchValuesAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

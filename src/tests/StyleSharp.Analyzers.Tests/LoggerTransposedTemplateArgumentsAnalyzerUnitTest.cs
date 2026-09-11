@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LoggerCallAnalyzer,
     StyleSharp.Analyzers.Sst2440TransposedTemplateArgumentsCodeFixProvider>;
@@ -65,9 +66,10 @@ public class LoggerTransposedTemplateArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies correctly ordered values are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectOrderIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task CorrectOrderIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -78,9 +80,10 @@ public class LoggerTransposedTemplateArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a three-way rotation, which has no unambiguous repair, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RotationIsNotReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task RotationIsNotReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -91,9 +94,10 @@ public class LoggerTransposedTemplateArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a computed value is not read as a name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedValueIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ComputedValueIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -106,9 +110,10 @@ public class LoggerTransposedTemplateArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a value in its own placeholder's slot is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueInItsOwnSlotIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ValueInItsOwnSlotIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

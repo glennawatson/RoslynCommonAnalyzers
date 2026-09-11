@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -59,13 +61,14 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a tree's language version can write an empty collection expression.</summary>
     /// <param name="tree">The syntax tree being analyzed or fixed.</param>
     /// <returns><see langword="true"/> on C# 12 and later.</returns>
-    internal static bool SupportsCollectionExpressions(SyntaxTree tree)
-        => tree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp12 };
+    internal static bool SupportsCollectionExpressions(SyntaxTree tree) =>
+        tree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp12 };
 
     /// <summary>Returns whether a tree's language version target-types a conditional's branches.</summary>
     /// <param name="tree">The syntax tree being analyzed.</param>
@@ -75,8 +78,8 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// empty array in <c>flag ? _list : null</c> would leave two branches with no conversion between
     /// them. The null is still reported there; only the fix is withheld.
     /// </remarks>
-    private static bool SupportsTargetTypedConditional(SyntaxTree tree)
-        => tree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
+    private static bool SupportsTargetTypedConditional(SyntaxTree tree) =>
+        tree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 };
 
     /// <summary>Prepares the per-compilation lookups, then watches every returned expression.</summary>
     /// <param name="context">The compilation start context.</param>
@@ -91,7 +94,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <summary>Analyzes the expression of a <c>return</c> statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The compilation's empty-collection lookups.</param>
-    private static void AnalyzeReturnStatement(SyntaxNodeAnalysisContext context, EmptyCollectionTypes types)
+    private static void AnalyzeReturnStatement(in SyntaxNodeAnalysisContext context, EmptyCollectionTypes types)
     {
         if (((ReturnStatementSyntax)context.Node).Expression is not { } returned)
         {
@@ -104,8 +107,9 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <summary>Analyzes the expression of an expression-bodied member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The compilation's empty-collection lookups.</param>
-    private static void AnalyzeArrowClause(SyntaxNodeAnalysisContext context, EmptyCollectionTypes types)
-        => AnalyzeReturnedExpression(context, ((ArrowExpressionClauseSyntax)context.Node).Expression, types);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeArrowClause(in SyntaxNodeAnalysisContext context, EmptyCollectionTypes types) =>
+        AnalyzeReturnedExpression(context, ((ArrowExpressionClauseSyntax)context.Node).Expression, types);
 
     /// <summary>Reports the null literals a member hands back in place of an empty collection.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -116,7 +120,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// in it, a member the language gives its shape to (a lambda, an async method), and a nullable
     /// return type never reach the semantic model.
     /// </remarks>
-    private static void AnalyzeReturnedExpression(SyntaxNodeAnalysisContext context, ExpressionSyntax returned, EmptyCollectionTypes types)
+    private static void AnalyzeReturnedExpression(in SyntaxNodeAnalysisContext context, ExpressionSyntax returned, EmptyCollectionTypes types)
     {
         var unwrapped = Unwrap(returned);
         if (!ContainsNull(unwrapped)
@@ -142,7 +146,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="unwrapped">The unwrapped returned expression.</param>
     /// <param name="memberName">The name of the member handing back null.</param>
     /// <param name="replacement">The suggested empty-collection expression, when one can be written.</param>
-    private static void ReportNulls(SyntaxNodeAnalysisContext context, ExpressionSyntax unwrapped, string memberName, string? replacement)
+    private static void ReportNulls(in SyntaxNodeAnalysisContext context, ExpressionSyntax unwrapped, string memberName, string? replacement)
     {
         if (IsNullLiteral(unwrapped))
         {
@@ -167,7 +171,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="branch">The conditional branch.</param>
     /// <param name="memberName">The name of the member handing back null.</param>
     /// <param name="replacement">The suggested empty-collection expression, when one can be written.</param>
-    private static void ReportBranch(SyntaxNodeAnalysisContext context, ExpressionSyntax branch, string memberName, string? replacement)
+    private static void ReportBranch(in SyntaxNodeAnalysisContext context, ExpressionSyntax branch, string memberName, string? replacement)
     {
         var unwrapped = Unwrap(branch);
         if (!IsNullLiteral(unwrapped))
@@ -183,7 +187,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="nullLiteral">The reported null literal.</param>
     /// <param name="memberName">The name of the member handing back null.</param>
     /// <param name="replacement">The suggested empty-collection expression, when one can be written.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, ExpressionSyntax nullLiteral, string memberName, string? replacement)
+    private static void Report(in SyntaxNodeAnalysisContext context, ExpressionSyntax nullLiteral, string memberName, string? replacement)
     {
         if (replacement is null)
         {
@@ -318,7 +322,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="position">The position the replacement's names are written at.</param>
     /// <param name="types">The compilation's empty-collection lookups.</param>
     /// <returns>The replacement expression text, or <see langword="null"/> when no empty value can be proven to exist.</returns>
-    private static string? BuildReplacement(SyntaxNodeAnalysisContext context, ITypeSymbol type, int position, EmptyCollectionTypes types)
+    private static string? BuildReplacement(in SyntaxNodeAnalysisContext context, ITypeSymbol type, int position, EmptyCollectionTypes types)
     {
         if (type is IArrayTypeSymbol array)
         {
@@ -351,7 +355,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// the compilation has no shared empty one.
     /// </remarks>
     private static string BuildEmptyArray(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ITypeSymbol elementType,
         int position,
         EmptyCollectionTypes types,
@@ -364,8 +368,8 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
 
         var element = elementType.ToMinimalDisplayString(context.SemanticModel, position);
         return types.HasEmptyArray()
-            ? types.GetArrayName(context.SemanticModel, position) + ".Empty<" + element + ">()"
-            : "new " + element + "[0]";
+            ? $"{types.GetArrayName(context.SemanticModel, position)}.Empty<{element}>()"
+            : $"new {element}[0]";
     }
 
     /// <summary>Builds the empty value for a collection interface.</summary>
@@ -381,10 +385,10 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// dictionary are not sequences, and get the concrete type the compilation provides for them; a
     /// custom interface gets nothing, because only its author knows what an empty one is.
     /// </remarks>
-    private static string? BuildEmptyInterface(SyntaxNodeAnalysisContext context, INamedTypeSymbol named, int position, EmptyCollectionTypes types)
+    private static string? BuildEmptyInterface(in SyntaxNodeAnalysisContext context, INamedTypeSymbol named, int position, EmptyCollectionTypes types)
     {
         var arguments = named.TypeArguments;
-        if (arguments.Length == 0)
+        if (arguments.IsEmpty)
         {
             return named.SpecialType == SpecialType.System_Collections_IEnumerable
                 ? BuildEmptyArray(context, context.Compilation.GetSpecialType(SpecialType.System_Object), position, types, allowCollectionExpression: false)
@@ -404,8 +408,8 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <summary>Returns whether an empty array satisfies the named generic interface.</summary>
     /// <param name="name">The interface's name.</param>
     /// <returns><see langword="true"/> for the sequence interfaces an array implements.</returns>
-    private static bool IsSequenceInterfaceName(string name)
-        => name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList";
+    private static bool IsSequenceInterfaceName(string name) =>
+        name is "IEnumerable" or "ICollection" or "IList" or "IReadOnlyCollection" or "IReadOnlyList";
 
     /// <summary>Builds the empty value for a set or dictionary interface, which no array satisfies.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -415,7 +419,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="types">The compilation's empty-collection lookups.</param>
     /// <returns>The replacement expression text, or <see langword="null"/> when the concrete type is not in the compilation.</returns>
     private static string? BuildEmptyKeyedInterface(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         string name,
         ImmutableArray<ITypeSymbol> arguments,
         int position,
@@ -433,7 +437,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="position">The position the type name is written at.</param>
     /// <returns>The replacement expression text, or <see langword="null"/> when the type does not exist here.</returns>
     private static string? BuildConstruction(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol? definition,
         ImmutableArray<ITypeSymbol> arguments,
         int position)
@@ -444,7 +448,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
         }
 
         var constructed = definition.Construct(arguments, default);
-        return "new " + constructed.ToMinimalDisplayString(context.SemanticModel, position) + "()";
+        return $"new {constructed.ToMinimalDisplayString(context.SemanticModel, position)}()";
     }
 
     /// <summary>Builds the empty value for a concrete collection type the member returns.</summary>
@@ -452,9 +456,9 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <param name="named">The declared type.</param>
     /// <param name="position">The position the type name is written at.</param>
     /// <returns>The replacement expression text, or <see langword="null"/> when the type cannot simply be constructed.</returns>
-    private static string? BuildEmptyConcrete(SyntaxNodeAnalysisContext context, INamedTypeSymbol named, int position)
-        => HasPublicParameterlessConstructor(named)
-            ? "new " + named.ToMinimalDisplayString(context.SemanticModel, position) + "()"
+    private static string? BuildEmptyConcrete(in SyntaxNodeAnalysisContext context, INamedTypeSymbol named, int position) =>
+        HasPublicParameterlessConstructor(named)
+            ? $"new {named.ToMinimalDisplayString(context.SemanticModel, position)}()"
             : null;
 
     /// <summary>Returns whether every type argument can be written back out as one.</summary>
@@ -476,8 +480,8 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
     /// <summary>Returns whether a type can be written as a type argument.</summary>
     /// <param name="type">The candidate type argument.</param>
     /// <returns><see langword="false"/> for pointer, function-pointer, and ref-like types.</returns>
-    private static bool CanNameAsTypeArgument(ITypeSymbol type)
-        => type.TypeKind != TypeKind.Pointer && type.TypeKind != TypeKind.FunctionPointer && !type.IsRefLikeType;
+    private static bool CanNameAsTypeArgument(ITypeSymbol type) =>
+        type.TypeKind != TypeKind.Pointer && type.TypeKind != TypeKind.FunctionPointer && !type.IsRefLikeType;
 
     /// <summary>Returns whether a type can be constructed with <c>new T()</c> from anywhere.</summary>
     /// <param name="named">The candidate type.</param>
@@ -493,7 +497,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullAnalyzer : DiagnosticAnal
         for (var i = 0; i < constructors.Length; i++)
         {
             var constructor = constructors[i];
-            if (constructor.Parameters.Length == 0 && constructor.DeclaredAccessibility == Accessibility.Public)
+            if (constructor.Parameters.IsEmpty && constructor.DeclaredAccessibility == Accessibility.Public)
             {
                 return true;
             }

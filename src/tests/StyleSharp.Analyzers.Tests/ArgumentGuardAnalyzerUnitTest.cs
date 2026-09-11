@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
@@ -356,18 +357,14 @@ public class ArgumentGuardAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80Async(string source, string fixedSource)
     {
-        var test = new VerifyGuard.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyGuard.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Creates a minimal compilation against the current runtime reference set.</summary>
     /// <returns>The compilation.</returns>
-    private static CSharpCompilation CreateCompilation()
-        => CSharpCompilation.Create("Bench", references: RuntimeMetadataReferences.Platform);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static CSharpCompilation CreateCompilation() =>
+        CSharpCompilation.Create("Bench", references: RuntimeMetadataReferences.Platform);
 }

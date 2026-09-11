@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAttributeLines = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1134AttributesOnSeparateLinesAnalyzer>;
 
@@ -12,9 +13,10 @@ public class AttributesOnSeparateLinesAnalyzerUnitTest
 {
     /// <summary>Verifies an attribute sharing a line with its element is reported (SST1134).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeSharingElementLineReportedAsync()
-        => await VerifyAttributeLines.VerifyAnalyzerAsync(
+    public Task AttributeSharingElementLineReportedAsync() =>
+        VerifyAttributeLines.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -25,9 +27,10 @@ public class AttributesOnSeparateLinesAnalyzerUnitTest
 
     /// <summary>Verifies an attribute on its own line is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeOnOwnLineIsCleanAsync()
-        => await VerifyAttributeLines.VerifyAnalyzerAsync(
+    public Task AttributeOnOwnLineIsCleanAsync() =>
+        VerifyAttributeLines.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -39,9 +42,10 @@ public class AttributesOnSeparateLinesAnalyzerUnitTest
 
     /// <summary>Verifies inline parameter attributes are not inspected.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterAttributeIsCleanAsync()
-        => await VerifyAttributeLines.VerifyAnalyzerAsync(
+    public Task ParameterAttributeIsCleanAsync() =>
+        VerifyAttributeLines.VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 

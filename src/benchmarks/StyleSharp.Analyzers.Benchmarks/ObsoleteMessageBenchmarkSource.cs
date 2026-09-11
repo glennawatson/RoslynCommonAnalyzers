@@ -11,8 +11,8 @@ internal static class ObsoleteMessageBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Diagnostics;
 
@@ -25,8 +25,8 @@ internal static class ObsoleteMessageBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose attributes all explain themselves, or are not the attribute at all.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -36,8 +36,8 @@ internal static class ObsoleteMessageBenchmarkSource
     /// which is what nearly every attribute in a real file hits), a positional message, a named message,
     /// a message plus the error flag, and a message supplied by a constant.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [DebuggerDisplay("C{{index}}")]
            public sealed class C{{index}}
            {
@@ -71,8 +71,8 @@ internal static class ObsoleteMessageBenchmarkSource
     /// <summary>Builds one type whose obsolete attributes explain nothing.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            [Obsolete]
            public sealed class V{{index}}
            {

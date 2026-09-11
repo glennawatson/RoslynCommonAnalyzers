@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeTempFile = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class InsecureTempFileAnalyzerUnitTest
 {
     /// <summary>Verifies a member-access <c>Path.GetTempFileName()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessCallReportedAsync()
-        => await VerifyNet90Async(
+    public Task MemberAccessCallReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -28,9 +30,10 @@ public class InsecureTempFileAnalyzerUnitTest
 
     /// <summary>Verifies a fully-qualified <c>System.IO.Path.GetTempFileName()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedCallReportedAsync()
-        => await VerifyNet90Async(
+    public Task FullyQualifiedCallReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -40,9 +43,10 @@ public class InsecureTempFileAnalyzerUnitTest
 
     /// <summary>Verifies a <c>using static</c> bare <c>GetTempFileName()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticCallReportedAsync()
-        => await VerifyNet90Async(
+    public Task UsingStaticCallReportedAsync() =>
+        VerifyNet90Async(
             """
             using static System.IO.Path;
 
@@ -66,20 +70,17 @@ public class InsecureTempFileAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeTempFile.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeTempFile.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a same-named method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnOtherTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SameNamedMethodOnOtherTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public static class MyIo
             {
@@ -94,9 +95,10 @@ public class InsecureTempFileAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated <c>Path</c> method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherPathMethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task OtherPathMethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -110,9 +112,10 @@ public class InsecureTempFileAnalyzerUnitTest
 
     /// <summary>Verifies an instance method named <c>GetTempFileName</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceMethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InstanceMethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class Helper
             {
@@ -130,11 +133,7 @@ public class InsecureTempFileAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeTempFile.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeTempFile.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

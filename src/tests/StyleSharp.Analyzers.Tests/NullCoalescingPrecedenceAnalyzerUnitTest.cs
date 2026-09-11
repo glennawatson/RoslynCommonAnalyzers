@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCoalesce = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1418NullCoalescingPrecedenceAnalyzer,
     StyleSharp.Analyzers.PrecedenceCodeFixProvider>;
@@ -57,9 +58,10 @@ public class NullCoalescingPrecedenceAnalyzerUnitTest
 
     /// <summary>Verifies parenthesized operands and chained '??' are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedAndChainedAreCleanAsync()
-        => await VerifyCoalesce.VerifyAnalyzerAsync(
+    public Task ParenthesizedAndChainedAreCleanAsync() =>
+        VerifyCoalesce.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -70,15 +72,16 @@ public class NullCoalescingPrecedenceAnalyzerUnitTest
             """);
 
     /// <summary>Verifies the 'as' operand of a '??' is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// Roslyn models <c>x as T</c> as a binary expression, but <c>x as T ?? fallback</c> is the idiom
     /// <c>as</c> exists for: the <c>as</c> is the only thing the <c>??</c> could bind to, so there is no
     /// reading a parenthesis would settle, and the bracketed form is the harder one to read.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsOperandOfCoalesceIsCleanAsync()
-        => await VerifyCoalesce.VerifyAnalyzerAsync(
+    public Task AsOperandOfCoalesceIsCleanAsync() =>
+        VerifyCoalesce.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyHoist = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2263HoistLoopConditionAnalyzer,
     StyleSharp.Analyzers.Sst2263HoistLoopConditionCodeFixProvider>;
@@ -175,9 +176,10 @@ public class HoistLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies an infinite loop whose guarded body is empty is left to the rules that own that shape.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyGuardedBodyIsCleanAsync()
-        => await VerifyHoist.VerifyAnalyzerAsync(
+    public Task EmptyGuardedBodyIsCleanAsync() =>
+        VerifyHoist.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -199,9 +201,10 @@ public class HoistLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies an infinite loop that is not a condition-hoist shape is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainInfiniteLoopIsCleanAsync()
-        => await VerifyHoist.VerifyAnalyzerAsync(
+    public Task PlainInfiniteLoopIsCleanAsync() =>
+        VerifyHoist.VerifyAnalyzerAsync(
             """
             internal class C
             {

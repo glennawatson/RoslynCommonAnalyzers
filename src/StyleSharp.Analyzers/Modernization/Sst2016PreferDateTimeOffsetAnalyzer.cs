@@ -70,7 +70,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the type of an externally visible field.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void AnalyzeField(SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         var type = field.Declaration.Type;
@@ -97,7 +97,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the type of an externally visible property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void AnalyzeProperty(SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
+    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
     {
         var property = (PropertyDeclarationSyntax)context.Node;
         if (!IsSpelledDateTime(property.Type) || property.ExplicitInterfaceSpecifier is not null)
@@ -117,7 +117,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the return type of an externally visible method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!IsSpelledDateTime(method.ReturnType) || method.ExplicitInterfaceSpecifier is not null)
@@ -137,7 +137,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the return type of an externally visible delegate.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void AnalyzeDelegate(SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
+    private static void AnalyzeDelegate(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
     {
         var declaration = (DelegateDeclarationSyntax)context.Node;
         if (!IsSpelledDateTime(declaration.ReturnType))
@@ -157,7 +157,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the type of a parameter on an externally visible member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void AnalyzeParameter(SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
+    private static void AnalyzeParameter(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dateTime)
     {
         var parameter = (ParameterSyntax)context.Node;
         if (parameter.Type is not { } type || !IsSpelledDateTime(type) || !IsOnAMemberSignature(parameter))
@@ -214,8 +214,8 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// would ask for a change the member cannot make on its own; the declaration that chose the type is the one
     /// reported, if it is in this compilation at all.
     /// </remarks>
-    private static bool CanChooseItsOwnType(ISymbol symbol)
-        => !symbol.IsOverride
+    private static bool CanChooseItsOwnType(ISymbol symbol) =>
+        !symbol.IsOverride
         && SymbolVisibility.IsExternallyVisible(symbol)
         && !InterfaceImplementationLookup.ImplementsInterfaceMember(symbol);
 
@@ -224,7 +224,7 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The type syntax to report.</param>
     /// <param name="name">The name of the member or parameter the type belongs to.</param>
     /// <param name="dateTime">The resolved <c>System.DateTime</c> symbol.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, TypeSyntax type, string name, INamedTypeSymbol dateTime)
+    private static void Report(in SyntaxNodeAnalysisContext context, TypeSyntax type, string name, INamedTypeSymbol dateTime)
     {
         if (!BindsToDateTime(context.SemanticModel, type, dateTime, context.CancellationToken))
         {

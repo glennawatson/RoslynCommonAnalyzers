@@ -17,8 +17,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.MissingNonGenericContract.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.MissingNonGenericContract.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
@@ -127,8 +127,7 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
         Sst2333NonGenericContractAnalyzer.ComparerContract => (
             "global::System.Collections.IComparer",
             [
-                "int global::System.Collections.IComparer.Compare(object x, object y) => "
-                + $"((global::System.Collections.Generic.IComparer<{argument}>)this).Compare(({argument})x, ({argument})y);",
+                $"int global::System.Collections.IComparer.Compare(object x, object y) => {$"((global::System.Collections.Generic.IComparer<{argument}>)this).Compare(({argument})x, ({argument})y);"}",
             ]),
         Sst2333NonGenericContractAnalyzer.EqualityComparerContract => (
             "global::System.Collections.IEqualityComparer",

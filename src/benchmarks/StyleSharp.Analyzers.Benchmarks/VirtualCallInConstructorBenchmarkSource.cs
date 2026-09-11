@@ -11,8 +11,8 @@ internal static class VirtualCallInConstructorBenchmarkSource
     /// <param name="types">The number of synthetic type pairs to emit.</param>
     /// <param name="violating">Whether to emit virtual-call-in-constructor rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class VirtualCallInConstructorBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating pair.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one pair whose constructors can never reach a derived override.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class VirtualCallInConstructorBenchmarkSource
     /// object initializer naming another type's virtual property, and a lambda that runs after construction.
     /// The open type is the one that matters — it is the shape that forces the walk and the binds.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class CleanBase{{index}}
            {
                public virtual int Width { get; set; }
@@ -92,8 +92,8 @@ internal static class VirtualCallInConstructorBenchmarkSource
     /// <summary>Builds one pair whose derived constructor makes four overridable calls.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class DirtyBase{{index}}
            {
                public virtual int Width { get; set; }

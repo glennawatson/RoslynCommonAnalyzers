@@ -11,8 +11,8 @@ internal static class TransposedTemplateArgumentsBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            {{LoggerBenchmarkShim.Shim}}
 
            namespace Bench
@@ -26,8 +26,8 @@ internal static class TransposedTemplateArgumentsBenchmarkSource
     /// <summary>Builds one type whose values follow the placeholders' order.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void M(ILogger logger, int first, int second)
@@ -38,8 +38,8 @@ internal static class TransposedTemplateArgumentsBenchmarkSource
     /// <summary>Builds one type whose two values are transposed.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void M(ILogger logger, int first, int second)

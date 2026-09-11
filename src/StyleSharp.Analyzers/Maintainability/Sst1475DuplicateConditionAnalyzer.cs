@@ -100,7 +100,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="earlier">The first <c>if</c> statement.</param>
     /// <param name="later">The <c>if</c> statement immediately after it.</param>
-    private static void ReportRepeatedSequentialCondition(SyntaxNodeAnalysisContext context, IfStatementSyntax earlier, IfStatementSyntax later)
+    private static void ReportRepeatedSequentialCondition(in SyntaxNodeAnalysisContext context, IfStatementSyntax earlier, IfStatementSyntax later)
     {
         var condition = later.Condition;
         if (!SyntaxFactory.AreEquivalent(earlier.Condition, condition, topLevel: false)
@@ -125,7 +125,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// allowed only to a plain, non-<c>ref</c> local or parameter whose name the condition never mentions —
     /// which can change no field, no property and no other variable, and so cannot change the answer.
     /// </remarks>
-    private static bool CanChangeCondition(SyntaxNodeAnalysisContext context, IfStatementSyntax earlier, ExpressionSyntax condition)
+    private static bool CanChangeCondition(in SyntaxNodeAnalysisContext context, IfStatementSyntax earlier, ExpressionSyntax condition)
     {
         var scan = new ConditionScan(context.SemanticModel, CollectReadNames(condition), context.CancellationToken);
         VisitForHazards(earlier.Statement, ref scan);
@@ -149,7 +149,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, ConditionScan>(branch, ref scan, MatchHazard);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, ConditionScan>(branch, ref scan, MatchHazard);
     }
 
     /// <summary>Records the first node in a branch that could change the condition, and stops the walk.</summary>
@@ -196,10 +196,10 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
         var names = new HashSet<string>(StringComparer.Ordinal);
         if (condition is IdentifierNameSyntax root)
         {
-            names.Add(root.Identifier.ValueText);
+            _ = names.Add(root.Identifier.ValueText);
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(condition, ref names, CollectName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(condition, ref names, CollectName);
         return names;
     }
 
@@ -209,7 +209,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <returns>Always <see langword="true"/>, so the whole condition is walked.</returns>
     private static bool CollectName(IdentifierNameSyntax name, ref HashSet<string> names)
     {
-        names.Add(name.Identifier.ValueText);
+        _ = names.Add(name.Identifier.ValueText);
         return true;
     }
 
@@ -245,10 +245,10 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// The scan runs forward from the head so the <em>earliest</em> duplicate is the one named in the message —
     /// that is the branch the author meant to keep.
     /// </remarks>
-    private static void ReportRepeatedCondition(SyntaxNodeAnalysisContext context, IfStatementSyntax head, IfStatementSyntax later)
+    private static void ReportRepeatedCondition(in SyntaxNodeAnalysisContext context, IfStatementSyntax head, IfStatementSyntax later)
     {
         var condition = later.Condition;
-        IfStatementSyntax? earlier = head;
+        var earlier = head;
         while (earlier is not null && !ReferenceEquals(earlier, later))
         {
             if (SyntaxFactory.AreEquivalent(earlier.Condition, condition, topLevel: false))
@@ -395,7 +395,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="laterIndex">The index of the arm being checked.</param>
     /// <param name="later">The arm being checked.</param>
     private static void ReportRepeatedArm(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SeparatedSyntaxList<SwitchExpressionArmSyntax> arms,
         int laterIndex,
         SwitchExpressionArmSyntax later)
@@ -422,8 +422,8 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="later">The later arm.</param>
     /// <returns><see langword="true"/> when the patterns and the guards both match.</returns>
     /// <remarks>Only the selector is compared. Two arms that select the same case but produce different values are still a bug — the second one cannot run.</remarks>
-    private static bool IsSameCase(SwitchExpressionArmSyntax earlier, SwitchExpressionArmSyntax later)
-        => SyntaxFactory.AreEquivalent(earlier.Pattern, later.Pattern, topLevel: false)
+    private static bool IsSameCase(SwitchExpressionArmSyntax earlier, SwitchExpressionArmSyntax later) =>
+        SyntaxFactory.AreEquivalent(earlier.Pattern, later.Pattern, topLevel: false)
             && SyntaxFactory.AreEquivalent(earlier.WhenClause, later.WhenClause, topLevel: false);
 
     /// <summary>Gets the location covering an arm's selector, excluding the value it produces.</summary>
@@ -440,7 +440,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="location">The location of the repeated condition.</param>
     /// <param name="earlier">The condition it repeats.</param>
     /// <param name="consequence">What the repetition means here: dead code, or two tests that both run.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, Location location, SyntaxNode earlier, string consequence)
+    private static void Report(in SyntaxNodeAnalysisContext context, Location location, SyntaxNode earlier, string consequence)
     {
         var line = earlier.GetLocation().GetLineSpan().StartLinePosition.Line + 1;
         context.ReportDiagnostic(DiagnosticHelper.Create(
@@ -466,7 +466,7 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
         }
 
         var free = true;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(node, ref free, MatchSideEffect);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(node, ref free, MatchSideEffect);
         return free;
     }
 
@@ -488,8 +488,8 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether one node can change state or answer differently on a second evaluation.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for a call, an allocation, an await, an assignment or an increment.</returns>
-    private static bool HasSideEffect(SyntaxNode node)
-        => IsUnrestrictedSideEffect(node) || node is AssignmentExpressionSyntax || IsIncrementOrDecrement(node);
+    private static bool HasSideEffect(SyntaxNode node) =>
+        IsUnrestrictedSideEffect(node) || node is AssignmentExpressionSyntax || IsIncrementOrDecrement(node);
 
     /// <summary>Returns whether one node can change state the rule cannot put a bound on.</summary>
     /// <param name="node">The node to classify.</param>
@@ -502,12 +502,12 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsUnrestrictedSideEffect(SyntaxNode node) => node switch
     {
-        InvocationExpressionSyntax => true,
-        BaseObjectCreationExpressionSyntax => true,
-        ArrayCreationExpressionSyntax => true,
-        ImplicitArrayCreationExpressionSyntax => true,
-        AnonymousObjectCreationExpressionSyntax => true,
-        AwaitExpressionSyntax => true,
+        InvocationExpressionSyntax
+            or BaseObjectCreationExpressionSyntax
+            or ArrayCreationExpressionSyntax
+            or ImplicitArrayCreationExpressionSyntax
+            or AnonymousObjectCreationExpressionSyntax
+            or AwaitExpressionSyntax => true,
         _ => false,
     };
 
@@ -522,27 +522,19 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
         or (int)SyntaxKind.PostDecrementExpression;
 
     /// <summary>The state threaded through the scan of the first <c>if</c>'s branches.</summary>
-    private sealed class ConditionScan
+    /// <param name="model">The semantic model.</param>
+    /// <param name="readNames">The identifiers the repeated condition reads.</param>
+    /// <param name="cancellationToken">A token that cancels the binding the scan does.</param>
+    private sealed class ConditionScan(SemanticModel model, HashSet<string> readNames, CancellationToken cancellationToken)
     {
         /// <summary>The semantic model, used to tell a local apart from a field.</summary>
-        private readonly SemanticModel _model;
+        private readonly SemanticModel _model = model;
 
         /// <summary>The identifiers the repeated condition reads.</summary>
-        private readonly HashSet<string> _readNames;
+        private readonly HashSet<string> _readNames = readNames;
 
         /// <summary>A token that cancels the binding the scan does.</summary>
-        private readonly CancellationToken _cancellationToken;
-
-        /// <summary>Initializes a new instance of the <see cref="ConditionScan"/> class.</summary>
-        /// <param name="model">The semantic model.</param>
-        /// <param name="readNames">The identifiers the repeated condition reads.</param>
-        /// <param name="cancellationToken">A token that cancels the binding the scan does.</param>
-        public ConditionScan(SemanticModel model, HashSet<string> readNames, CancellationToken cancellationToken)
-        {
-            _model = model;
-            _readNames = readNames;
-            _cancellationToken = cancellationToken;
-        }
+        private readonly CancellationToken _cancellationToken = cancellationToken;
 
         /// <summary>Gets or sets a value indicating whether the branch can change the condition's value.</summary>
         public bool Hazard { get; set; }
@@ -557,8 +549,8 @@ public sealed class Sst1475DuplicateConditionAnalyzer : DiagnosticAnalyzer
         /// a <c>ref</c> local can be an alias for the very field the condition reads, and writing through it
         /// would change the answer while naming something else entirely.
         /// </remarks>
-        public bool IsHarmlessWrite(ExpressionSyntax target)
-            => target is IdentifierNameSyntax identifier
+        public bool IsHarmlessWrite(ExpressionSyntax target) =>
+            target is IdentifierNameSyntax identifier
                 && !_readNames.Contains(identifier.Identifier.ValueText)
                 && _model.GetSymbolInfo(identifier, _cancellationToken).Symbol is ILocalSymbol { RefKind: RefKind.None }
                     or IParameterSymbol { RefKind: RefKind.None };

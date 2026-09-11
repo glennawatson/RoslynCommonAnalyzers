@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -43,6 +45,7 @@ internal static partial class SecurityRules
     /// <param name="category">The rule category (one of the group constants on this class).</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string category, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, category, description);
 
@@ -53,6 +56,7 @@ internal static partial class SecurityRules
     /// <param name="category">The rule category (one of the group constants on this class).</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string category, string description) =>
         DescriptorFactory.CreateOptIn(id, title, messageFormat, category, description);
 }

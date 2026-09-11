@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -42,8 +44,8 @@ public sealed class Sst2267InfiniteLoopStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a <c>for</c> statement is the canonical <c>for (;;)</c> infinite loop.</summary>
     /// <param name="statement">The loop to inspect.</param>
     /// <returns><see langword="true"/> when the loop has no clauses at all.</returns>
-    internal static bool IsForeverFor(ForStatementSyntax statement)
-        => statement.Condition is null
+    internal static bool IsForeverFor(ForStatementSyntax statement) =>
+        statement.Condition is null
             && statement.Declaration is null
             && statement.Initializers.Count == 0
             && statement.Incrementors.Count == 0;
@@ -51,8 +53,9 @@ public sealed class Sst2267InfiniteLoopStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a <c>while</c> statement is the canonical <c>while (true)</c> infinite loop.</summary>
     /// <param name="statement">The loop to inspect.</param>
     /// <returns><see langword="true"/> when the condition is the literal <c>true</c>.</returns>
-    internal static bool IsForeverWhile(WhileStatementSyntax statement)
-        => statement.Condition.IsKind(SyntaxKind.TrueLiteralExpression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsForeverWhile(WhileStatementSyntax statement) =>
+        statement.Condition.IsKind(SyntaxKind.TrueLiteralExpression);
 
     /// <summary>Reports a <c>for (;;)</c> loop when the codebase prefers <c>while (true)</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>

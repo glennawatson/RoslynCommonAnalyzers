@@ -76,7 +76,7 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="wholeAssemblyDownloads">Whether the compilation is a WebAssembly host whose whole assembly downloads to the browser.</param>
     /// <param name="renderModeAttribute">The base render-mode attribute type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeStringLiteral(SyntaxNodeAnalysisContext context, bool wholeAssemblyDownloads, INamedTypeSymbol? renderModeAttribute)
+    private static void AnalyzeStringLiteral(in SyntaxNodeAnalysisContext context, bool wholeAssemblyDownloads, INamedTypeSymbol? renderModeAttribute)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
@@ -104,7 +104,7 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
     /// <returns><see langword="true"/> when the literal is reachable from the browser.</returns>
     private static bool IsWebAssemblyReachable(
         SyntaxNode literal,
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         bool wholeAssemblyDownloads,
         INamedTypeSymbol? renderModeAttribute)
     {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -39,8 +41,8 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.NonFlagsEnumBitwise);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -108,8 +110,9 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
     /// <param name="operation">The reported operation.</param>
     /// <param name="enumType">The non-flags enum an operand belongs to.</param>
     /// <param name="operatorText">The operator's source text.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxNode operation, INamedTypeSymbol enumType, string operatorText)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxNode operation, INamedTypeSymbol enumType, string operatorText) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.NonFlagsEnumBitwise,
             operation.SyntaxTree,
             operation.Span,
@@ -128,7 +131,7 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
     /// operator pairs an enum with anything but itself, the sole exception being the literal
     /// <c>0</c>, which the shape check already routed past the bind.
     /// </remarks>
-    private static INamedTypeSymbol? ResolveNonFlagsEnumOperand(SyntaxNodeAnalysisContext context, ExpressionSyntax left, ExpressionSyntax right)
+    private static INamedTypeSymbol? ResolveNonFlagsEnumOperand(in SyntaxNodeAnalysisContext context, ExpressionSyntax left, ExpressionSyntax right)
     {
         if (!IsNumericByShape(left))
         {
@@ -144,20 +147,15 @@ public sealed class Sst2458NonFlagsEnumBitwiseAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        if (IsNumericByShape(right))
-        {
-            return null;
-        }
-
-        return ResolveNonFlagsEnum(context, right);
+        return IsNumericByShape(right) ? null : ResolveNonFlagsEnum(context, right);
     }
 
     /// <summary>Binds one expression and returns its type when that is a non-flags enum.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The expression to bind.</param>
     /// <returns>The non-flags enum type, or <see langword="null"/> for every other type.</returns>
-    private static INamedTypeSymbol? ResolveNonFlagsEnum(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
-        => GetEnumType(context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type) is { } enumType
+    private static INamedTypeSymbol? ResolveNonFlagsEnum(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        GetEnumType(context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type) is { } enumType
             && !HasFlagsAttribute(enumType)
             ? enumType
             : null;

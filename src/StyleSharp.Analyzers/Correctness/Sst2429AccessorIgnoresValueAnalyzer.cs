@@ -25,8 +25,8 @@ public sealed class Sst2429AccessorIgnoresValueAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.AccessorIgnoresValue);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -62,7 +62,7 @@ public sealed class Sst2429AccessorIgnoresValueAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = default(BodyScan);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, VisitToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, VisitToken);
         if (scan.ReadsValue || scan.Throws)
         {
             return;

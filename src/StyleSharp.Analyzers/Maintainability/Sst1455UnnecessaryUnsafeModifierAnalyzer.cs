@@ -55,15 +55,17 @@ public sealed class Sst1455UnnecessaryUnsafeModifierAnalyzer : DiagnosticAnalyze
     /// <param name="modifiers">The modifiers.</param>
     /// <param name="unsafeModifier">The unsafe modifier token.</param>
     /// <returns><see langword="true"/> when an unsafe modifier exists.</returns>
-    private static bool TryGetUnsafeModifier(SyntaxTokenList modifiers, out SyntaxToken unsafeModifier)
+    private static bool TryGetUnsafeModifier(in SyntaxTokenList modifiers, out SyntaxToken unsafeModifier)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
-            if (modifiers[i].IsKind(SyntaxKind.UnsafeKeyword))
+            if (!modifiers[i].IsKind(SyntaxKind.UnsafeKeyword))
             {
-                unsafeModifier = modifiers[i];
-                return true;
+                continue;
             }
+
+            unsafeModifier = modifiers[i];
+            return true;
         }
 
         unsafeModifier = default;
@@ -89,8 +91,8 @@ public sealed class Sst1455UnnecessaryUnsafeModifierAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a node is an unsafe-only syntax form.</summary>
     /// <param name="node">The syntax node.</param>
     /// <returns><see langword="true"/> for pointer and unsafe statement forms.</returns>
-    private static bool RequiresUnsafeContext(SyntaxNode node)
-        => node.Kind() is SyntaxKind.PointerType
+    private static bool RequiresUnsafeContext(SyntaxNode node) =>
+        node.Kind() is SyntaxKind.PointerType
             or SyntaxKind.FunctionPointerType
             or SyntaxKind.FixedStatement
             or SyntaxKind.SizeOfExpression

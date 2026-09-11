@@ -65,7 +65,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST2704 for each verb-less public action on an <c>[ApiController]</c> type.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="markers">The resolved MVC marker types the rule gates on.</param>
-    private static void AnalyzeType(SymbolAnalysisContext context, MvcMarkers markers)
+    private static void AnalyzeType(in SymbolAnalysisContext context, in MvcMarkers markers)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class
@@ -91,26 +91,26 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The candidate method.</param>
     /// <param name="markers">The resolved MVC marker types.</param>
     /// <returns><see langword="true"/> when the method answers every verb and should declare one.</returns>
-    private static bool IsVerblessAction(IMethodSymbol method, MvcMarkers markers)
-        => IsActionCandidate(method) && !DeclaresVerbOrOptsOut(method, markers);
+    private static bool IsVerblessAction(IMethodSymbol method, in MvcMarkers markers) =>
+        IsActionCandidate(method) && !DeclaresVerbOrOptsOut(method, markers);
 
     /// <summary>Returns whether a method has the shape of a routable action (before attributes are considered).</summary>
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for a public, non-static, non-generic, ordinary method that is not an <c>object</c> override.</returns>
-    private static bool IsActionCandidate(IMethodSymbol method)
-        => method.DeclaredAccessibility == Accessibility.Public
+    private static bool IsActionCandidate(IMethodSymbol method) =>
+        method.DeclaredAccessibility == Accessibility.Public
             && !method.IsStatic
             && !method.IsAbstract
             && !method.IsGenericMethod
             && method.MethodKind == MethodKind.Ordinary
-            && method.Locations.Length > 0
+            && !method.Locations.IsEmpty
             && !OverridesObjectMethod(method);
 
     /// <summary>Returns whether a method already declares its HTTP verbs or opts out of action discovery.</summary>
     /// <param name="method">The candidate method.</param>
     /// <param name="markers">The resolved MVC marker types.</param>
     /// <returns><see langword="true"/> when a verb attribute or <c>[NonAction]</c> is present.</returns>
-    private static bool DeclaresVerbOrOptsOut(IMethodSymbol method, MvcMarkers markers)
+    private static bool DeclaresVerbOrOptsOut(IMethodSymbol method, in MvcMarkers markers)
     {
         foreach (var attribute in method.GetAttributes())
         {
@@ -133,7 +133,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <param name="attributeClass">The applied attribute's type.</param>
     /// <param name="markers">The resolved MVC marker types.</param>
     /// <returns><see langword="true"/> when the attribute derives from the verb base or implements the verb-provider interface.</returns>
-    private static bool SuppliesHttpVerb(INamedTypeSymbol attributeClass, MvcMarkers markers)
+    private static bool SuppliesHttpVerb(INamedTypeSymbol attributeClass, in MvcMarkers markers)
     {
         if (IsOrDerivesFrom(attributeClass, markers.HttpMethodAttribute))
         {

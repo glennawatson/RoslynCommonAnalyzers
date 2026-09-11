@@ -191,12 +191,12 @@ public class UseConcreteTypeAnalyzerUnitTest
     }
 
     /// <summary>Verifies a sentinel — only ever compared, never called through — is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The concrete type earns its keep by turning a virtual call direct. A sentinel carries no call
     /// at all: it is swapped in and compared by reference, so naming its concrete type would speed up
     /// nothing and only churn the declaration.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task SentinelThatIsOnlyComparedIsNotReportedAsync()
     {
@@ -287,12 +287,7 @@ public class UseConcreteTypeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyConcrete.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyConcrete.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

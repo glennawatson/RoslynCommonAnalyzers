@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLiteralOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.LiteralOnRightOfComparisonCodeFixProvider>;
@@ -61,9 +62,10 @@ public class LiteralOnRightOfComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an already-right literal, a null comparison, and a two-variable comparison are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionalComparisonsAreCleanAsync()
-        => await VerifyLiteralOrder.VerifyAnalyzerAsync(
+    public Task ConventionalComparisonsAreCleanAsync() =>
+        VerifyLiteralOrder.VerifyAnalyzerAsync(
             """
             public class C
             {

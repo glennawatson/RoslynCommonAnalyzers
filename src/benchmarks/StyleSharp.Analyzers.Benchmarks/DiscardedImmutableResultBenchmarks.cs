@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for discarded-immutable-result analysis (SST2418).</summary>
+[System.Diagnostics.DebuggerDisplay("DiscardedImmutableResultBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DiscardedImmutableResultBenchmarks
@@ -24,11 +26,13 @@ public class DiscardedImmutableResultBenchmarks
 
     /// <summary>Benchmarks the clean discarded-immutable-result path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DiscardedImmutableResult_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating discarded-immutable-result path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DiscardedImmutableResult_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

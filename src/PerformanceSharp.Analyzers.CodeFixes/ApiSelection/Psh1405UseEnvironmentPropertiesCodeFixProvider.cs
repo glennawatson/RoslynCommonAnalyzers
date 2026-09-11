@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -70,8 +72,8 @@ public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProv
     /// <param name="root">The syntax root.</param>
     /// <param name="access">The reported chain to rewrite.</param>
     /// <returns>The updated document, unchanged when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, MemberAccessExpressionSyntax access)
-        => Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName)
+    internal static Document Apply(Document document, SyntaxNode root, MemberAccessExpressionSyntax access) =>
+        Psh1405UseEnvironmentPropertiesAnalyzer.TryGetReplacementPropertyName(access, out var propertyName)
             ? document.WithSyntaxRoot(root.ReplaceNode(access, CreateReplacement(propertyName).WithTriviaFrom(access)))
             : document;
 
@@ -79,14 +81,15 @@ public sealed class Psh1405UseEnvironmentPropertiesCodeFixProvider : CodeFixProv
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The reported chain, or <see langword="null"/> when the location is not a member access.</returns>
-    private static MemberAccessExpressionSyntax? TryGetChain(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) as MemberAccessExpressionSyntax;
+    private static MemberAccessExpressionSyntax? TryGetChain(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) as MemberAccessExpressionSyntax;
 
     /// <summary>Builds the fully qualified <c>System.Environment</c> property replacement.</summary>
     /// <param name="propertyName">The Environment property name.</param>
     /// <returns>The replacement expression.</returns>
-    private static MemberAccessExpressionSyntax CreateReplacement(string propertyName)
-        => SyntaxFactory.MemberAccessExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MemberAccessExpressionSyntax CreateReplacement(string propertyName) =>
+        SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,

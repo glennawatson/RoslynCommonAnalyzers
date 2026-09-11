@@ -31,7 +31,7 @@ internal readonly record struct ExceptionConstructorOptions(
     /// constructors are asked for. An unset or unparsable value yields that default, so a typo cannot
     /// quietly narrow the rule to nothing.
     /// </remarks>
-    public static ExceptionConstructorOptions Read(AnalyzerConfigOptions options) => new(
+    internal static ExceptionConstructorOptions Read(AnalyzerConfigOptions options) => new(
         ReadBool(options, RequireParameterlessRuleKey, RequireParameterlessGeneralKey, fallback: true),
         ReadBool(options, IncludeNonPublicTypesRuleKey, IncludeNonPublicTypesGeneralKey, fallback: true));
 

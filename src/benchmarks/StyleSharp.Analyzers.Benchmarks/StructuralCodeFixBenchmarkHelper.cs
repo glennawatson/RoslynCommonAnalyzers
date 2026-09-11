@@ -19,7 +19,7 @@ internal static class StructuralCodeFixBenchmarkHelper
     /// <param name="sourceFactory">Builds the synthetic source text.</param>
     /// <param name="nodeSelector">Selects the representative target node from the parsed root.</param>
     /// <returns>The prepared benchmark context.</returns>
-    public static async Task<StructuralCodeFixBenchmarkContext<TNode>> CreateAsync<TNode>(
+    internal static async Task<StructuralCodeFixBenchmarkContext<TNode>> CreateAsync<TNode>(
         int nodes,
         Func<int, string> sourceFactory,
         Func<CompilationUnitSyntax, int, TNode> nodeSelector)
@@ -28,6 +28,6 @@ internal static class StructuralCodeFixBenchmarkHelper
         var workspace = new AdhocWorkspace();
         var document = CodeFixBenchmarkDocumentFactory.CreateDocument(workspace, sourceFactory(nodes));
         var root = (CompilationUnitSyntax)(await document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        return new StructuralCodeFixBenchmarkContext<TNode>(workspace, document, root, nodeSelector(root, nodes / MiddleNodeDivisor));
+        return new(workspace, document, root, nodeSelector(root, nodes / MiddleNodeDivisor));
     }
 }

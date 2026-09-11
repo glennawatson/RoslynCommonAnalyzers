@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -49,13 +51,13 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     private enum CountBound
     {
         /// <summary>Not a bound a count can never fail.</summary>
-        None,
+        None = 0,
 
         /// <summary>The literal zero, which a count meets or exceeds.</summary>
-        Zero,
+        Zero = 1,
 
         /// <summary>A negative literal, which a count always exceeds.</summary>
-        Negative,
+        Negative = 2,
     }
 
     /// <inheritdoc/>
@@ -77,8 +79,9 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// The fold depends only on the operator and the sign of the literal, both of which are syntax, so the
     /// fix can confirm the reported shape without a semantic model.
     /// </remarks>
-    internal static bool TryGetConstantResult(BinaryExpressionSyntax binary, out bool result)
-        => TryFoldComparison(binary, out result, out _);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryGetConstantResult(BinaryExpressionSyntax binary, out bool result) =>
+        TryFoldComparison(binary, out result, out _);
 
     /// <summary>Sets up the per-compilation state, then analyzes every comparison.</summary>
     /// <param name="context">The compilation start context.</param>
@@ -106,7 +109,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <summary>Reports one comparison whose answer the framework already decided.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="countTypes">The well-known count-member types.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, Lazy<CountMemberTypes> countTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<CountMemberTypes> countTypes)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryFoldComparison(binary, out var result, out var counted)
@@ -135,8 +138,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
         var left = ClassifyBound(binary.Left);
         var right = ClassifyBound(binary.Right);
         var leftIsBound = left != CountBound.None;
-        var rightIsBound = right != CountBound.None;
-        if (leftIsBound == rightIsBound)
+        if (leftIsBound == (right != CountBound.None))
         {
             // Neither operand is a bound, or both are (`0 >= 0`): nothing here is a count comparison.
             return false;
@@ -256,8 +258,8 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a numeric literal is written as a hexadecimal or binary bit pattern.</summary>
     /// <param name="text">The literal's source text.</param>
     /// <returns><see langword="true"/> for a <c>0x</c> or <c>0b</c> prefix.</returns>
-    private static bool IsBitPatternText(string text)
-        => text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
+    private static bool IsBitPatternText(string text) =>
+        text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
 
     /// <summary>Reads whether every digit of a plain numeric literal is a zero.</summary>
     /// <param name="text">The literal's source text, already known not to be a bit pattern.</param>
@@ -320,9 +322,9 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <returns><see langword="true"/> when the value can never be negative.</returns>
     private static bool IsNonNegativeCountMember(
         ExpressionSyntax counted,
-        SyntaxNodeAnalysisContext context,
-        Lazy<CountMemberTypes> countTypes)
-        => context.SemanticModel.GetSymbolInfo(counted, context.CancellationToken).Symbol switch
+        in SyntaxNodeAnalysisContext context,
+        Lazy<CountMemberTypes> countTypes) =>
+        context.SemanticModel.GetSymbolInfo(counted, context.CancellationToken).Symbol switch
         {
             IPropertySymbol property => IsNonNegativeProperty(property, countTypes),
             IMethodSymbol method => IsEnumerableCount(method, countTypes),
@@ -392,8 +394,8 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a type is one of the BCL collection interfaces that declare a count.</summary>
     /// <param name="type">The candidate interface.</param>
     /// <returns><see langword="true"/> for <c>ICollection&lt;T&gt;</c> and <c>IReadOnlyCollection&lt;T&gt;</c>.</returns>
-    private static bool IsCountInterface(INamedTypeSymbol type)
-        => type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_ICollection_T
+    private static bool IsCountInterface(INamedTypeSymbol type) =>
+        type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_ICollection_T
             or SpecialType.System_Collections_Generic_IReadOnlyCollection_T;
 
     /// <summary>Returns whether a method is one of the LINQ counting operators.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReadonlyLock = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LockTargetAnalyzer,
     StyleSharp.Analyzers.Sst1904ReadonlyLockFieldCodeFixProvider>;
@@ -73,13 +74,15 @@ public class Sst1904ReadonlyLockFieldCodeFixUnitTest
 
     /// <summary>Verifies the fix inserts <c>readonly</c> after the access modifier.</summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MakesAModifiedFieldReadonlyAsync()
-        => await VerifyReadonlyLock.VerifyCodeFixAsync(ModifiedFieldSource, ModifiedFieldFixed);
+    public Task MakesAModifiedFieldReadonlyAsync() =>
+        VerifyReadonlyLock.VerifyCodeFixAsync(ModifiedFieldSource, ModifiedFieldFixed);
 
     /// <summary>Verifies the fix adds <c>readonly</c> to a field that had no modifiers.</summary>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MakesANoModifierFieldReadonlyAsync()
-        => await VerifyReadonlyLock.VerifyCodeFixAsync(NoModifierFieldSource, NoModifierFieldFixed);
+    public Task MakesANoModifierFieldReadonlyAsync() =>
+        VerifyReadonlyLock.VerifyCodeFixAsync(NoModifierFieldSource, NoModifierFieldFixed);
 }

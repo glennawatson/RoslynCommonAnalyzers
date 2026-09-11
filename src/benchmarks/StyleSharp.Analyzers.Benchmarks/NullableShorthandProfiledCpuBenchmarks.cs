@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for nullable-shorthand analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("NullableShorthandProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class NullableShorthandProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class NullableShorthandProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean nullable-shorthand path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NullableShorthand_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating nullable-shorthand path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NullableShorthand_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

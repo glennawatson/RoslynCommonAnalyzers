@@ -140,7 +140,7 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
     /// Only a property sealed inside one type declaration can be settled this way: everything that could
     /// assign it is in that declaration. A property anything else can reach is not searched.
     /// </remarks>
-    private static bool IsAssignedWhereOnlyItsOwnTypeCanSee(SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, IPropertySymbol symbol)
+    private static bool IsAssignedWhereOnlyItsOwnTypeCanSee(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, IPropertySymbol symbol)
     {
         if (!IsSealedInsideOneType(symbol) || FindOutermostType(property) is not { } outermost)
         {

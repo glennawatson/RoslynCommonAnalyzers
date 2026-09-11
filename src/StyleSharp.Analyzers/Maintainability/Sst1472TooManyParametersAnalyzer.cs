@@ -72,7 +72,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// <summary>Measures one signature and reports it when it declares more parameters than allowed.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, ParameterCountOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, ParameterCountOptions> optionsByTree)
     {
         var node = context.Node;
         if (GetParameterList(node) is not { } parameterList)
@@ -119,7 +119,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static ParameterCountOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, ParameterCountOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -129,7 +129,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         }
 
         options = ParameterCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -171,7 +171,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when shortening the list here is not possible or not the fix.</returns>
     /// <remarks>The semantic interface lookup runs last, so a syntactic exemption never pays for a bind.</remarks>
-    private static bool IsSignatureFixedElsewhere(SyntaxNode node, in ParameterCountOptions options, SyntaxNodeAnalysisContext context)
+    private static bool IsSignatureFixedElsewhere(SyntaxNode node, in ParameterCountOptions options, in SyntaxNodeAnalysisContext context)
     {
         if (node is RecordDeclarationSyntax)
         {
@@ -228,8 +228,8 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the declaration is a deconstructor.</summary>
     /// <param name="node">The declaration.</param>
     /// <returns><see langword="true"/> for a <c>Deconstruct</c> method, whose parameters mirror the type's state.</returns>
-    private static bool IsDeconstructor(SyntaxNode node)
-        => node is MethodDeclarationSyntax { Identifier.ValueText: "Deconstruct" };
+    private static bool IsDeconstructor(SyntaxNode node) =>
+        node is MethodDeclarationSyntax { Identifier.ValueText: "Deconstruct" };
 
     /// <summary>Returns whether the declaration is the implementing half of a partial member.</summary>
     /// <param name="node">The declaration.</param>
@@ -239,7 +239,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// Both halves of a partial member repeat the parameter list, and reporting both says the same thing
     /// twice. The defining half has no body; the implementing half does, and stays silent.
     /// </remarks>
-    private static bool IsPartialImplementation(SyntaxNode node, SyntaxTokenList modifiers)
+    private static bool IsPartialImplementation(SyntaxNode node, in SyntaxTokenList modifiers)
     {
         if (!ModifierListHelper.Contains(modifiers, SyntaxKind.PartialKeyword))
         {
@@ -314,7 +314,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// Only a method or an indexer can implement an interface member, and only a signature already over the
     /// maximum reaches this far, so the bind and the interface walk stay off the clean path entirely.
     /// </remarks>
-    private static bool ImplementsInterfaceMember(SyntaxNode node, SyntaxNodeAnalysisContext context)
+    private static bool ImplementsInterfaceMember(SyntaxNode node, in SyntaxNodeAnalysisContext context)
     {
         if (node is not (MethodDeclarationSyntax or IndexerDeclarationSyntax))
         {

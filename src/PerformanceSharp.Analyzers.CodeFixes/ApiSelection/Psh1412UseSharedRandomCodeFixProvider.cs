@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -27,24 +29,25 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use Random.Shared",
             nameof(Psh1412UseSharedRandomCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported allocation with the shared instance.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="creation">The reported allocation.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BaseObjectCreationExpressionSyntax creation)
-        => Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
+    internal static Document Apply(Document document, SyntaxNode root, BaseObjectCreationExpressionSyntax creation) =>
+        Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
             ? document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation)))
             : document;
 
@@ -52,8 +55,8 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BaseObjectCreationExpressionSyntax creation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BaseObjectCreationExpressionSyntax creation
             && Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
             ? new NodeReplacement(creation, Rewrite(creation))
             : null;

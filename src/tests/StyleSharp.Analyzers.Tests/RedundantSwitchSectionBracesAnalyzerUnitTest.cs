@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantSwitchSectionBraces = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1534RedundantSwitchSectionBracesAnalyzer,
     StyleSharp.Analyzers.Sst1534RedundantSwitchSectionBracesCodeFixProvider>;
@@ -84,9 +85,10 @@ public class RedundantSwitchSectionBracesAnalyzerUnitTest
 
     /// <summary>Verifies braces scoping a local are kept; a sibling section could declare the same name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BracesScopingALocalAreCleanAsync()
-        => await VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
+    public Task BracesScopingALocalAreCleanAsync() =>
+        VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -112,9 +114,10 @@ public class RedundantSwitchSectionBracesAnalyzerUnitTest
 
     /// <summary>Verifies braces scoping a pattern variable are kept.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BracesScopingAPatternVariableAreCleanAsync()
-        => await VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
+    public Task BracesScopingAPatternVariableAreCleanAsync() =>
+        VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -141,9 +144,10 @@ public class RedundantSwitchSectionBracesAnalyzerUnitTest
 
     /// <summary>Verifies braces scoping a local function are kept.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BracesScopingALocalFunctionAreCleanAsync()
-        => await VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
+    public Task BracesScopingALocalFunctionAreCleanAsync() =>
+        VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -167,9 +171,10 @@ public class RedundantSwitchSectionBracesAnalyzerUnitTest
 
     /// <summary>Verifies a section with no braces is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnbracedSectionIsCleanAsync()
-        => await VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
+    public Task UnbracedSectionIsCleanAsync() =>
+        VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -189,9 +194,10 @@ public class RedundantSwitchSectionBracesAnalyzerUnitTest
 
     /// <summary>Verifies an empty braced section is left alone; there is nothing to lift.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyBracedSectionIsCleanAsync()
-        => await VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
+    public Task EmptyBracedSectionIsCleanAsync() =>
+        VerifyRedundantSwitchSectionBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyRoute = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -119,27 +120,31 @@ public class RouteTemplateBackslashAnalyzerUnitTest
 
     /// <summary>Verifies a backslash in a verbatim <c>[HttpGet]</c> template is reported and rewritten to a forward slash.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HttpGetVerbatimBackslashFixedAsync()
-        => await VerifyFixAsync(HttpGetVerbatimBackslashSource, HttpGetVerbatimBackslashFixed);
+    public Task HttpGetVerbatimBackslashFixedAsync() =>
+        VerifyFixAsync(HttpGetVerbatimBackslashSource, HttpGetVerbatimBackslashFixed);
 
     /// <summary>Verifies an escaped backslash in a <c>[Route]</c> template is reported and rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RouteEscapedBackslashFixedAsync()
-        => await VerifyFixAsync(RouteEscapedBackslashSource, RouteEscapedBackslashFixed);
+    public Task RouteEscapedBackslashFixedAsync() =>
+        VerifyFixAsync(RouteEscapedBackslashSource, RouteEscapedBackslashFixed);
 
     /// <summary>Verifies the template passed as a named argument is still reported and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedTemplateArgumentFixedAsync()
-        => await VerifyFixAsync(NamedTemplateArgumentSource, NamedTemplateArgumentFixed);
+    public Task NamedTemplateArgumentFixedAsync() =>
+        VerifyFixAsync(NamedTemplateArgumentSource, NamedTemplateArgumentFixed);
 
     /// <summary>Verifies a backslash in the route <c>Name</c> property (not the template) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BackslashInRouteNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task BackslashInRouteNameIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -152,9 +157,10 @@ public class RouteTemplateBackslashAnalyzerUnitTest
 
     /// <summary>Verifies a route template that already uses forward slashes is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardSlashTemplateIsCleanAsync()
-        => await VerifyAsync(
+    public Task ForwardSlashTemplateIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -167,9 +173,10 @@ public class RouteTemplateBackslashAnalyzerUnitTest
 
     /// <summary>Verifies a tab escape in a template is not treated as a backslash separator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TabEscapeIsCleanAsync()
-        => await VerifyAsync(
+    public Task TabEscapeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -182,9 +189,10 @@ public class RouteTemplateBackslashAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the ASP.NET Core routing types are absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenRoutingTypesAbsentAsync()
-        => await VerifyAsync(
+    public Task SilentWhenRoutingTypesAbsentAsync() =>
+        VerifyAsync(
             """
             public sealed class RouteAttribute : System.Attribute
             {
@@ -203,11 +211,7 @@ public class RouteTemplateBackslashAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyRoute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + RoutingStubs
-        };
+        var test = new VerifyRoute.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + RoutingStubs };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -218,12 +222,7 @@ public class RouteTemplateBackslashAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyRoute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + RoutingStubs,
-            FixedCode = fixedSource + RoutingStubs
-        };
+        var test = new VerifyRoute.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + RoutingStubs, FixedCode = fixedSource + RoutingStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

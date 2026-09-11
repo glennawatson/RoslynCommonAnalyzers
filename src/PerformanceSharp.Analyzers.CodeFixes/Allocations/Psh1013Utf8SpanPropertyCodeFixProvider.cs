@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace PerformanceSharp.Analyzers;
@@ -30,12 +31,13 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a ReadOnlySpan<byte> property", nameof(Psh1013Utf8SpanPropertyCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a ReadOnlySpan<byte> property", nameof(Psh1013Utf8SpanPropertyCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported field and builds its span property replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -57,11 +59,11 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
         {
             if (!modifier.IsKind(SyntaxKind.ReadOnlyKeyword))
             {
-                text.Append(modifier.Text).Append(' ');
+                _ = text.Append(modifier.Text).Append(' ');
             }
         }
 
-        text.Append(spanSpelling).Append("<byte> ")
+        _ = text.Append(spanSpelling).Append("<byte> ")
             .Append(field.Declaration.Variables[0].Identifier.Text)
             .Append(" => ").Append(literal.ToString()).Append(';');
 

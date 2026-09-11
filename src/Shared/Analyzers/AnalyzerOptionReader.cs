@@ -16,7 +16,7 @@ internal static class AnalyzerOptionReader
     /// <param name="ruleKey">The rule-specific key.</param>
     /// <param name="generalKey">The project-wide key.</param>
     /// <returns>The parsed values, or an empty array when neither key is set.</returns>
-    public static string[] ReadCommaSeparatedList(AnalyzerConfigOptions options, string ruleKey, string generalKey)
+    internal static string[] ReadCommaSeparatedList(AnalyzerConfigOptions options, string ruleKey, string generalKey)
     {
         if (!options.TryGetValue(ruleKey, out var value) && !options.TryGetValue(generalKey, out value))
         {
@@ -29,10 +29,13 @@ internal static class AnalyzerOptionReader
         for (var i = 0; i < parts.Length; i++)
         {
             var trimmed = parts[i].Trim();
-            if (trimmed.Length > 0)
+            if (trimmed.Length == 0)
             {
-                parsed[count++] = trimmed;
+                continue;
             }
+
+            parsed[count] = trimmed;
+            count++;
         }
 
         if (count == parts.Length)
@@ -50,13 +53,6 @@ internal static class AnalyzerOptionReader
     /// <param name="ruleKey">The rule-specific key.</param>
     /// <param name="generalKey">The project-wide key.</param>
     /// <returns>The configured value, or <see langword="false"/>.</returns>
-    public static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
-    }
+    internal static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
+        options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed) ? parsed : options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
 }

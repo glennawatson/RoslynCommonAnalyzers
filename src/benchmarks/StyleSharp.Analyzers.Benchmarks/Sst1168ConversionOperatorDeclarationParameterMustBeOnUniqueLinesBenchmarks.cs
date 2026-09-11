@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for SST1168 conversion-operator-declaration parameter unique-lines analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesBenchmarks
@@ -24,11 +26,13 @@ public class Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLinesBen
 
     /// <summary>Benchmarks the clean SST1168 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLines_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating SST1168 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1168ConversionOperatorDeclarationParameterMustBeOnUniqueLines_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

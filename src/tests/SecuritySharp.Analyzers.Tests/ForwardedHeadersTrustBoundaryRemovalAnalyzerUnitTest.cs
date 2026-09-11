@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeForwardedHeaders = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -32,9 +33,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies clearing <c>KnownProxies</c> removes the trusted-proxy restriction and is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearKnownProxiesReportedAsync()
-        => await VerifyAsync(
+    public Task ClearKnownProxiesReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -49,9 +51,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies clearing the deprecated <c>KnownNetworks</c> list is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearKnownNetworksReportedAsync()
-        => await VerifyAsync(
+    public Task ClearKnownNetworksReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -66,9 +69,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies clearing the modern <c>KnownIPNetworks</c> list is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearKnownIPNetworksReportedAsync()
-        => await VerifyAsync(
+    public Task ClearKnownIPNetworksReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -83,9 +87,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>ForwardLimit = null</c> assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardLimitNullAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task ForwardLimitNullAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -100,9 +105,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a <c>ForwardLimit = null</c> object-initializer member is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardLimitNullInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task ForwardLimitNullInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -115,9 +121,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies clearing the list through a <c>this</c>-qualified access on a subtype is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearThroughLocalOptionsReportedAsync()
-        => await VerifyAsync(
+    public Task ClearThroughLocalOptionsReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -133,9 +140,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a populated trusted-proxy list (no <c>Clear</c>) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PopulatedKnownProxiesIsCleanAsync()
-        => await VerifyAsync(
+    public Task PopulatedKnownProxiesIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -150,9 +158,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a finite <c>ForwardLimit</c> assignment is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FiniteForwardLimitIsCleanAsync()
-        => await VerifyAsync(
+    public Task FiniteForwardLimitIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -167,9 +176,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies clearing a same-named list on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task ClearOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -189,9 +199,10 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a <c>ForwardLimit = null</c> assignment on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardLimitNullOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task ForwardLimitNullOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -232,11 +243,7 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeForwardedHeaders.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeForwardedHeaders.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -246,11 +253,7 @@ public class ForwardedHeadersTrustBoundaryRemovalAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeForwardedHeaders.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetStubs
-        };
+        var test = new AnalyzeForwardedHeaders.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

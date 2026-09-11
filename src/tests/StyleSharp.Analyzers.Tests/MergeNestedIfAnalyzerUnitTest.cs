@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMerge = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2013MergeNestedIfAnalyzer,
     StyleSharp.Analyzers.Sst2013MergeNestedIfCodeFixProvider>;
@@ -189,9 +190,10 @@ public class MergeNestedIfAnalyzerUnitTest
 
     /// <summary>Verifies an else on either if stops the merge: a merged condition cannot tell the branches apart.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EitherElseStopsTheMergeAsync()
-        => await VerifyMerge.VerifyAnalyzerAsync(
+    public Task EitherElseStopsTheMergeAsync() =>
+        VerifyMerge.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -229,9 +231,10 @@ public class MergeNestedIfAnalyzerUnitTest
 
     /// <summary>Verifies an outer if that does more than wrap the inner one is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OuterIfWithOtherStatementsIsCleanAsync()
-        => await VerifyMerge.VerifyAnalyzerAsync(
+    public Task OuterIfWithOtherStatementsIsCleanAsync() =>
+        VerifyMerge.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -88,7 +88,7 @@ public sealed class Sst1648InheritDocAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when inheritdoc is appropriate.</returns>
     private static bool Inherits(ISymbol symbol) =>
         symbol is INamedTypeSymbol type
-            ? type.Interfaces.Length > 0
+            ? !type.Interfaces.IsEmpty
               || (type.TypeKind == TypeKind.Class && type.BaseType is { SpecialType: not SpecialType.System_Object })
             : symbol.IsOverride || ImplementsInterfaceMember(symbol);
 

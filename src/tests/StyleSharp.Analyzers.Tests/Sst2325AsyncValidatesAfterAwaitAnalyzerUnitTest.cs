@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2325AsyncValidatesAfterAwaitAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 {
     /// <summary>Verifies a null check placed after the first await is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullCheckAfterAwaitIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NullCheckAfterAwaitIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -35,9 +37,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a single-line, qualified-type range check after the first await is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineRangeCheckAfterAwaitIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleLineRangeCheckAfterAwaitIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -54,9 +57,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies an argument check reached through a local declaration's await is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardAfterLocalDeclarationAwaitIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardAfterLocalDeclarationAwaitIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -78,9 +82,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies an argument check reached through an assignment's await is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardAfterAssignmentAwaitIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardAfterAssignmentAwaitIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -103,9 +108,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a runtime throw-helper guard after the first await is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowHelperAfterAwaitIsReportedAsync()
-        => await VerifyNet80AnalyzerAsync(
+    public Task ThrowHelperAfterAwaitIsReportedAsync() =>
+        VerifyNet80AnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -122,9 +128,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies only the guard after the await is reported when one precedes it too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OnlyTheGuardAfterAwaitIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OnlyTheGuardAfterAwaitIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -149,9 +156,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies validation that precedes the first await is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidationBeforeAwaitIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValidationBeforeAwaitIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -172,9 +180,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous method that returns a task, validating up front, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAsyncMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonAsyncMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -195,9 +204,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a guard after the await that checks something other than a parameter is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardNotCheckingAParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardNotCheckingAParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -218,9 +228,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a guard nested inside a lambda after the await is clean, being that lambda's business.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardInsideNestedLambdaIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardInsideNestedLambdaIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -245,9 +256,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a conditional await is not treated as the first-await boundary.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAwaitIsNotABoundaryIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConditionalAwaitIsNotABoundaryIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -271,9 +283,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies an async void method is left to the rules that already cover that shape.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AsyncVoidIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -293,9 +306,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless async method with a post-await throw is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParameterlessMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -315,9 +329,10 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied async method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedAsyncIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedAsyncIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -333,11 +348,7 @@ public class Sst2325AsyncValidatesAfterAwaitAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80AnalyzerAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

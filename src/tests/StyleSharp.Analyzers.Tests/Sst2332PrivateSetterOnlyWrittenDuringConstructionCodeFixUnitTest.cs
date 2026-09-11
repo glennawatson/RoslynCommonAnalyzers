@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySetter = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer,
     StyleSharp.Analyzers.Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider>;
@@ -53,13 +54,15 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixUnitTest
 
     /// <summary>Verifies the fix removes the private setter, leaving a get-only property.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RemovesPrivateSetterAsync()
-        => await VerifySetter.VerifyCodeFixAsync(ConstructorOnlySource, ConstructorOnlyFixed);
+    public Task RemovesPrivateSetterAsync() =>
+        VerifySetter.VerifyCodeFixAsync(ConstructorOnlySource, ConstructorOnlyFixed);
 
     /// <summary>Verifies the fix keeps the property's initializer.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeepsInitializerAsync()
-        => await VerifySetter.VerifyCodeFixAsync(WithInitializerSource, WithInitializerFixed);
+    public Task KeepsInitializerAsync() =>
+        VerifySetter.VerifyCodeFixAsync(WithInitializerSource, WithInitializerFixed);
 }

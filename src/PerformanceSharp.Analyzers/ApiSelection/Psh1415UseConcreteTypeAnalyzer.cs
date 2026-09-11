@@ -106,7 +106,7 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="symbol">The declared local or field.</param>
     /// <param name="declaredType">The symbol's declared type.</param>
     private static void ReportIfSingleConcreteType(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         VariableDeclarationSyntax declaration,
         SyntaxNode scope,
         ISymbol symbol,
@@ -132,8 +132,8 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="variable">The declared variable.</param>
     /// <returns>The constructed type, or <see langword="null"/> when the initializer is not a plain <c>new</c>.</returns>
-    private static INamedTypeSymbol? TryGetCreatedType(SyntaxNodeAnalysisContext context, VariableDeclaratorSyntax variable)
-        => variable.Initializer?.Value is ObjectCreationExpressionSyntax creation
+    private static INamedTypeSymbol? TryGetCreatedType(in SyntaxNodeAnalysisContext context, VariableDeclaratorSyntax variable) =>
+        variable.Initializer?.Value is ObjectCreationExpressionSyntax creation
             && context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is INamedTypeSymbol { TypeKind: TypeKind.Class or TypeKind.Struct } concrete
             ? concrete
             : null;
@@ -144,10 +144,10 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="symbol">The declared local or field.</param>
     /// <param name="concrete">The concrete type the initializer constructed.</param>
     /// <returns><see langword="true"/> when narrowing is safe and turns at least one call direct.</returns>
-    private static bool CanNarrowProfitably(SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol, INamedTypeSymbol concrete)
+    private static bool CanNarrowProfitably(in SyntaxNodeAnalysisContext context, SyntaxNode scope, ISymbol symbol, INamedTypeSymbol concrete)
     {
         var state = new HolderScanState(symbol, concrete, context.SemanticModel, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HolderScanState>(scope, ref state, VisitUsage);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HolderScanState>(scope, ref state, VisitUsage);
         return !state.Disqualified && state.Dispatched;
     }
 
@@ -189,8 +189,8 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// concrete declaration could turn direct. Every other use — comparing the symbol, passing it,
     /// returning it, assigning it — dispatches nothing and gains nothing.
     /// </remarks>
-    private static bool IsDispatchReceiver(IdentifierNameSyntax identifier)
-        => identifier.Parent switch
+    private static bool IsDispatchReceiver(IdentifierNameSyntax identifier) =>
+        identifier.Parent switch
         {
             MemberAccessExpressionSyntax access => access.Expression == identifier,
             ElementAccessExpressionSyntax element => element.Expression == identifier,
@@ -221,8 +221,8 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a usage passes the candidate by reference, which pins its declared type.</summary>
     /// <param name="identifier">The identifier usage.</param>
     /// <returns><see langword="true"/> when the usage is a ref, out, or in argument.</returns>
-    private static bool IsRefOrOutArgument(IdentifierNameSyntax identifier)
-        => identifier.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None);
+    private static bool IsRefOrOutArgument(IdentifierNameSyntax identifier) =>
+        identifier.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None);
 
     /// <summary>Returns whether a usage assigns the candidate anything other than a <c>new</c> of its concrete type.</summary>
     /// <param name="identifier">The identifier usage.</param>
@@ -243,8 +243,8 @@ public sealed class Psh1415UseConcreteTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an implementing member is an explicit interface implementation.</summary>
     /// <param name="implementation">The implementing member.</param>
     /// <returns><see langword="true"/> when the member is only reachable through the interface.</returns>
-    private static bool IsExplicit(ISymbol implementation)
-        => implementation switch
+    private static bool IsExplicit(ISymbol implementation) =>
+        implementation switch
         {
             IMethodSymbol method => !method.ExplicitInterfaceImplementations.IsEmpty,
             IPropertySymbol property => !property.ExplicitInterfaceImplementations.IsEmpty,

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for redundant-base-list-entry analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantBaseListEntryBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RedundantBaseListEntryBenchmarks
@@ -24,11 +26,13 @@ public class RedundantBaseListEntryBenchmarks
 
     /// <summary>Benchmarks the clean redundant-base-list-entry path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantBaseListEntry_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating redundant-base-list-entry path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantBaseListEntry_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

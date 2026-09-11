@@ -44,7 +44,7 @@ public sealed class Sst1710PreferExtensionIndexerAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (method.DeclaringSyntaxReferences.Length == 0
+        if (method.DeclaringSyntaxReferences.IsEmpty
             || method.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax declaration
             || !LanguageVersions.SupportsCSharp15(declaration))
         {
@@ -60,11 +60,11 @@ public sealed class Sst1710PreferExtensionIndexerAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets whether an extension method takes a receiver and one index and returns an element.</summary>
     /// <param name="method">The method symbol.</param>
     /// <returns><see langword="true"/> when the shape matches an indexer.</returns>
-    private static bool IsAccessorShaped(IMethodSymbol method)
-        => method.IsExtensionMethod
+    private static bool IsAccessorShaped(IMethodSymbol method) =>
+        method.IsExtensionMethod
             && method.Parameters.Length == 2
             && !method.ReturnsVoid
-            && method.TypeParameters.Length == 0
+            && method.TypeParameters.IsEmpty
             && IsIndexLike(method.Parameters[1])
             && IsAccessorName(method.Name);
 

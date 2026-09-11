@@ -91,7 +91,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <param name="allowed">The exception types that mark a member as deliberately absent.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree,
         Lazy<AllowedThrowTypes> allowed)
     {
@@ -117,8 +117,8 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// nodes <em>inside</em> what it is given — an expression-bodied <c>=&gt; throw new InvalidOperationException()</c>
     /// is the throw itself, and unwrapping the clause would walk straight past it.
     /// </remarks>
-    private static SyntaxNode? GetBody(BaseMethodDeclarationSyntax member)
-        => (SyntaxNode?)member.Body ?? member.ExpressionBody;
+    private static SyntaxNode? GetBody(BaseMethodDeclarationSyntax member) =>
+        (SyntaxNode?)member.Body ?? member.ExpressionBody;
 
     /// <summary>Returns whether a member's callers have no way to handle an exception it throws.</summary>
     /// <param name="member">The member declaration.</param>
@@ -133,10 +133,8 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool MustNotThrow(
         BaseMethodDeclarationSyntax member,
-        SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree)
-    {
-        return member switch
+        in SyntaxNodeAnalysisContext context,
+        ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree) => member switch
         {
             MethodDeclarationSyntax method => IsImplicitlyInvoked(method)
                 || GetOptions(context, optionsByTree).Contains(method.Identifier.ValueText),
@@ -146,7 +144,6 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
             ConversionOperatorDeclarationSyntax conversion => conversion.ImplicitOrExplicitKeyword.IsKind(SyntaxKind.ImplicitKeyword),
             _ => false,
         };
-    }
 
     /// <summary>Returns whether a method is one the runtime or the framework calls on the caller's behalf.</summary>
     /// <param name="method">The method declaration.</param>
@@ -181,7 +178,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static UnexpectedThrowOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -191,7 +188,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         }
 
         options = UnexpectedThrowOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -207,7 +204,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void ScanForThrows(
         SyntaxNode node,
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
         Lazy<AllowedThrowTypes> allowed)
     {
@@ -227,8 +224,8 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node is a function of its own rather than part of the member's body.</summary>
     /// <param name="node">The node being scanned.</param>
     /// <returns><see langword="true"/> for a lambda, an anonymous method, or a local function.</returns>
-    private static bool IsSeparateFunction(SyntaxNode node)
-        => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax;
+    private static bool IsSeparateFunction(SyntaxNode node) =>
+        node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax;
 
     /// <summary>Reports one throw when the member is not allowed to originate it.</summary>
     /// <param name="node">The node being scanned.</param>
@@ -242,7 +239,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void ReportThrow(
         SyntaxNode node,
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
         Lazy<AllowedThrowTypes> allowed)
     {
@@ -291,7 +288,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsDeliberateAbsence(
         ExpressionSyntax thrown,
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         Lazy<AllowedThrowTypes> allowed)
     {
         if (thrown is ObjectCreationExpressionSyntax creation
@@ -309,10 +306,10 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static string GetMemberName(BaseMethodDeclarationSyntax member) => member switch
     {
         MethodDeclarationSyntax method => method.Identifier.ValueText,
-        ConstructorDeclarationSyntax constructor => "static " + constructor.Identifier.ValueText,
-        DestructorDeclarationSyntax destructor => "~" + destructor.Identifier.ValueText,
-        OperatorDeclarationSyntax @operator => "operator " + @operator.OperatorToken.ValueText,
-        ConversionOperatorDeclarationSyntax conversion => "implicit operator " + conversion.Type,
+        ConstructorDeclarationSyntax constructor => $"static {constructor.Identifier.ValueText}",
+        DestructorDeclarationSyntax destructor => $"~{destructor.Identifier.ValueText}",
+        OperatorDeclarationSyntax @operator => $"operator {@operator.OperatorToken.ValueText}",
+        ConversionOperatorDeclarationSyntax conversion => $"implicit operator {conversion.Type}",
         _ => string.Empty,
     };
 

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEmptyCollection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -38,12 +39,7 @@ public class EmptyCollectionExpressionAnalyzerUnitTest
                                        public List<int> B = [];
                                    }
                                    """;
-        var test = new VerifyEmptyCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyEmptyCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -75,21 +71,17 @@ public class EmptyCollectionExpressionAnalyzerUnitTest
                                        public string[] D = [];
                                    }
                                    """;
-        var test = new VerifyEmptyCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyEmptyCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a targetless var initialization is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VarInitializationIsCleanAsync()
-        => await VerifyEmptyCollection.VerifyAnalyzerAsync(
+    public Task VarInitializationIsCleanAsync() =>
+        VerifyEmptyCollection.VerifyAnalyzerAsync(
             """
             using System;
 

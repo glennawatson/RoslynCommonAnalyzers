@@ -108,8 +108,8 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the method could be exposed as the value it returns.</summary>
     /// <param name="method">The method declaration.</param>
     /// <returns><see langword="true"/> when nothing about the declaration dictates that it stays a method.</returns>
-    private static bool IsExposableAsValue(MethodDeclarationSyntax method)
-        => HasValueShape(method) && !HasShapeFixingModifier(method.Modifiers);
+    private static bool IsExposableAsValue(MethodDeclarationSyntax method) =>
+        HasValueShape(method) && !HasShapeFixingModifier(method.Modifiers);
 
     /// <summary>Returns whether the method's signature is one a value could take its place.</summary>
     /// <param name="method">The method declaration.</param>
@@ -118,8 +118,8 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// An attribute is enough on its own to keep the method: the attribute may be the reason the member is a
     /// method at all, and this rule cannot know what reads it.
     /// </remarks>
-    private static bool HasValueShape(MethodDeclarationSyntax method)
-        => method.ParameterList.Parameters.Count == 0
+    private static bool HasValueShape(MethodDeclarationSyntax method) =>
+        method.ParameterList.Parameters.Count == 0
             && method.TypeParameterList is null
             && method.AttributeLists.Count == 0
             && method.ExplicitInterfaceSpecifier is null
@@ -129,7 +129,7 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a modifier means the member's shape is decided somewhere other than here.</summary>
     /// <param name="modifiers">The method's modifiers.</param>
     /// <returns><see langword="true"/> for an override, a virtual or abstract member, and a partial or extern one.</returns>
-    private static bool HasShapeFixingModifier(SyntaxTokenList modifiers)
+    private static bool HasShapeFixingModifier(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -149,15 +149,15 @@ public sealed class Sst1493MethodReturnsConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a return type is <see langword="void"/>.</summary>
     /// <param name="returnType">The declared return type.</param>
     /// <returns><see langword="true"/> when the method returns nothing.</returns>
-    private static bool IsVoid(TypeSyntax returnType)
-        => returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
+    private static bool IsVoid(TypeSyntax returnType) =>
+        returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
 
     /// <summary>Returns whether the method implements an interface member.</summary>
     /// <param name="method">The method declaration.</param>
     /// <param name="context">The syntax node context.</param>
     /// <returns><see langword="true"/> when an interface dictates that the member is a method.</returns>
     /// <remarks>Runs last: only a method that already looks like a constant pays for the bind and the walk.</remarks>
-    private static bool ImplementsInterfaceMember(MethodDeclarationSyntax method, SyntaxNodeAnalysisContext context)
+    private static bool ImplementsInterfaceMember(MethodDeclarationSyntax method, in SyntaxNodeAnalysisContext context)
     {
         if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { ContainingType: { } containingType } symbol)
         {

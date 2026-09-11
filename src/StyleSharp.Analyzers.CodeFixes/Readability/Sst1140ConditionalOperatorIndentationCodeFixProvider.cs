@@ -114,8 +114,8 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
 
         var newLine = LayoutFixHelpers.DetectNewLine(text);
         var indent = LayoutFixHelpers.IndentOfLine(text, conditional.GetFirstToken().SpanStart) + LayoutFixHelpers.IndentStep;
-        changes.Add(new(TextSpan.FromBounds(conditionLast.Span.End, whenTrueFirst.SpanStart), newLine + indent + "? "));
-        changes.Add(new(TextSpan.FromBounds(whenTrueLast.Span.End, whenFalseFirst.SpanStart), newLine + indent + ": "));
+        changes.Add(new(TextSpan.FromBounds(conditionLast.Span.End, whenTrueFirst.SpanStart), $"{newLine}{indent}? "));
+        changes.Add(new(TextSpan.FromBounds(whenTrueLast.Span.End, whenFalseFirst.SpanStart), $"{newLine}{indent}: "));
     }
 
     /// <summary>Returns whether an operator and its surrounding trivia can be replaced by plain layout trivia.</summary>
@@ -124,8 +124,8 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
     /// <param name="operatorToken">The conditional operator token.</param>
     /// <param name="next">The token after the operator.</param>
     /// <returns><see langword="true"/> when no comments or other trivia would be removed.</returns>
-    private static bool CanReplaceOperatorGap(SourceText text, SyntaxToken previous, SyntaxToken operatorToken, SyntaxToken next)
-        => LayoutFixHelpers.IsWhitespaceBetween(text, previous.Span.End, operatorToken.SpanStart)
+    private static bool CanReplaceOperatorGap(SourceText text, SyntaxToken previous, SyntaxToken operatorToken, SyntaxToken next) =>
+        LayoutFixHelpers.IsWhitespaceBetween(text, previous.Span.End, operatorToken.SpanStart)
             && LayoutFixHelpers.IsWhitespaceBetween(text, operatorToken.Span.End, next.SpanStart);
 
     /// <summary>Finds the conditional expression containing the reported operator token.</summary>
@@ -138,11 +138,13 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
         var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
         for (var node = token.Parent; node is not null; node = node.Parent)
         {
-            if (node is ConditionalExpressionSyntax current)
+            if (node is not ConditionalExpressionSyntax current)
             {
-                conditional = current;
-                return true;
+                continue;
             }
+
+            conditional = current;
+            return true;
         }
 
         conditional = null!;

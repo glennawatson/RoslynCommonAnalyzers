@@ -73,7 +73,7 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
     /// <summary>Reports SES1511 for a <c>.Clear()</c> call on a gated trusted-proxy/network list member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeClearInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    private static void AnalyzeClearInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -102,7 +102,7 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
     /// <summary>Reports SES1511 for a <c>ForwardLimit = null</c> assignment on a gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeForwardLimitAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    private static void AnalyzeForwardLimitAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -129,20 +129,17 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
     /// <summary>Returns whether a member name is one of the trusted-proxy/network list members.</summary>
     /// <param name="memberName">The accessed member's simple name.</param>
     /// <returns><see langword="true"/> for <c>KnownProxies</c>, <c>KnownNetworks</c>, or <c>KnownIPNetworks</c>.</returns>
-    private static bool IsTrustListMemberName(string memberName)
-        => memberName is KnownProxiesPropertyName or KnownNetworksPropertyName or KnownIPNetworksPropertyName;
+    private static bool IsTrustListMemberName(string memberName) =>
+        memberName is KnownProxiesPropertyName or KnownNetworksPropertyName or KnownIPNetworksPropertyName;
 
     /// <summary>Returns the assignment's left expression when it names <c>ForwardLimit</c>.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The left expression to bind, or <see langword="null"/> when it is not the guarded member.</returns>
-    private static ExpressionSyntax? GetForwardLimitTarget(ExpressionSyntax left)
-        => left switch
+    private static ExpressionSyntax? GetForwardLimitTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'options.ForwardLimit = null'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: ForwardLimitPropertyName } => left,
-
-            // 'new ForwardedHeadersOptions { ForwardLimit = null }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: ForwardLimitPropertyName } => left,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: ForwardLimitPropertyName } or IdentifierNameSyntax { Identifier.ValueText: ForwardLimitPropertyName } => left,
 
             _ => null,
         };

@@ -196,12 +196,7 @@ public class CollectionExpressionAdvancedAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyBuilderExpression.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyBuilderExpression.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -232,11 +227,6 @@ public class CollectionExpressionAdvancedAnalyzerUnitTest
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The fixed source.</param>
     /// <returns>The configured test.</returns>
-    private static VerifyCollectionExpression.Test CreateNet80CollectionTest(string source, string fixedSource)
-        => new()
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+    private static VerifyCollectionExpression.Test CreateNet80CollectionTest(string source, string fixedSource) =>
+        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource };
 }

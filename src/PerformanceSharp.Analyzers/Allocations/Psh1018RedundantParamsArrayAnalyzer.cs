@@ -86,8 +86,8 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the elements a hand-written array carries.</summary>
     /// <param name="arrayExpression">The inline array expression; callers must have validated the shape.</param>
     /// <returns>The array's elements, empty when the array is empty.</returns>
-    internal static SeparatedSyntaxList<ExpressionSyntax> GetArrayElements(ExpressionSyntax arrayExpression)
-        => arrayExpression switch
+    internal static SeparatedSyntaxList<ExpressionSyntax> GetArrayElements(ExpressionSyntax arrayExpression) =>
+        arrayExpression switch
         {
             ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer.Expressions,
             ArrayCreationExpressionSyntax { Initializer: { } initializer } => initializer.Expressions,
@@ -125,8 +125,8 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is an array the compiler could have built from the call's own arguments.</summary>
     /// <param name="expression">The last argument's expression.</param>
     /// <returns><see langword="true"/> for an inline array creation with an initializer, an empty array creation, or an empty-array call.</returns>
-    private static bool IsInlineArray(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsInlineArray(ExpressionSyntax expression) =>
+        expression switch
         {
             ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Commas.Count == 0,
             ArrayCreationExpressionSyntax array => IsSingleRankArrayCreation(array),
@@ -153,8 +153,8 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation looks like a call to the shared empty-array factory.</summary>
     /// <param name="invocation">The last argument's invocation.</param>
     /// <returns><see langword="true"/> for a no-argument call to a one-type-argument <c>Empty</c>.</returns>
-    private static bool IsEmptyArrayCallShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    private static bool IsEmptyArrayCallShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression switch
             {
                 MemberAccessExpressionSyntax { Name: GenericNameSyntax name } => IsEmptyName(name),
@@ -165,8 +165,8 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a generic name spells the shared empty-array factory.</summary>
     /// <param name="name">The invoked generic name.</param>
     /// <returns><see langword="true"/> for <c>Empty&lt;T&gt;</c>.</returns>
-    private static bool IsEmptyName(GenericNameSyntax name)
-        => name.Identifier.ValueText == EmptyMethodName && name.TypeArgumentList.Arguments.Count == 1;
+    private static bool IsEmptyName(GenericNameSyntax name) =>
+        name.Identifier.ValueText == EmptyMethodName && name.TypeArgumentList.Arguments.Count == 1;
 
     /// <summary>Reports a call that hands a hand-written array to a params parameter.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -206,7 +206,7 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     {
         arrayType = null;
         var parameters = method.Parameters;
-        if (parameters.Length == 0 || invocation.ArgumentList.Arguments.Count != parameters.Length)
+        if (parameters.IsEmpty || invocation.ArgumentList.Arguments.Count != parameters.Length)
         {
             return false;
         }
@@ -226,7 +226,7 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <param name="arrayExpression">The inline array expression.</param>
     /// <param name="arrayType">The params parameter's array type.</param>
     /// <returns><see langword="true"/> when the array's type matches the params type and an empty-array call really is one.</returns>
-    private static bool IsCompilerBuildableArray(SyntaxNodeAnalysisContext context, ExpressionSyntax arrayExpression, IArrayTypeSymbol arrayType)
+    private static bool IsCompilerBuildableArray(in SyntaxNodeAnalysisContext context, ExpressionSyntax arrayExpression, IArrayTypeSymbol arrayType)
     {
         if (!SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetTypeInfo(arrayExpression, context.CancellationToken).Type, arrayType))
         {
@@ -246,7 +246,7 @@ public sealed class Psh1018RedundantParamsArrayAnalyzer : DiagnosticAnalyzer
     /// <param name="elements">The array's elements.</param>
     /// <returns><see langword="true"/> when the unwrapped call still binds to the same method in expanded form.</returns>
     private static bool SurvivesUnwrap(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         IMethodSymbol method,
         IArrayTypeSymbol arrayType,

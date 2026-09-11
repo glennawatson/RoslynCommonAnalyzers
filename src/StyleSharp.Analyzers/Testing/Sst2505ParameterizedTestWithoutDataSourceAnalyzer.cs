@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -33,32 +35,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the xUnit base attribute every data attribute derives from.</summary>
-    private const string XunitDataAttributeMetadataName = "Xunit.Sdk.DataAttribute";
-
-    /// <summary>The metadata names of the attributes that mark a method as a test.</summary>
-    private static readonly string[] TestMarkerMetadataNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-        "TUnit.Core.TestAttribute",
-    ];
-
-    /// <summary>The metadata names of the interfaces a framework's data-source attribute implements.</summary>
-    private static readonly string[] DataSourceInterfaceMetadataNames =
-    [
-        "Microsoft.VisualStudio.TestTools.UnitTesting.ITestDataSource",
-        "NUnit.Framework.Interfaces.ITestBuilder",
-        "NUnit.Framework.Interfaces.IParameterDataSource",
-        "TUnit.Core.IDataSourceAttribute",
-    ];
-
     /// <summary>The simple names, with and without the suffix, that a test-marking attribute is written as.</summary>
     private static readonly HashSet<string> TestAttributeSimpleNames = new(StringComparer.Ordinal)
     {
@@ -75,8 +51,8 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.ParameterizedTestWithoutDataSource);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -99,12 +75,13 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
     /// <summary>Returns whether an attribute's simple name is one a test framework uses to mark a test.</summary>
     /// <param name="name">The attribute's written simple name.</param>
     /// <returns><see langword="true"/> when the name is a known test-attribute name, with or without the suffix.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsTestAttributeSimpleName(string name) => TestAttributeSimpleNames.Contains(name);
 
     /// <summary>Analyzes one method declaration for a parameterized test with no data source.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="symbols">The resolved test-framework symbols.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (method.ParameterList.Parameters.Count == 0
@@ -250,6 +227,32 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
     /// <summary>The test-framework symbols resolved once per compilation the rule needs to classify attributes.</summary>
     private sealed class FrameworkSymbols
     {
+        /// <summary>The metadata name of the xUnit base attribute every data attribute derives from.</summary>
+        private const string XunitDataAttributeMetadataName = "Xunit.Sdk.DataAttribute";
+
+        /// <summary>The metadata names of the attributes that mark a method as a test.</summary>
+        private static readonly string[] TestMarkerMetadataNames =
+        [
+            "Xunit.FactAttribute",
+            "Xunit.TheoryAttribute",
+            "NUnit.Framework.TestAttribute",
+            "NUnit.Framework.TestCaseAttribute",
+            "NUnit.Framework.TestCaseSourceAttribute",
+            "NUnit.Framework.TheoryAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+            "TUnit.Core.TestAttribute",
+        ];
+
+        /// <summary>The metadata names of the interfaces a framework's data-source attribute implements.</summary>
+        private static readonly string[] DataSourceInterfaceMetadataNames =
+        [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.ITestDataSource",
+            "NUnit.Framework.Interfaces.ITestBuilder",
+            "NUnit.Framework.Interfaces.IParameterDataSource",
+            "TUnit.Core.IDataSourceAttribute",
+        ];
+
         /// <summary>The resolved test-attribute markers a method's attribute must be to count as a test.</summary>
         private readonly INamedTypeSymbol[] _testMarkers;
 
@@ -281,12 +284,9 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
         public static FrameworkSymbols? Resolve(Compilation compilation)
         {
             var markers = ResolveAll(compilation, TestMarkerMetadataNames);
-            if (markers.Length == 0)
-            {
-                return null;
-            }
-
-            return new FrameworkSymbols(
+            return markers.Length == 0
+                ? null
+                : new FrameworkSymbols(
                 markers,
                 compilation.GetTypeByMetadataName(XunitDataAttributeMetadataName),
                 ResolveAll(compilation, DataSourceInterfaceMetadataNames),
@@ -296,8 +296,8 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
         /// <summary>Returns whether a parameter's type is one a test runner injects rather than one a data source fills.</summary>
         /// <param name="type">The parameter's type.</param>
         /// <returns><see langword="true"/> for <c>System.Threading.CancellationToken</c>.</returns>
-        public bool IsInjectedParameterType(ITypeSymbol type)
-            => _cancellationToken is not null && SymbolEqualityComparer.Default.Equals(type, _cancellationToken);
+        public bool IsInjectedParameterType(ITypeSymbol type) =>
+            _cancellationToken is not null && SymbolEqualityComparer.Default.Equals(type, _cancellationToken);
 
         /// <summary>Returns whether an attribute type is or derives from a resolved test-attribute marker.</summary>
         /// <param name="attributeClass">The attribute's type.</param>
@@ -366,11 +366,13 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
             var count = 0;
             for (var i = 0; i < metadataNames.Length; i++)
             {
-                if (compilation.GetTypeByMetadataName(metadataNames[i]) is { } type)
+                if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } type)
                 {
-                    resolved[count] = type;
-                    count++;
+                    continue;
                 }
+
+                resolved[count] = type;
+                count++;
             }
 
             if (count == metadataNames.Length)

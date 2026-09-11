@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -97,9 +98,10 @@ public class CommentContentAnalyzerUnitTest
 
     /// <summary>Verifies comments with text and commented-out code markers are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyCommentsAreCleanAsync()
-        => await VerifyCommentContent.VerifyAnalyzerAsync(
+    public Task NonEmptyCommentsAreCleanAsync() =>
+        VerifyCommentContent.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -143,6 +145,7 @@ public class CommentContentAnalyzerUnitTest
     /// <param name="source">The source containing the target comment.</param>
     /// <param name="kind">The expected comment trivia kind.</param>
     /// <returns>The parsed comment trivia.</returns>
-    private static SyntaxTrivia ParseCommentTrivia(string source, SyntaxKind kind)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(trivia => trivia.IsKind(kind));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxTrivia ParseCommentTrivia(string source, SyntaxKind kind) =>
+        SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(trivia => trivia.IsKind(kind));
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -86,9 +87,10 @@ public class OrderingUsingUnitTest
 
     /// <summary>Verifies directives of differing depth are ordered by their first diverging segment (no SST1210).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferingDepthOrderedByDivergingSegmentAsync()
-        => await VerifyUsing.VerifyAnalyzerAsync(
+    public Task DifferingDepthOrderedByDivergingSegmentAsync() =>
+        VerifyUsing.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Text;
@@ -196,9 +198,10 @@ public class OrderingUsingUnitTest
 
     /// <summary>Verifies directives separated by a conditional directive are sorted independently (no SST1210 across the boundary).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalDirectiveResetsOrderingAsync()
-        => await VerifyUsing.VerifyAnalyzerAsync(
+    public Task ConditionalDirectiveResetsOrderingAsync() =>
+        VerifyUsing.VerifyAnalyzerAsync(
             """
             using System.Threading;
             #if true
@@ -212,9 +215,10 @@ public class OrderingUsingUnitTest
 
     /// <summary>Verifies a directive after an #endif is not compared against the conditional branch (no SST1210).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalElseBranchResetsOrderingAsync()
-        => await VerifyUsing.VerifyAnalyzerAsync(
+    public Task ConditionalElseBranchResetsOrderingAsync() =>
+        VerifyUsing.VerifyAnalyzerAsync(
             """
             #if false
             using System.Threading;
@@ -244,20 +248,17 @@ public class OrderingUsingUnitTest
             }
             """;
 
-        var test = new VerifyUsing.Test
-        {
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new VerifyUsing.Test { TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a using directive inside a namespace is reported (SST1200).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingInsideNamespaceReportedAsync()
-        => await VerifyUsing.VerifyAnalyzerAsync(
+    public Task UsingInsideNamespaceReportedAsync() =>
+        VerifyUsing.VerifyAnalyzerAsync(
             """
             namespace Foo
             {
@@ -267,9 +268,10 @@ public class OrderingUsingUnitTest
 
     /// <summary>Verifies a correctly ordered using list is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrderedUsingsAreCleanAsync()
-        => await VerifyUsing.VerifyAnalyzerAsync(
+    public Task OrderedUsingsAreCleanAsync() =>
+        VerifyUsing.VerifyAnalyzerAsync(
             """
             using System.Collections;
             using System.Text;
@@ -304,6 +306,7 @@ public class OrderingUsingUnitTest
     /// <summary>Parses a single using directive from the supplied compilation unit text.</summary>
     /// <param name="source">The source containing the using directive.</param>
     /// <returns>The parsed using directive.</returns>
-    private static UsingDirectiveSyntax ParseUsingDirective(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).Usings[0];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static UsingDirectiveSyntax ParseUsingDirective(string source) =>
+        SyntaxFactory.ParseCompilationUnit(source).Usings[0];
 }

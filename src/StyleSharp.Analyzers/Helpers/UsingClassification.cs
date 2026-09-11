@@ -24,7 +24,7 @@ internal static class UsingClassification
     /// <summary>Returns the canonical group rank of a using directive.</summary>
     /// <param name="directive">The using directive.</param>
     /// <returns>The group rank.</returns>
-    public static int Group(UsingDirectiveSyntax directive)
+    internal static int Group(UsingDirectiveSyntax directive)
     {
         if (directive.Alias is not null)
         {
@@ -37,13 +37,13 @@ internal static class UsingClassification
     /// <summary>Returns whether a regular using directive targets the <c>System</c> namespace.</summary>
     /// <param name="directive">The using directive.</param>
     /// <returns><see langword="true"/> when the namespace is <c>System</c> or a child of it.</returns>
-    public static bool IsSystem(UsingDirectiveSyntax directive)
-        => directive.Name is { } name && StartsWithSystem(name);
+    internal static bool IsSystem(UsingDirectiveSyntax directive) =>
+        directive.Name is { } name && StartsWithSystem(name);
 
     /// <summary>Returns the alphabetical sort key of a using directive (alias name, or namespace/type name).</summary>
     /// <param name="directive">The using directive.</param>
     /// <returns>The sort key.</returns>
-    public static string SortKey(UsingDirectiveSyntax directive)
+    internal static string SortKey(UsingDirectiveSyntax directive)
     {
         if (directive.Alias is { } alias)
         {
@@ -60,7 +60,7 @@ internal static class UsingClassification
     /// <param name="left">The first directive.</param>
     /// <param name="right">The second directive.</param>
     /// <returns>A negative, zero, or positive value according to canonical alphabetical ordering.</returns>
-    public static int CompareSortKey(UsingDirectiveSyntax left, UsingDirectiveSyntax right)
+    internal static int CompareSortKey(UsingDirectiveSyntax left, UsingDirectiveSyntax right)
     {
         if (left.Alias is { } leftAlias && right.Alias is { } rightAlias)
         {
@@ -76,7 +76,7 @@ internal static class UsingClassification
     /// <param name="left">The first directive.</param>
     /// <param name="right">The second directive.</param>
     /// <returns>A negative, zero, or positive value per the canonical order.</returns>
-    public static int Compare(UsingDirectiveSyntax left, UsingDirectiveSyntax right)
+    internal static int Compare(UsingDirectiveSyntax left, UsingDirectiveSyntax right)
     {
         var group = Group(left).CompareTo(Group(right));
         if (group != 0)
@@ -99,8 +99,8 @@ internal static class UsingClassification
     /// <summary>Returns whether a name is composed only of identifiers separated by dots.</summary>
     /// <param name="name">The name syntax.</param>
     /// <returns><see langword="true"/> when the common fast comparison path applies.</returns>
-    private static bool IsIdentifierOrQualified(NameSyntax name)
-        => name is IdentifierNameSyntax or QualifiedNameSyntax;
+    private static bool IsIdentifierOrQualified(NameSyntax name) =>
+        name is IdentifierNameSyntax or QualifiedNameSyntax;
 
     /// <summary>
     /// Compares identifier-or-qualified names by their dotted segments from the left, without allocating.

@@ -11,8 +11,8 @@ internal static class UseIncrementOperatorBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
@@ -21,8 +21,8 @@ internal static class UseIncrementOperatorBenchmarkSource
     /// <summary>Builds one type whose steps already use the stepping operators.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public int Step(int value, int other)
@@ -38,8 +38,8 @@ internal static class UseIncrementOperatorBenchmarkSource
     /// <summary>Builds one type that steps by one through compound assignments.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public int Step(int value, int other)

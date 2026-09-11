@@ -58,8 +58,8 @@ public sealed class Sst1513ClosingBraceSpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the block is the body of a member, accessor, local function, or lambda.</summary>
     /// <param name="parent">The block's parent node.</param>
     /// <returns><see langword="true"/> when the block is an element or function body.</returns>
-    private static bool IsElementOrFunctionBody(SyntaxNode? parent)
-        => parent is BaseMethodDeclarationSyntax
+    private static bool IsElementOrFunctionBody(SyntaxNode? parent) =>
+        parent is BaseMethodDeclarationSyntax
             or AccessorDeclarationSyntax
             or AnonymousFunctionExpressionSyntax
             or LocalFunctionStatementSyntax;
@@ -67,8 +67,8 @@ public sealed class Sst1513ClosingBraceSpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the token following the closing brace exempts it from needing a blank line.</summary>
     /// <param name="next">The token after the closing brace.</param>
     /// <returns><see langword="true"/> when no blank line is required.</returns>
-    private static bool IsExemptFollower(SyntaxToken next)
-        => next.IsKind(SyntaxKind.None)
+    private static bool IsExemptFollower(SyntaxToken next) =>
+        next.IsKind(SyntaxKind.None)
             || next.IsKind(SyntaxKind.CloseBraceToken)
             || next.IsKind(SyntaxKind.ElseKeyword)
             || next.IsKind(SyntaxKind.CatchKeyword)

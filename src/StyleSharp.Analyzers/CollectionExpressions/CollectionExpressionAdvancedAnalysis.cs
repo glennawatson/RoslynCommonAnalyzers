@@ -7,20 +7,20 @@ namespace StyleSharp.Analyzers;
 /// <summary>Shared syntax helpers for the collection-expression conversion rules.</summary>
 internal static class CollectionExpressionAdvancedAnalysis
 {
-    /// <summary>The name of the <c>ToArray</c> materialization method, whose call a collection expression replaces.</summary>
+    /// <summary>The name of the array materialization method, both as a LINQ call and as a builder conversion.</summary>
     private const string ToArrayMethodName = "ToArray";
 
     /// <summary>Returns whether the referenced framework exposes collection-expression runtime support.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns><see langword="true"/> when <c>CollectionBuilderAttribute</c> is available.</returns>
-    public static bool HasCollectionBuilderAttribute(Compilation compilation)
-        => compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CollectionBuilderAttribute") is not null;
+    internal static bool HasCollectionBuilderAttribute(Compilation compilation) =>
+        compilation.GetTypeByMetadataName("System.Runtime.CompilerServices.CollectionBuilderAttribute") is not null;
 
     /// <summary>Gets an initializer from an array or stackalloc collection source.</summary>
     /// <param name="expression">The candidate expression.</param>
     /// <param name="initializer">The initializer.</param>
     /// <returns><see langword="true"/> when an initializer was found.</returns>
-    public static bool TryGetInlineInitializer(ExpressionSyntax expression, out InitializerExpressionSyntax initializer)
+    internal static bool TryGetInlineInitializer(ExpressionSyntax expression, out InitializerExpressionSyntax initializer)
     {
         initializer = expression switch
         {
@@ -38,7 +38,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <param name="expression">The expression.</param>
     /// <param name="initializer">The initializer.</param>
     /// <returns><see langword="true"/> for explicit and implicit stackalloc initializers.</returns>
-    public static bool TryGetStackallocInitializer(ExpressionSyntax expression, out InitializerExpressionSyntax initializer)
+    internal static bool TryGetStackallocInitializer(ExpressionSyntax expression, out InitializerExpressionSyntax initializer)
     {
         initializer = expression switch
         {
@@ -58,19 +58,22 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// indentation ahead of <c>{</c> as leading trivia, which the full string includes, so trimming a
     /// character off each end would keep both braces inside the brackets.
     /// </remarks>
-    public static string CollectionExpressionText(InitializerExpressionSyntax initializer)
+    internal static string CollectionExpressionText(InitializerExpressionSyntax initializer)
     {
         var full = initializer.ToFullString().AsSpan();
         var start = initializer.OpenBraceToken.Span.End - initializer.FullSpan.Start;
         var end = initializer.CloseBraceToken.SpanStart - initializer.FullSpan.Start;
-        return "[" + full[start..end].ToString() + "]";
+
+        // netstandard2.0 has no interpolated-string handler, so a span cannot be a hole of its own.
+        var elements = full[start..end].ToString();
+        return $"[{elements}]";
     }
 
     /// <summary>Gets a collection-expression replacement for a factory or fluent invocation.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <param name="text">The replacement text.</param>
     /// <returns><see langword="true"/> when a replacement can be built from syntax.</returns>
-    public static bool TryBuildInvocationCollectionExpression(InvocationExpressionSyntax invocation, out string text)
+    internal static bool TryBuildInvocationCollectionExpression(InvocationExpressionSyntax invocation, out string text)
     {
         text = string.Empty;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } access)
@@ -98,7 +101,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <param name="targetType">The target type.</param>
     /// <param name="method">The invoked method.</param>
     /// <returns><see langword="true"/> when the target's collection builder points at the invoked method.</returns>
-    public static bool TargetUsesBuilderMethod(ITypeSymbol? targetType, IMethodSymbol method)
+    internal static bool TargetUsesBuilderMethod(ITypeSymbol? targetType, IMethodSymbol method)
     {
         if (targetType is not INamedTypeSymbol namedTarget
             || !method.IsStatic)
@@ -136,7 +139,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// collection expression would turn the comparer into a member of the collection, which changes what
     /// the collection contains and how it compares its contents.
     /// </remarks>
-    public static bool FactoryTakesOnlyElements(ITypeSymbol? targetType, IMethodSymbol method)
+    internal static bool FactoryTakesOnlyElements(ITypeSymbol? targetType, IMethodSymbol method)
     {
         if (ElementTypeOf(targetType) is not { } element)
         {
@@ -158,7 +161,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <summary>Returns whether the target can receive a collection expression without a builder variable.</summary>
     /// <param name="type">The target type.</param>
     /// <returns><see langword="true"/> for arrays and collection-builder-backed named types.</returns>
-    public static bool IsCollectionExpressionTarget(ITypeSymbol? type)
+    internal static bool IsCollectionExpressionTarget(ITypeSymbol? type)
     {
         if (type is IArrayTypeSymbol { Rank: 1 })
         {
@@ -176,7 +179,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <summary>Returns whether a method is one of the LINQ materialization calls handled by the fluent rule.</summary>
     /// <param name="method">The resolved method symbol.</param>
     /// <returns><see langword="true"/> for <c>Enumerable.ToArray</c> and <c>Enumerable.ToList</c>.</returns>
-    public static bool IsLinqMaterialization(IMethodSymbol method)
+    internal static bool IsLinqMaterialization(IMethodSymbol method)
     {
         var original = method.ReducedFrom ?? method;
         if (!original.IsExtensionMethod || original.Name is not (ToArrayMethodName or "ToList"))
@@ -196,7 +199,7 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <param name="elements">The element expressions.</param>
     /// <param name="returnStatement">The conversion return statement.</param>
     /// <returns><see langword="true"/> when a compact builder sequence was found.</returns>
-    public static bool TryGetBuilderSequence(
+    internal static bool TryGetBuilderSequence(
         LocalDeclarationStatementSyntax local,
         out ExpressionSyntax[] elements,
         out ReturnStatementSyntax returnStatement)
@@ -210,8 +213,8 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <summary>Returns whether an invocation creates one of the supported builder locals.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <returns><see langword="true"/> for narrow ImmutableArray and ArrayBuilder creation calls.</returns>
-    public static bool IsBuilderCreation(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" or "GetInstance" };
+    internal static bool IsBuilderCreation(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" or "GetInstance" };
 
     /// <summary>Returns whether a type has a collection builder attribute.</summary>
     /// <param name="named">The named type.</param>
@@ -233,8 +236,8 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <summary>Returns whether an attribute is <c>CollectionBuilderAttribute</c>.</summary>
     /// <param name="attribute">The attribute data.</param>
     /// <returns><see langword="true"/> for the framework collection builder attribute.</returns>
-    private static bool IsCollectionBuilderAttribute(AttributeData attribute)
-        => attribute.AttributeClass is
+    private static bool IsCollectionBuilderAttribute(AttributeData attribute) =>
+        attribute.AttributeClass is
         {
             Name: "CollectionBuilderAttribute",
             ContainingNamespace.Name: "CompilerServices"
@@ -442,12 +445,9 @@ internal static class CollectionExpressionAdvancedAnalysis
             return true;
         }
 
-        if (type is IArrayTypeSymbol { Rank: 1 } array)
-        {
-            return SymbolEqualityComparer.Default.Equals(array.ElementType, element);
-        }
-
-        return type is INamedTypeSymbol { TypeArguments.Length: 1 } sequence
+        return type is IArrayTypeSymbol { Rank: 1 } array
+            ? SymbolEqualityComparer.Default.Equals(array.ElementType, element)
+            : type is INamedTypeSymbol { TypeArguments.Length: 1 } sequence
             && sequence.OriginalDefinition.MetadataName is "IEnumerable`1" or "ReadOnlySpan`1" or "Span`1" or "ImmutableArray`1"
             && SymbolEqualityComparer.Default.Equals(sequence.TypeArguments[0], element);
     }
@@ -475,23 +475,23 @@ internal static class CollectionExpressionAdvancedAnalysis
 
         if (isRange && arguments.Count == 1)
         {
-            text = "[.. " + arguments[0].Expression.WithoutTrivia() + "]";
+            text = $"[.. {arguments[0].Expression.WithoutTrivia()}]";
             return true;
         }
 
         var builder = new System.Text.StringBuilder();
-        builder.Append('[');
+        _ = builder.Append('[');
         for (var i = 0; i < arguments.Count; i++)
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(arguments[i].Expression.WithoutTrivia());
+            _ = builder.Append(arguments[i].Expression.WithoutTrivia());
         }
 
-        builder.Append(']');
+        _ = builder.Append(']');
         text = builder.ToString();
         return true;
     }
@@ -505,11 +505,13 @@ internal static class CollectionExpressionAdvancedAnalysis
     {
         for (var i = 0; i < block.Statements.Count; i++)
         {
-            if (block.Statements[i].Span == statement.Span)
+            if (block.Statements[i].Span != statement.Span)
             {
-                index = i;
-                return true;
+                continue;
             }
+
+            index = i;
+            return true;
         }
 
         index = -1;

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyNameof = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -45,9 +46,10 @@ public class UseNameofAnalyzerUnitTest
 
     /// <summary>Verifies a message string and an existing nameof are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonParameterStringAndNameofAreCleanAsync()
-        => await VerifyNameof.VerifyAnalyzerAsync(
+    public Task NonParameterStringAndNameofAreCleanAsync() =>
+        VerifyNameof.VerifyAnalyzerAsync(
             """
             using System;
 

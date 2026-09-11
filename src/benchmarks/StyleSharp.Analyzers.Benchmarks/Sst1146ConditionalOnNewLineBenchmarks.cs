@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1146 conditional-on-new-line analyzer.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1146ConditionalOnNewLineBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1146ConditionalOnNewLineBenchmarks
@@ -24,11 +26,13 @@ public class Sst1146ConditionalOnNewLineBenchmarks
 
     /// <summary>Benchmarks the clean independent-if path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1146ConditionalOnNewLine_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating independent-if path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1146ConditionalOnNewLine_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

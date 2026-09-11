@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeTelemetry = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -43,9 +44,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies a statement assignment of <c>EnableSensitiveData = true</c> on the chat client is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementAssignmentOnChatClientReportedAsync()
-        => await VerifyAsync(
+    public Task StatementAssignmentOnChatClientReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -58,9 +60,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies an object-initializer member <c>EnableSensitiveData = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerMemberReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectInitializerMemberReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -71,9 +74,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies the configure-delegate shape <c>o =&gt; o.EnableSensitiveData = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConfigureDelegateReportedAsync()
-        => await VerifyAsync(
+    public Task ConfigureDelegateReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -86,9 +90,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies the generic embedding-generator variant is reported (unbound-definition match).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericEmbeddingGeneratorReportedAsync()
-        => await VerifyAsync(
+    public Task GenericEmbeddingGeneratorReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -101,9 +106,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c> that evaluates to <c>true</c> is reported (compile-time constant).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantTrueReportedAsync()
-        => await VerifyAsync(
+    public Task ConstantTrueReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -118,9 +124,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>EnableSensitiveData = false</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FalseAssignmentIsCleanAsync()
-        => await VerifyAsync(
+    public Task FalseAssignmentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -133,9 +140,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies a runtime-computed value is not reported (only a compile-time <c>true</c> is).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuntimeValueIsCleanAsync()
-        => await VerifyAsync(
+    public Task RuntimeValueIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -148,9 +156,10 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
 
     /// <summary>Verifies a same-named property on an unrelated type is not reported (binding gate).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace Other
             {
@@ -193,11 +202,7 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeTelemetry.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeTelemetry.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -207,11 +212,7 @@ public class SensitiveAiTelemetryAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeTelemetry.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Preamble + source
-        };
+        var test = new AnalyzeTelemetry.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Preamble + source };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyKey = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2500TestWithoutAssertionAnalyzer>;
@@ -67,9 +68,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an empty xUnit test body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyFactBodyIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task EmptyFactBodyIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -84,9 +86,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a body that only computes locals — no call verifies anything — is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactWithOnlyLocalsIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task FactWithOnlyLocalsIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -103,9 +106,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a body whose only call is a non-verifying platform call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactWithOnlyBclCallIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task FactWithOnlyBclCallIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -121,9 +125,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a body that only creates and mutates a platform object is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactWithBclObjectCreationIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task FactWithBclObjectCreationIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -140,9 +145,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an empty NUnit test body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitTestIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task NUnitTestIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using NUnit.Framework;
 
@@ -157,9 +163,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an empty MSTest test method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MsTestMethodIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task MsTestMethodIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -174,9 +181,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an empty TUnit test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TUnitTestIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task TUnitTestIsReportedAsync() =>
+        VerifyReportAsync(
             """
             using TUnit.Core;
 
@@ -191,9 +199,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a test whose body asserts through a framework-shaped call is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactWithFrameworkAssertIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task FactWithFrameworkAssertIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -209,9 +218,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a test that calls a user-defined helper — a possible assertion helper — is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactCallingUserHelperIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task FactCallingUserHelperIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -232,9 +242,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a test that constructs a user-defined type is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactConstructingUserTypeIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task FactConstructingUserTypeIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -254,9 +265,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a pending test that throws is silent — it does not pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactWithThrowIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task FactWithThrowIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -272,9 +284,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a test that declares an expected exception is silent — it verifies by exception.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpectedExceptionMethodIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task ExpectedExceptionMethodIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -290,9 +303,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a method with no test attribute is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTestMethodIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task NonTestMethodIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Xunit;
 
@@ -306,9 +320,10 @@ public class TestWithoutAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute from an unrecognized namespace is never treated as a test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecoyAttributeWithMatchingNameIsSilentAsync()
-        => await VerifyReportAsync(
+    public Task DecoyAttributeWithMatchingNameIsSilentAsync() =>
+        VerifyReportAsync(
             """
             using Probe;
 
@@ -348,11 +363,7 @@ public class TestWithoutAssertionAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new VerifyKey.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -362,11 +373,7 @@ public class TestWithoutAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new VerifyKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyKey.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

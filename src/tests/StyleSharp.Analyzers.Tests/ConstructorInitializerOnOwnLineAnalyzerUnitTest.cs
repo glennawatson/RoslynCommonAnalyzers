@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCtorInitializer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1128ConstructorInitializerOnOwnLineAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ConstructorInitializerOnOwnLineAnalyzerUnitTest
 {
     /// <summary>Verifies an initializer sharing the signature line is reported (SST1128).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerSharingSignatureLineReportedAsync()
-        => await VerifyCtorInitializer.VerifyAnalyzerAsync(
+    public Task InitializerSharingSignatureLineReportedAsync() =>
+        VerifyCtorInitializer.VerifyAnalyzerAsync(
             """
             internal class Base
             {
@@ -34,9 +36,10 @@ public class ConstructorInitializerOnOwnLineAnalyzerUnitTest
 
     /// <summary>Verifies an initializer on its own line is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerOnOwnLineIsCleanAsync()
-        => await VerifyCtorInitializer.VerifyAnalyzerAsync(
+    public Task InitializerOnOwnLineIsCleanAsync() =>
+        VerifyCtorInitializer.VerifyAnalyzerAsync(
             """
             internal class Base
             {

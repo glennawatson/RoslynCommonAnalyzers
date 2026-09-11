@@ -11,8 +11,8 @@ internal static class ObsoleteRemovalBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Diagnostics;
 
@@ -30,8 +30,8 @@ internal static class ObsoleteRemovalBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type that deprecates nothing.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -42,8 +42,8 @@ internal static class ObsoleteRemovalBenchmarkSource
     /// does not match at all (the token test, which is what nearly every attribute in a real file hits),
     /// and a name that does match but binds to somebody else's type.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [DebuggerDisplay("C{{index}}")]
            public sealed class C{{index}}
            {
@@ -69,8 +69,8 @@ internal static class ObsoleteRemovalBenchmarkSource
     /// A message does not exempt the attribute, so the violating corpus mixes bare, explained, and fully
     /// specified deprecations: all of them are reported, and all of them cost the same bind.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            [Obsolete("Use W{{index}} instead.")]
            public sealed class V{{index}}
            {

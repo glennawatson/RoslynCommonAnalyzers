@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1662ThrownExceptionDocumentationAnalyzer,
     StyleSharp.Analyzers.Sst1662ThrownExceptionDocumentationCodeFixProvider>;
@@ -13,9 +14,10 @@ public class ThrownExceptionDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies a documented thrown exception produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentedThrowIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DocumentedThrowIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -32,9 +34,10 @@ public class ThrownExceptionDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented member (no documentation comment) is left to the coverage rules.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndocumentedMemberIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UndocumentedMemberIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -49,9 +52,10 @@ public class ThrownExceptionDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a throw inside a lambda is not attributed to the enclosing member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowInsideLambdaIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ThrowInsideLambdaIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

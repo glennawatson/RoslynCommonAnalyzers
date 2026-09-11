@@ -23,8 +23,8 @@ internal readonly record struct ShiftCountOptions(bool AllowZeroShift)
     /// shift distances lined up. An unset or unparsable value keeps the default, so a typo does not
     /// silently turn half the rule off.
     /// </remarks>
-    public static ShiftCountOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, AllowZeroShiftRuleKey, AllowZeroShiftGeneralKey, fallback: false));
+    internal static ShiftCountOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadBool(options, AllowZeroShiftRuleKey, AllowZeroShiftGeneralKey, fallback: false));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

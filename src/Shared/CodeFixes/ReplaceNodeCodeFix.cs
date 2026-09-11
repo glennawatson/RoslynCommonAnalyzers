@@ -21,14 +21,14 @@ internal static class ReplaceNodeCodeFix
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    public delegate NodeReplacement? SyntaxRewriter(SyntaxNode root, Diagnostic diagnostic);
+    internal delegate NodeReplacement? SyntaxRewriter(SyntaxNode root, Diagnostic diagnostic);
 
     /// <summary>Computes a node replacement that needs the semantic model.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    public delegate NodeReplacement? SemanticRewriter(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
+    internal delegate NodeReplacement? SemanticRewriter(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
 
     /// <summary>Registers one replace-node code action per fixable diagnostic.</summary>
     /// <param name="context">The code fix context.</param>
@@ -36,7 +36,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SyntaxRewriter tryRewrite)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SyntaxRewriter tryRewrite)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
@@ -67,7 +67,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticRewriter tryRewrite)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticRewriter tryRewrite)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
@@ -97,7 +97,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
-    public static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SyntaxRewriter tryRewrite)
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SyntaxRewriter tryRewrite)
     {
         if (tryRewrite(editor.OriginalRoot, diagnostic) is not { } edit)
         {
@@ -117,7 +117,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
-    public static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SemanticRewriter tryRewrite)
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SemanticRewriter tryRewrite)
     {
         if (tryRewrite(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } edit)
         {

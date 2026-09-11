@@ -77,11 +77,6 @@ public sealed class AccessorOrderAnalyzer : DiagnosticAnalyzer
             return kind == (isPrimary ? SyntaxKind.AddKeyword : SyntaxKind.RemoveKeyword);
         }
 
-        if (isPrimary)
-        {
-            return kind == SyntaxKind.GetKeyword;
-        }
-
-        return kind is SyntaxKind.SetKeyword or SyntaxKind.InitKeyword;
+        return isPrimary ? kind == SyntaxKind.GetKeyword : kind is SyntaxKind.SetKeyword or SyntaxKind.InitKeyword;
     }
 }

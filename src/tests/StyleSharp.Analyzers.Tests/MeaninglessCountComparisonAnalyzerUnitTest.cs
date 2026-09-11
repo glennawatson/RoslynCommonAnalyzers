@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCountComparison = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1479MeaninglessCountComparisonAnalyzer,
     StyleSharp.Analyzers.Sst1479MeaninglessCountComparisonCodeFixProvider>;
@@ -276,9 +277,10 @@ public class MeaninglessCountComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a comparison that still asks a real question is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SatisfiableComparisonsAreCleanAsync()
-        => await VerifyCountComparison.VerifyAnalyzerAsync(
+    public Task SatisfiableComparisonsAreCleanAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -304,9 +306,10 @@ public class MeaninglessCountComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an operand that only looks like a count never reaches the semantic model's answer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OperandsThatAreNotCountsAreCleanAsync()
-        => await VerifyCountComparison.VerifyAnalyzerAsync(
+    public Task OperandsThatAreNotCountsAreCleanAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -321,9 +324,10 @@ public class MeaninglessCountComparisonAnalyzerUnitTest
     /// <summary>Verifies a <c>Count</c> that satisfies no collection interface is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Nothing says a user-defined count is non-negative; a running balance is a perfectly good <c>Count</c>.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedCountIsCleanAsync()
-        => await VerifyCountComparison.VerifyAnalyzerAsync(
+    public Task UserDefinedCountIsCleanAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync(
             """
             public sealed class Ledger
             {
@@ -342,9 +346,10 @@ public class MeaninglessCountComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a count read through a conditional access is nullable, so the comparison still decides something.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessCountIsCleanAsync()
-        => await VerifyCountComparison.VerifyAnalyzerAsync(
+    public Task ConditionalAccessCountIsCleanAsync() =>
+        VerifyCountComparison.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

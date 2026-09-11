@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBlock = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.EmptyCodeAnalyzer>;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer,
@@ -71,15 +72,17 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a free-standing block that declares nothing is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreeStandingBlockIsReportedAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(FreeStandingSource);
+    public Task FreeStandingBlockIsReportedAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(FreeStandingSource);
 
     /// <summary>Verifies a block that declares a local is clean: it scopes that local.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockThatScopesALocalIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockThatScopesALocalIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -97,9 +100,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a comment-only block is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentOnlyBlockIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task CommentOnlyBlockIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -114,9 +118,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a method body itself is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodBodyIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task MethodBodyIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -128,15 +133,17 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies the fix splices the statements into the enclosing block.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixSplicesStatementsAsync()
-        => await VerifyFix.VerifyCodeFixAsync(FreeStandingSource, FreeStandingFixed);
+    public Task FixSplicesStatementsAsync() =>
+        VerifyFix.VerifyCodeFixAsync(FreeStandingSource, FreeStandingFixed);
 
     /// <summary>Verifies a block scoping a pattern variable and an out variable next to a sibling that reuses the names is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockThatScopesPatternAndOutVariablesIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockThatScopesPatternAndOutVariablesIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -157,9 +164,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a block scoping a deconstruction designation is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockThatScopesADeconstructionDesignationIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockThatScopesADeconstructionDesignationIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -175,9 +183,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a block whose 'if', 'switch', or 'lock' header declares a variable is clean: the name outlives the statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockThatScopesAHeaderVariableIsCleanAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockThatScopesAHeaderVariableIsCleanAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -214,9 +223,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a block whose loop or resource header declares a variable is still reported: that name dies with the statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockWhoseLoopHeaderScopesAVariableIsReportedAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockWhoseLoopHeaderScopesAVariableIsReportedAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -251,9 +261,10 @@ public class FreeStandingBlockAnalyzerUnitTest
 
     /// <summary>Verifies a block is still reported when the only designations sit inside a nested scope.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockWithDesignationsInNestedScopesIsReportedAsync()
-        => await VerifyBlock.VerifyAnalyzerAsync(
+    public Task BlockWithDesignationsInNestedScopesIsReportedAsync() =>
+        VerifyBlock.VerifyAnalyzerAsync(
             """
             using System;
 

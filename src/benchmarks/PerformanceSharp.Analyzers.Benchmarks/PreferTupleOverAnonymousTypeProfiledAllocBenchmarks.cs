@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for anonymous-type-to-tuple analysis (PSH1023).</summary>
+[System.Diagnostics.DebuggerDisplay("PreferTupleOverAnonymousTypeProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class PreferTupleOverAnonymousTypeProfiledAllocBenchmarks
@@ -28,11 +30,13 @@ public class PreferTupleOverAnonymousTypeProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the path where the local pair is already a tuple.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferTupleOverAnonymousType_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the path where every local pair is an anonymous type.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferTupleOverAnonymousType_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

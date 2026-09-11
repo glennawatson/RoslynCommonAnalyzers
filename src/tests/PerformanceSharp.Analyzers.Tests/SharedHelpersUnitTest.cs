@@ -26,7 +26,7 @@ public class SharedHelpersUnitTest
     {
         var root = await CSharpSyntaxTree.ParseText("class C { int F; }").GetRootAsync();
         var collected = new List<string>();
-        DescendantTraversalHelper.VisitDescendantTokens(
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
             root,
             ref collected,
             static (in SyntaxToken token, ref List<string> state) =>
@@ -47,7 +47,7 @@ public class SharedHelpersUnitTest
 
         var root = await CSharpSyntaxTree.ParseText("class C { int F; }").GetRootAsync();
         var count = 0;
-        DescendantTraversalHelper.VisitDescendantTokens(
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
             root,
             ref count,
             static (in SyntaxToken _, ref int state) => ++state < TokensVisitedBeforeStop);
@@ -99,7 +99,7 @@ public class SharedHelpersUnitTest
 
         await Assert.That(diagnostic.Id).IsEqualTo("PSH1307");
         await Assert.That(diagnostic.Location.SourceSpan).IsEqualTo(span);
-        await Assert.That(diagnostic.GetMessage(null)).IsEqualTo("'first' is an Interlocked target elsewhere in this type; use 'second' for this access");
+        await Assert.That(diagnostic.GetMessage()).IsEqualTo("'first' is an Interlocked target elsewhere in this type; use 'second' for this access");
     }
 
     /// <summary>Verifies the properties-carrying overload exposes the cached dictionary on the diagnostic.</summary>
@@ -112,7 +112,7 @@ public class SharedHelpersUnitTest
         var tree = CSharpSyntaxTree.ParseText("class C { }");
         var properties = ImmutableDictionary<string, string?>.Empty.Add("key", "value");
 
-        var diagnostic = DiagnosticHelper.Create(ConcurrencyRules.VolatileInterlockedField, tree, new TextSpan(0, ClassKeywordLength), properties, "first", "second");
+        var diagnostic = DiagnosticHelper.Create(ConcurrencyRules.VolatileInterlockedField, tree, new(0, ClassKeywordLength), properties, "first", "second");
 
         await Assert.That(diagnostic.Properties["key"]).IsEqualTo("value");
     }

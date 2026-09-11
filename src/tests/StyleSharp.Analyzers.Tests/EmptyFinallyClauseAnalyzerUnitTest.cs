@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyFinally = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2466EmptyFinallyClauseAnalyzer,
     StyleSharp.Analyzers.Sst2466EmptyFinallyClauseCodeFixProvider>;
@@ -133,9 +134,10 @@ public class EmptyFinallyClauseAnalyzerUnitTest
 
     /// <summary>Verifies a finally that runs cleanup is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FinallyWithCleanupIsCleanAsync()
-        => await VerifyEmptyFinally.VerifyAnalyzerAsync(
+    public Task FinallyWithCleanupIsCleanAsync() =>
+        VerifyEmptyFinally.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -157,9 +159,10 @@ public class EmptyFinallyClauseAnalyzerUnitTest
 
     /// <summary>Verifies a finally holding only a comment is left alone; the comment may be the reason.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FinallyWithOnlyACommentIsCleanAsync()
-        => await VerifyEmptyFinally.VerifyAnalyzerAsync(
+    public Task FinallyWithOnlyACommentIsCleanAsync() =>
+        VerifyEmptyFinally.VerifyAnalyzerAsync(
             """
             using System;
 

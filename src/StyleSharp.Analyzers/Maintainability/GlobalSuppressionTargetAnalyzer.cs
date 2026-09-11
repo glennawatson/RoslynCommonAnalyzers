@@ -48,7 +48,7 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports invalid or legacy global suppression targets.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="suppressMessageAttribute">The suppression attribute symbol.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.Parent is not AttributeListSyntax { Target.Identifier.RawKind: (int)SyntaxKind.AssemblyKeyword }
@@ -120,8 +120,8 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a target has the shape of a declaration documentation id.</summary>
     /// <param name="target">The target string.</param>
     /// <returns><see langword="true"/> when Roslyn can reasonably resolve the target.</returns>
-    private static bool LooksLikeDeclarationId(string target)
-        => target.Length > 2
+    private static bool LooksLikeDeclarationId(string target) =>
+        target.Length > 2
             && target[1] == ':'
             && target[0] is 'E' or 'F' or 'M' or 'N' or 'P' or 'T';
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 using Microsoft.CodeAnalysis.Text;
@@ -93,15 +94,12 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             CollectDirectiveLine(root.FindTrivia(start), removals);
         }
 
-        root = root.ReplaceTrivia(removals, (_, _) => default);
+        root = root.ReplaceTrivia(removals, static (_, _) => default);
 
         using var annotated = root.GetAnnotatedNodes(memberAnnotation).GetEnumerator();
-        if (!annotated.MoveNext() || annotated.Current is not MemberDeclarationSyntax target)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, DetermineEndOfLine(root))));
+        return !annotated.MoveNext() || annotated.Current is not MemberDeclarationSyntax target
+            ? document
+            : document.WithSyntaxRoot(root.ReplaceNode(target, AddSuppressions(target, movedCodes, DetermineEndOfLine(root))));
     }
 
     /// <summary>Reads the warning codes a directive lists.</summary>
@@ -194,11 +192,13 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             var found = false;
             for (var j = 0; j < codes.Count; j++)
             {
-                if (string.Equals(PragmaWarningHelper.CodeText(codes[j]), moved[i], StringComparison.Ordinal))
+                if (!string.Equals(PragmaWarningHelper.CodeText(codes[j]), moved[i], StringComparison.Ordinal))
                 {
-                    found = true;
-                    break;
+                    continue;
                 }
+
+                found = true;
+                break;
             }
 
             if (!found)
@@ -213,9 +213,9 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     /// <summary>Collects a directive's trivia plus its line's leading indentation for removal.</summary>
     /// <param name="directiveTrivia">The directive's trivia (its text already includes the trailing newline).</param>
     /// <param name="removals">The set of trivia to remove.</param>
-    private static void CollectDirectiveLine(SyntaxTrivia directiveTrivia, HashSet<SyntaxTrivia> removals)
+    private static void CollectDirectiveLine(in SyntaxTrivia directiveTrivia, HashSet<SyntaxTrivia> removals)
     {
-        removals.Add(directiveTrivia);
+        _ = removals.Add(directiveTrivia);
 
         var leading = directiveTrivia.Token.LeadingTrivia;
         var index = leading.IndexOf(directiveTrivia);
@@ -224,7 +224,7 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             return;
         }
 
-        removals.Add(leading[index - 1]);
+        _ = removals.Add(leading[index - 1]);
     }
 
     /// <summary>Prepends a [SuppressMessage] attribute list for each moved code to the member.</summary>
@@ -232,7 +232,7 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     /// <param name="movedCodes">The codes to suppress.</param>
     /// <param name="newLine">The end-of-line trivia matching the document's existing line endings.</param>
     /// <returns>The member with the new attribute lists.</returns>
-    private static MemberDeclarationSyntax AddSuppressions(MemberDeclarationSyntax member, List<string> movedCodes, SyntaxTrivia newLine)
+    private static MemberDeclarationSyntax AddSuppressions(MemberDeclarationSyntax member, List<string> movedCodes, in SyntaxTrivia newLine)
     {
         var leading = member.GetLeadingTrivia();
         var indent = IndentTrivia(leading);
@@ -296,14 +296,15 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     /// <summary>Creates a string literal expression.</summary>
     /// <param name="value">The literal value.</param>
     /// <returns>The literal expression.</returns>
-    private static LiteralExpressionSyntax StringLiteral(string value)
-        => SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(value));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LiteralExpressionSyntax StringLiteral(string value) =>
+        SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(value));
 
     /// <summary>Returns the indentation trivia (the whitespace immediately before the member) of its leading trivia.</summary>
     /// <param name="leading">The member's leading trivia.</param>
     /// <returns>The indentation trivia list, or an empty list when the member starts at column zero.</returns>
-    private static SyntaxTriviaList IndentTrivia(SyntaxTriviaList leading)
-        => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
+    private static SyntaxTriviaList IndentTrivia(in SyntaxTriviaList leading) =>
+        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? SyntaxFactory.TriviaList(leading[leading.Count - 1])
             : SyntaxTriviaList.Empty;
 }

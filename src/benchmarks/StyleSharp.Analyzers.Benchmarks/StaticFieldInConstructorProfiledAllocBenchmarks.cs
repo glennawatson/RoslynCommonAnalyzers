@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for static-field-in-constructor analysis (SST2402).</summary>
+[System.Diagnostics.DebuggerDisplay("StaticFieldInConstructorProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class StaticFieldInConstructorProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class StaticFieldInConstructorProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean static-field-in-constructor path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> StaticFieldInConstructor_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating static-field-in-constructor path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> StaticFieldInConstructor_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

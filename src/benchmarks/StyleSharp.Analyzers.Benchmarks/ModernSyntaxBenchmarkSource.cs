@@ -12,8 +12,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit empty collection creations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateEmptyCollectionExpression(int members, bool violating)
-        => $$"""
+    internal static string GenerateEmptyCollectionExpression(int members, bool violating) =>
+        $$"""
            using System.Collections.Generic;
 
            namespace Bench;
@@ -28,8 +28,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit explicit array initializers.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateExplicitCollectionExpression(int members, bool violating)
-        => $$"""
+    internal static string GenerateExplicitCollectionExpression(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class ExplicitCollectionExpressionBench
@@ -42,8 +42,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit a conditional nested in a conditional.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateNestedTernary(int members, bool violating)
-        => $$"""
+    internal static string GenerateNestedTernary(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class NestedTernaryBench
@@ -56,8 +56,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit an un-parenthesized binary operand of <c>??</c>.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateNullCoalescingPrecedence(int members, bool violating)
-        => $$"""
+    internal static string GenerateNullCoalescingPrecedence(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class NullCoalescingPrecedenceBench
@@ -70,8 +70,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit partial types without an access modifier.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePartialElementAccess(int members, bool violating)
-        => $$"""
+    internal static string GeneratePartialElementAccess(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class PartialElementAccessBench
@@ -84,8 +84,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit classic this-parameter extension methods.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePreferExtensionBlock(int members, bool violating)
-        => $$"""
+    internal static string GeneratePreferExtensionBlock(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class PreferExtensionBlockBench
@@ -98,8 +98,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic single-property types to emit.</param>
     /// <param name="violating">Whether to emit single-use backing fields with accessor logic.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePreferFieldKeyword(int members, bool violating)
-        => $$"""
+    internal static string GeneratePreferFieldKeyword(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(members, i => GeneratePreferFieldKeywordType(i, violating))}}
@@ -109,8 +109,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic switch methods to emit.</param>
     /// <param name="violating">Whether to emit return-only switch statements.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePreferSwitchExpression(int members, bool violating)
-        => $$"""
+    internal static string GeneratePreferSwitchExpression(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class PreferSwitchExpressionBench
@@ -123,8 +123,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic switch methods to emit.</param>
     /// <param name="violating">Whether to emit stacked combinable case labels.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePreferOrPattern(int members, bool violating)
-        => $$"""
+    internal static string GeneratePreferOrPattern(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class PreferOrPatternBench
@@ -137,8 +137,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit a blank line between query clauses.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateQueryClause(int members, bool violating)
-        => $$"""
+    internal static string GenerateQueryClause(int members, bool violating) =>
+        $$"""
            using System.Collections.Generic;
            using System.Linq;
 
@@ -154,8 +154,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit anonymous methods with an empty parameter list.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRedundantParentheses(int members, bool violating)
-        => $$"""
+    internal static string GenerateRedundantParentheses(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RedundantParenthesesBench
@@ -168,8 +168,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit anonymous methods.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUseLambdaSyntax(int members, bool violating)
-        => $$"""
+    internal static string GenerateUseLambdaSyntax(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class UseLambdaSyntaxBench
@@ -182,8 +182,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an empty collection creation.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateEmptyCollectionExpressionMember(int index, bool violating)
-        => violating
+    private static string GenerateEmptyCollectionExpressionMember(int index, bool violating) =>
+        violating
             ? $$"""
                public List<int> Value{{index}} = new List<int>();
                """
@@ -195,8 +195,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an explicit array initializer.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateExplicitCollectionExpressionMember(int index, bool violating)
-        => violating
+    private static string GenerateExplicitCollectionExpressionMember(int index, bool violating) =>
+        violating
             ? $$"""
                public int[] Value{{index}} = new[] { {{index}}, {{index + 1}} };
                """
@@ -208,8 +208,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a nested conditional.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateNestedTernaryMember(int index, bool violating)
-        => violating
+    private static string GenerateNestedTernaryMember(int index, bool violating) =>
+        violating
             ? $$"""
                public int M{{index}}(int x) => x > {{index}} ? (x > 0 ? 1 : 2) : 3;
                """
@@ -221,8 +221,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an un-parenthesized binary operand of <c>??</c>.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateNullCoalescingPrecedenceMember(int index, bool violating)
-        => violating
+    private static string GenerateNullCoalescingPrecedenceMember(int index, bool violating) =>
+        violating
             ? $$"""
                public int M{{index}}(int? a, int b) => a + b ?? {{index}};
                """
@@ -234,8 +234,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to omit the access modifier.</param>
     /// <returns>The generated nested type block.</returns>
-    private static string GeneratePartialElementAccessMember(int index, bool violating)
-        => violating
+    private static string GeneratePartialElementAccessMember(int index, bool violating) =>
+        violating
             ? $$"""
                partial class Part{{index}}
                {
@@ -251,8 +251,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a classic this-parameter extension method.</param>
     /// <returns>The generated member block.</returns>
-    private static string GeneratePreferExtensionBlockMember(int index, bool violating)
-        => violating
+    private static string GeneratePreferExtensionBlockMember(int index, bool violating) =>
+        violating
             ? $$"""
                public static bool IsBlank{{index}}(this string text) => text.Length == {{index}};
                """
@@ -269,8 +269,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// whole containing type) stays bounded per property — keeping the benchmark a linear measure of
     /// per-property cost rather than the O(n²) a single thousand-property class would produce.
     /// </remarks>
-    private static string GeneratePreferFieldKeywordType(int index, bool violating)
-        => violating
+    private static string GeneratePreferFieldKeywordType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class FieldKeywordBench{{index}}
                {
@@ -304,8 +304,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic method index.</param>
     /// <param name="violating">Whether to emit a return-only switch statement.</param>
     /// <returns>The generated method block.</returns>
-    private static string GeneratePreferSwitchExpressionMember(int index, bool violating)
-        => violating
+    private static string GeneratePreferSwitchExpressionMember(int index, bool violating) =>
+        violating
             ? $$"""
                public int M{{index}}(int value)
                {
@@ -337,8 +337,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// Each method holds its own small switch so the corpus scales linearly; a single thousand-section
     /// switch instead makes Roslyn's decision-DAG binding cost dominate and is not what this rule measures.
     /// </remarks>
-    private static string GeneratePreferOrPatternMethod(int index, bool violating)
-        => violating
+    private static string GeneratePreferOrPatternMethod(int index, bool violating) =>
+        violating
             ? $$"""
                public int Classify{{index}}(int value)
                {
@@ -374,8 +374,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a blank line between clauses.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateQueryClauseMember(int index, bool violating)
-        => violating
+    private static string GenerateQueryClauseMember(int index, bool violating) =>
+        violating
             ? $$"""
                public IEnumerable<int> Q{{index}}(int[] source) =>
                    from x in source
@@ -394,8 +394,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an anonymous method with an empty parameter list.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateRedundantParenthesesMember(int index, bool violating)
-        => violating
+    private static string GenerateRedundantParenthesesMember(int index, bool violating) =>
+        violating
             ? $$"""
                public System.Action Value{{index}} = delegate() { };
                """
@@ -407,8 +407,8 @@ internal static class ModernSyntaxBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an anonymous method.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUseLambdaSyntaxMember(int index, bool violating)
-        => violating
+    private static string GenerateUseLambdaSyntaxMember(int index, bool violating) =>
+        violating
             ? $$"""
                public System.Action Value{{index}} = delegate { };
                """

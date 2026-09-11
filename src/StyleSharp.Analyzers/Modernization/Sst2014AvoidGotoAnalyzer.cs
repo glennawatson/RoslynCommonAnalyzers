@@ -57,7 +57,7 @@ public sealed class Sst2014AvoidGotoAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="statement">The goto statement.</param>
     /// <returns><see langword="true"/> when the target label sits outside the innermost enclosing loop.</returns>
-    private static bool EscapesEnclosingLoop(SyntaxNodeAnalysisContext context, GotoStatementSyntax statement)
+    private static bool EscapesEnclosingLoop(in SyntaxNodeAnalysisContext context, GotoStatementSyntax statement)
     {
         if (statement.Expression is null || EnclosingLoop(statement) is not { } loop)
         {
@@ -65,7 +65,7 @@ public sealed class Sst2014AvoidGotoAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetSymbolInfo(statement.Expression, context.CancellationToken).Symbol is not ILabelSymbol label
-            || label.DeclaringSyntaxReferences.Length == 0)
+            || label.DeclaringSyntaxReferences.IsEmpty)
         {
             return false;
         }

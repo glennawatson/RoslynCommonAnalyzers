@@ -10,9 +10,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the file-without-code rule (SST1533).</summary>
 public class FileWithoutCodeUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config that switches the opt-in rule on.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>The editorconfig content enabling the opt-in rule.</summary>
     private const string EnableConfig = """
         root = true
@@ -27,7 +24,7 @@ public class FileWithoutCodeUnitTest
     public async Task UsingsOnlyFileReportedAsync()
     {
         var test = new VerifyFileWithoutCode.Test { TestCode = "{|SST1533:using System;|}\n" };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -37,7 +34,7 @@ public class FileWithoutCodeUnitTest
     public async Task CommentOnlyFileReportedAsync()
     {
         var test = new VerifyFileWithoutCode.Test { TestCode = "{|SST1533:// nothing here anymore|}\n" };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -64,10 +61,10 @@ public class FileWithoutCodeUnitTest
                        }
                        #endif
 
-                       """
+                       """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -85,10 +82,10 @@ public class FileWithoutCodeUnitTest
                        #if NETSTANDARD2_0
                        #endif
 
-                       """
+                       """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -105,7 +102,7 @@ public class FileWithoutCodeUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -115,7 +112,7 @@ public class FileWithoutCodeUnitTest
     public async Task WhitespaceOnlyFileIsCleanAsync()
     {
         var test = new VerifyFileWithoutCode.Test { TestCode = "   \n" };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EnableConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EnableConfig));
         await test.RunAsync(CancellationToken.None);
     }
 }

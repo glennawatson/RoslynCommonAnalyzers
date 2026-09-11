@@ -8,11 +8,11 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public enum ModernSyntaxPreferenceBenchmarkShape
 {
     /// <summary>Lambda with explicit parameter types.</summary>
-    Lambda,
+    Lambda = 0,
 
     /// <summary>Invocation argument lambda with explicit parameter types.</summary>
-    InvocationLambda,
+    InvocationLambda = 1,
 
     /// <summary>Property accessors with block bodies.</summary>
-    Accessor
+    Accessor = 2,
 }

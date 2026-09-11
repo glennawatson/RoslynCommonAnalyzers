@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using RoslynCommon.Analyzers.Tests;
 using VerifyClosed = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 {
     /// <summary>Verifies an assembly-internal abstract base with two descendants is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalBaseWithTwoDescendantsReportedAsync()
-        => await RunAsync(
+    public Task InternalBaseWithTwoDescendantsReportedAsync() =>
+        RunAsync(
             """
             internal abstract class {|SST2337:GateState|}
             {
@@ -33,9 +35,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 
     /// <summary>Verifies an externally visible base is not reported, because closing it would break callers.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicBaseIsCleanAsync()
-        => await RunAsync(
+    public Task PublicBaseIsCleanAsync() =>
+        RunAsync(
             """
             public abstract class GateState
             {
@@ -52,9 +55,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 
     /// <summary>Verifies a base with a single descendant is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleDescendantIsCleanAsync()
-        => await RunAsync(
+    public Task SingleDescendantIsCleanAsync() =>
+        RunAsync(
             """
             internal abstract class GateState
             {
@@ -67,9 +71,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 
     /// <summary>Verifies a concrete base is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteBaseIsCleanAsync()
-        => await RunAsync(
+    public Task ConcreteBaseIsCleanAsync() =>
+        RunAsync(
             """
             internal class GateState
             {
@@ -86,9 +91,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 
     /// <summary>Verifies a hierarchy that already carries the modifier is not reported again.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlreadyClosedIsCleanAsync()
-        => await RunAsync(
+    public Task AlreadyClosedIsCleanAsync() =>
+        RunAsync(
             """
             internal closed class GateState
             {
@@ -105,9 +111,10 @@ public class Sst2337ClosedHierarchyAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported below C# 15, where the modifier does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BelowCSharp15IsCleanAsync()
-        => await RunAsync(
+    public Task BelowCSharp15IsCleanAsync() =>
+        RunAsync(
             """
             internal abstract class GateState
             {

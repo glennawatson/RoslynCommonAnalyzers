@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeTypeless = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -46,9 +47,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>MessagePackSerializer.Typeless.Deserialize</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypelessFacadeDeserializeReportedAsync()
-        => await VerifyAsync(
+    public Task TypelessFacadeDeserializeReportedAsync() =>
+        VerifyAsync(
             """
             using MessagePack;
 
@@ -60,9 +62,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>MessagePackSerializer.Typeless.DeserializeAsync</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypelessFacadeDeserializeAsyncReportedAsync()
-        => await VerifyAsync(
+    public Task TypelessFacadeDeserializeAsyncReportedAsync() =>
+        VerifyAsync(
             """
             using MessagePack;
 
@@ -75,9 +78,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified <c>Typeless.Deserialize</c> call is reported without a using.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedTypelessFacadeReportedAsync()
-        => await VerifyAsync(
+    public Task QualifiedTypelessFacadeReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -87,9 +91,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a reference to <c>TypelessObjectResolver.Instance</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypelessObjectResolverReferenceReportedAsync()
-        => await VerifyAsync(
+    public Task TypelessObjectResolverReferenceReportedAsync() =>
+        VerifyAsync(
             """
             using MessagePack.Resolvers;
 
@@ -101,9 +106,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a reference to <c>TypelessContractlessStandardResolver.Instance</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypelessContractlessResolverReferenceReportedAsync()
-        => await VerifyAsync(
+    public Task TypelessContractlessResolverReferenceReportedAsync() =>
+        VerifyAsync(
             """
             using MessagePack.Resolvers;
 
@@ -115,9 +121,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a typed (contract) <c>MessagePackSerializer.Deserialize&lt;T&gt;</c> call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypedContractDeserializeIsCleanAsync()
-        => await VerifyAsync(
+    public Task TypedContractDeserializeIsCleanAsync() =>
+        VerifyAsync(
             """
             using MessagePack;
 
@@ -133,9 +140,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies a lookalike non-MessagePack <c>Typeless.Deserialize</c> and resolver are not reported while the rule is active.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookalikeTypesAreCleanAsync()
-        => await VerifyAsync(
+    public Task LookalikeTypesAreCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -163,9 +171,10 @@ public class TypelessDeserializationAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated singleton <c>.Instance</c> reference is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedInstanceReferenceIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedInstanceReferenceIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class Logger
             {
@@ -208,11 +217,7 @@ public class TypelessDeserializationAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeTypeless.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeTypeless.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -222,11 +227,7 @@ public class TypelessDeserializationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeTypeless.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + "\n\n" + MessagePackStub
-        };
+        var test = new AnalyzeTypeless.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = $"{source}\n\n{MessagePackStub}" };
 
         await test.RunAsync(CancellationToken.None);
     }

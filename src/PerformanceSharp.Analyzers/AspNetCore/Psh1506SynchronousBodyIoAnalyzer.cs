@@ -92,7 +92,7 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1506 when a synchronous I/O call binds to the HTTP body and an async overload exists on the receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gate">The resolved ASP.NET Core body-owning types.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, BodyGate gate)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, BodyGate gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
@@ -128,12 +128,9 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
     private static bool ReceiverReadsHttpBody(SemanticModel model, ExpressionSyntax receiver, BodyGate gate, CancellationToken cancellationToken)
     {
         var expr = Unwrap(receiver);
-        if (expr is ObjectCreationExpressionSyntax creation)
-        {
-            return CreationWrapsBody(model, creation, gate, cancellationToken);
-        }
-
-        return model.GetSymbolInfo(expr, cancellationToken).Symbol switch
+        return expr is ObjectCreationExpressionSyntax creation
+            ? CreationWrapsBody(model, creation, gate, cancellationToken)
+            : model.GetSymbolInfo(expr, cancellationToken).Symbol switch
         {
             IPropertySymbol property => IsBodyProperty(property, gate),
             ILocalSymbol local => LocalInitializerReadsBody(model, local, gate, cancellationToken),

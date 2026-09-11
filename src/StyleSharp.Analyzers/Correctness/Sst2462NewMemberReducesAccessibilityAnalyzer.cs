@@ -168,12 +168,7 @@ public sealed class Sst2462NewMemberReducesAccessibilityAnalyzer : DiagnosticAna
             return candidate is IMethodSymbol baseMethod && SameSignature(derivedMethod, baseMethod);
         }
 
-        if (member is INamedTypeSymbol derivedType)
-        {
-            return candidate is INamedTypeSymbol baseNestedType && derivedType.Arity == baseNestedType.Arity;
-        }
-
-        return member.Kind == candidate.Kind;
+        return member is INamedTypeSymbol derivedType ? candidate is INamedTypeSymbol baseNestedType && derivedType.Arity == baseNestedType.Arity : member.Kind == candidate.Kind;
     }
 
     /// <summary>Returns whether two methods share a hiding signature (arity, parameter types, and ref kinds).</summary>

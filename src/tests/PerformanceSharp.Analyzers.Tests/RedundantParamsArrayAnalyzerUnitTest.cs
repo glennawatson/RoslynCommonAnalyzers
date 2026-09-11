@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -188,9 +189,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies an overload that would capture the unwrapped call keeps the array; the rewrite would change the callee.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturingOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task CapturingOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -208,9 +210,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a single element that is itself the params array type is left alone; unwrapping would pass it as the whole array.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleArrayElementIsCleanAsync()
-        => await VerifyAsync(
+    public Task SingleArrayElementIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -224,9 +227,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a lone null element is left alone; unwrapping would pass a null array instead of an array holding null.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleNullElementIsCleanAsync()
-        => await VerifyAsync(
+    public Task SingleNullElementIsCleanAsync() =>
+        VerifyAsync(
             """
             #nullable enable
 
@@ -242,9 +246,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a covariant array is left alone; the compiler passes it straight through, so unwrapping changes the runtime array type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CovariantArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task CovariantArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -258,9 +263,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies an array handed to a plain array parameter is left alone; there is no params expansion to remove.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonParamsParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonParamsParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -274,9 +280,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies an array held in a variable is left alone; the rule only unwraps arrays written at the call site.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArrayVariableIsCleanAsync()
-        => await VerifyAsync(
+    public Task ArrayVariableIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -294,9 +301,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a sized array without an initializer is left alone; its elements were never written at the call site.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SizedArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task SizedArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -310,9 +318,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a named argument is left alone; the array is not sitting in a positional params slot.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NamedArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -326,9 +335,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a params collection that is not an array is left alone; the array binds through a conversion, not an expansion.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParamsSpanIsCleanAsync()
-        => await VerifyAsync(
+    public Task ParamsSpanIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -344,9 +354,10 @@ public class RedundantParamsArrayAnalyzerUnitTest
 
     /// <summary>Verifies a params array reached through a conditional access is not reported — rebinding the detached call would orphan its member binding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessParamsArrayIsLeftAloneAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessParamsArrayIsLeftAloneAsync() =>
+        VerifyAsync(
             """
             public sealed class C
             {
@@ -367,11 +378,7 @@ public class RedundantParamsArrayAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

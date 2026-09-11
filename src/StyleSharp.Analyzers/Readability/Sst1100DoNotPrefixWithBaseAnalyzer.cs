@@ -155,6 +155,6 @@ public sealed class Sst1100DoNotPrefixWithBaseAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
     /// <param name="identifier">The identifier token.</param>
     /// <returns>The comparison-ready identifier text.</returns>
-    private static string GetIdentifierText(SyntaxToken identifier)
-        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
+    private static string GetIdentifierText(SyntaxToken identifier) =>
+        identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

@@ -21,7 +21,7 @@ internal static class BlazorFlagAssignment
     /// <param name="semanticModel">The semantic model used to bind the assignment target.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when the assignment sets the gated flag to the required literal.</returns>
-    public static bool AssignsFlag(
+    internal static bool AssignsFlag(
         AssignmentExpressionSyntax assignment,
         SyntaxKind requiredValueKind,
         string propertyName,
@@ -44,8 +44,8 @@ internal static class BlazorFlagAssignment
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <param name="propertyName">The flag property's name.</param>
     /// <returns><see langword="true"/> for a member access or bare initializer member naming the flag.</returns>
-    private static bool TargetsProperty(ExpressionSyntax left, string propertyName)
-        => left switch
+    private static bool TargetsProperty(ExpressionSyntax left, string propertyName) =>
+        left switch
         {
             // 'options.Flag = <literal>'.
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } => string.Equals(name, propertyName, StringComparison.Ordinal),

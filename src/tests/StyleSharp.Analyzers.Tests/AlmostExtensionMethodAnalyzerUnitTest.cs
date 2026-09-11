@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyAlmostExtension = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -17,9 +18,10 @@ public class AlmostExtensionMethodAnalyzerUnitTest
 {
     /// <summary>Verifies a static helper in an Extensions class with no 'this' modifier is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingThisModifierReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task MissingThisModifierReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class StringExtensions
             {
@@ -29,9 +31,10 @@ public class AlmostExtensionMethodAnalyzerUnitTest
 
     /// <summary>Verifies a genuine 'this'-parameter extension method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenuineExtensionMethodIsCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task GenuineExtensionMethodIsCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class StringExtensions
             {
@@ -41,9 +44,10 @@ public class AlmostExtensionMethodAnalyzerUnitTest
 
     /// <summary>Verifies a helper outside an Extensions-named class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExtensionContainerIsCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task NonExtensionContainerIsCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class StringHelpers
             {
@@ -53,9 +57,10 @@ public class AlmostExtensionMethodAnalyzerUnitTest
 
     /// <summary>Verifies a private helper and a generic helper are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateAndGenericHelpersAreCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task PrivateAndGenericHelpersAreCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class StringExtensions
             {
@@ -85,11 +90,7 @@ public class AlmostExtensionMethodAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyAlmostExtensionFix.Test
-        {
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
         AddPreview(test.SolutionTransforms);
         await test.RunAsync(CancellationToken.None);
     }
@@ -99,18 +100,16 @@ public class AlmostExtensionMethodAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAnalyzerAsync(string source)
     {
-        var test = new VerifyAlmostExtension.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyAlmostExtension.Test { TestCode = source };
         AddPreview(test.SolutionTransforms);
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Adds a solution transform that raises the language version to preview.</summary>
     /// <param name="transforms">The test's solution transforms.</param>
-    private static void AddPreview(System.Collections.Generic.List<Func<Microsoft.CodeAnalysis.Solution, Microsoft.CodeAnalysis.ProjectId, Microsoft.CodeAnalysis.Solution>> transforms)
-        => transforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddPreview(List<Func<Microsoft.CodeAnalysis.Solution, Microsoft.CodeAnalysis.ProjectId, Microsoft.CodeAnalysis.Solution>> transforms) =>
+        transforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));

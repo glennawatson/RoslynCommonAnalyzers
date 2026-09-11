@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -21,23 +22,12 @@ public class FileHeaderAnalyzerUnitTest
 
         """;
 
-    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
-    /// <summary>The id of the file-header rule under test.</summary>
-    private const string FileHeaderDiagnosticId = "SST1633";
-
-    /// <summary>The file as it reads once the configured header is in place — both the valid form and the fixed one.</summary>
-    private const string SourceWithExpectedHeader = """
-        // Copyright text.
-        namespace N { }
-        """;
-
     /// <summary>Verifies a file with no header template configured is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsetIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync("namespace N { }");
+    public Task UnsetIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync("namespace N { }");
 
     /// <summary>Verifies a file with the correct header produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -46,10 +36,13 @@ public class FileHeaderAnalyzerUnitTest
     {
         var test = new Verify.Test
         {
-            TestCode = SourceWithExpectedHeader
+            TestCode = """
+                // Copyright text.
+                namespace N { }
+                """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -65,16 +58,19 @@ public class FileHeaderAnalyzerUnitTest
             // Normalized to line feeds. The source is a single line with no break for the fix to
             // detect, so it inserts its default line feed. A carriage-return checkout would otherwise
             // leave the expected snippet with different breaks and never match.
-            FixedCode = SourceWithExpectedHeader.ReplaceLineEndings("\n"),
+            FixedCode = """
+                // Copyright text.
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma
             // that necessarily comes after it, so skip the harness's suppression check.
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.ExpectedDiagnostics.Add(Verify.Diagnostic(FileHeaderDiagnosticId).WithSpan(1, 1, 1, 1));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -90,14 +86,17 @@ public class FileHeaderAnalyzerUnitTest
                 namespace N { }
                 """.ReplaceLineEndings("\n"),
 
-            FixedCode = SourceWithExpectedHeader.ReplaceLineEndings("\n"),
+            FixedCode = """
+                // Copyright text.
+                namespace N { }
+                """.ReplaceLineEndings("\n"),
 
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.ExpectedDiagnostics.Add(Verify.Diagnostic(FileHeaderDiagnosticId).WithSpan(1, 1, 1, 1));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -116,10 +115,10 @@ public class FileHeaderAnalyzerUnitTest
                 #else
                 namespace N { }
                 #endif
-                """
+                """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -137,10 +136,10 @@ public class FileHeaderAnalyzerUnitTest
                 #else
                 namespace N { }
                 #endif
-                """
+                """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -156,10 +155,10 @@ public class FileHeaderAnalyzerUnitTest
                 // Copyright text.
                 namespace N { }
                 #endif
-                """
+                """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -178,10 +177,10 @@ public class FileHeaderAnalyzerUnitTest
                 #else
                 namespace M { }
                 #endif
-                """
+                """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -205,12 +204,12 @@ public class FileHeaderAnalyzerUnitTest
                 namespace N { }
                 """.ReplaceLineEndings("\n"),
 
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, EditorConfig));
-        test.ExpectedDiagnostics.Add(Verify.Diagnostic(FileHeaderDiagnosticId).WithSpan(1, 1, 1, 1));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
+        test.ExpectedDiagnostics.Add(Verify.Diagnostic("SST1633").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
     }
 }

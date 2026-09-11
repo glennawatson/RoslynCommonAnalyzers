@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for seal-attribute-types analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("SealAttributeTypesBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class SealAttributeTypesBenchmarks
@@ -24,11 +26,13 @@ public class SealAttributeTypesBenchmarks
 
     /// <summary>Benchmarks the clean seal-attribute-types path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SealAttributeTypes_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating seal-attribute-types path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SealAttributeTypes_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

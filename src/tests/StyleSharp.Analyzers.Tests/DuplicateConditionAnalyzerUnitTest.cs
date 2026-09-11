@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDuplicateCondition = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1475DuplicateConditionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class DuplicateConditionAnalyzerUnitTest
 {
     /// <summary>Verifies two adjacent if statements testing the same condition are reported on the second.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedConditionInAdjacentIfStatementsIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedConditionInAdjacentIfStatementsIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -37,9 +39,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies an adjacent pair whose first branch only returns is reported: a return cannot move the condition.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedConditionWithReturningBranchIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedConditionWithReturningBranchIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -62,9 +65,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a compound condition repeated in an adjacent if is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedCompoundConditionInAdjacentIfStatementsIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedCompoundConditionInAdjacentIfStatementsIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -88,9 +92,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a call in the first branch silences the pair: the call may write anything the condition reads.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentIfStatementsWithCallInFirstBranchAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task AdjacentIfStatementsWithCallInFirstBranchAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -119,9 +124,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies writing a variable the condition reads silences the pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentIfStatementsWritingTheConditionAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task AdjacentIfStatementsWritingTheConditionAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -146,9 +152,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies writing anything that is not a plain local silences the pair, because a setter can run code.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentIfStatementsWritingAMemberAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task AdjacentIfStatementsWritingAMemberAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -173,9 +180,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a statement between the two if statements silences the pair.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentIfStatementsAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task NonAdjacentIfStatementsAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -201,9 +209,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies an impure condition is not reported in the adjacent shape either.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentIfStatementsWithImpureConditionAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task AdjacentIfStatementsWithImpureConditionAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -229,9 +238,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies two adjacent if statements with different conditions are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentIfStatementsWithDistinctConditionsAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task AdjacentIfStatementsWithDistinctConditionsAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -255,9 +265,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a condition repeated later in the same chain is reported on the unreachable branch.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedConditionInChainIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedConditionInChainIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -283,9 +294,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies every later copy of a condition is reported, not just the first.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryLaterCopyIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task EveryLaterCopyIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -315,9 +327,10 @@ public class DuplicateConditionAnalyzerUnitTest
     /// Only the head of a chain is analyzed. Were each <c>else if</c> analyzed as a chain of its own, this
     /// five-branch chain would report its duplicate several times over.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LongChainIsAnalyzedOnceAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task LongChainIsAnalyzedOnceAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -351,9 +364,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a chain whose conditions all differ is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctConditionsAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task DistinctConditionsAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -381,9 +395,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies formatting differences do not hide a repeated condition.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TriviaDoesNotHideARepeatedConditionAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task TriviaDoesNotHideARepeatedConditionAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -406,9 +421,10 @@ public class DuplicateConditionAnalyzerUnitTest
     /// <summary>Verifies a nested if is a chain of its own, so it may repeat the condition that guards it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Redundant, but reachable: the inner branch does run. Only a repeat within one chain is unreachable.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedIfIsItsOwnChainAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task NestedIfIsItsOwnChainAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -430,9 +446,10 @@ public class DuplicateConditionAnalyzerUnitTest
     /// <summary>Verifies a repeated condition that calls a method is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The second call may legitimately answer differently, so the branch is not provably unreachable.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedInvocationIsCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedInvocationIsCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -456,9 +473,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a repeated condition that mutates, assigns, or allocates is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedSideEffectingConditionIsCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedSideEffectingConditionIsCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -511,9 +529,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a repeated awaited condition is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedAwaitedConditionIsCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedAwaitedConditionIsCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -539,9 +558,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a repeated case label in a switch statement is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedSwitchLabelIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedSwitchLabelIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -565,9 +585,10 @@ public class DuplicateConditionAnalyzerUnitTest
     /// <summary>Verifies a switch whose labels all differ is clean, including a guarded and an unguarded constant.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks><c>case 1 when flag:</c> and <c>case 1:</c> test different things; only the second can be reached without the guard.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctSwitchLabelsAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task DistinctSwitchLabelsAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -590,9 +611,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a repeated label whose guard calls a method is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedSwitchLabelWithImpureGuardIsCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedSwitchLabelWithImpureGuardIsCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -615,9 +637,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a repeated arm in a switch expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedSwitchExpressionArmIsReportedAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task RepeatedSwitchExpressionArmIsReportedAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -633,9 +656,10 @@ public class DuplicateConditionAnalyzerUnitTest
 
     /// <summary>Verifies a switch expression whose arms all differ is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctSwitchExpressionArmsAreCleanAsync()
-        => await VerifyDuplicateCondition.VerifyAnalyzerAsync(
+    public Task DistinctSwitchExpressionArmsAreCleanAsync() =>
+        VerifyDuplicateCondition.VerifyAnalyzerAsync(
             """
             public class C
             {

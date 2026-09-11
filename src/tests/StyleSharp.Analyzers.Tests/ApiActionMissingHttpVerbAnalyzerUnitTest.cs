@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyApiAction = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -54,9 +55,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies a public action with no verb attribute on an [ApiController] type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerblessActionReportedAsync()
-        => await VerifyAsync(
+    public Task VerblessActionReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -69,9 +71,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies a method that only carries <c>[Route]</c> (no verb) is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RouteWithoutVerbReportedAsync()
-        => await VerifyAsync(
+    public Task RouteWithoutVerbReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -85,9 +88,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies an action with a verb attribute is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ActionWithVerbIsCleanAsync()
-        => await VerifyAsync(
+    public Task ActionWithVerbIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -101,9 +105,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies an attribute that supplies verbs through the provider interface exempts the action.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AcceptVerbsActionIsCleanAsync()
-        => await VerifyAsync(
+    public Task AcceptVerbsActionIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -117,9 +122,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies a method marked <c>[NonAction]</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonActionMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonActionMethodIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -133,9 +139,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies a static method, a property, and an <c>object</c> override are not treated as actions.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonActionShapesAreCleanAsync()
-        => await VerifyAsync(
+    public Task NonActionShapesAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -154,9 +161,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies a controller without <c>[ApiController]</c> is out of scope.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonApiControllerIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonApiControllerIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -168,9 +176,10 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the ASP.NET Core MVC types are absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenMvcTypesAbsentAsync()
-        => await VerifyAsync(
+    public Task SilentWhenMvcTypesAbsentAsync() =>
+        VerifyAsync(
             """
             public sealed class ApiControllerAttribute : System.Attribute { }
 
@@ -188,11 +197,7 @@ public class ApiActionMissingHttpVerbAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyApiAction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + MvcStubs
-        };
+        var test = new VerifyApiAction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + MvcStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

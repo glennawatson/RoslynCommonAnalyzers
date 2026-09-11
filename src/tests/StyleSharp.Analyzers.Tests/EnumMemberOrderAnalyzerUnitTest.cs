@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEnumMemberOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1222EnumMemberOrderAnalyzer,
     StyleSharp.Analyzers.Sst1222EnumMemberOrderCodeFixProvider>;
@@ -83,9 +84,10 @@ public class EnumMemberOrderAnalyzerUnitTest
 
     /// <summary>Verifies members already in ascending order are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AscendingMembersAreCleanAsync()
-        => await VerifyEnumMemberOrder.VerifyAnalyzerAsync(
+    public Task AscendingMembersAreCleanAsync() =>
+        VerifyEnumMemberOrder.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -97,9 +99,10 @@ public class EnumMemberOrderAnalyzerUnitTest
 
     /// <summary>Verifies a flags enum keeps its own grouping.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagsEnumIsCleanAsync()
-        => await VerifyEnumMemberOrder.VerifyAnalyzerAsync(
+    public Task FlagsEnumIsCleanAsync() =>
+        VerifyEnumMemberOrder.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -114,9 +117,10 @@ public class EnumMemberOrderAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified flags attribute is recognised.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedFlagsAttributeIsCleanAsync()
-        => await VerifyEnumMemberOrder.VerifyAnalyzerAsync(
+    public Task QualifiedFlagsAttributeIsCleanAsync() =>
+        VerifyEnumMemberOrder.VerifyAnalyzerAsync(
             """
             [System.Flags]
             internal enum Access
@@ -129,9 +133,10 @@ public class EnumMemberOrderAnalyzerUnitTest
 
     /// <summary>Verifies an implicitly numbered enum is left alone; reordering would renumber it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitlyNumberedEnumIsCleanAsync()
-        => await VerifyEnumMemberOrder.VerifyAnalyzerAsync(
+    public Task ImplicitlyNumberedEnumIsCleanAsync() =>
+        VerifyEnumMemberOrder.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -143,9 +148,10 @@ public class EnumMemberOrderAnalyzerUnitTest
 
     /// <summary>Verifies an enum with one member is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleMemberEnumIsCleanAsync()
-        => await VerifyEnumMemberOrder.VerifyAnalyzerAsync(
+    public Task SingleMemberEnumIsCleanAsync() =>
+        VerifyEnumMemberOrder.VerifyAnalyzerAsync(
             """
             internal enum Level
             {

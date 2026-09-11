@@ -56,7 +56,7 @@ public sealed class Psh1003InParameterWithNonReadonlyStructAnalyzer : Diagnostic
     /// <summary>Returns whether a parameter modifier list contains <c>in</c> or the <c>ref readonly</c> pair.</summary>
     /// <param name="modifiers">The parameter modifier list.</param>
     /// <returns><see langword="true"/> when the parameter is passed by readonly reference.</returns>
-    private static bool IsReadonlyReferenceParameter(SyntaxTokenList modifiers)
+    private static bool IsReadonlyReferenceParameter(in SyntaxTokenList modifiers)
     {
         var hasRef = false;
         var hasReadonly = false;
@@ -68,16 +68,19 @@ public sealed class Psh1003InParameterWithNonReadonlyStructAnalyzer : Diagnostic
                     return true;
 
                 case SyntaxKind.RefKeyword:
-                {
-                    hasRef = true;
-                    break;
-                }
+                    {
+                        hasRef = true;
+                        break;
+                    }
 
                 case SyntaxKind.ReadOnlyKeyword:
-                {
-                    hasReadonly = true;
+                    {
+                        hasReadonly = true;
+                        break;
+                    }
+
+                default:
                     break;
-                }
             }
         }
 

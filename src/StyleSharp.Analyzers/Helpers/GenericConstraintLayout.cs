@@ -16,7 +16,7 @@ internal static class GenericConstraintLayout
     /// <param name="typeParameters">The type-parameter list, or <see langword="null"/> when the node is not generic.</param>
     /// <param name="constraintClauses">The declaration's constraint clauses.</param>
     /// <returns><see langword="true"/> when the node is a declaration that can carry constraint clauses.</returns>
-    public static bool TryGet(
+    internal static bool TryGet(
         SyntaxNode node,
         out TypeParameterListSyntax? typeParameters,
         out SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses)
@@ -64,7 +64,7 @@ internal static class GenericConstraintLayout
     /// <param name="typeParameters">The type-parameter list.</param>
     /// <param name="name">The type parameter name a constraint clause targets.</param>
     /// <returns>The zero-based position, or <c>-1</c>.</returns>
-    public static int PositionOf(TypeParameterListSyntax typeParameters, string name)
+    internal static int PositionOf(TypeParameterListSyntax typeParameters, string name)
     {
         var parameters = typeParameters.Parameters;
         for (var i = 0; i < parameters.Count; i++)
@@ -82,8 +82,8 @@ internal static class GenericConstraintLayout
     /// <param name="node">The generic declaration.</param>
     /// <param name="constraintClauses">The reordered constraint clauses.</param>
     /// <returns>The updated declaration, or the node unchanged when its kind is not generic.</returns>
-    public static SyntaxNode WithConstraintClauses(SyntaxNode node, SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses)
-        => node switch
+    internal static SyntaxNode WithConstraintClauses(SyntaxNode node, SyntaxList<TypeParameterConstraintClauseSyntax> constraintClauses) =>
+        node switch
         {
             TypeDeclarationSyntax type => type.WithConstraintClauses(constraintClauses),
             MethodDeclarationSyntax method => method.WithConstraintClauses(constraintClauses),

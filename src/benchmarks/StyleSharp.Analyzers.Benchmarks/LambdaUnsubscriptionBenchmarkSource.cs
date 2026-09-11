@@ -11,8 +11,8 @@ internal static class LambdaUnsubscriptionBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -33,8 +33,8 @@ internal static class LambdaUnsubscriptionBenchmarkSource
     /// and method-group removals (the common cases, which must not bind), and a custom subtraction operator
     /// fed a lambda — the one shape that reaches the semantic model and is excused there.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public event EventHandler Saved;
@@ -71,8 +71,8 @@ internal static class LambdaUnsubscriptionBenchmarkSource
     /// <summary>Builds one type that unsubscribes an event and a delegate field with fresh lambdas.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block, containing two violations.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public event EventHandler Saved;

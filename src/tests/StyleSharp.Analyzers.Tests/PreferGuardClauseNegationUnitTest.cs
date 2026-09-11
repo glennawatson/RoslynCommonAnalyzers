@@ -331,11 +331,7 @@ public class PreferGuardClauseNegationUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, string fixedSource)
     {
-        var test = new VerifyGuardNegation.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyGuardNegation.Test { TestCode = source, FixedCode = fixedSource, };
 
         const string Config = """
                               root = true

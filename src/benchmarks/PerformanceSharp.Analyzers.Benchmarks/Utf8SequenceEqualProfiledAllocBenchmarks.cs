@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for UTF-8 byte comparison analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Utf8SequenceEqualProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class Utf8SequenceEqualProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class Utf8SequenceEqualProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean UTF-8 byte comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8SequenceEqual_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating UTF-8 byte comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Utf8SequenceEqual_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

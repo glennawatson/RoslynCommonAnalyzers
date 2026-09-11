@@ -90,7 +90,7 @@ public sealed class Sst2485NotImplementedExceptionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a bound type sits directly in the <c>System</c> namespace.</summary>
     /// <param name="type">The thrown type.</param>
     /// <returns><see langword="true"/> when the type is the framework's, not one of the project's own with the same name.</returns>
-    private static bool IsInSystemNamespace(INamedTypeSymbol type)
-        => type.ContainingNamespace is { Name: SystemNamespace } ns
+    private static bool IsInSystemNamespace(INamedTypeSymbol type) =>
+        type.ContainingNamespace is { Name: SystemNamespace } ns
             && ns.ContainingNamespace is { IsGlobalNamespace: true };
 }

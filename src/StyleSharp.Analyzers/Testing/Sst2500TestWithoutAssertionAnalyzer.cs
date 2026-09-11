@@ -56,7 +56,7 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>The suffix every attribute class carries but that is optional at the use site.</summary>
     private const string AttributeSuffix = "Attribute";
 
-    /// <summary>The name of the root <c>System</c> namespace, matched while walking a type's containing namespaces.</summary>
+    /// <summary>The name of the root namespace the in-BCL verification helpers live under.</summary>
     private const string SystemNamespaceName = "System";
 
     /// <summary>The metadata names of the supported frameworks' test-method marker attributes.</summary>
@@ -106,7 +106,7 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one test method whose body provably verifies nothing.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="facts">The resolved framework markers and expected-exception base type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, TestFrameworkFacts facts)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, TestFrameworkFacts facts)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists))
@@ -151,10 +151,13 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
         {
             var marker = compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]);
-            if (marker is not null)
+            if (marker is null)
             {
-                resolved[count++] = marker;
+                continue;
             }
+
+            resolved[count] = marker;
+            count++;
         }
 
         if (count == 0)
@@ -290,7 +293,7 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     private static bool BodyMightVerify(SyntaxNode body, SemanticModel model, CancellationToken cancellationToken)
     {
         var scan = new VerificationScan { Model = model, CancellationToken = cancellationToken };
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, VerificationScan>(body, ref scan, VisitBodyNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, VerificationScan>(body, ref scan, VisitBodyNode);
         return scan.MightVerify;
     }
 
@@ -302,16 +305,13 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     {
         switch (node)
         {
-            case ThrowStatementSyntax:
-            case ThrowExpressionSyntax:
+            case ThrowStatementSyntax or ThrowExpressionSyntax:
             {
                 scan.MightVerify = true;
                 return false;
             }
 
-            case InvocationExpressionSyntax:
-            case ObjectCreationExpressionSyntax:
-            case ImplicitObjectCreationExpressionSyntax:
+            case InvocationExpressionSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax:
             {
                 if (IsPlatformNonVerifyingCall(node, ref scan))
                 {
@@ -331,8 +331,8 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The invocation or object-creation node.</param>
     /// <param name="scan">The scan state carrying the semantic model.</param>
     /// <returns><see langword="true"/> only for a resolved platform method that is not an in-BCL verification helper.</returns>
-    private static bool IsPlatformNonVerifyingCall(SyntaxNode node, ref VerificationScan scan)
-        => scan.Model.GetSymbolInfo(node, scan.CancellationToken).Symbol is IMethodSymbol method
+    private static bool IsPlatformNonVerifyingCall(SyntaxNode node, ref VerificationScan scan) =>
+        scan.Model.GetSymbolInfo(node, scan.CancellationToken).Symbol is IMethodSymbol method
             && IsPlatformAssembly(method.ContainingAssembly)
             && !IsBclVerificationType(method.ContainingType);
 
@@ -364,14 +364,14 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a namespace is <c>System.Diagnostics</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> for the <c>System.Diagnostics</c> namespace.</returns>
-    private static bool IsSystemDiagnostics(INamespaceSymbol ns)
-        => ns is { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } };
+    private static bool IsSystemDiagnostics(INamespaceSymbol ns) =>
+        ns is { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } };
 
     /// <summary>Returns whether a namespace is <c>System.Diagnostics.Contracts</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> for the <c>System.Diagnostics.Contracts</c> namespace.</returns>
-    private static bool IsSystemDiagnosticsContracts(INamespaceSymbol ns)
-        => ns is { Name: "Contracts", ContainingNamespace: { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } } };
+    private static bool IsSystemDiagnosticsContracts(INamespaceSymbol ns) =>
+        ns is { Name: "Contracts", ContainingNamespace: { Name: "Diagnostics", ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true } } };
 
     /// <summary>The resolved facts one compilation needs to find a test that verifies nothing.</summary>
     /// <param name="Markers">The referenced frameworks' test-method marker attributes.</param>

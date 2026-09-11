@@ -19,7 +19,7 @@ internal static class AwaitExpressionRewrite
     /// <param name="awaited">The expression to await.</param>
     /// <param name="original">The expression being replaced, whose trivia and position the result takes on.</param>
     /// <returns>The awaited expression.</returns>
-    public static ExpressionSyntax WrapInAwait(ExpressionSyntax awaited, ExpressionSyntax original)
+    internal static ExpressionSyntax WrapInAwait(ExpressionSyntax awaited, ExpressionSyntax original)
     {
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
             SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
@@ -35,8 +35,8 @@ internal static class AwaitExpressionRewrite
     /// <summary>Returns whether the surrounding expression binds tighter than <c>await</c>, so the result needs parentheses.</summary>
     /// <param name="expression">The expression being replaced.</param>
     /// <returns><see langword="true"/> when the replacement must be parenthesized to keep its meaning.</returns>
-    public static bool NeedsParenthesesAfterAwait(ExpressionSyntax expression)
-        => expression.Parent switch
+    internal static bool NeedsParenthesesAfterAwait(ExpressionSyntax expression) =>
+        expression.Parent switch
         {
             MemberAccessExpressionSyntax access => access.Expression == expression,
             ElementAccessExpressionSyntax element => element.Expression == expression,

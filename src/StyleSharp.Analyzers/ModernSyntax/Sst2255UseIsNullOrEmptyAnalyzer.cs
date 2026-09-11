@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,13 +21,13 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
     private enum Part
     {
         /// <summary>The operand is neither a null check nor an emptiness check.</summary>
-        None,
+        None = 0,
 
         /// <summary>The operand compares the value against <see langword="null"/>.</summary>
-        Null,
+        Null = 1,
 
         /// <summary>The operand checks the value for emptiness.</summary>
-        Empty,
+        Empty = 2,
     }
 
     /// <inheritdoc/>
@@ -215,19 +217,20 @@ public sealed class Sst2255UseIsNullOrEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the <see langword="null"/> literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for the null literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether an expression is an empty string literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for <c>""</c>.</returns>
-    private static bool IsEmptyStringLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { Token.ValueText: "" } literal && literal.IsKind(SyntaxKind.StringLiteralExpression);
+    private static bool IsEmptyStringLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { Token.ValueText: "" } literal && literal.IsKind(SyntaxKind.StringLiteralExpression);
 
     /// <summary>Returns whether an expression is the integer literal <c>0</c>.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for <c>0</c>.</returns>
-    private static bool IsZeroLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { Token.Value: 0 } literal && literal.IsKind(SyntaxKind.NumericLiteralExpression);
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { Token.Value: 0 } literal && literal.IsKind(SyntaxKind.NumericLiteralExpression);
 
     /// <summary>Strips redundant parentheses from an operand.</summary>
     /// <param name="expression">The operand.</param>

@@ -70,7 +70,7 @@ public sealed class Sst1440PrivateMemberUsageCodeFixProvider : CodeFixProvider, 
             return document;
         }
 
-        SyntaxNode? updated = replacement is null
+        var updated = replacement is null
             ? root.RemoveNode(oldNode, SyntaxRemoveOptions.KeepUnbalancedDirectives)
             : root.ReplaceNode(oldNode, replacement);
         return updated is null ? document : document.WithSyntaxRoot(updated);

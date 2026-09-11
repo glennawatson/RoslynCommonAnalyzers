@@ -59,11 +59,9 @@ public sealed class Sst2496RedundantDisposeCodeFixProvider : CodeFixProvider, IB
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The removable statement, or <see langword="null"/> when the call is not its own statement.</returns>
-    private static ExpressionStatementSyntax? TryGetRedundantStatement(SyntaxNode root, Diagnostic diagnostic)
-    {
-        return root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } invocation
+    private static ExpressionStatementSyntax? TryGetRedundantStatement(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>() is { } invocation
             && invocation.Parent is ExpressionStatementSyntax statement
-                ? statement
-                : null;
-    }
+            ? statement
+            : null;
 }

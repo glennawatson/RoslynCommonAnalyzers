@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -77,7 +79,7 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="variable">The declarator.</param>
     /// <param name="scope">The block the local lives in.</param>
-    private static void AnalyzeVariable(SyntaxNodeAnalysisContext context, VariableDeclaratorSyntax variable, SyntaxNode scope)
+    private static void AnalyzeVariable(in SyntaxNodeAnalysisContext context, VariableDeclaratorSyntax variable, SyntaxNode scope)
     {
         if (context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol local
             || !IsStringBuilder(local.Type))
@@ -86,7 +88,7 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
         }
 
         var usage = new UsageScan(context, local);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScan>(scope, ref usage, VisitReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScan>(scope, ref usage, VisitReference);
         if (!usage.Appended || usage.Read)
         {
             return;
@@ -148,8 +150,8 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a reference starts a discarded append.</summary>
     /// <param name="reference">The reference.</param>
     /// <returns><see langword="true"/> when the statement puts something into the builder.</returns>
-    private static bool IsAppend(IdentifierNameSyntax reference)
-        => reference.Parent is MemberAccessExpressionSyntax access
+    private static bool IsAppend(IdentifierNameSyntax reference) =>
+        reference.Parent is MemberAccessExpressionSyntax access
             && access.Expression == reference
             && access.Name.Identifier.ValueText.StartsWith(AppendPrefix, StringComparison.Ordinal);
 
@@ -168,8 +170,8 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a declaration is written as a builder.</summary>
     /// <param name="declaration">The variable declaration.</param>
     /// <returns><see langword="true"/> when the declared type, or the created one, is named <c>StringBuilder</c>.</returns>
-    private static bool DeclaresStringBuilder(VariableDeclarationSyntax declaration)
-        => NamesStringBuilder(declaration.Type) || (declaration.Type.IsVar && CreatesStringBuilder(declaration));
+    private static bool DeclaresStringBuilder(VariableDeclarationSyntax declaration) =>
+        NamesStringBuilder(declaration.Type) || (declaration.Type.IsVar && CreatesStringBuilder(declaration));
 
     /// <summary>Returns whether an implicitly typed declaration is initialized with a new builder.</summary>
     /// <param name="declaration">The variable declaration.</param>
@@ -202,8 +204,8 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a bound type is <see cref="System.Text.StringBuilder"/>.</summary>
     /// <param name="type">The local's type.</param>
     /// <returns><see langword="true"/> for the framework's builder, and nothing else that shares its name.</returns>
-    private static bool IsStringBuilder(ITypeSymbol type)
-        => type is INamedTypeSymbol { Name: StringBuilderName, ContainingNamespace: { Name: TextNamespace } text }
+    private static bool IsStringBuilder(ITypeSymbol type) =>
+        type is INamedTypeSymbol { Name: StringBuilderName, ContainingNamespace: { Name: TextNamespace } text }
             && text.ContainingNamespace is { Name: SystemNamespace } system
             && system.ContainingNamespace is { IsGlobalNamespace: true };
 
@@ -231,8 +233,9 @@ public sealed class Sst2408StringBuilderNeverReadAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a reference really resolves to this builder.</summary>
         /// <param name="reference">The reference with a matching name.</param>
         /// <returns><see langword="true"/> when the name is not another symbol's.</returns>
-        public readonly bool IsTheLocal(IdentifierNameSyntax reference)
-            => SymbolEqualityComparer.Default.Equals(
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool IsTheLocal(IdentifierNameSyntax reference) =>
+            SymbolEqualityComparer.Default.Equals(
                 Context.SemanticModel.GetSymbolInfo(reference, Context.CancellationToken).Symbol,
                 Local);
     }

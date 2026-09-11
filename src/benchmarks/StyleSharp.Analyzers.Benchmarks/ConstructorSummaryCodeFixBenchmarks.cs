@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the constructor-summary code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("ConstructorSummaryCodeFixBenchmarks: {Types}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ConstructorSummaryCodeFixBenchmarks
@@ -22,13 +24,14 @@ public class ConstructorSummaryCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative constructor summary.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Types,
             DocumentationCodeFixBenchmarkSource.GenerateConstructorSummary,
             static (_, root, index) => Task.FromResult(FindTarget(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

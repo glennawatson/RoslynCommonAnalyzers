@@ -11,8 +11,8 @@ internal static class RepeatedWordsBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit repeated-word violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RepeatedWordsBench
@@ -25,8 +25,8 @@ internal static class RepeatedWordsBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $$"""
                 /// <summary>Gets the the value {{index}} from the store.</summary>
                 /// <param name="input">The the input value.</param>

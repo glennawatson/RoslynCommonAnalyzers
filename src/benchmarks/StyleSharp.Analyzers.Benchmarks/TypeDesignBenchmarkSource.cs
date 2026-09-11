@@ -11,8 +11,8 @@ internal static class TypeDesignBenchmarkSource
     /// <param name="members">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit abstract types with public constructors.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateType(i, violating))}}
@@ -28,8 +28,8 @@ internal static class TypeDesignBenchmarkSource
     /// type-parameter scan runs to completion; the violating variant's static members ignore it, driving
     /// the report path — including the semantic owner-type check and editorconfig lookup for the fields.
     /// </remarks>
-    private static string GenerateType(int index, bool violating)
-        => violating
+    private static string GenerateType(int index, bool violating) =>
+        violating
             ? $$"""
               internal abstract class Bench{{index}} { public Bench{{index}}() { } }
               internal sealed class BenchGeneric{{index}}<T>

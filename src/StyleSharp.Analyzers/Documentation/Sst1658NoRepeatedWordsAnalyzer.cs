@@ -59,7 +59,7 @@ public sealed class Sst1658NoRepeatedWordsAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="content">The content nodes to scan.</param>
     /// <param name="state">The accumulating word-chain state.</param>
-    private static void ScanContent(SyntaxNodeAnalysisContext context, SyntaxList<XmlNodeSyntax> content, ref WordChainState state)
+    private static void ScanContent(in SyntaxNodeAnalysisContext context, SyntaxList<XmlNodeSyntax> content, ref WordChainState state)
     {
         foreach (var node in content)
         {
@@ -97,7 +97,7 @@ public sealed class Sst1658NoRepeatedWordsAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="text">The XML text node.</param>
     /// <param name="state">The accumulating word-chain state.</param>
-    private static void ScanText(SyntaxNodeAnalysisContext context, XmlTextSyntax text, ref WordChainState state)
+    private static void ScanText(in SyntaxNodeAnalysisContext context, XmlTextSyntax text, ref WordChainState state)
     {
         foreach (var token in text.TextTokens)
         {
@@ -122,7 +122,7 @@ public sealed class Sst1658NoRepeatedWordsAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="token">The XML text literal token.</param>
     /// <param name="state">The accumulating word-chain state.</param>
-    private static void ScanLiteral(SyntaxNodeAnalysisContext context, SyntaxToken token, ref WordChainState state)
+    private static void ScanLiteral(in SyntaxNodeAnalysisContext context, SyntaxToken token, ref WordChainState state)
     {
         var value = token.ValueText;
         var index = 0;
@@ -158,7 +158,7 @@ public sealed class Sst1658NoRepeatedWordsAnalyzer : DiagnosticAnalyzer
     /// <param name="start">The word's start index within the token's value text.</param>
     /// <param name="length">The word's length.</param>
     /// <param name="state">The accumulating word-chain state.</param>
-    private static void CompleteWord(SyntaxNodeAnalysisContext context, SyntaxToken token, int start, int length, ref WordChainState state)
+    private static void CompleteWord(in SyntaxNodeAnalysisContext context, SyntaxToken token, int start, int length, ref WordChainState state)
     {
         if (state.HasPrevious
             && WordsMatch(state.PreviousToken.ValueText, state.PreviousStart, state.PreviousLength, token.ValueText, start, length))
@@ -205,8 +205,8 @@ public sealed class Sst1658NoRepeatedWordsAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an element's content is exempt from the prose scan.</summary>
     /// <param name="name">The element name.</param>
     /// <returns><see langword="true"/> for code and reference elements.</returns>
-    private static bool IsExcludedElement(ReadOnlySpan<char> name)
-        => name.SequenceEqual("c".AsSpan())
+    private static bool IsExcludedElement(ReadOnlySpan<char> name) =>
+        name.SequenceEqual("c".AsSpan())
             || name.SequenceEqual("code".AsSpan())
             || name.SequenceEqual("see".AsSpan())
             || name.SequenceEqual("seealso".AsSpan());

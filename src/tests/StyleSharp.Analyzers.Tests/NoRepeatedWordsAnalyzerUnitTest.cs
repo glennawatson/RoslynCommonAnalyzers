@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1658NoRepeatedWordsAnalyzer,
     StyleSharp.Analyzers.Sst1658NoRepeatedWordsCodeFixProvider>;
@@ -13,9 +14,10 @@ public class NoRepeatedWordsAnalyzerUnitTest
 {
     /// <summary>Verifies documentation without adjacent repeated words produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CleanDocumentationAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CleanDocumentationAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -54,7 +56,7 @@ public class NoRepeatedWordsAnalyzerUnitTest
         await Verify.VerifyCodeFixAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies the word comparison is case-insensitive, so "The the" is reported and fixed (SST1658).</summary>
+    /// <summary>Verifies the word comparison is case-insensitive, so "The" is reported and fixed (SST1658).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CaseInsensitivePairReportedAndRemovedAsync()
@@ -112,9 +114,10 @@ public class NoRepeatedWordsAnalyzerUnitTest
 
     /// <summary>Verifies repeated words inside a code element are not scanned.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CodeElementIsNotScannedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CodeElementIsNotScannedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -127,9 +130,10 @@ public class NoRepeatedWordsAnalyzerUnitTest
 
     /// <summary>Verifies punctuation between two matching words keeps them from forming a pair.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PunctuationBreaksThePairAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PunctuationBreaksThePairAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {

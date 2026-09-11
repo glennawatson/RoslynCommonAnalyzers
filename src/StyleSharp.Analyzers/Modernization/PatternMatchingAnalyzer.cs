@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Grouped modernization analyzer that steers older <c>as</c>/<c>is</c> idioms toward C# type patterns.
-/// </summary>
+/// <summary>Grouped modernization analyzer that steers older <c>as</c>/<c>is</c> idioms toward C# type patterns.</summary>
 /// <remarks>
 /// Reports the following diagnostic ids:
 /// <list type="bullet">
@@ -48,12 +48,7 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
             return AsCastOperand(comparison.Left);
         }
 
-        if (!IsNullLiteral(comparison.Left))
-        {
-            return null;
-        }
-
-        return AsCastOperand(comparison.Right);
+        return !IsNullLiteral(comparison.Left) ? null : AsCastOperand(comparison.Right);
     }
 
     /// <summary>Unwraps any enclosing parentheses to reach the inner expression.</summary>
@@ -96,8 +91,8 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the operand as an <c>as</c> expression once parentheses are peeled, or <see langword="null"/>.</summary>
     /// <param name="operand">The comparison operand.</param>
     /// <returns>The <c>as</c> expression, or <see langword="null"/> when it is not one.</returns>
-    private static BinaryExpressionSyntax? AsCastOperand(ExpressionSyntax operand)
-        => Unwrap(operand) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } asExpression ? asExpression : null;
+    private static BinaryExpressionSyntax? AsCastOperand(ExpressionSyntax operand) =>
+        Unwrap(operand) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } asExpression ? asExpression : null;
 
     /// <summary>Reports SST2005 when an <c>as</c> cast is compared to <c>null</c> with a reference type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -197,7 +192,7 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        candidate = new IsCheckCastCandidate(ifStatement, isExpression, isType, cast, variable);
+        candidate = new(ifStatement, isExpression, isType, cast, variable);
         return true;
     }
 
@@ -230,12 +225,13 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the operand can be read again without invoking user code.</summary>
     /// <param name="symbol">The symbol read by the type check and cast.</param>
     /// <returns><see langword="true"/> for locals and parameters.</returns>
-    private static bool IsStablePatternOperand(ISymbol? symbol)
-        => symbol is ILocalSymbol or IParameterSymbol;
+    private static bool IsStablePatternOperand(ISymbol? symbol) =>
+        symbol is ILocalSymbol or IParameterSymbol;
 
     /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
     /// <param name="expression">The expression to test.</param>
     /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Matched parts for an <c>is</c> check followed by a cast local.</summary>

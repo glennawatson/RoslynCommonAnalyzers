@@ -100,8 +100,8 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
     /// <summary>Parenthesizes an operand when <c>is null</c> would otherwise change or obscure the parse.</summary>
     /// <param name="operand">The expression operand.</param>
     /// <returns>The original operand or a parenthesized wrapper.</returns>
-    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax operand)
-        => PatternSafeKinds.Contains(operand.Kind()) ? operand : SyntaxFactory.ParenthesizedExpression(operand);
+    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax operand) =>
+        PatternSafeKinds.Contains(operand.Kind()) ? operand : SyntaxFactory.ParenthesizedExpression(operand);
 
     /// <summary>
     /// Rewrites every reported null comparison in a document in a single deterministic pass.

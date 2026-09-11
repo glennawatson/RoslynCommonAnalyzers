@@ -27,7 +27,7 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
             }
             """);
 
-        var rewritten = UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+        var rewritten = UniqueLineCodeFixerHelperExtensions.SplitParametersOntoOwnLines(
             method,
             static n => n.ParameterList,
             static (n, list) => n.WithParameterList(list));
@@ -51,7 +51,7 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
             }
             """);
 
-        var rewritten = UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+        var rewritten = UniqueLineCodeFixerHelperExtensions.SplitParametersOntoOwnLines(
             method,
             static n => n.ParameterList,
             static (n, list) => n.WithParameterList(list));
@@ -76,7 +76,7 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
             }
             """);
 
-        var rewritten = UniqueLineCodeFixerHelper.SplitArgumentsOntoOwnLines(
+        var rewritten = UniqueLineCodeFixerHelperExtensions.SplitArgumentsOntoOwnLines(
             invocation,
             static n => n.ArgumentList,
             static (n, list) => n.WithArgumentList(list));
@@ -98,7 +98,7 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
             }
             """);
 
-        var rewritten = UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
+        var rewritten = UniqueLineCodeFixerHelperExtensions.SplitAngleBracketedListOntoOwnLines(
             typeParameterList,
             typeParameterList.Parameters,
             (list, endOfLine) => SyntaxFactory.TypeParameterList(list)
@@ -121,7 +121,7 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
             }
             """);
 
-        var rewritten = UniqueLineCodeFixerHelper.SplitAngleBracketedListOntoOwnLines(
+        var rewritten = UniqueLineCodeFixerHelperExtensions.SplitAngleBracketedListOntoOwnLines(
             typeParameterList,
             typeParameterList.Parameters,
             (list, endOfLine) => SyntaxFactory.TypeParameterList(list)
@@ -130,6 +130,27 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
 
         await Assert.That(ReferenceEquals(rewritten, typeParameterList)).IsTrue();
     }
+
+    /// <summary>Parses the first method declaration from a single-type snippet.</summary>
+    /// <param name="source">The source snippet.</param>
+    /// <returns>The first method declaration.</returns>
+    private static MethodDeclarationSyntax ParseFirstMethod(string source) =>
+        (MethodDeclarationSyntax)((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[0];
+
+    /// <summary>Parses the first invocation expression from a single-type snippet.</summary>
+    /// <param name="source">The source snippet.</param>
+    /// <returns>The first invocation expression.</returns>
+    private static InvocationExpressionSyntax ParseFirstInvocation(string source)
+    {
+        var method = ParseFirstMethod(source);
+        return (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
+    }
+
+    /// <summary>Parses the first type parameter list from a single-type snippet.</summary>
+    /// <param name="source">The source snippet.</param>
+    /// <returns>The first type parameter list.</returns>
+    private static TypeParameterListSyntax ParseFirstTypeParameterList(string source) =>
+        ((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).TypeParameterList!;
 
     /// <summary>Returns whether the opening token and every separator carry an end-of-line, one entry per line.</summary>
     /// <param name="opener">The opening token (paren or angle bracket).</param>
@@ -152,25 +173,4 @@ public sealed class UniqueLineCodeFixerHelperUnitTest
 
         return true;
     }
-
-    /// <summary>Parses the first method declaration from a single-type snippet.</summary>
-    /// <param name="source">The source snippet.</param>
-    /// <returns>The first method declaration.</returns>
-    private static MethodDeclarationSyntax ParseFirstMethod(string source)
-        => (MethodDeclarationSyntax)((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[0];
-
-    /// <summary>Parses the first invocation expression from a single-type snippet.</summary>
-    /// <param name="source">The source snippet.</param>
-    /// <returns>The first invocation expression.</returns>
-    private static InvocationExpressionSyntax ParseFirstInvocation(string source)
-    {
-        var method = ParseFirstMethod(source);
-        return (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
-    }
-
-    /// <summary>Parses the first type parameter list from a single-type snippet.</summary>
-    /// <param name="source">The source snippet.</param>
-    /// <returns>The first type parameter list.</returns>
-    private static TypeParameterListSyntax ParseFirstTypeParameterList(string source)
-        => ((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).TypeParameterList!;
 }

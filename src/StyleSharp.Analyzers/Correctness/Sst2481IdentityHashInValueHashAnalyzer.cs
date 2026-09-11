@@ -80,8 +80,8 @@ public sealed class Sst2481IdentityHashInValueHashAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a parameterless <c>base.GetHashCode()</c>.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the syntax-only shape matches.</returns>
-    private static bool IsBaseGetHashCodeCall(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax, Name.Identifier.ValueText: GetHashCodeName }
+    private static bool IsBaseGetHashCodeCall(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax, Name.Identifier.ValueText: GetHashCodeName }
             && invocation.ArgumentList.Arguments.Count == 0;
 
     /// <summary>Returns whether the base call is the entire value the member yields.</summary>

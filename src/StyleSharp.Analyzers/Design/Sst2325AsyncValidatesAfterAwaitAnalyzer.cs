@@ -114,8 +114,7 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     {
         switch (statement)
         {
-            case ExpressionStatementSyntax { Expression: AwaitExpressionSyntax }:
-            case ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { Right: AwaitExpressionSyntax } }:
+            case ExpressionStatementSyntax { Expression: AwaitExpressionSyntax } or ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { Right: AwaitExpressionSyntax } }:
             {
                 return true;
             }
@@ -187,16 +186,16 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a throw creates one of the argument-exception family.</summary>
     /// <param name="thrown">The throw statement.</param>
     /// <returns><see langword="true"/> when the thrown type is named <c>Argument…Exception</c>.</returns>
-    private static bool ThrowsArgumentException(ThrowStatementSyntax thrown)
-        => thrown.Expression is ObjectCreationExpressionSyntax creation
+    private static bool ThrowsArgumentException(ThrowStatementSyntax thrown) =>
+        thrown.Expression is ObjectCreationExpressionSyntax creation
             && GetSimpleName(creation.Type) is { } name
             && IsArgumentExceptionName(name);
 
     /// <summary>Returns whether an invocation is an argument-exception throw-helper.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <returns><see langword="true"/> for <c>Argument…Exception.ThrowIf…(…)</c>.</returns>
-    private static bool IsArgumentThrowHelper(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax access
+    private static bool IsArgumentThrowHelper(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText.StartsWith(ThrowHelperPrefix, StringComparison.Ordinal)
             && GetSimpleName(access.Expression) is { } receiver
             && IsArgumentExceptionName(receiver);
@@ -204,8 +203,8 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a simple name is that of an argument-exception type.</summary>
     /// <param name="name">The simple type name.</param>
     /// <returns><see langword="true"/> when it starts with <c>Argument</c> and ends with <c>Exception</c>.</returns>
-    private static bool IsArgumentExceptionName(string name)
-        => name.StartsWith(ArgumentPrefix, StringComparison.Ordinal)
+    private static bool IsArgumentExceptionName(string name) =>
+        name.StartsWith(ArgumentPrefix, StringComparison.Ordinal)
             && name.EndsWith(ExceptionSuffix, StringComparison.Ordinal);
 
     /// <summary>Gets the rightmost name of a possibly qualified type or expression.</summary>
@@ -227,8 +226,8 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an async method's return type is <c>void</c>.</summary>
     /// <param name="returnType">The declared return type.</param>
     /// <returns><see langword="true"/> for <c>async void</c>, which is a separate defect this rule leaves alone.</returns>
-    private static bool IsVoid(TypeSyntax returnType)
-        => returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
+    private static bool IsVoid(TypeSyntax returnType) =>
+        returnType is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);
 
     /// <summary>Returns whether a node reads one of the method's parameters.</summary>
     /// <param name="node">The node to search.</param>
@@ -237,7 +236,7 @@ public sealed class Sst2325AsyncValidatesAfterAwaitAnalyzer : DiagnosticAnalyzer
     private static bool ReferencesParameter(SyntaxNode node, ParameterListSyntax parameters)
     {
         var scan = new ParameterScan(parameters);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ParameterScan>(node, ref scan, VisitIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ParameterScan>(node, ref scan, VisitIdentifier);
         return scan.Found || (node is IdentifierNameSyntax self && NamesParameter(self, parameters));
     }
 

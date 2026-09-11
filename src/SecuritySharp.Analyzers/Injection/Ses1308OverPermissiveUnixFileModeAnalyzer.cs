@@ -94,7 +94,7 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="unixFileMode">The resolved <c>UnixFileMode</c> type.</param>
     /// <param name="sinkContainers">The resolved filesystem sink container types.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -116,17 +116,18 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
         for (var i = 0; i < arguments.Length; i++)
         {
             var argument = arguments[i];
-            if (IsUnixFileMode(argument.Parameter?.Type, unixFileMode)
-                && GrantsGroupOrOtherWrite(argument.Value.ConstantValue))
+            if (!IsUnixFileMode(argument.Parameter?.Type, unixFileMode) || !GrantsGroupOrOtherWrite(argument.Value.ConstantValue))
             {
-                var modeSyntax = argument.Value.Syntax;
-                context.ReportDiagnostic(DiagnosticHelper.Create(
-                    SecurityRules.OverPermissiveUnixFileMode,
-                    modeSyntax.SyntaxTree,
-                    modeSyntax.Span,
-                    operation.TargetMethod.ContainingType.Name + "." + operation.TargetMethod.Name));
-                return;
+                continue;
             }
+
+            var modeSyntax = argument.Value.Syntax;
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                SecurityRules.OverPermissiveUnixFileMode,
+                modeSyntax.SyntaxTree,
+                modeSyntax.Span,
+                $"{operation.TargetMethod.ContainingType.Name}.{operation.TargetMethod.Name}"));
+            return;
         }
     }
 
@@ -134,7 +135,7 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="unixFileMode">The resolved <c>UnixFileMode</c> type.</param>
     /// <param name="sinkContainers">The resolved filesystem sink container types.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -157,7 +158,7 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
             SecurityRules.OverPermissiveUnixFileMode,
             assignment.Right.SyntaxTree,
             assignment.Right.Span,
-            property.ContainingType.Name + "." + property.Name));
+            $"{property.ContainingType.Name}.{property.Name}"));
     }
 
     /// <summary>Returns the simple name of the member on the left of an assignment.</summary>
@@ -173,8 +174,8 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a constant mode value has the group-write or other-write bit set.</summary>
     /// <param name="constant">The folded constant value of the mode expression.</param>
     /// <returns><see langword="true"/> when the mode grants write access to group or other.</returns>
-    private static bool GrantsGroupOrOtherWrite(Optional<object?> constant)
-        => constant is { HasValue: true, Value: int mode } && (mode & GroupOrOtherWriteMask) != 0;
+    private static bool GrantsGroupOrOtherWrite(Optional<object?> constant) =>
+        constant is { HasValue: true, Value: int mode } && (mode & GroupOrOtherWriteMask) != 0;
 
     /// <summary>Returns whether a type is <c>UnixFileMode</c>, unwrapping a nullable value type first.</summary>
     /// <param name="type">The candidate parameter or property type.</param>

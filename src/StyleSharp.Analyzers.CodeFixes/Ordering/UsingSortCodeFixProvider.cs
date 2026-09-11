@@ -134,7 +134,7 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
     /// <summary>Returns whether a trivia list contains a directive.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
     /// <returns><see langword="true"/> when a directive is present.</returns>
-    private static bool HasDirective(SyntaxTriviaList trivia)
+    private static bool HasDirective(in SyntaxTriviaList trivia)
     {
         for (var index = 0; index < trivia.Count; index++)
         {
@@ -174,27 +174,22 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
     private sealed class UsingDirectiveComparer : IComparer<UsingDirectiveSyntax>
     {
         /// <summary>Compares two using directives according to the canonical ordering rules.</summary>
-        /// <param name="left">The left directive.</param>
-        /// <param name="right">The right directive.</param>
+        /// <param name="x">The left directive.</param>
+        /// <param name="y">The right directive.</param>
         /// <returns>A negative, zero, or positive value according to canonical ordering.</returns>
-        public int Compare(UsingDirectiveSyntax? left, UsingDirectiveSyntax? right)
+        public int Compare(UsingDirectiveSyntax? x, UsingDirectiveSyntax? y)
         {
-            if (ReferenceEquals(left, right))
+            if (ReferenceEquals(x, y))
             {
                 return 0;
             }
 
-            if (left is null)
+            if (x is null)
             {
                 return -1;
             }
 
-            if (right is null)
-            {
-                return 1;
-            }
-
-            return UsingClassification.Compare(left, right);
+            return y is null ? 1 : UsingClassification.Compare(x, y);
         }
     }
 }

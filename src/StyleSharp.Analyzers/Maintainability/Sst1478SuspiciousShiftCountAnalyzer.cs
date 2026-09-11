@@ -71,8 +71,8 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.SuspiciousShiftCount);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -101,7 +101,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one shift whose constant count cannot mean what it says.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, ShiftCountOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, ShiftCountOptions> optionsByTree)
     {
         var shift = (BinaryExpressionSyntax)context.Node;
         if (IsCountAlwaysInRange(shift.Right))
@@ -157,8 +157,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
             {
                 case EnumMemberDeclarationSyntax:
                     return true;
-                case MemberDeclarationSyntax:
-                case StatementSyntax:
+                case MemberDeclarationSyntax or StatementSyntax:
                     return false;
                 default:
                     continue;
@@ -173,7 +172,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static ShiftCountOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, ShiftCountOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -183,7 +182,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
         }
 
         options = ShiftCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -315,14 +314,14 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an operand is shifted as a 64-bit value.</summary>
     /// <param name="special">The left operand's special type, or <see langword="null"/> when it has none.</param>
     /// <returns><see langword="true"/> for a <c>long</c> and a <c>ulong</c>.</returns>
-    private static bool IsWideOperand(SpecialType? special)
-        => special is SpecialType.System_Int64 or SpecialType.System_UInt64;
+    private static bool IsWideOperand(SpecialType? special) =>
+        special is SpecialType.System_Int64 or SpecialType.System_UInt64;
 
     /// <summary>Unwraps a nullable value type to the type it wraps.</summary>
     /// <param name="type">The left operand's type.</param>
     /// <returns>The underlying type, or the type itself when it is not nullable.</returns>
-    private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type)
-        => type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
+    private static ITypeSymbol? UnwrapNullable(ITypeSymbol? type) =>
+        type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable
             ? nullable.TypeArguments[0]
             : type;
 

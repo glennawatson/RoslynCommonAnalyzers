@@ -16,9 +16,7 @@ internal readonly record struct InParameterOptions(
     /// <summary>The default minimum size, which is Microsoft's "three words or less is negligible" guidance.</summary>
     public const int DefaultMinimumSize = 32;
 
-    /// <summary>
-    /// The smallest size the rule will ever report at, whatever the configuration says.
-    /// </summary>
+    /// <summary>The smallest size the rule will ever report at, whatever the configuration says.</summary>
     /// <remarks>
     /// A struct of 16 bytes or less is passed in registers by the System V (Linux/macOS) and ARM64 ABIs.
     /// Forcing it behind an <c>in</c> makes the caller spill it to the stack and pass a pointer, which is
@@ -84,7 +82,7 @@ internal readonly record struct InParameterOptions(
     /// <summary>Reads the settings for one tree, falling back to the defaults.</summary>
     /// <param name="options">The analyzer config options for the parameter's tree.</param>
     /// <returns>The resolved settings.</returns>
-    public static InParameterOptions Read(AnalyzerConfigOptions options) => new(
+    internal static InParameterOptions Read(AnalyzerConfigOptions options) => new(
         ReadSize(options),
         AnalyzerOptionReader.ReadCommaSeparatedList(options, ExcludedRuleKey, ExcludedGeneralKey),
         AnalyzerOptionReader.ReadBool(options, PublicApiRuleKey, PublicApiGeneralKey));
@@ -98,7 +96,7 @@ internal readonly record struct InParameterOptions(
     /// <c>Vector256</c> and <c>System.Runtime.Intrinsics.Vector256</c> both name the same type and a
     /// <c>using</c> alias cannot defeat the match.
     /// </remarks>
-    public static bool IsExcluded(INamedTypeSymbol type, string[] excludedTypes)
+    internal static bool IsExcluded(INamedTypeSymbol type, string[] excludedTypes)
     {
         var name = type.Name;
         var fullName = GetFullName(type);
@@ -123,9 +121,9 @@ internal readonly record struct InParameterOptions(
     /// <summary>Builds a type's namespace-qualified name, without generic arity.</summary>
     /// <param name="type">The type.</param>
     /// <returns>The full name, such as <c>System.Runtime.Intrinsics.Vector256</c>.</returns>
-    private static string GetFullName(INamedTypeSymbol type)
-        => type.ContainingNamespace is { IsGlobalNamespace: false } containing
-            ? containing.ToDisplayString() + "." + type.Name
+    private static string GetFullName(INamedTypeSymbol type) =>
+        type.ContainingNamespace is { IsGlobalNamespace: false } containing
+            ? $"{containing.ToDisplayString()}.{type.Name}"
             : type.Name;
 
     /// <summary>Reads the minimum size, never returning a value below the ABI floor.</summary>

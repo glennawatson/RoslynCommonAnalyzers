@@ -50,18 +50,13 @@ public sealed class Sst1122UseStringEmptyAnalyzer : DiagnosticAnalyzer
         {
             switch (node)
             {
-                case AttributeSyntax:
-                case ParameterSyntax:
-                case CaseSwitchLabelSyntax:
-                case ConstantPatternSyntax:
-                case EnumMemberDeclarationSyntax:
+                case AttributeSyntax or ParameterSyntax or CaseSwitchLabelSyntax or ConstantPatternSyntax or EnumMemberDeclarationSyntax:
                     return true;
                 case FieldDeclarationSyntax field:
                     return ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword);
                 case LocalDeclarationStatementSyntax local:
                     return ModifierListHelper.Contains(local.Modifiers, SyntaxKind.ConstKeyword);
-                case StatementSyntax:
-                case MemberDeclarationSyntax:
+                case StatementSyntax or MemberDeclarationSyntax:
                     return false;
             }
         }
@@ -72,6 +67,6 @@ public sealed class Sst1122UseStringEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a token spells an empty string literal.</summary>
     /// <param name="token">The literal token.</param>
     /// <returns><see langword="true"/> for <c>""</c> and <c>@""</c>.</returns>
-    private static bool IsEmptyStringLiteral(SyntaxToken token)
-        => token.Text is ['"', '"'] or ['@', '"', '"'];
+    private static bool IsEmptyStringLiteral(SyntaxToken token) =>
+        token.Text is ['"', '"'] or ['@', '"', '"'];
 }

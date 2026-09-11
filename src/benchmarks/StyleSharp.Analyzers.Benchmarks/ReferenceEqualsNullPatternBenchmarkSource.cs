@@ -14,8 +14,8 @@ internal static class ReferenceEqualsNullPatternBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit reference-equality null checks.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class ReferenceEqualsNullPatternBench
@@ -46,8 +46,8 @@ internal static class ReferenceEqualsNullPatternBenchmarkSource
     /// <summary>Builds one member with no reference-equality call at all.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUnrelatedMember(int index)
-        => $$"""
+    private static string GenerateUnrelatedMember(int index) =>
+        $$"""
            internal static bool M{{index}}(string value, string other)
            {
                return string.Equals(value, other, System.StringComparison.Ordinal) || value.Length > other.Length;
@@ -62,8 +62,8 @@ internal static class ReferenceEqualsNullPatternBenchmarkSource
     /// the analyzer still binds a two-argument static call per member, and only the null-operand test
     /// separates them.
     /// </remarks>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            internal static bool M{{index}}(string value, string other)
            {
                return value is null || object.ReferenceEquals(value, other);
@@ -73,8 +73,8 @@ internal static class ReferenceEqualsNullPatternBenchmarkSource
     /// <summary>Builds one member whose null check goes through reference equality.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            internal static bool M{{index}}(string value, string other)
            {
                return object.ReferenceEquals(value, null) || object.ReferenceEquals(other, null);

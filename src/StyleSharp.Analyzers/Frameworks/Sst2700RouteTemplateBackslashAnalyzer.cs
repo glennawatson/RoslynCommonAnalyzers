@@ -58,7 +58,7 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="routeAttribute">The resolved <c>RouteAttribute</c> type.</param>
     /// <param name="httpMethodAttribute">The resolved <c>HttpMethodAttribute</c> base type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol routeAttribute, INamedTypeSymbol? httpMethodAttribute)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol routeAttribute, INamedTypeSymbol? httpMethodAttribute)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
@@ -141,8 +141,8 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a string literal whose decoded value contains a backslash.</summary>
     /// <param name="expression">The candidate argument expression.</param>
     /// <returns><see langword="true"/> when the expression is a backslash-bearing string literal.</returns>
-    private static bool IsBackslashStringLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsBackslashStringLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.StringLiteralExpression)
             && literal.Token.ValueText.IndexOf('\\') >= 0;
 

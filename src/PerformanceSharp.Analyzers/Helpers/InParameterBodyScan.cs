@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>
-/// Decides whether a member's body would still compile if one of its parameters became <c>in</c>.
-/// </summary>
+/// <summary>Decides whether a member's body would still compile if one of its parameters became <c>in</c>.</summary>
 /// <remarks>
 /// An <c>in</c> parameter is a readonly reference, and the compiler rejects four things a by-value
 /// parameter allows. Each maps to a real error, so missing one of them turns the diagnostic into advice
@@ -28,12 +28,12 @@ internal static class InParameterBodyScan
     /// <param name="model">The semantic model for the body's tree.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when nothing in the body would stop the change from compiling.</returns>
-    public static bool CanBecomeReadonlyReference(
+    internal static bool CanBecomeReadonlyReference(
         SyntaxNode? body,
         IParameterSymbol parameter,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => body is null || Visit(body, parameter, model, insideNestedFunction: false, cancellationToken);
+        CancellationToken cancellationToken) =>
+        body is null || Visit(body, parameter, model, insideNestedFunction: false, cancellationToken);
 
     /// <summary>Walks one node and its descendants, tracking whether the walk has entered a nested function.</summary>
     /// <param name="node">The current node.</param>
@@ -84,8 +84,8 @@ internal static class InParameterBodyScan
     /// <summary>Returns whether a node opens a scope that would capture the parameter.</summary>
     /// <param name="node">The current node.</param>
     /// <returns><see langword="true"/> for a lambda, anonymous method, local function, or query.</returns>
-    private static bool IsNestedFunction(SyntaxNode node)
-        => node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or QueryExpressionSyntax;
+    private static bool IsNestedFunction(SyntaxNode node) =>
+        node is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or QueryExpressionSyntax;
 
     /// <summary>Returns whether one identifier rules the parameter out of becoming an <c>in</c>.</summary>
     /// <param name="identifier">The identifier.</param>
@@ -99,8 +99,8 @@ internal static class InParameterBodyScan
         IParameterSymbol parameter,
         SemanticModel model,
         bool insideNestedFunction,
-        CancellationToken cancellationToken)
-        => identifier.Identifier.ValueText == parameter.Name
+        CancellationToken cancellationToken) =>
+        identifier.Identifier.ValueText == parameter.Name
             && IsParameterReference(identifier, parameter, model, cancellationToken)
             && (insideNestedFunction || IsWritten(identifier));
 
@@ -110,12 +110,13 @@ internal static class InParameterBodyScan
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when the identifier is the parameter.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsParameterReference(
         IdentifierNameSyntax identifier,
         IParameterSymbol parameter,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => SymbolEqualityComparer.Default.Equals(
+        CancellationToken cancellationToken) =>
+        SymbolEqualityComparer.Default.Equals(
             model.GetSymbolInfo(identifier, cancellationToken).Symbol,
             parameter);
 

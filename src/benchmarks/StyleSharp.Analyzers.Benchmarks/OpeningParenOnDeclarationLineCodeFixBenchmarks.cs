@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1110 code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("OpeningParenOnDeclarationLineCodeFixBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class OpeningParenOnDeclarationLineCodeFixBenchmarks : IDisposable
@@ -33,10 +35,10 @@ public class OpeningParenOnDeclarationLineCodeFixBenchmarks : IDisposable
     public enum Shape
     {
         /// <summary>Method parameter list opening parenthesis.</summary>
-        MethodParameter,
+        MethodParameter = 0,
 
         /// <summary>Bracketed argument list opening bracket.</summary>
-        BracketedArgument
+        BracketedArgument = 1,
     }
 
     /// <summary>Gets or sets the synthetic member count used for the benchmark corpus.</summary>
@@ -54,7 +56,7 @@ public class OpeningParenOnDeclarationLineCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             OpeningParenOnDeclarationLineCodeFixBenchmarkSource.Generate(Members, CurrentShape == Shape.BracketedArgument));
@@ -66,6 +68,7 @@ public class OpeningParenOnDeclarationLineCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -104,13 +107,10 @@ public class OpeningParenOnDeclarationLineCodeFixBenchmarks : IDisposable
     /// <returns>The opening-token span.</returns>
     private static TextSpan FindOpeningSpan(
         MemberDeclarationSyntax member,
-        Shape shape)
-    {
-        return shape switch
+        Shape shape) => shape switch
         {
             Shape.MethodParameter
                 => ((MethodDeclarationSyntax)member).ParameterList.OpenParenToken.Span,
             _ => ((ElementAccessExpressionSyntax)((MethodDeclarationSyntax)member).ExpressionBody!.Expression).ArgumentList.OpenBracketToken.Span
         };
-    }
 }

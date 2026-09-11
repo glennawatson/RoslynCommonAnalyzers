@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSalt = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 {
     /// <summary>Verifies an inline all-zero <c>new byte[N]</c> salt to the Rfc2898DeriveBytes constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineZeroSaltToConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task InlineZeroSaltToConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -32,9 +34,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a literal constant byte array salt to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralArraySaltToConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralArraySaltToConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -50,9 +53,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a shared <c>static readonly</c> field salt to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyFieldSaltToConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task StaticReadonlyFieldSaltToConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -70,9 +74,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Encoding.GetBytes</c> salt over a string literal to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EncodingGetBytesLiteralSaltToConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task EncodingGetBytesLiteralSaltToConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
             using System.Text;
@@ -89,9 +94,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Encoding.GetBytes</c> salt over a <c>const</c> string to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EncodingGetBytesConstStringSaltReportedAsync()
-        => await VerifyNet90Async(
+    public Task EncodingGetBytesConstStringSaltReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
             using System.Text;
@@ -110,9 +116,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies an inline all-zero salt to the static <c>Pbkdf2</c> method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineZeroSaltToPbkdf2ReportedAsync()
-        => await VerifyNet90Async(
+    public Task InlineZeroSaltToPbkdf2ReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -125,9 +132,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a <c>static readonly</c> field salt to the static <c>Pbkdf2</c> method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyFieldSaltToPbkdf2ReportedAsync()
-        => await VerifyNet90Async(
+    public Task StaticReadonlyFieldSaltToPbkdf2ReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -142,9 +150,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a fully-qualified <c>new System.Security.Cryptography.Rfc2898DeriveBytes</c> with a fixed salt is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task FullyQualifiedConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -158,9 +167,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a salt passed by name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedSaltArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedSaltArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -173,9 +183,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a fresh random salt held in a local is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreshRandomSaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task FreshRandomSaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -192,9 +203,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a salt produced inline by a random call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineRandomSaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InlineRandomSaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -207,9 +219,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies the random-salt <c>saltSize</c> constructor overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RandomSaltSizeOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RandomSaltSizeOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -225,9 +238,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a per-instance readonly field salt is not reported (only shared static fields are).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceReadonlyFieldSaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InstanceReadonlyFieldSaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -247,9 +261,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies an inline array salt with a non-constant element is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantArraySaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantArraySaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -262,9 +277,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a salt chosen at runtime by a conditional expression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalSaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConditionalSaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -277,9 +293,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Encoding.GetBytes</c> salt over a non-constant string is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EncodingGetBytesNonConstantSaltIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EncodingGetBytesNonConstantSaltIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
             using System.Text;
@@ -293,9 +310,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a same-named type in another namespace (not the crypto type) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShadowingConstructorIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ShadowingConstructorIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Rfc2898DeriveBytes
             {
@@ -315,9 +333,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a <c>GetBytes</c> call on an unrelated (non-Encoding) type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomGetBytesIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task CustomGetBytesIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -335,9 +354,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a constant array passed to an unrelated type's constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedConstructorIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedConstructorIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Kdf
             {
@@ -357,9 +377,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies constructing an unrelated predefined type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PredefinedTypeConstructionIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PredefinedTypeConstructionIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -369,9 +390,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a constant array passed to an unrelated static method named <c>Pbkdf2</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedPbkdf2MethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedPbkdf2MethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public static class Kdf
             {
@@ -387,9 +409,10 @@ public class ConstantKdfSaltAnalyzerUnitTest
 
     /// <summary>Verifies a named non-salt first argument on an unrelated constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedNonSaltArgumentIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NamedNonSaltArgumentIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Kdf
             {
@@ -432,11 +455,7 @@ public class ConstantKdfSaltAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeSalt.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12,
-            TestCode = Source
-        };
+        var test = new AnalyzeSalt.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -446,11 +465,7 @@ public class ConstantKdfSaltAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeSalt.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeSalt.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

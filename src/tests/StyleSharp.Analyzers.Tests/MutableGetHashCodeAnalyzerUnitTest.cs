@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyHash = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1482MutableGetHashCodeAnalyzer>;
@@ -19,9 +20,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies a hash that reads a field which is neither readonly nor const is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableFieldIsReportedAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task MutableFieldIsReportedAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -35,9 +37,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies a hash built from state construction fixes is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyConstAndStaticReadonlyAreCleanAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task ReadonlyConstAndStaticReadonlyAreCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -55,9 +58,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies a static field that is not readonly is reported: reassigning it loses every hashed object.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMutableFieldIsReportedAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task StaticMutableFieldIsReportedAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -77,9 +81,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
     /// A computed get-only property is treated as fixed even when its body reads a mutable field. The rule looks at
     /// what the hash names, not at what those members go on to read.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertiesAreJudgedByTheirSetterAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task PropertiesAreJudgedByTheirSetterAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             $$"""
             public class C
             {
@@ -100,9 +105,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies a local or a parameter is not state and is never reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalsAndParametersAreCleanAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task LocalsAndParametersAreCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -127,9 +133,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies mutable state reached through another object is that object's business, not this one's.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StateOnAnotherObjectIsCleanAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task StateOnAnotherObjectIsCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class Node
             {
@@ -192,9 +199,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies <c>this.</c> and <c>base.</c> both still name this instance's state.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisAndBaseQualifiedStateIsReportedAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task ThisAndBaseQualifiedStateIsReportedAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -214,9 +222,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies <c>nameof</c> yields a name at compile time and never reads the field.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameofIsCleanAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task NameofIsCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -230,9 +239,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies an object initializer names members of the object being built, not of this one.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerMemberIsCleanAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task ObjectInitializerMemberIsCleanAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class Box
             {
@@ -249,9 +259,10 @@ public class MutableGetHashCodeAnalyzerUnitTest
 
     /// <summary>Verifies a method merely named <c>GetHashCode</c> is not the hash override and is not analyzed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonOverrideGetHashCodeIsNotAnalyzedAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task NonOverrideGetHashCodeIsNotAnalyzedAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -264,14 +275,15 @@ public class MutableGetHashCodeAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a member the hash reads more than once is reported once, not once per read.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// One mutable member is one defect however often the hash names it. A null test followed by a use is
     /// the ordinary shape, and it must not put two squiggles on one line for a single thing to fix.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberReadTwiceIsReportedOnceAsync()
-        => await VerifyHash.VerifyAnalyzerAsync(
+    public Task MemberReadTwiceIsReportedOnceAsync() =>
+        VerifyHash.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -285,10 +297,6 @@ public class MutableGetHashCodeAnalyzerUnitTest
     /// <summary>Builds a test that runs against the .NET 8 reference assemblies, where <c>System.HashCode</c> exists.</summary>
     /// <param name="source">The source to analyze.</param>
     /// <returns>The configured test.</returns>
-    private static VerifyHash.Test CreateNet80Test(string source)
-        => new()
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+    private static VerifyHash.Test CreateNet80Test(string source) =>
+        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 }

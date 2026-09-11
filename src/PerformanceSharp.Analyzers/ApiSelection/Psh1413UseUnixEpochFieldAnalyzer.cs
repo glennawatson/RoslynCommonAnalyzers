@@ -105,8 +105,8 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an allocation has the shape of a hand-written epoch, before any binding.</summary>
     /// <param name="creation">The allocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsEpochCreationShape(ObjectCreationExpressionSyntax creation)
-        => creation.Initializer is null
+    internal static bool IsEpochCreationShape(ObjectCreationExpressionSyntax creation) =>
+        creation.Initializer is null
             && creation.ArgumentList is { Arguments.Count: >= MinimumComponentCount }
             && creation.Type is NameSyntax;
 
@@ -114,7 +114,7 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dateTime">The compilation's date type, when it has the field.</param>
     /// <param name="dateTimeOffset">The compilation's offset date type, when it has the field.</param>
-    private static void AnalyzeCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? dateTime, INamedTypeSymbol? dateTimeOffset)
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? dateTime, INamedTypeSymbol? dateTimeOffset)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         if (!IsEpochCreationShape(creation))
@@ -203,12 +203,9 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
             return model.GetConstantValue(expression, cancellationToken).Value is int value && value == GetExpectedComponent(index);
         }
 
-        if (IsNamedSystemType(parameterType, DateTimeKindTypeName))
-        {
-            return IsSystemMember(model, expression, DateTimeKindTypeName, UtcKindName, cancellationToken);
-        }
-
-        return IsNamedSystemType(parameterType, TimeSpanTypeName)
+        return IsNamedSystemType(parameterType, DateTimeKindTypeName)
+            ? IsSystemMember(model, expression, DateTimeKindTypeName, UtcKindName, cancellationToken)
+            : IsNamedSystemType(parameterType, TimeSpanTypeName)
             && IsSystemMember(model, expression, TimeSpanTypeName, ZeroOffsetName, cancellationToken);
     }
 
@@ -226,8 +223,8 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The type to inspect.</param>
     /// <param name="name">The expected simple name.</param>
     /// <returns><see langword="true"/> when the type matches.</returns>
-    private static bool IsNamedSystemType(ITypeSymbol type, string name)
-        => type.Name == name
+    private static bool IsNamedSystemType(ITypeSymbol type, string name) =>
+        type.Name == name
             && type.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
 
     /// <summary>Returns whether an argument binds to a named static field of a <c>System</c> type.</summary>
@@ -241,8 +238,8 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
     /// Bound rather than matched on the written text, so <c>TimeSpan.Zero</c>, <c>System.TimeSpan.Zero</c>
     /// and an aliased spelling all count, and a local field that happens to be called <c>Zero</c> does not.
     /// </remarks>
-    private static bool IsSystemMember(SemanticModel model, ExpressionSyntax expression, string typeName, string memberName, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true } field
+    private static bool IsSystemMember(SemanticModel model, ExpressionSyntax expression, string typeName, string memberName, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true } field
             && field.Name == memberName
             && IsNamedSystemType(field.ContainingType, typeName);
 

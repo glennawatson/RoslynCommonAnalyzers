@@ -11,8 +11,8 @@ internal static class TooManyParametersBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit parameter-count rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Runtime.CompilerServices;
            using System.Runtime.InteropServices;
 
@@ -25,8 +25,8 @@ internal static class TooManyParametersBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating block.</param>
     /// <returns>The generated block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one block whose every signature is short enough or exempt.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -37,8 +37,8 @@ internal static class TooManyParametersBenchmarkSource
     /// a deconstructor, a P/Invoke, and a positional record. No clean signature reaches a semantic bind,
     /// which is what this corpus exists to prove.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public C{{index}}(int first, int second) => Total = first + second;
@@ -91,8 +91,8 @@ internal static class TooManyParametersBenchmarkSource
     /// is reported, and the implementation is exempt only after a bind proves the interface dictates it.
     /// Four diagnostics per block: the two wide methods, the wide constructor, and the interface method.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public V{{index}}(int a, int b, int c, int d, int e, int f, int g, int h) => Total = a + b + c + d + e + f + g + h;

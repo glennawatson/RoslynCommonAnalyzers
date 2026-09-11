@@ -144,10 +144,7 @@ public class ConditionalConditionParenthesesAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyConditionalConditionParentheses.Test CreateTest(string source, string? style)
     {
-        var test = new VerifyConditionalConditionParentheses.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyConditionalConditionParentheses.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST2269.severity = warning\n";
         if (style is not null)

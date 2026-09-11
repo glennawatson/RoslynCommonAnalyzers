@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -15,9 +15,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 {
     /// <summary>Verifies an unused namespace using is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedNamespaceUsingIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnusedNamespaceUsingIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             {|SST1445:using System.Text;|}
 
@@ -29,9 +30,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed by a simple type reference is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsedNamespaceUsingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsedNamespaceUsingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -43,9 +45,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by an extension-method invocation is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByExtensionMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByExtensionMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -57,9 +60,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by query syntax is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByQuerySyntaxIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByQuerySyntaxIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -72,9 +76,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies an unused using static is flagged and a used one is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticUsageIsTrackedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingStaticUsageIsTrackedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using static System.Math;
             {|SST1445:using static System.Environment;|}
@@ -87,9 +92,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies an unused alias is flagged and a used one is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AliasUsageIsTrackedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AliasUsageIsTrackedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using SB = System.Text.StringBuilder;
             {|SST1445:using SR = System.IO.StringReader;|}
@@ -102,9 +108,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by an attribute is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByAttributeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByAttributeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -119,9 +126,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only inside nameof is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByNameofIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByNameofIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -133,9 +141,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only from an XML doc cref is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByDocCrefIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByDocCrefIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -151,9 +160,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies an unused using inside a namespace block is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedUsingInsideNamespaceIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnusedUsingInsideNamespaceIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace N
             {
@@ -168,9 +178,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed by a base type reference is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByBaseTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByBaseTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -181,9 +192,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by a collection-initializer extension Add is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByCollectionInitializerAddIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedByCollectionInitializerAddIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using N2;
@@ -204,9 +216,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies mixed used and unused usings only flag the unused ones.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedUsingsOnlyFlagUnusedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MixedUsingsOnlyFlagUnusedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             {|SST1445:using System.Collections.Generic;|}
@@ -220,9 +233,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by a C# 14 extension-block member invocation is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByExtensionBlockMemberIsCleanAsync()
-        => await RunWithExtensionBlocksAsync(
+    public Task UsingConsumedByExtensionBlockMemberIsCleanAsync() =>
+        RunWithExtensionBlocksAsync(
             """
             using Lib.Internal;
 
@@ -248,9 +262,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
 
     /// <summary>Verifies a using consumed only by a C# 14 extension-block property access is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedByExtensionBlockPropertyIsCleanAsync()
-        => await RunWithExtensionBlocksAsync(
+    public Task UsingConsumedByExtensionBlockPropertyIsCleanAsync() =>
+        RunWithExtensionBlocksAsync(
             """
             using Lib.Internal;
 
@@ -281,9 +296,10 @@ public class Sst1445UnnecessaryUsingDirectiveAnalyzerUnitTest
     /// directive looks unused. Removing it breaks every framework that does take the branch, where the type
     /// it named is no longer in scope.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingConsumedOnlyByAnInactiveBranchIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsingConsumedOnlyByAnInactiveBranchIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Reflection;
             using System.Runtime.CompilerServices;

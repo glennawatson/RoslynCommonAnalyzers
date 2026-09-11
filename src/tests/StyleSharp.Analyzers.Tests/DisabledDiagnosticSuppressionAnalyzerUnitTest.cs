@@ -2,8 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDisabledDiagnosticSuppression = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1462DisabledDiagnosticSuppressionAnalyzer>;
@@ -86,9 +86,10 @@ public class DisabledDiagnosticSuppressionAnalyzerUnitTest
 
     /// <summary>Verifies a suppression for an enabled diagnostic is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnabledDiagnosticSuppressionIsCleanAsync()
-        => await VerifyDisabledDiagnosticSuppression.VerifyAnalyzerAsync(
+    public Task EnabledDiagnosticSuppressionIsCleanAsync() =>
+        VerifyDisabledDiagnosticSuppression.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
 

@@ -8,14 +8,14 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public enum CollectionExpressionAdvancedBenchmarkShape
 {
     /// <summary>Span-targeted stackalloc initializer.</summary>
-    Stackalloc,
+    Stackalloc = 0,
 
     /// <summary>Collection-builder factory call.</summary>
-    Create,
+    Create = 1,
 
     /// <summary>Short builder local sequence.</summary>
-    Builder,
+    Builder = 2,
 
     /// <summary>Inline array immediately materialized with LINQ.</summary>
-    Fluent
+    Fluent = 3,
 }

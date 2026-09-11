@@ -65,7 +65,7 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <summary>Reports SES1104 when an assignment weakens an <c>X509ChainPolicy</c> chain check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="chainPolicyType">The resolved <c>X509ChainPolicy</c> type gating the rule.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol chainPolicyType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol chainPolicyType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -103,8 +103,8 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <summary>Returns the member name being assigned, for a member-access or initializer target.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns>The member name, or <see langword="null"/> when the target is not a simple member set.</returns>
-    private static string? GetAssignedMemberName(ExpressionSyntax left)
-        => left switch
+    private static string? GetAssignedMemberName(ExpressionSyntax left) =>
+        left switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -117,8 +117,8 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <param name="revocationModeType">The <c>RevocationMode</c> property's enum type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the value is <c>X509RevocationMode.NoCheck</c>.</returns>
-    private static bool IsRevocationDisabled(SemanticModel model, ExpressionSyntax value, ITypeSymbol revocationModeType, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(value, cancellationToken).Symbol is IFieldSymbol field
+    private static bool IsRevocationDisabled(SemanticModel model, ExpressionSyntax value, ITypeSymbol revocationModeType, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(value, cancellationToken).Symbol is IFieldSymbol field
             && field.Name == NoCheckFieldName
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, revocationModeType);
 
@@ -137,13 +137,10 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
         }
 
         // An OR-combination suppresses errors when any operand names a suppressing flag.
-        if (expression is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression))
-        {
-            return SuppressesChainErrors(model, binary.Left, verificationFlagsType, cancellationToken)
-                || SuppressesChainErrors(model, binary.Right, verificationFlagsType, cancellationToken);
-        }
-
-        return model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol field
+        return expression is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression)
+            ? SuppressesChainErrors(model, binary.Left, verificationFlagsType, cancellationToken)
+                || SuppressesChainErrors(model, binary.Right, verificationFlagsType, cancellationToken)
+            : model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol field
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, verificationFlagsType)
             && (field.Name == AllowUnknownCertificateAuthorityFieldName || field.Name == AllFlagsFieldName);
     }

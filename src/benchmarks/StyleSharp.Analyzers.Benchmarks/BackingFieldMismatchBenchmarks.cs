@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for backing-field-mismatch analysis (SST2422).</summary>
+[System.Diagnostics.DebuggerDisplay("BackingFieldMismatchBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class BackingFieldMismatchBenchmarks
@@ -24,11 +26,13 @@ public class BackingFieldMismatchBenchmarks
 
     /// <summary>Benchmarks the clean backing-field-mismatch path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BackingFieldMismatch_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating backing-field-mismatch path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BackingFieldMismatch_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

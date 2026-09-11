@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -21,12 +22,13 @@ public sealed class Sst1529NullConditionalNewLineCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(Sst1529NullConditionalNewLineCodeFixProvider), TryAppendChanges);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(Sst1529NullConditionalNewLineCodeFixProvider), TryAppendChanges);
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => TryAppendChanges(text, root, diagnostic, changes);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        TryAppendChanges(text, root, diagnostic, changes);
 
     /// <summary>Appends the changes that move a wrapped chain link's break to the configured side.</summary>
     /// <param name="text">The source text.</param>

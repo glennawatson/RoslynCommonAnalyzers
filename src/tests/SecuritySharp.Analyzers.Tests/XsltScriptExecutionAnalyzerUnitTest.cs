@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeXslt = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 {
     /// <summary>Verifies an object initializer that sets <c>EnableScript = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerEnableScriptTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task ObjectInitializerEnableScriptTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -32,9 +34,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies the constructor with a constant <c>enableScript</c> of <c>true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorEnableScriptTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConstructorEnableScriptTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -50,9 +53,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies a reordered named <c>enableScript: true</c> constructor argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedConstructorEnableScriptArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedConstructorEnableScriptArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -68,9 +72,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies the static <c>XsltSettings.TrustedXslt</c> (which enables script) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrustedXsltStaticReportedAsync()
-        => await VerifyNet90Async(
+    public Task TrustedXsltStaticReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -86,9 +91,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies the settings passed by name in a reordered call are still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedSettingsArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedSettingsArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -104,9 +110,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies the static <c>XsltSettings.Default</c> (script disabled) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultSettingsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task DefaultSettingsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -122,9 +129,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies an initializer that sets <c>EnableScript = false</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerEnableScriptFalseIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InitializerEnableScriptFalseIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -140,9 +148,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies a constructor whose <c>enableScript</c> argument is <c>false</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorEnableScriptFalseIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstructorEnableScriptFalseIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -158,9 +167,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies an initializer that enables only the document() function is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentFunctionOnlyIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task DocumentFunctionOnlyIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -176,9 +186,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies settings first stored in a local and then passed are not reported (local shape only).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SettingsFromLocalIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SettingsFromLocalIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -195,9 +206,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies a single-argument <c>Load</c> with no settings is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadWithoutSettingsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadWithoutSettingsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Xml.Xsl;
 
@@ -213,9 +225,10 @@ public class XsltScriptExecutionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>Load</c>/<c>XsltSettings</c> on unrelated types is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTypesWithMatchingShapeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedTypesWithMatchingShapeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class XsltSettings
             {
@@ -244,11 +257,7 @@ public class XsltScriptExecutionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeXslt.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeXslt.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

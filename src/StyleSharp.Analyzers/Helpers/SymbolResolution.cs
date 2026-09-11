@@ -10,6 +10,6 @@ internal static class SymbolResolution
     /// <summary>Returns the resolved symbol when the semantic info names exactly one.</summary>
     /// <param name="symbolInfo">The symbol information.</param>
     /// <returns>The bound symbol, the sole candidate when binding was ambiguous with one candidate, or <see langword="null"/>.</returns>
-    public static ISymbol? GetSingleSymbol(SymbolInfo symbolInfo)
-        => symbolInfo.Symbol ?? (symbolInfo.CandidateSymbols.Length == 1 ? symbolInfo.CandidateSymbols[0] : null);
+    internal static ISymbol? GetSingleSymbol(SymbolInfo symbolInfo) =>
+        symbolInfo.Symbol ?? (symbolInfo.CandidateSymbols.Length == 1 ? symbolInfo.CandidateSymbols[0] : null);
 }

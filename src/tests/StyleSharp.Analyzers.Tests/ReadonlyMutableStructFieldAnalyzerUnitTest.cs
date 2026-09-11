@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReadonlyMutableStructField = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1456ReadonlyMutableStructFieldAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ReadonlyMutableStructFieldAnalyzerUnitTest
 {
     /// <summary>Verifies a readonly field of a mutable source struct is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyMutableStructFieldIsReportedAsync()
-        => await VerifyReadonlyMutableStructField.VerifyAnalyzerAsync(
+    public Task ReadonlyMutableStructFieldIsReportedAsync() =>
+        VerifyReadonlyMutableStructField.VerifyAnalyzerAsync(
             """
             public struct Mutable
             {
@@ -29,9 +31,10 @@ public class ReadonlyMutableStructFieldAnalyzerUnitTest
 
     /// <summary>Verifies readonly structs and framework structs are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImmutableAndFrameworkStructsAreCleanAsync()
-        => await VerifyReadonlyMutableStructField.VerifyAnalyzerAsync(
+    public Task ImmutableAndFrameworkStructsAreCleanAsync() =>
+        VerifyReadonlyMutableStructField.VerifyAnalyzerAsync(
             """
             public readonly struct Immutable
             {

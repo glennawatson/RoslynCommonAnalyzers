@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySelf = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2419SelfCollectionOperationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class SelfCollectionOperationAnalyzerUnitTest
 {
     /// <summary>Verifies a set unioned with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetUnionedWithItselfIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task SetUnionedWithItselfIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -25,9 +27,10 @@ public class SelfCollectionOperationAnalyzerUnitTest
 
     /// <summary>Verifies a list adding its own range is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ListAddingItsOwnRangeIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task ListAddingItsOwnRangeIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -39,9 +42,10 @@ public class SelfCollectionOperationAnalyzerUnitTest
 
     /// <summary>Verifies a set excepted with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetExceptedWithItselfIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task SetExceptedWithItselfIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -53,9 +57,10 @@ public class SelfCollectionOperationAnalyzerUnitTest
 
     /// <summary>Verifies an operation on two different collections is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentCollectionsAreCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task DifferentCollectionsAreCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -67,9 +72,10 @@ public class SelfCollectionOperationAnalyzerUnitTest
 
     /// <summary>Verifies a call-valued receiver, which may return two different collections, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallValuedReceiverIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task CallValuedReceiverIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

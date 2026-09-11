@@ -3,12 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for suppressions whose diagnostic is disabled by configuration.</summary>
+[System.Diagnostics.DebuggerDisplay("DisabledDiagnosticSuppressionBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DisabledDiagnosticSuppressionBenchmarks
@@ -26,11 +28,13 @@ public class DisabledDiagnosticSuppressionBenchmarks
 
     /// <summary>Benchmarks suppressions for diagnostics that remain enabled.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DisabledDiagnosticSuppression_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks suppressions for diagnostics disabled by compilation options.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DisabledDiagnosticSuppression_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -40,8 +44,8 @@ public class DisabledDiagnosticSuppressionBenchmarks
         /// <summary>Builds source containing scoped suppressions for a synthetic diagnostic id.</summary>
         /// <param name="members">The number of synthetic members and suppressions to emit.</param>
         /// <returns>The generated source text.</returns>
-        public static string Generate(int members)
-            => $$"""
+        public static string Generate(int members) =>
+            $$"""
                using System.Diagnostics.CodeAnalysis;
 
                {{BenchmarkSourceText.JoinLines(members, GenerateSuppression)}}
@@ -57,8 +61,8 @@ public class DisabledDiagnosticSuppressionBenchmarks
         /// <summary>Builds one assembly suppression.</summary>
         /// <param name="index">The synthetic member index.</param>
         /// <returns>The generated suppression attribute.</returns>
-        private static string GenerateSuppression(int index)
-            => $"""[assembly: SuppressMessage("Style", "SST9999:Disabled rule", Justification = "Benchmark.", Scope = "member", Target = "M:Bench.C.M{index}")]""";
+        private static string GenerateSuppression(int index) =>
+            $"""[assembly: SuppressMessage("Style", "SST9999:Disabled rule", Justification = "Benchmark.", Scope = "member", Target = "M:Bench.C.M{index}")]""";
 
         /// <summary>Builds one target member.</summary>
         /// <param name="index">The synthetic member index.</param>
@@ -75,8 +79,9 @@ public class DisabledDiagnosticSuppressionBenchmarks
         /// <summary>Creates the prepared benchmark state for the requested member count.</summary>
         /// <param name="members">The synthetic member count.</param>
         /// <returns>The prepared benchmark state.</returns>
-        public static SingleAnalyzerBenchmarkState Create(int members)
-            => SingleAnalyzerBenchmarkHelper.Create(
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleAnalyzerBenchmarkState Create(int members) =>
+            SingleAnalyzerBenchmarkHelper.Create(
                 new Sst1462DisabledDiagnosticSuppressionAnalyzer(),
                 CreateScenario(members, ReportDiagnostic.Warn),
                 CreateScenario(members, ReportDiagnostic.Suppress));

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEquatable = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2301EquatableTypeShouldBeSealedAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 {
     /// <summary>Verifies an unsealed class that decides equality against itself is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsealedEquatableClassIsReportedAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task UnsealedEquatableClassIsReportedAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -25,9 +27,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a sealed class keeps the contract it signs.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedEquatableClassIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task SealedEquatableClassIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -39,9 +42,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies an abstract class is left to its leaves, which are reported on their own.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractClassIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task AbstractClassIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -53,9 +57,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a struct is not reported: nothing can derive from it, so the asymmetry cannot arise.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task StructIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -67,9 +72,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a record is not reported: its generated equality already carries the type check.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task RecordIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -81,9 +87,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a class that decides equality against some other type makes no claim about itself.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EquatableOfAnotherTypeIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task EquatableOfAnotherTypeIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -100,9 +107,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
     /// <summary>Verifies only the class that names itself is reported, not the ones below it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The derived type inherits <c>IEquatable&lt;Money&gt;</c>, which says nothing about a <c>Coin</c>.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedTypeIsReportedAtItsSourceAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task DerivedTypeIsReportedAtItsSourceAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -118,9 +126,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a generic class that decides equality against its own constructed self is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericEquatableClassIsReportedAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task GenericEquatableClassIsReportedAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -132,9 +141,10 @@ public class Sst2301EquatableTypeShouldBeSealedAnalyzerUnitTest
 
     /// <summary>Verifies a class that signs no equality contract is never looked at.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEquatableClassIsCleanAsync()
-        => await VerifyEquatable.VerifyAnalyzerAsync(
+    public Task NonEquatableClassIsCleanAsync() =>
+        VerifyEquatable.VerifyAnalyzerAsync(
             """
             public class Money
             {

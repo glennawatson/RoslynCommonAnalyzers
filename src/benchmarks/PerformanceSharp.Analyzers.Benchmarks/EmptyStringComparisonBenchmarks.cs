@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for empty-string-comparison analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("EmptyStringComparisonBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class EmptyStringComparisonBenchmarks
@@ -24,11 +26,13 @@ public class EmptyStringComparisonBenchmarks
 
     /// <summary>Benchmarks the clean empty-string-comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EmptyStringComparison_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating empty-string-comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EmptyStringComparison_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

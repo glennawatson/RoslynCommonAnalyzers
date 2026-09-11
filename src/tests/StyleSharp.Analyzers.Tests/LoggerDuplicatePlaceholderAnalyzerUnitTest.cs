@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.LoggerCallAnalyzer>;
 
@@ -12,9 +13,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 {
     /// <summary>Verifies a repeated placeholder name is reported on its second use.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task RepeatedNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -24,9 +26,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a case-only difference is treated as the same name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseOnlyDifferenceIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task CaseOnlyDifferenceIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -36,9 +39,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies the third and later uses of a name are each reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThirdUseIsAlsoReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ThirdUseIsAlsoReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -49,9 +53,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies distinct placeholder names are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctNamesAreCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task DistinctNamesAreCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -62,9 +67,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a shared token that is not a whole name is not treated as a repeat.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SharedTokenIsNotADuplicateAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task SharedTokenIsNotADuplicateAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -75,9 +81,10 @@ public class LoggerDuplicatePlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a repeated positional placeholder is not treated as a duplicate name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedNumericPlaceholderIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task RepeatedNumericPlaceholderIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

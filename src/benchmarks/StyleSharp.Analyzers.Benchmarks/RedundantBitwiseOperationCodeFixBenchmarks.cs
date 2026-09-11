@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -11,6 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the redundant-bitwise-operation code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantBitwiseOperationCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RedundantBitwiseOperationCodeFixBenchmarks : IDisposable
@@ -42,7 +44,7 @@ public class RedundantBitwiseOperationCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             RedundantBitwiseOperationBenchmarkSource.Generate(Nodes, violating: true));
@@ -62,6 +64,7 @@ public class RedundantBitwiseOperationCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

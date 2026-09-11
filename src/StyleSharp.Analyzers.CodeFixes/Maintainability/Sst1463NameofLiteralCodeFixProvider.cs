@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,12 +21,13 @@ public sealed class Sst1463NameofLiteralCodeFixProvider : CodeFixProvider, IBatc
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use nameof", nameof(Sst1463NameofLiteralCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use nameof", nameof(Sst1463NameofLiteralCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported literal and builds its <c>nameof</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -41,7 +44,7 @@ public sealed class Sst1463NameofLiteralCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        var replacement = SyntaxFactory.ParseExpression("nameof(" + name + ")");
+        var replacement = SyntaxFactory.ParseExpression($"nameof({name})");
         return replacement.ContainsDiagnostics
             ? null
             : new NodeReplacement(literal, replacement.WithTriviaFrom(literal));

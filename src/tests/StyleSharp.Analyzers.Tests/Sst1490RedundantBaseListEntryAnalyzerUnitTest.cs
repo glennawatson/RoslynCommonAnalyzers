@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBaseList = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1490RedundantBaseListEntryAnalyzer,
     StyleSharp.Analyzers.Sst1490RedundantBaseListEntryCodeFixProvider>;
@@ -219,9 +220,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 
     /// <summary>Verifies an interface a struct's other interface inherits is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructBaseListIsCheckedAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task StructBaseListIsCheckedAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IShape
             {
@@ -238,9 +240,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 
     /// <summary>Verifies an interface list that implies nothing is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedInterfacesAreCleanAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task UnrelatedInterfacesAreCleanAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IFirst
             {
@@ -261,9 +264,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 
     /// <summary>Verifies a single-entry base list is never reported; nothing else in it could imply the entry.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleEntryBaseListIsCleanAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task SingleEntryBaseListIsCleanAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IMarker
             {
@@ -277,9 +281,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     /// <summary>Verifies an explicit object base is left to the rule that already owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The type is still a class, not an interface, so this rule never considers it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitObjectBaseIsNotThisRulesJobAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task ExplicitObjectBaseIsNotThisRulesJobAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IMarker
             {
@@ -292,9 +297,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 
     /// <summary>Verifies a partial type is judged only by the base list being read, not by its other parts.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeIsJudgedOneBaseListAtATimeAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task PartialTypeIsJudgedOneBaseListAtATimeAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IBase
             {
@@ -319,9 +325,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     /// Removing the entry would send the interface call back to the base class's member, which is a silent
     /// behavior change rather than a cleanup.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceReimplementedOverABaseClassIsKeptAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task InterfaceReimplementedOverABaseClassIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IRunnable
             {
@@ -346,9 +353,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     /// <summary>Verifies an entry that an explicit implementation depends on is kept.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Removing this entry would not compile: the explicit implementation would have no interface.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceWithAnExplicitImplementationOverABaseClassIsKeptAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task InterfaceWithAnExplicitImplementationOverABaseClassIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IRunnable
             {
@@ -373,9 +381,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     /// <summary>Verifies an override of the base member does not keep the redundant entry alive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>An override is reached through the base class's own mapping and still runs once the entry goes.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideOfTheBaseImplementationStillReportsAsync()
-        => await VerifyBaseList.VerifyAnalyzerAsync(
+    public Task OverrideOfTheBaseImplementationStillReportsAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
             """
             public interface IRunnable
             {

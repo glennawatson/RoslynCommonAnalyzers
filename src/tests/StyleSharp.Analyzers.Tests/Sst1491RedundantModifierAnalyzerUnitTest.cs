@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -85,9 +85,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies an indexer and an event on an interface are measured like any other member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryInterfaceMemberKindIsMeasuredAsync()
-        => await RunAsync(
+    public Task EveryInterfaceMemberKindIsMeasuredAsync() =>
+        RunAsync(
             """
             using System;
 
@@ -102,9 +103,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies a private interface member keeps its modifier, which is not the default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Interface members are public, so dropping private would widen the member instead of tidying it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateOnInterfaceMemberIsCleanAsync()
-        => await RunAsync(
+    public Task PrivateOnInterfaceMemberIsCleanAsync() =>
+        RunAsync(
             """
             public interface IService
             {
@@ -117,9 +119,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies a static interface member keeps abstract and virtual, which mean something there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A static member with a body is not virtual unless it says so, and one without a body must say abstract.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticInterfaceMemberKeepsAbstractAndVirtualAsync()
-        => await RunAsync(
+    public Task StaticInterfaceMemberKeepsAbstractAndVirtualAsync() =>
+        RunAsync(
             """
             public interface ICounter<TSelf>
                 where TSelf : ICounter<TSelf>
@@ -132,9 +135,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies public on a static interface member is still reported; accessibility does not change.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicOnStaticInterfaceMemberIsReportedAsync()
-        => await RunAsync(
+    public Task PublicOnStaticInterfaceMemberIsReportedAsync() =>
+        RunAsync(
             """
             public interface ICounter
             {
@@ -144,9 +148,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a sealed interface member is left alone; sealed makes a member non-virtual there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedInterfaceMemberIsCleanAsync()
-        => await RunAsync(
+    public Task SealedInterfaceMemberIsCleanAsync() =>
+        RunAsync(
             """
             public interface IService
             {
@@ -180,9 +185,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies readonly on a member of a mutable struct is kept; there it does something.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyOnMemberOfMutableStructIsCleanAsync()
-        => await RunAsync(
+    public Task ReadOnlyOnMemberOfMutableStructIsCleanAsync() =>
+        RunAsync(
             """
             public struct Point
             {
@@ -197,9 +203,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies a static class's members keep static, which they cannot compile without.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>An instance member of a static class does not compile, so the modifier is required, not redundant.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticOnMemberOfStaticClassIsCleanAsync()
-        => await RunAsync(
+    public Task StaticOnMemberOfStaticClassIsCleanAsync() =>
+        RunAsync(
             """
             public static class Helpers
             {
@@ -211,9 +218,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies a sealed member is left to the rule that already reports it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedMemberIsNotThisRulesJobAsync()
-        => await RunAsync(
+    public Task SealedMemberIsNotThisRulesJobAsync() =>
+        RunAsync(
             """
             public class Base
             {
@@ -232,9 +240,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary class member's modifiers are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrdinaryClassMemberIsCleanAsync()
-        => await RunAsync(
+    public Task OrdinaryClassMemberIsCleanAsync() =>
+        RunAsync(
             """
             public abstract class Service
             {
@@ -269,9 +278,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies an unsafe member outside any unsafe context is left to the rule that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Nothing encloses this member's unsafe modifier, so the modifier is doing the work.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsafeModifierWithNoEnclosingUnsafeIsCleanAsync()
-        => await RunUnsafeAsync(
+    public Task UnsafeModifierWithNoEnclosingUnsafeIsCleanAsync() =>
+        RunUnsafeAsync(
             """
             public class Native
             {
@@ -282,9 +292,10 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <summary>Verifies a nested unsafe member that contains no unsafe syntax is left to the rule that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>That modifier is unnecessary for a different reason, and reporting it under two ids helps nobody.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedUnsafeWithoutUnsafeSyntaxIsCleanAsync()
-        => await RunUnsafeAsync(
+    public Task NestedUnsafeWithoutUnsafeSyntaxIsCleanAsync() =>
+        RunUnsafeAsync(
             """
             public unsafe class Native
             {
@@ -294,14 +305,15 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
 
     /// <summary>Runs one analyzer or code-fix case against the modern reference assemblies.</summary>
     /// <summary>Verifies the abstract on a re-abstracted explicit interface member is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// Nothing about that declaration is implied. Re-abstracting an inherited member requires the
     /// <c>abstract</c>, and taking it away is CS0501 — the declaration then has to carry a body.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractOnReAbstractedExplicitInterfaceMemberIsNotReportedAsync()
-        => await RunAsync(
+    public Task AbstractOnReAbstractedExplicitInterfaceMemberIsNotReportedAsync() =>
+        RunAsync(
             """
             public interface IFoo
             {
@@ -321,11 +333,7 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <remarks>Default interface members and static abstract members need a runtime that supports them.</remarks>
     private static async Task RunAsync(string source, string? fixedSource = null)
     {
-        var test = new VerifyModifier.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyModifier.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         if (fixedSource is not null)
         {
@@ -341,11 +349,7 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunUnsafeAsync(string source, string? fixedSource = null)
     {
-        var test = new VerifyModifier.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyModifier.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         if (fixedSource is not null)
         {

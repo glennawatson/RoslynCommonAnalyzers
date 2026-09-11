@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum InstanceMemberQualification
 {
     /// <summary>Instance members are read without a <c>this.</c> prefix.</summary>
-    OmitThis,
+    OmitThis = 0,
 
     /// <summary>Instance members are read through a <c>this.</c> prefix.</summary>
-    RequireThis
+    RequireThis = 1,
 }

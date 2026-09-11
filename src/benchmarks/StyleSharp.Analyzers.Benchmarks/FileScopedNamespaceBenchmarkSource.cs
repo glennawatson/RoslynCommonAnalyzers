@@ -11,8 +11,8 @@ internal static class FileScopedNamespaceBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit a block-scoped namespace.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => violating
+    internal static string Generate(int members, bool violating) =>
+        violating
             ? $$"""
                namespace Bench
                {

@@ -11,8 +11,8 @@ internal static class FlagsAttributeBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit flags-enum rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class FlagsAttributeBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one enum per exit the no-diagnostic path takes.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -36,8 +36,8 @@ internal static class FlagsAttributeBenchmarkSource
     /// member is read, the bit mask is built, and both a bitwise-or combination and a literal one are
     /// accepted.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class Plain{{index}}
            {
                public int Value { get; set; }
@@ -67,8 +67,8 @@ internal static class FlagsAttributeBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>One diagnostic per enum: the compiler counted the members, so the fourth is the first two.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            [Flags]
            public enum Status{{index}}
            {

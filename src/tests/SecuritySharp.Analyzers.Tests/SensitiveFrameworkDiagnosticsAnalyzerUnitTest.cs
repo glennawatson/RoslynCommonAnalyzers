@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSensitiveDiagnostics = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -59,9 +60,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>EnableSensitiveDataLogging()</c> on the non-generic builder is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnableSensitiveDataLoggingReportedAsync()
-        => await VerifyAsync(
+    public Task EnableSensitiveDataLoggingReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -76,9 +78,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies <c>EnableSensitiveDataLogging()</c> on the generic builder is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericBuilderEnableSensitiveDataLoggingReportedAsync()
-        => await VerifyAsync(
+    public Task GenericBuilderEnableSensitiveDataLoggingReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -93,9 +96,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>EnableSensitiveDataLogging(true)</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnableSensitiveDataLoggingExplicitTrueReportedAsync()
-        => await VerifyAsync(
+    public Task EnableSensitiveDataLoggingExplicitTrueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -110,9 +114,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies <c>IdentityModelEventSource.ShowPII = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShowPiiAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task ShowPiiAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Logging;
 
@@ -127,9 +132,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies <c>IdentityModelEventSource.LogCompleteSecurityArtifact = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LogCompleteSecurityArtifactAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task LogCompleteSecurityArtifactAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Logging;
 
@@ -144,9 +150,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies an <c>EnableSensitiveDataLogging</c> call guarded by <c>IsDevelopment</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DevelopmentGuardedEnableIsCleanAsync()
-        => await VerifyAsync(
+    public Task DevelopmentGuardedEnableIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -164,9 +171,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies a <c>ShowPII</c> assignment behind a chained <c>Environment.IsDevelopment()</c> guard is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DevelopmentGuardedShowPiiIsCleanAsync()
-        => await VerifyAsync(
+    public Task DevelopmentGuardedShowPiiIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Logging;
 
@@ -184,9 +192,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>EnableSensitiveDataLogging(false)</c> disabling call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnableSensitiveDataLoggingFalseIsCleanAsync()
-        => await VerifyAsync(
+    public Task EnableSensitiveDataLoggingFalseIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -201,9 +210,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies an inline environment-flag argument is treated as the developer's own gate and not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnableSensitiveDataLoggingWithRuntimeFlagIsCleanAsync()
-        => await VerifyAsync(
+    public Task EnableSensitiveDataLoggingWithRuntimeFlagIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -218,9 +228,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies assigning <c>false</c> to <c>ShowPII</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShowPiiAssignedFalseIsCleanAsync()
-        => await VerifyAsync(
+    public Task ShowPiiAssignedFalseIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Logging;
 
@@ -235,9 +246,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>EnableSensitiveDataLogging</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMethodOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyBuilder
             {
@@ -255,9 +267,10 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
 
     /// <summary>Verifies a same-named static <c>ShowPII</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public static class MyLogging
             {
@@ -299,11 +312,7 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeSensitiveDiagnostics.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeSensitiveDiagnostics.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -313,11 +322,7 @@ public class SensitiveFrameworkDiagnosticsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeSensitiveDiagnostics.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + FrameworkStubs
-        };
+        var test = new AnalyzeSensitiveDiagnostics.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + FrameworkStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

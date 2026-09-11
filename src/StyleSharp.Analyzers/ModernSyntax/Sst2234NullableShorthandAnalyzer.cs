@@ -92,10 +92,7 @@ public sealed class Sst2234NullableShorthandAnalyzer : DiagnosticAnalyzer
             MemberAccessExpressionSyntax memberAccess when memberAccess.Expression == spelling => false,
 
             // nameof(Nullable<int>) evaluates the name itself; the shorthand has no name.
-            ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } } } => false,
-
-            // Alias targets before C# 12 cannot be arbitrary types; skip usings entirely.
-            UsingDirectiveSyntax => false,
+            ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } } } or UsingDirectiveSyntax => false,
             _ => true,
         };
     }

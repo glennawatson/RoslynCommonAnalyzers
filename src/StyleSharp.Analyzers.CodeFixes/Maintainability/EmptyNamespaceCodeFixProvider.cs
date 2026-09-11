@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes an empty namespace declaration (SST1435).</summary>
@@ -16,10 +18,11 @@ public sealed class EmptyNamespaceCodeFixProvider : CodeFixProvider, IBatchFixab
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty namespace", nameof(EmptyNamespaceCodeFixProvider), RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove the empty namespace", nameof(EmptyNamespaceCodeFixProvider), RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<BaseNamespaceDeclarationSyntax>);
 }

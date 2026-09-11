@@ -13,8 +13,8 @@ internal static class PrimaryExpressionClassification
     /// <summary>Returns whether an expression is a primary expression that never needs parentheses in a tighter-binding position.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> for names, invocations, member and element accesses, literals, and the other primary forms.</returns>
-    public static bool IsPrimary(ExpressionSyntax expression)
-        => IsPrimaryName(expression) || IsPrimaryTerminal(expression);
+    internal static bool IsPrimary(ExpressionSyntax expression) =>
+        IsPrimaryName(expression) || IsPrimaryTerminal(expression);
 
     /// <summary>Returns whether an expression is a name, member access, invocation, or similar navigation form.</summary>
     /// <param name="expression">The expression to classify.</param>

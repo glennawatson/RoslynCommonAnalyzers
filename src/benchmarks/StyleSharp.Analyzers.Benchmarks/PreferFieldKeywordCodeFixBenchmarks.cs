@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the field-keyword code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("PreferFieldKeywordCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PreferFieldKeywordCodeFixBenchmarks : IDisposable
@@ -46,16 +48,17 @@ public class PreferFieldKeywordCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ModernizationCodeFixBenchmarkSource.GenerateTrivialAutoPropertyCodeFix(Nodes));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         _property = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<PropertyDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true);
-        FieldReferenceAnalysis.TryFindSingleUseBackingField(_model, _property, CancellationToken.None, out _, out _, out var field);
+        _ = FieldReferenceAnalysis.TryFindSingleUseBackingField(_model, _property, CancellationToken.None, out _, out _, out var field);
         _fieldName = field!.Name;
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

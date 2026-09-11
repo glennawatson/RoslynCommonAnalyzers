@@ -325,23 +325,21 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
     /// <summary>Returns whether an identifier is a value reference rather than a member or argument name.</summary>
     /// <param name="identifier">The identifier to classify.</param>
     /// <returns><see langword="true"/> when renaming the identifier retargets the lambda parameter.</returns>
-    private static bool IsRenameTargetIdentifier(IdentifierNameSyntax identifier)
-        => identifier.Parent switch
+    private static bool IsRenameTargetIdentifier(IdentifierNameSyntax identifier) =>
+        identifier.Parent switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name != identifier,
-            MemberBindingExpressionSyntax => false,
+            MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false,
             QualifiedNameSyntax qualified => qualified.Right != identifier,
             AliasQualifiedNameSyntax alias => alias.Name != identifier,
-            NameColonSyntax => false,
-            NameEqualsSyntax => false,
             _ => true
         };
 
     /// <summary>Parenthesizes a predicate body unless it is already an atomic expression.</summary>
     /// <param name="expression">The predicate body.</param>
     /// <returns>The body ready to sit beside a logical-and operator.</returns>
-    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression)
-        => expression is ParenthesizedExpressionSyntax
+    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression) =>
+        expression is ParenthesizedExpressionSyntax
             or IdentifierNameSyntax
             or MemberAccessExpressionSyntax
             or InvocationExpressionSyntax
@@ -352,21 +350,21 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
     /// <summary>Gets a lambda's single parameter name.</summary>
     /// <param name="lambda">The one-parameter lambda.</param>
     /// <returns>The parameter name.</returns>
-    private static string GetLambdaParameterName(LambdaExpressionSyntax lambda)
-        => lambda is SimpleLambdaExpressionSyntax simple
+    private static string GetLambdaParameterName(LambdaExpressionSyntax lambda) =>
+        lambda is SimpleLambdaExpressionSyntax simple
             ? simple.Parameter.Identifier.ValueText
             : ((ParenthesizedLambdaExpressionSyntax)lambda).ParameterList.Parameters[0].Identifier.ValueText;
 
     /// <summary>Returns whether the method name is a single-key LINQ sort operator.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for <c>OrderBy</c> and <c>OrderByDescending</c>.</returns>
-    private static bool IsSingleKeySortName(string name)
-        => name is "OrderBy" or "OrderByDescending";
+    private static bool IsSingleKeySortName(string name) =>
+        name is "OrderBy" or "OrderByDescending";
 
     /// <summary>Returns whether an expression is an invocation of a LINQ sort operator.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> when the expression is a sort invocation.</returns>
-    private static bool IsSortInvocation(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: { } name } }
+    private static bool IsSortInvocation(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name: { } name } }
             && LinqCallSyntax.IsSortMethodName(name.Identifier.ValueText);
 }

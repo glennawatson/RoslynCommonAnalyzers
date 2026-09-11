@@ -72,8 +72,8 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a parameterless <c>First</c>/<c>Last</c> member call, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the call has the end-element extension shape.</returns>
-    internal static bool IsEndExtensionShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsEndExtensionShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax memberAccess
             && memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && memberAccess.Name.Identifier.ValueText is FirstMemberName or LastMemberName;
@@ -81,7 +81,7 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1124 for a linked list whose end element is fetched through LINQ.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsEndExtensionShape(invocation))
@@ -111,10 +111,10 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="enumerableType">The LINQ extension class.</param>
     /// <returns><see langword="true"/> when the call is a reduced source-only Enumerable extension.</returns>
     private static bool IsSourceOnlyEnumerableExtension(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType)
-        => context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
+        INamedTypeSymbol enumerableType) =>
+        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
     /// <summary>
@@ -126,8 +126,8 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The receiver's static type.</param>
     /// <param name="memberName">The end member the call would be rewritten to.</param>
     /// <returns><see langword="true"/> when the property and the node's value are both available.</returns>
-    private static bool HasEndNodeProperty(ITypeSymbol? type, string memberName)
-        => IsLinkedList(type, out var linkedList) && ExposesNodeProperty(linkedList, memberName);
+    private static bool HasEndNodeProperty(ITypeSymbol? type, string memberName) =>
+        IsLinkedList(type, out var linkedList) && ExposesNodeProperty(linkedList, memberName);
 
     /// <summary>Returns whether a receiver's static type is <c>System.Collections.Generic.LinkedList&lt;T&gt;</c>.</summary>
     /// <param name="type">The receiver's static type.</param>

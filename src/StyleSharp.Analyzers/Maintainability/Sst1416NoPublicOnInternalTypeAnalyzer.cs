@@ -56,7 +56,7 @@ public sealed class Sst1416NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a member when its <c>public</c> modifier is misleading.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="member">The member declaration.</param>
-    private static void CheckMember(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
+    private static void CheckMember(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
     {
         if (member is OperatorDeclarationSyntax or ConversionOperatorDeclarationSyntax or BaseTypeDeclarationSyntax
             || SharesAccessibilityWithAnotherType(member)
@@ -78,8 +78,8 @@ public sealed class Sst1416NoPublicOnInternalTypeAnalyzer : DiagnosticAnalyzer
     /// <c>abstract</c> member is the other end of that same contract: demoting it strands every override,
     /// which the containing type cannot see. Neither is the containing type's to choose alone.
     /// </remarks>
-    private static bool SharesAccessibilityWithAnotherType(MemberDeclarationSyntax member)
-        => ModifierListHelper.Contains(member.Modifiers, SyntaxKind.OverrideKeyword)
+    private static bool SharesAccessibilityWithAnotherType(MemberDeclarationSyntax member) =>
+        ModifierListHelper.Contains(member.Modifiers, SyntaxKind.OverrideKeyword)
             || ModifierListHelper.Contains(member.Modifiers, SyntaxKind.VirtualKeyword)
             || ModifierListHelper.Contains(member.Modifiers, SyntaxKind.AbstractKeyword);
 

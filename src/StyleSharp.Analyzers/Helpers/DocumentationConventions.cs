@@ -32,7 +32,7 @@ internal static class DocumentationConventions
     /// </summary>
     /// <param name="property">The property declaration.</param>
     /// <returns>"Gets ", "Sets ", or "Gets or sets " (with a trailing space).</returns>
-    public static string PropertyAccessorPrefix(PropertyDeclarationSyntax property)
+    internal static string PropertyAccessorPrefix(PropertyDeclarationSyntax property)
     {
         var hasGet = property.ExpressionBody is not null;
         var hasSet = false;
@@ -63,7 +63,7 @@ internal static class DocumentationConventions
     /// <summary>Returns whether a property has a set or init accessor with explicit restricted accessibility.</summary>
     /// <param name="property">The property declaration.</param>
     /// <returns><see langword="true"/> when a write accessor declares its own accessibility.</returns>
-    public static bool HasRestrictedWriteAccessor(PropertyDeclarationSyntax property)
+    internal static bool HasRestrictedWriteAccessor(PropertyDeclarationSyntax property)
     {
         if (property.ExplicitInterfaceSpecifier is not null || property.AccessorList is not { } accessorList)
         {
@@ -86,14 +86,14 @@ internal static class DocumentationConventions
     /// <summary>Returns the standard constructor summary text referencing <paramref name="type"/>.</summary>
     /// <param name="type">The declaring type.</param>
     /// <returns>The standard summary inner text.</returns>
-    public static string ConstructorStandardSummary(TypeDeclarationSyntax type)
-        => ConstructorStandardPrefix + Reference(type);
+    internal static string ConstructorStandardSummary(TypeDeclarationSyntax type) =>
+        ConstructorStandardPrefix + Reference(type);
 
     /// <summary>Returns the standard destructor summary text referencing <paramref name="type"/>.</summary>
     /// <param name="type">The declaring type.</param>
     /// <returns>The standard summary inner text.</returns>
-    public static string DestructorStandardSummary(TypeDeclarationSyntax type)
-        => DestructorStandardPrefix + Reference(type);
+    internal static string DestructorStandardSummary(TypeDeclarationSyntax type) =>
+        DestructorStandardPrefix + Reference(type);
 
     /// <summary>Builds the <c>&lt;see cref="Type"/&gt; class.</c> / <c>struct.</c> reference for a type.</summary>
     /// <param name="type">The declaring type.</param>
@@ -102,6 +102,6 @@ internal static class DocumentationConventions
     {
         var isStruct = type is StructDeclarationSyntax
             || (type is RecordDeclarationSyntax record && record.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword));
-        return "<see cref=\"" + type.Identifier.ValueText + "\"/> " + (isStruct ? "struct." : "class.");
+        return $"<see cref=\"{type.Identifier.ValueText}\"/> {(isStruct ? "struct." : "class.")}";
     }
 }

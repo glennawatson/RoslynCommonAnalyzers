@@ -29,12 +29,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the date-only type this rule asks for.</summary>
-    private const string DateOnlyMetadataName = "System.DateOnly";
-
-    /// <summary>The metadata name of the time-only type this rule asks for.</summary>
-    private const string TimeOnlyMetadataName = "System.TimeOnly";
-
     /// <summary>The <c>DateTime.Date</c> property name.</summary>
     private const string DateMemberName = "Date";
 
@@ -76,7 +70,7 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one <c>.Date</c> or <c>.TimeOfDay</c> read on a <c>DateTime</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="suggestions">The split types resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in SplitTypes suggestions)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in SplitTypes suggestions)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         var suggested = SuggestedTypeFor(access, suggestions);
@@ -102,8 +96,8 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
     /// <param name="access">The member access to inspect.</param>
     /// <param name="suggestions">The split types resolved for this compilation.</param>
     /// <returns><c>DateOnly</c>, <c>TimeOnly</c>, or <see langword="null"/> when the read is neither, or when the type it would name is absent.</returns>
-    private static string? SuggestedTypeFor(MemberAccessExpressionSyntax access, in SplitTypes suggestions)
-        => access.Name.Identifier.ValueText switch
+    private static string? SuggestedTypeFor(MemberAccessExpressionSyntax access, in SplitTypes suggestions) =>
+        access.Name.Identifier.ValueText switch
         {
             DateMemberName when suggestions.DateOnly is not null => DateOnlyTypeName,
             TimeOfDayMemberName when suggestions.TimeOnly is not null => TimeOnlyTypeName,
@@ -113,8 +107,8 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the receiver is a direct read of the machine clock, which SST2010 owns.</summary>
     /// <param name="receiver">The expression the member is read from.</param>
     /// <returns><see langword="true"/> when the receiver is spelled like a clock property.</returns>
-    private static bool IsClockRead(ExpressionSyntax receiver)
-        => receiver is MemberAccessExpressionSyntax inner && ClockPropertyAccess.MatchesSpelling(inner, localOnly: false);
+    private static bool IsClockRead(ExpressionSyntax receiver) =>
+        receiver is MemberAccessExpressionSyntax inner && ClockPropertyAccess.MatchesSpelling(inner, localOnly: false);
 
     /// <summary>Returns whether a member access really reads an instance property of <c>System.DateTime</c>.</summary>
     /// <param name="model">The semantic model.</param>
@@ -146,6 +140,12 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
     /// <param name="TimeOnly">The <c>System.TimeOnly</c> symbol, or <see langword="null"/> on a framework without it.</param>
     private readonly record struct SplitTypes(INamedTypeSymbol? DateTime, INamedTypeSymbol? DateOnly, INamedTypeSymbol? TimeOnly)
     {
+        /// <summary>The metadata name of the date-only type this rule asks for.</summary>
+        private const string DateOnlyMetadataName = "System.DateOnly";
+
+        /// <summary>The metadata name of the time-only type this rule asks for.</summary>
+        private const string TimeOnlyMetadataName = "System.TimeOnly";
+
         /// <summary>Gets a value indicating whether there is anything at all this rule could suggest here.</summary>
         public bool Any => DateTime is not null && (DateOnly is not null || TimeOnly is not null);
 

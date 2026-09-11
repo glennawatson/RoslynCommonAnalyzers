@@ -14,8 +14,8 @@ internal static class EmptyCommentBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit empty comments.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -25,8 +25,8 @@ internal static class EmptyCommentBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose comments all say something.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -35,8 +35,8 @@ internal static class EmptyCommentBenchmarkSource
     /// Covers every rejection the clean path makes: a comment with text, a block comment with text, the
     /// commented-out code marker, and a documentation comment whose blank line is deliberate formatting.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            /// <summary>A counter.</summary>
            ///
            /// <remarks>The blank line above is formatting, not an empty comment.</remarks>
@@ -57,8 +57,8 @@ internal static class EmptyCommentBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Each type carries exactly <see cref="ViolationsPerType"/> empty comments.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            ///
            public sealed class V{{index}}
            {

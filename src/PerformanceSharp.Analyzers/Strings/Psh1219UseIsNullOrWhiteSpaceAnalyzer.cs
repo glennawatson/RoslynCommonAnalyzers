@@ -59,13 +59,13 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     internal enum BlankTestKind
     {
         /// <summary><c>text.Trim().Length == 0</c>.</summary>
-        Length,
+        Length = 0,
 
         /// <summary><c>text.Trim() == ""</c> or <c>text.Trim() == string.Empty</c>.</summary>
-        EmptyString,
+        EmptyString = 1,
 
         /// <summary><c>string.IsNullOrEmpty(text.Trim())</c>.</summary>
-        IsNullOrEmpty
+        IsNullOrEmpty = 2,
     }
 
     /// <inheritdoc/>
@@ -115,8 +115,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a plain argument-free <c>x.Trim()</c>, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsTrimShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsTrimShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == TrimMethodName;
 
@@ -197,15 +197,15 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a binary expression is an <c>==</c> or <c>!=</c> test.</summary>
     /// <param name="binary">The candidate expression.</param>
     /// <returns><see langword="true"/> for the two equality kinds.</returns>
-    private static bool IsEqualityTest(BinaryExpressionSyntax binary)
-        => binary.RawKind is (int)SyntaxKind.EqualsExpression or (int)SyntaxKind.NotEqualsExpression;
+    private static bool IsEqualityTest(BinaryExpressionSyntax binary) =>
+        binary.RawKind is (int)SyntaxKind.EqualsExpression or (int)SyntaxKind.NotEqualsExpression;
 
     /// <summary>Gets the operand of a comparison that is not the one already matched.</summary>
     /// <param name="binary">The comparison.</param>
     /// <param name="matched">The operand the trimmed value produced.</param>
     /// <returns>The other operand.</returns>
-    private static ExpressionSyntax GetOtherOperand(BinaryExpressionSyntax binary, SyntaxNode matched)
-        => ReferenceEquals(binary.Left, matched) ? binary.Right : binary.Left;
+    private static ExpressionSyntax GetOtherOperand(BinaryExpressionSyntax binary, SyntaxNode matched) =>
+        ReferenceEquals(binary.Left, matched) ? binary.Right : binary.Left;
 
     /// <summary>Confirms that the matched shape really asks whether the trimmed string is empty.</summary>
     /// <param name="model">The semantic model.</param>
@@ -219,8 +219,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax reported,
         ExpressionSyntax? other,
         BlankTestKind kind,
-        CancellationToken cancellationToken)
-        => kind switch
+        CancellationToken cancellationToken) =>
+        kind switch
         {
             BlankTestKind.Length => model.GetConstantValue(other!, cancellationToken).Value is 0,
             BlankTestKind.EmptyString => IsEmptyString(model, other!, cancellationToken),
@@ -232,28 +232,23 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// <param name="operand">The compared-against operand.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for <c>""</c> and for the <c>string.Empty</c> field.</returns>
-    private static bool IsEmptyString(SemanticModel model, ExpressionSyntax operand, CancellationToken cancellationToken)
-    {
-        if (operand is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal)
-        {
-            return literal.Token.ValueText.Length == 0;
-        }
-
-        return operand is MemberAccessExpressionSyntax { Name.Identifier.ValueText: EmptyFieldName }
+    private static bool IsEmptyString(SemanticModel model, ExpressionSyntax operand, CancellationToken cancellationToken) =>
+        operand is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+            ? literal.Token.ValueText.Length == 0
+            : operand is MemberAccessExpressionSyntax { Name.Identifier.ValueText: EmptyFieldName }
             && model.GetSymbolInfo(operand, cancellationToken).Symbol is IFieldSymbol
             {
                 IsStatic: true,
                 ContainingType.SpecialType: SpecialType.System_String,
             };
-    }
 
     /// <summary>Returns whether the outer call is <see cref="string.IsNullOrEmpty(string)"/>.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="reported">The outer invocation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the trimmed value is handed straight to the emptiness helper.</returns>
-    private static bool BindsToIsNullOrEmpty(SemanticModel model, ExpressionSyntax reported, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(reported, cancellationToken).Symbol is IMethodSymbol
+    private static bool BindsToIsNullOrEmpty(SemanticModel model, ExpressionSyntax reported, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(reported, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: true,
             Name: IsNullOrEmptyMethodName,
@@ -271,8 +266,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// they take arguments, so they never bind here — and it also rules out an extension method named
     /// <c>Trim</c> on some other type, which would carry the receiver as its first parameter.
     /// </remarks>
-    private static bool BindsToStringTrim(SemanticModel model, InvocationExpressionSyntax trim, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(trim, cancellationToken).Symbol is IMethodSymbol
+    private static bool BindsToStringTrim(SemanticModel model, InvocationExpressionSyntax trim, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(trim, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Name: TrimMethodName,
@@ -284,15 +279,10 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
     /// <param name="operand">One operand of the comparison.</param>
     /// <param name="receiver">The expression the <c>Trim</c> call was made on.</param>
     /// <returns><see langword="true"/> when the operand is a trimmed value, or the length of one.</returns>
-    private static bool TryGetTestedReceiver(ExpressionSyntax operand, out ExpressionSyntax? receiver)
-    {
-        if (operand is MemberAccessExpressionSyntax { Name.Identifier.ValueText: LengthPropertyName } length)
-        {
-            return TryGetTrimReceiver(length.Expression, out receiver);
-        }
-
-        return TryGetTrimReceiver(operand, out receiver);
-    }
+    private static bool TryGetTestedReceiver(ExpressionSyntax operand, out ExpressionSyntax? receiver) =>
+        operand is MemberAccessExpressionSyntax { Name.Identifier.ValueText: LengthPropertyName } length
+            ? TryGetTrimReceiver(length.Expression, out receiver)
+            : TryGetTrimReceiver(operand, out receiver);
 
     /// <summary>Returns the receiver of an argument-free <c>Trim()</c> call.</summary>
     /// <param name="expression">The candidate expression.</param>

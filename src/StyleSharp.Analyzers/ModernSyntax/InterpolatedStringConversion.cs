@@ -57,8 +57,8 @@ internal static class InterpolatedStringConversion
     /// <summary>Returns whether an invocation is syntactically a <c>string.Format</c> call worth binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches, before any binding.</returns>
-    internal static bool IsFormatShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count >= MinFormatArguments
+    internal static bool IsFormatShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count >= MinFormatArguments
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == FormatMethodName
             && LooksLikeStringReceiver(access.Expression);
@@ -136,7 +136,7 @@ internal static class InterpolatedStringConversion
             }
             else
             {
-                builder.Append('{').Append(HoleText(operand)).Append('}');
+                _ = builder.Append('{').Append(HoleText(operand)).Append('}');
                 hasValue = true;
             }
         }
@@ -209,7 +209,7 @@ internal static class InterpolatedStringConversion
                 continue;
             }
 
-            builder.Append('{').Append(HoleText(operand)).Append('}');
+            _ = builder.Append('{').Append(HoleText(operand)).Append('}');
         }
 
         return BuildVerified(model, invocation, builder.ToString());
@@ -284,12 +284,12 @@ internal static class InterpolatedStringConversion
     /// <summary>Returns whether a receiver spelling could be the <see cref="string"/> type.</summary>
     /// <param name="expression">The member-access receiver.</param>
     /// <returns><see langword="true"/> for <c>string</c>, <c>String</c>, or a qualified name ending in <c>String</c>.</returns>
-    private static bool LooksLikeStringReceiver(ExpressionSyntax expression)
-        => expression switch
+    private static bool LooksLikeStringReceiver(ExpressionSyntax expression) =>
+        expression switch
         {
-            PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.StringKeyword } => true,
-            IdentifierNameSyntax { Identifier.ValueText: "String" } => true,
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: "String" } => true,
+            PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.StringKeyword }
+                or IdentifierNameSyntax { Identifier.ValueText: "String" }
+                or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "String" } => true,
             _ => false
         };
 
@@ -315,14 +315,14 @@ internal static class InterpolatedStringConversion
     /// <param name="invocation">The invocation to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The bound method, or <see langword="null"/>.</returns>
-    private static IMethodSymbol? BindStringFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method && IsStringFormatMethod(method) ? method : null;
+    private static IMethodSymbol? BindStringFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method && IsStringFormatMethod(method) ? method : null;
 
     /// <summary>Returns whether a symbol is the framework's own static <c>string.Format</c>.</summary>
     /// <param name="method">The bound method.</param>
     /// <returns><see langword="true"/> for a static <c>string.Format</c> returning a string.</returns>
-    private static bool IsStringFormatMethod(IMethodSymbol method)
-        => method is
+    private static bool IsStringFormatMethod(IMethodSymbol method) =>
+        method is
         {
             IsStatic: true,
             Name: FormatMethodName,
@@ -355,7 +355,7 @@ internal static class InterpolatedStringConversion
             }
         }
 
-        values = new List<ExpressionSyntax>(count);
+        values = new(count);
         for (var i = formatIndex + 1; i < arguments.Count; i++)
         {
             values.Add(arguments[i].Expression);
@@ -386,7 +386,7 @@ internal static class InterpolatedStringConversion
             current = add.Left;
         }
 
-        operands = new List<ExpressionSyntax>(rights.Count + 1) { current };
+        operands = new(rights.Count + 1) { current };
         for (var i = rights.Count - 1; i >= 0; i--)
         {
             operands.Add(rights[i]);
@@ -414,7 +414,7 @@ internal static class InterpolatedStringConversion
             {
                 if (index + 1 < format.Length && format[index + 1] == '{')
                 {
-                    builder.Append("{{");
+                    _ = builder.Append("{{");
                     index += EscapeLength;
                 }
                 else if (!TryAppendPlaceholder(format, ref index, values, used, ref usedCount, builder))
@@ -429,12 +429,12 @@ internal static class InterpolatedStringConversion
                     return false;
                 }
 
-                builder.Append("}}");
+                _ = builder.Append("}}");
                 index += EscapeLength;
             }
             else
             {
-                builder.Append(Escape(current));
+                _ = builder.Append(Escape(current));
                 index++;
             }
         }
@@ -484,7 +484,7 @@ internal static class InterpolatedStringConversion
 
         used[reference] = true;
         usedCount++;
-        builder.Append('{').Append(HoleText(values[reference])).Append(alignment).Append(formatSpecifier).Append('}');
+        _ = builder.Append('{').Append(HoleText(values[reference])).Append(alignment).Append(formatSpecifier).Append('}');
         index = position + 1;
         return true;
     }
@@ -541,7 +541,7 @@ internal static class InterpolatedStringConversion
 
         var digits = format.Substring(start, position - start);
         SkipSpaces(format, ref position);
-        alignment = negative ? ",-" + digits : "," + digits;
+        alignment = negative ? $",-{digits}" : $",{digits}";
         return true;
     }
 
@@ -571,7 +571,7 @@ internal static class InterpolatedStringConversion
             return false;
         }
 
-        formatSpecifier = ":" + format.Substring(start, position - start);
+        formatSpecifier = $":{format.Substring(start, position - start)}";
         return true;
     }
 
@@ -592,7 +592,7 @@ internal static class InterpolatedStringConversion
     private static string HoleText(ExpressionSyntax expression)
     {
         var text = expression.WithoutTrivia().ToString();
-        return expression is ConditionalExpressionSyntax ? "(" + text + ")" : text;
+        return expression is ConditionalExpressionSyntax ? $"({text})" : text;
     }
 
     /// <summary>Appends a run of literal characters, escaped for a plain interpolated string.</summary>
@@ -602,15 +602,15 @@ internal static class InterpolatedStringConversion
     {
         for (var i = 0; i < text.Length; i++)
         {
-            builder.Append(Escape(text[i]));
+            _ = builder.Append(Escape(text[i]));
         }
     }
 
     /// <summary>Escapes one literal character for a plain interpolated string.</summary>
     /// <param name="value">The literal character.</param>
     /// <returns>The character's escaped spelling, or the character itself when no escape is needed.</returns>
-    private static string Escape(char value)
-        => value switch
+    private static string Escape(char value) =>
+        value switch
         {
             '\\' => "\\\\",
             '"' => "\\\"",
@@ -619,7 +619,7 @@ internal static class InterpolatedStringConversion
             '\n' => "\\n",
             '\r' => "\\r",
             '\t' => "\\t",
-            _ when char.IsControl(value) => "\\u" + ((int)value).ToString("X4", CultureInfo.InvariantCulture),
+            _ when char.IsControl(value) => $"\\u{((int)value).ToString("X4", CultureInfo.InvariantCulture)}",
             _ => value.ToString(CultureInfo.InvariantCulture)
         };
 
@@ -630,7 +630,7 @@ internal static class InterpolatedStringConversion
     /// <returns>The verified interpolated string, or <see langword="null"/>.</returns>
     private static InterpolatedStringExpressionSyntax? BuildVerified(SemanticModel model, ExpressionSyntax original, string inner)
     {
-        if (SyntaxFactory.ParseExpression("$\"" + inner + "\"") is not InterpolatedStringExpressionSyntax interpolated || interpolated.ContainsDiagnostics)
+        if (SyntaxFactory.ParseExpression($"$\"{inner}\"") is not InterpolatedStringExpressionSyntax interpolated || interpolated.ContainsDiagnostics)
         {
             return null;
         }
@@ -652,8 +652,8 @@ internal static class InterpolatedStringConversion
     /// <summary>Returns whether a type is <see cref="IFormatProvider"/>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <c>System.IFormatProvider</c>.</returns>
-    private static bool IsFormatProvider(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsFormatProvider(ITypeSymbol type) =>
+        type is INamedTypeSymbol
         {
             Name: "IFormatProvider",
             TypeKind: TypeKind.Interface,

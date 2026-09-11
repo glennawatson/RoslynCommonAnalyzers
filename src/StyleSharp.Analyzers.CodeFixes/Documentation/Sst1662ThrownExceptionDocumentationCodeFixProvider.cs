@@ -21,8 +21,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -73,12 +73,7 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null || !TryBuildChange(text, root, diagnostic, out var change))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return root is null || !TryBuildChange(text, root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the text change that appends the missing <c>&lt;exception&gt;</c> elements.</summary>
@@ -128,7 +123,7 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
                 continue;
             }
 
-            builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\"></exception>").Append(newLine);
+            _ = builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\"></exception>").Append(newLine);
         }
 
         if (builder.Length == 0)
@@ -136,7 +131,7 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
             return false;
         }
 
-        change = new TextChange(new TextSpan(full.End, 0), builder.ToString());
+        change = new(new TextSpan(full.End, 0), builder.ToString());
         return true;
     }
 }

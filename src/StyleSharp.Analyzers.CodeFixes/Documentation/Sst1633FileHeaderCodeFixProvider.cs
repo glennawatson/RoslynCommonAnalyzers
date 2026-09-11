@@ -78,7 +78,7 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextCha
         var newLine = DetectNewLine(text);
         var headerBlock = header.Replace("\n", newLine) + newLine;
         var existingEnd = root is null ? 0 : ExistingHeaderEnd(root.GetLeadingTrivia());
-        return new TextChange(TextSpan.FromBounds(0, existingEnd), headerBlock);
+        return new(TextSpan.FromBounds(0, existingEnd), headerBlock);
     }
 
     /// <summary>
@@ -89,7 +89,7 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextCha
     /// </summary>
     /// <param name="leadingTrivia">The leading trivia of the file's first token.</param>
     /// <returns>The exclusive end offset of the header block, or <c>0</c> when absent.</returns>
-    private static int ExistingHeaderEnd(SyntaxTriviaList leadingTrivia)
+    private static int ExistingHeaderEnd(in SyntaxTriviaList leadingTrivia)
     {
         var end = 0;
         var pendingNewLine = false;

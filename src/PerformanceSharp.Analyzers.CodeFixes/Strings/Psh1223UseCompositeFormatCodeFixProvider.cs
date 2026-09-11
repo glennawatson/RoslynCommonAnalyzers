@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -66,8 +68,8 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
     public override FixAllProvider? GetFixAllProvider() => null;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Hoist the format into a CompositeFormat field",
             nameof(Psh1223UseCompositeFormatCodeFixProvider),
@@ -142,8 +144,7 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
         int formatIndex,
         string fieldName)
     {
-        var position = invocation.SpanStart;
-        var typeName = ResolvesCompositeFormat(model, position)
+        var typeName = ResolvesCompositeFormat(model, invocation.SpanStart)
             ? Psh1223UseCompositeFormatAnalyzer.CompositeFormatTypeName
             : QualifiedCompositeFormat;
         var formatArgument = invocation.ArgumentList.Arguments[formatIndex].Expression;
@@ -211,8 +212,8 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
     /// <summary>Returns the name of the member the call sits in, to base the field name on.</summary>
     /// <param name="invocation">The reported <c>Format</c> invocation.</param>
     /// <returns>The enclosing member's name, or an empty string when it has none.</returns>
-    private static string GetEnclosingMemberName(InvocationExpressionSyntax invocation)
-        => invocation.FirstAncestorOrSelf<MemberDeclarationSyntax>() switch
+    private static string GetEnclosingMemberName(InvocationExpressionSyntax invocation) =>
+        invocation.FirstAncestorOrSelf<MemberDeclarationSyntax>() switch
         {
             MethodDeclarationSyntax method => method.Identifier.ValueText,
             PropertyDeclarationSyntax property => property.Identifier.ValueText,
@@ -234,28 +235,28 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
                 {
                     foreach (var variable in field.Declaration.Variables)
                     {
-                        names.Add(variable.Identifier.ValueText);
-                    }
+                            _ = names.Add(variable.Identifier.ValueText);
+                        }
 
                     break;
                 }
 
                 case MethodDeclarationSyntax method:
                 {
-                    names.Add(method.Identifier.ValueText);
-                    break;
+                        _ = names.Add(method.Identifier.ValueText);
+                        break;
                 }
 
                 case PropertyDeclarationSyntax property:
                 {
-                    names.Add(property.Identifier.ValueText);
-                    break;
+                        _ = names.Add(property.Identifier.ValueText);
+                        break;
                 }
 
                 case EventDeclarationSyntax declaredEvent:
                 {
-                    names.Add(declaredEvent.Identifier.ValueText);
-                    break;
+                        _ = names.Add(declaredEvent.Identifier.ValueText);
+                        break;
                 }
 
                 default:
@@ -277,22 +278,24 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
         var typeIndent = leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? leading[leading.Count - 1].ToString()
             : string.Empty;
-        return typeIndent + "    ";
+        return $"{typeIndent}    ";
     }
 
     /// <summary>Returns whether the culture type resolves by its simple name at a position.</summary>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="position">The lookup position.</param>
     /// <returns><see langword="true"/> when the unqualified spelling binds.</returns>
-    private static bool ResolvesCultureInfo(SemanticModel model, int position)
-        => ResolvesIn(model, position, CultureInfoTypeName, GlobalizationNamespace);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ResolvesCultureInfo(SemanticModel model, int position) =>
+        ResolvesIn(model, position, CultureInfoTypeName, GlobalizationNamespace);
 
     /// <summary>Returns whether the parsed-format type resolves by its simple name at a position.</summary>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="position">The lookup position.</param>
     /// <returns><see langword="true"/> when the unqualified spelling binds.</returns>
-    private static bool ResolvesCompositeFormat(SemanticModel model, int position)
-        => ResolvesIn(model, position, Psh1223UseCompositeFormatAnalyzer.CompositeFormatTypeName, TextNamespace);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool ResolvesCompositeFormat(SemanticModel model, int position) =>
+        ResolvesIn(model, position, Psh1223UseCompositeFormatAnalyzer.CompositeFormatTypeName, TextNamespace);
 
     /// <summary>Returns whether a simple type name resolves to the expected namespace at a position.</summary>
     /// <param name="model">The semantic model for the document.</param>

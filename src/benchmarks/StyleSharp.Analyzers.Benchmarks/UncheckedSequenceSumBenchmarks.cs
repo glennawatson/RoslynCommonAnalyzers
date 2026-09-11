@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for unchecked-sequence-sum analysis (SST2457).</summary>
+[System.Diagnostics.DebuggerDisplay("UncheckedSequenceSumBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UncheckedSequenceSumBenchmarks
@@ -24,11 +26,13 @@ public class UncheckedSequenceSumBenchmarks
 
     /// <summary>Benchmarks the clean unchecked-sequence-sum path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UncheckedSequenceSum_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating unchecked-sequence-sum path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UncheckedSequenceSum_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

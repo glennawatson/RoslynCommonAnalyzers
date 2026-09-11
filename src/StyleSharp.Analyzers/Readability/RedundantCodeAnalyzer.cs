@@ -61,9 +61,7 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
         DefaultExpressionSyntax => true,
         LiteralExpressionSyntax literal => literal.Kind() switch
         {
-            SyntaxKind.DefaultLiteralExpression => true,
-            SyntaxKind.NullLiteralExpression => true,
-            SyntaxKind.FalseLiteralExpression => true,
+            SyntaxKind.DefaultLiteralExpression or SyntaxKind.NullLiteralExpression or SyntaxKind.FalseLiteralExpression => true,
             SyntaxKind.NumericLiteralExpression => IsNumericZero(literal.Token.Value),
             SyntaxKind.CharacterLiteralExpression => literal.Token.Value is '\0',
             _ => false
@@ -287,8 +285,8 @@ public sealed class RedundantCodeAnalyzer : DiagnosticAnalyzer
         ushort us => us == 0,
         byte b => b == 0,
         sbyte sb => sb == 0,
-        double d => d.CompareTo(0d) == 0,
-        float f => f.CompareTo(0f) == 0,
+        double d => d.CompareTo(0D) == 0,
+        float f => f.CompareTo(0F) == 0,
         decimal m => m == 0,
         _ => false
     };

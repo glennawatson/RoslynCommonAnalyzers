@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUnusedReceiver = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1708UnusedExtensionReceiverAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UnusedExtensionReceiverAnalyzerUnitTest
 {
     /// <summary>Verifies an extension method that never reads its receiver is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReceiverNeverReadReportedAsync()
-        => await VerifyUnusedReceiver.VerifyAnalyzerAsync(
+    public Task ReceiverNeverReadReportedAsync() =>
+        VerifyUnusedReceiver.VerifyAnalyzerAsync(
             """
             public static class Ext
             {
@@ -24,9 +26,10 @@ public class UnusedExtensionReceiverAnalyzerUnitTest
 
     /// <summary>Verifies an extension method that reads its receiver is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReceiverReadIsCleanAsync()
-        => await VerifyUnusedReceiver.VerifyAnalyzerAsync(
+    public Task ReceiverReadIsCleanAsync() =>
+        VerifyUnusedReceiver.VerifyAnalyzerAsync(
             """
             public static class Ext
             {
@@ -36,9 +39,10 @@ public class UnusedExtensionReceiverAnalyzerUnitTest
 
     /// <summary>Verifies a block-bodied extension that reads the receiver is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodyReceiverReadIsCleanAsync()
-        => await VerifyUnusedReceiver.VerifyAnalyzerAsync(
+    public Task BlockBodyReceiverReadIsCleanAsync() =>
+        VerifyUnusedReceiver.VerifyAnalyzerAsync(
             """
             public static class Ext
             {
@@ -51,9 +55,10 @@ public class UnusedExtensionReceiverAnalyzerUnitTest
 
     /// <summary>Verifies a plain (non-extension) static method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExtensionMethodIsCleanAsync()
-        => await VerifyUnusedReceiver.VerifyAnalyzerAsync(
+    public Task NonExtensionMethodIsCleanAsync() =>
+        VerifyUnusedReceiver.VerifyAnalyzerAsync(
             """
             public static class Ext
             {
@@ -63,9 +68,10 @@ public class UnusedExtensionReceiverAnalyzerUnitTest
 
     /// <summary>Verifies a discard-named receiver is exempt.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardReceiverIsCleanAsync()
-        => await VerifyUnusedReceiver.VerifyAnalyzerAsync(
+    public Task DiscardReceiverIsCleanAsync() =>
+        VerifyUnusedReceiver.VerifyAnalyzerAsync(
             """
             public static class Ext
             {

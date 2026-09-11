@@ -66,21 +66,15 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
         SyntaxNode root,
         SemanticModel model,
         PropertyDeclarationSyntax property,
-        CancellationToken cancellationToken)
-    {
-        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+        CancellationToken cancellationToken) => !FieldReferenceAnalysis.TryFindSingleUseBackingField(
             model,
             property,
             cancellationToken,
             out _,
             out _,
-            out var field))
-        {
-            return document;
-        }
-
-        return await ApplyAsync(document, root, model, property, field!.Name, cancellationToken).ConfigureAwait(false);
-    }
+            out var field)
+            ? document
+            : await ApplyAsync(document, root, model, property, field!.Name, cancellationToken).ConfigureAwait(false);
 
     /// <summary>Applies the field-keyword fix using a precomputed backing-field name.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -96,25 +90,19 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
         SemanticModel model,
         PropertyDeclarationSyntax property,
         string fieldName,
-        CancellationToken cancellationToken)
-    {
-        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+        CancellationToken cancellationToken) => !FieldReferenceAnalysis.TryFindSingleUseBackingField(
             model,
             property,
             fieldName,
             cancellationToken,
             out var field,
             out var variable,
-            out var symbol))
-        {
-            return document;
-        }
-
-        return await MaterializeAsync(
+            out var symbol)
+            ? document
+            : await MaterializeAsync(
             document,
             Apply(root, model, property, field!, variable!, symbol!, cancellationToken),
             cancellationToken).ConfigureAwait(false);
-    }
 
     /// <summary>Materializes a changed root using the most specific syntax API supported by the current Roslyn slot.</summary>
     /// <param name="document">The document to update.</param>
@@ -159,7 +147,7 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
 
         var references = new List<ExpressionSyntax>(InitialBackingFieldReferenceCapacity);
         var state = new FieldReferenceCollectionState(model, symbol, references, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldReferenceCollectionState>(property, ref state, CollectFieldReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldReferenceCollectionState>(property, ref state, CollectFieldReference);
 
         var updated = property.ReplaceNodes(
             references,
@@ -192,8 +180,8 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
     private static FieldExpressionSyntax CreateFieldExpression()
         => SyntaxFactory.FieldExpression(SyntaxFactory.Token(SyntaxKind.FieldKeyword));
 #else
-    private static IdentifierNameSyntax CreateFieldExpression()
-        => SyntaxFactory.IdentifierName("field");
+    private static IdentifierNameSyntax CreateFieldExpression() =>
+        SyntaxFactory.IdentifierName("field");
 #endif
 
     /// <summary>Collects one property-local backing-field reference to rewrite.</summary>
@@ -218,13 +206,17 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
     /// The contextual <c>field</c> keyword replaces the entire access. Rewriting only the identifier of a
     /// <c>this._value</c> access would leave <c>this.field</c>, which does not bind (CS1061).
     /// </remarks>
-    private static ExpressionSyntax GetReplaceableReference(IdentifierNameSyntax identifier)
-        => identifier.Parent is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } memberAccess
+    private static ExpressionSyntax GetReplaceableReference(IdentifierNameSyntax identifier) =>
+        identifier.Parent is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax } memberAccess
             && ReferenceEquals(memberAccess.Name, identifier)
-                ? memberAccess
-                : identifier;
+            ? memberAccess
+            : identifier;
 
     /// <summary>Captures the state required while collecting backing-field references.</summary>
+    /// <param name="Model">The semantic model that binds each visited identifier.</param>
+    /// <param name="Symbol">The backing field whose references are being collected.</param>
+    /// <param name="References">The list the walk appends each replaceable reference to.</param>
+    /// <param name="CancellationToken">A token that cancels the operation.</param>
     private readonly record struct FieldReferenceCollectionState(
         SemanticModel Model,
         IFieldSymbol Symbol,

@@ -1,18 +1,17 @@
-﻿// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>
-/// Provides helpers for verifying the behaviour of a C# <see cref="DiagnosticAnalyzer"/> and its associated <see cref="CodeFixProvider"/> in tests.
-/// </summary>
+/// <summary>Provides helpers for verifying the behaviour of a C# <see cref="DiagnosticAnalyzer"/> and its associated <see cref="CodeFixProvider"/> in tests.</summary>
 /// <typeparam name="TAnalyzer">The type of the analyzer under test.</typeparam>
 /// <typeparam name="TCodeFix">The type of the code fix provider under test.</typeparam>
 public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
@@ -21,20 +20,23 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
 {
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.Diagnostic()"/>
     /// <returns>A new <see cref="DiagnosticResult"/> for the analyzer's single supported diagnostic.</returns>
-    public static DiagnosticResult Diagnostic()
-        => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static DiagnosticResult Diagnostic() =>
+        CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic();
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.Diagnostic(string)"/>
     /// <param name="diagnosticId">The diagnostic identifier to expect.</param>
     /// <returns>A new <see cref="DiagnosticResult"/> for the specified diagnostic identifier.</returns>
-    public static DiagnosticResult Diagnostic(string diagnosticId)
-        => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(diagnosticId);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static DiagnosticResult Diagnostic(string diagnosticId) =>
+        CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(diagnosticId);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.Diagnostic(DiagnosticDescriptor)"/>
     /// <param name="descriptor">The descriptor of the diagnostic to expect.</param>
     /// <returns>A new <see cref="DiagnosticResult"/> for the specified diagnostic descriptor.</returns>
-    public static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor)
-        => CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(descriptor);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static DiagnosticResult Diagnostic(DiagnosticDescriptor descriptor) =>
+        CSharpCodeFixVerifier<TAnalyzer, TCodeFix, DefaultVerifier>.Diagnostic(descriptor);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyAnalyzerAsync(string, DiagnosticResult[])"/>
     /// <param name="source">The source code to analyze.</param>
@@ -42,10 +44,7 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     public static async Task VerifyAnalyzerAsync(string source, params DiagnosticResult[] expected)
     {
-        var test = new Test
-        {
-            TestCode = source
-        };
+        var test = new Test { TestCode = source };
 
         test.ExpectedDiagnostics.AddRange(expected);
         await test.RunAsync(CancellationToken.None);
@@ -55,16 +54,18 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <param name="source">The source code to analyze and fix.</param>
     /// <param name="fixedSource">The expected source code after the fix is applied.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
-    public static async Task VerifyCodeFixAsync(string source, string fixedSource)
-        => await VerifyCodeFixAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Task VerifyCodeFixAsync(string source, string fixedSource) =>
+        VerifyCodeFixAsync(source, DiagnosticResult.EmptyDiagnosticResults, fixedSource);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult, string)"/>
     /// <param name="source">The source code to analyze and fix.</param>
     /// <param name="expected">The diagnostic expected to be produced for the source.</param>
     /// <param name="fixedSource">The expected source code after the fix is applied.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
-    public static async Task VerifyCodeFixAsync(string source, DiagnosticResult expected, string fixedSource)
-        => await VerifyCodeFixAsync(source, [expected], fixedSource);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Task VerifyCodeFixAsync(string source, DiagnosticResult expected, string fixedSource) =>
+        VerifyCodeFixAsync(source, [expected], fixedSource);
 
     /// <inheritdoc cref="CodeFixVerifier{TAnalyzer, TCodeFix, TTest, TVerifier}.VerifyCodeFixAsync(string, DiagnosticResult[], string)"/>
     /// <param name="source">The source code to analyze and fix.</param>
@@ -73,11 +74,7 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     /// <returns>A <see cref="Task"/> representing the asynchronous verification operation.</returns>
     public static async Task VerifyCodeFixAsync(string source, DiagnosticResult[] expected, string fixedSource)
     {
-        var test = new Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Test { TestCode = source, FixedCode = fixedSource };
 
         test.ExpectedDiagnostics.AddRange(expected);
         await test.RunAsync(CancellationToken.None);

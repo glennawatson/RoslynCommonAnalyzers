@@ -16,8 +16,8 @@ internal static class GlobalNamespaceBenchmarkSource
     /// the violating one has none at all. The clean path is then exactly what a real file costs: a parent
     /// check on each type declaration, rejected without ever reaching the semantic model.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => violating
+    internal static string Generate(int types, bool violating) =>
+        violating
             ? BenchmarkSourceText.JoinBlocks(types, GenerateViolatingType)
             : $$"""
               namespace Bench;
@@ -28,8 +28,8 @@ internal static class GlobalNamespaceBenchmarkSource
     /// <summary>Builds one type that already lives in a namespace.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class C{{index}}
            {
                public int Size;
@@ -55,8 +55,8 @@ internal static class GlobalNamespaceBenchmarkSource
     /// <summary>Builds one type declared outside any namespace.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class V{{index}}
            {
                public int Size;

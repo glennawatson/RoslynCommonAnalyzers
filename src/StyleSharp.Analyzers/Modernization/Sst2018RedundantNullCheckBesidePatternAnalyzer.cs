@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -78,8 +80,8 @@ public sealed class Sst2018RedundantNullCheckBesidePatternAnalyzer : DiagnosticA
     /// <summary>Returns whether an <c>and</c> pattern is <c>not null</c> combined with a type pattern.</summary>
     /// <param name="and">The <c>and</c> pattern.</param>
     /// <returns><see langword="true"/> when one arm is <c>not null</c> and the other a positive type pattern.</returns>
-    private static bool HasNotNullAndType(BinaryPatternSyntax and)
-        => (IsNotNullPattern(and.Left) && IsTypePattern(and.Right))
+    private static bool HasNotNullAndType(BinaryPatternSyntax and) =>
+        (IsNotNullPattern(and.Left) && IsTypePattern(and.Right))
             || (IsNotNullPattern(and.Right) && IsTypePattern(and.Left));
 
     /// <summary>Gets the receiver of a non-null assertion (<c>x != null</c> or <c>x is not null</c>).</summary>
@@ -156,27 +158,28 @@ public sealed class Sst2018RedundantNullCheckBesidePatternAnalyzer : DiagnosticA
     /// <summary>Returns whether a pattern is a <c>not null</c> pattern.</summary>
     /// <param name="pattern">The pattern.</param>
     /// <returns><see langword="true"/> for <c>not null</c>.</returns>
-    private static bool IsNotNullPattern(PatternSyntax pattern)
-        => pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern, Pattern: ConstantPatternSyntax constant }
+    private static bool IsNotNullPattern(PatternSyntax pattern) =>
+        pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern, Pattern: ConstantPatternSyntax constant }
             && IsNullLiteral(constant.Expression);
 
     /// <summary>Returns whether a pattern is a type pattern (<c>T</c> or <c>T x</c>).</summary>
     /// <param name="pattern">The pattern.</param>
     /// <returns><see langword="true"/> for a type or declaration pattern.</returns>
-    private static bool IsTypePattern(PatternSyntax pattern)
-        => pattern is TypePatternSyntax or DeclarationPatternSyntax;
+    private static bool IsTypePattern(PatternSyntax pattern) =>
+        pattern is TypePatternSyntax or DeclarationPatternSyntax;
 
     /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> for <c>null</c>.</returns>
-    private static bool IsNullLiteral(ExpressionSyntax expression)
-        => expression.IsKind(SyntaxKind.NullLiteralExpression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsNullLiteral(ExpressionSyntax expression) =>
+        expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether two receivers are the same side-effect-free expression.</summary>
     /// <param name="first">The first receiver.</param>
     /// <param name="second">The second receiver.</param>
     /// <returns><see langword="true"/> when reading either twice is provably the same.</returns>
-    private static bool SameSideEffectFree(ExpressionSyntax first, ExpressionSyntax second)
-        => SideEffectFreeExpression.IsSideEffectFree(first)
+    private static bool SameSideEffectFree(ExpressionSyntax first, ExpressionSyntax second) =>
+        SideEffectFreeExpression.IsSideEffectFree(first)
             && SyntaxFactory.AreEquivalent(first, second, topLevel: false);
 }

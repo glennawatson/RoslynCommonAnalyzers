@@ -51,26 +51,29 @@ internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
         switch (fixAllContext.Scope)
         {
             case FixAllScope.Document when fixAllContext.Document is { } document:
-            {
-                await AddDocumentAsync(fixAllContext, document, result).ConfigureAwait(false);
-                break;
-            }
-
-            case FixAllScope.Project:
-            {
-                await AddProjectAsync(fixAllContext, fixAllContext.Project, result).ConfigureAwait(false);
-                break;
-            }
-
-            case FixAllScope.Solution:
-            {
-                foreach (var project in fixAllContext.Solution.Projects)
                 {
-                    await AddProjectAsync(fixAllContext, project, result).ConfigureAwait(false);
+                    await AddDocumentAsync(fixAllContext, document, result).ConfigureAwait(false);
+                    break;
                 }
 
+            case FixAllScope.Project:
+                {
+                    await AddProjectAsync(fixAllContext, fixAllContext.Project, result).ConfigureAwait(false);
+                    break;
+                }
+
+            case FixAllScope.Solution:
+                {
+                    foreach (var project in fixAllContext.Solution.Projects)
+                    {
+                        await AddProjectAsync(fixAllContext, project, result).ConfigureAwait(false);
+                    }
+
+                    break;
+                }
+
+            default:
                 break;
-            }
         }
 
         return result;
@@ -102,7 +105,7 @@ internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
             return;
         }
 
-        result.Add(new DocumentDiagnostics(document.Id, diagnostics));
+        result.Add(new(document.Id, diagnostics));
     }
 
     /// <summary>Applies every collected document's fix in turn, threading the evolving solution through.</summary>

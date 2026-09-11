@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyPure = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2452PureVoidMethodAnalyzer>;
@@ -279,9 +280,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a pure-marked interface method with no result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PureVoidInterfaceMethodIsFlaggedAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task PureVoidInterfaceMethodIsFlaggedAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
 
@@ -294,9 +296,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a pure-marked method that returns a value is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PureValueReturningMethodIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task PureValueReturningMethodIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
 
@@ -309,9 +312,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a pure-marked method returning a task with a value is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PureGenericTaskMethodIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task PureGenericTaskMethodIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
             using System.Threading.Tasks;
@@ -325,9 +329,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute from another namespace is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedPureAttributeIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task UnrelatedPureAttributeIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             namespace Custom.Annotations
             {
@@ -348,9 +353,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a void method without attributes is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidMethodWithoutAttributesIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task VoidMethodWithoutAttributesIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -362,9 +368,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated attribute on a void method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherAttributeOnVoidMethodIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task OtherAttributeOnVoidMethodIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -379,9 +386,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a pure void method whose result flows through an out parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PureVoidMethodWithOutParameterIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task PureVoidMethodWithOutParameterIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
 
@@ -398,9 +406,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a pure void method writing through a ref parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PureVoidMethodWithRefParameterIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task PureVoidMethodWithRefParameterIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
 
@@ -416,9 +425,10 @@ public class PureVoidMethodAnalyzerUnitTest
 
     /// <summary>Verifies a user type that merely shares the task name is treated as a real result.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomTaskReturnTypeIsCleanAsync()
-        => await VerifyPure.VerifyAnalyzerAsync(
+    public Task CustomTaskReturnTypeIsCleanAsync() =>
+        VerifyPure.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.Contracts;
 

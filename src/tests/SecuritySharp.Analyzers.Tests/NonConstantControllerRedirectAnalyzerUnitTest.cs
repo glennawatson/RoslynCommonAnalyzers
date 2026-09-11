@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeRedirect = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -43,9 +44,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>Redirect</c> target on a controller is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -57,9 +59,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>RedirectPermanent</c> target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectPermanentNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectPermanentNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -71,9 +74,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>RedirectPreserveMethod</c> target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectPreserveMethodNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectPreserveMethodNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -85,9 +89,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>RedirectPermanentPreserveMethod</c> target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectPermanentPreserveMethodNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectPermanentPreserveMethodNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -99,9 +104,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies the explicit <c>this.Redirect(...)</c> member-access form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectThroughThisReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectThroughThisReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -113,9 +119,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant interpolated URL is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectInterpolatedTargetReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectInterpolatedTargetReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -127,9 +134,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a redirect to a property-backed target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectToPropertyTargetReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectToPropertyTargetReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -143,9 +151,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a redirect on a subclass of a controller is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectOnControllerSubclassReportedAsync()
-        => await VerifyAsync(
+    public Task RedirectOnControllerSubclassReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -161,9 +170,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a hard-coded literal URL is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectConstantLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task RedirectConstantLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -175,9 +185,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a redirect to a <c>const</c> field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectConstFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task RedirectConstFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -191,9 +202,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies <c>LocalRedirect</c> (already local-only) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalRedirectIsCleanAsync()
-        => await VerifyAsync(
+    public Task LocalRedirectIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -205,9 +217,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies <c>RedirectToAction</c> (an action name, not a URL) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RedirectToActionIsCleanAsync()
-        => await VerifyAsync(
+    public Task RedirectToActionIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -219,9 +232,10 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>Redirect</c> on an unrelated (non-controller) type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedRedirectOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedRedirectOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public class NotAController
             {
@@ -248,11 +262,7 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeRedirect.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeRedirect.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -262,11 +272,7 @@ public class NonConstantControllerRedirectAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeRedirect.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + ControllerStub
-        };
+        var test = new AnalyzeRedirect.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + ControllerStub };
 
         await test.RunAsync(CancellationToken.None);
     }

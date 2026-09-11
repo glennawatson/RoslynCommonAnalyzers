@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAccess = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1400AccessModifierAnalyzer,
     StyleSharp.Analyzers.Sst1400AccessModifierCodeFixProvider>;
@@ -32,9 +33,10 @@ public class MaintainabilityAnalyzerUnitTest
 {
     /// <summary>Verifies a top-level type with no access modifier is reported (SST1400) and gets 'internal'.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TopLevelTypeGetsInternalAsync()
-        => await VerifyAccess.VerifyCodeFixAsync("class {|SST1400:C|} { }", "internal class C { }");
+    public Task TopLevelTypeGetsInternalAsync() =>
+        VerifyAccess.VerifyCodeFixAsync("class {|SST1400:C|} { }", "internal class C { }");
 
     /// <summary>Verifies a member with no access modifier is reported (SST1400) and gets 'private'.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -58,9 +60,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies an interface member is not required to declare accessibility.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceMemberAllowedAsync()
-        => await VerifyAccess.VerifyAnalyzerAsync(
+    public Task InterfaceMemberAllowedAsync() =>
+        VerifyAccess.VerifyAnalyzerAsync(
             """
             internal interface I
             {
@@ -70,9 +73,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies an exposed field is reported (SST1401) while constants, static readonly singletons, and private fields are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExposedFieldReportedAsync()
-        => await VerifyField.VerifyAnalyzerAsync(
+    public Task ExposedFieldReportedAsync() =>
+        VerifyField.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -85,9 +89,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a second top-level type is reported (SST1402).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecondTypeReportedAsync()
-        => await VerifyFile.VerifyAnalyzerAsync(
+    public Task SecondTypeReportedAsync() =>
+        VerifyFile.VerifyAnalyzerAsync(
             """
             internal class A { }
             internal class {|SST1402:B|} { }
@@ -95,9 +100,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a partial type split across declarations is counted once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeCountedOnceAsync()
-        => await VerifyFile.VerifyAnalyzerAsync(
+    public Task PartialTypeCountedOnceAsync() =>
+        VerifyFile.VerifyAnalyzerAsync(
             """
             internal partial class A { }
             internal partial class A { }
@@ -105,9 +111,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a second namespace is reported (SST1403).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecondNamespaceReportedAsync()
-        => await VerifyFile.VerifyAnalyzerAsync(
+    public Task SecondNamespaceReportedAsync() =>
+        VerifyFile.VerifyAnalyzerAsync(
             """
             namespace A { }
             namespace {|SST1403:B|} { }
@@ -115,9 +122,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a suppression without justification is reported (SST1404).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SuppressionWithoutJustificationReportedAsync()
-        => await VerifySuppress.VerifyAnalyzerAsync(
+    public Task SuppressionWithoutJustificationReportedAsync() =>
+        VerifySuppress.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
             internal class C
@@ -128,15 +136,16 @@ public class MaintainabilityAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a justification written as a concatenation is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A justification worth reading rarely fits on one line, so the reason is usually several strings
     /// joined with <c>+</c>. Matching only a bare literal would report the well-documented suppressions
     /// and wave the terse ones through — exactly backwards.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenatedJustificationAllowedAsync()
-        => await VerifySuppress.VerifyAnalyzerAsync(
+    public Task ConcatenatedJustificationAllowedAsync() =>
+        VerifySuppress.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
             internal class C
@@ -153,9 +162,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a justified suppression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JustifiedSuppressionAllowedAsync()
-        => await VerifySuppress.VerifyAnalyzerAsync(
+    public Task JustifiedSuppressionAllowedAsync() =>
+        VerifySuppress.VerifyAnalyzerAsync(
             """
             using System.Diagnostics.CodeAnalysis;
             internal class C
@@ -167,9 +177,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a Debug.Assert without a message is reported (SST1405).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssertWithoutMessageReportedAsync()
-        => await VerifyDebug.VerifyAnalyzerAsync(
+    public Task AssertWithoutMessageReportedAsync() =>
+        VerifyDebug.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
             internal class C
@@ -180,9 +191,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a Debug.Fail with an empty message is reported (SST1406).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FailWithoutMessageReportedAsync()
-        => await VerifyDebug.VerifyAnalyzerAsync(
+    public Task FailWithoutMessageReportedAsync() =>
+        VerifyDebug.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
             internal class C
@@ -381,9 +393,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies a private field with only dead writes is reported separately from fully unused members.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnreadPrivateFieldIsReportedAsync()
-        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+    public Task UnreadPrivateFieldIsReportedAsync() =>
+        VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -395,9 +408,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies private members with real reads are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsedPrivateMembersAreAllowedAsync()
-        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+    public Task UsedPrivateMembersAreAllowedAsync() =>
+        VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -527,9 +541,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies private helpers called from extension blocks are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateHelperCalledFromExtensionBlockIsAllowedAsync()
-        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+    public Task PrivateHelperCalledFromExtensionBlockIsAllowedAsync() =>
+        VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -570,9 +585,10 @@ public class MaintainabilityAnalyzerUnitTest
 
     /// <summary>Verifies private nullable generic helpers called through type inference are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateNullableGenericHelperCalledThroughTypeInferenceIsAllowedAsync()
-        => await VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
+    public Task PrivateNullableGenericHelperCalledThroughTypeInferenceIsAllowedAsync() =>
+        VerifyPrivateUsageAnalyzer.VerifyAnalyzerAsync(
             """
             #nullable enable
 

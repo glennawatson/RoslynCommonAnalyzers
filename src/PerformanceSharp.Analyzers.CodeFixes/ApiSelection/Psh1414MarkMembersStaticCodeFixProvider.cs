@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -80,8 +81,8 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
     /// <param name="model">The semantic model.</param>
     /// <param name="member">The member to declare static.</param>
     /// <returns>The updated document, or the original when the rewrite is not provably safe.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, MemberDeclarationSyntax member)
-        => TryPlanForMember(model, member) is { } plan
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, MemberDeclarationSyntax member) =>
+        TryPlanForMember(model, member) is { } plan
             ? document.WithSyntaxRoot(ApplyToRoot(root, plan))
             : document;
 
@@ -91,8 +92,7 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
     /// <returns>The rewritten root.</returns>
     private static SyntaxNode ApplyToRoot(SyntaxNode root, StaticFixPlan plan)
     {
-        var member = plan.Member;
-        var qualified = plan.QualifiedReferences;
+        var (member, qualified) = plan;
 
         // The member's own recursive this-calls are rewritten inside the new member, so the outer
         // ReplaceNodes never has to swap a node and one of its own descendants in the same pass.
@@ -158,8 +158,9 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
     /// <summary>Rewrites <c>this.Foo</c> to <c>Foo</c>, keeping the surrounding trivia.</summary>
     /// <param name="access">The this-qualified member access.</param>
     /// <returns>The unqualified name.</returns>
-    private static SimpleNameSyntax Unqualify(MemberAccessExpressionSyntax access)
-        => access.Name.WithTriviaFrom(access).WithAdditionalAnnotations(Formatter.Annotation);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SimpleNameSyntax Unqualify(MemberAccessExpressionSyntax access) =>
+        access.Name.WithTriviaFrom(access).WithAdditionalAnnotations(Formatter.Annotation);
 
     /// <summary>Inserts <c>static</c> after the member's accessibility modifier.</summary>
     /// <param name="member">The member declaration.</param>
@@ -187,8 +188,8 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The edit plan, or <see langword="null"/> when the fix is not provably safe.</returns>
-    private static StaticFixPlan? TryPlan(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is MemberDeclarationSyntax member
+    private static StaticFixPlan? TryPlan(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is MemberDeclarationSyntax member
             ? TryPlanForMember(model, member)
             : null;
 
@@ -205,7 +206,7 @@ public sealed class Psh1414MarkMembersStaticCodeFixProvider : CodeFixProvider, I
         List<MemberAccessExpressionSyntax> qualified)
     {
         var state = new ReferenceScanState(symbol, model, qualified);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReferenceScanState>(typeDeclaration, ref state, VisitReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReferenceScanState>(typeDeclaration, ref state, VisitReference);
         return !state.Unsafe;
     }
 

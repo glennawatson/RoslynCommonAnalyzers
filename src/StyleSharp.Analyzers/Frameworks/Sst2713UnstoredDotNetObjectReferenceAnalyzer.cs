@@ -68,7 +68,7 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
     /// <summary>Reports a not-stored <c>DotNetObjectReference.Create</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="reference">The resolved <c>DotNetObjectReference</c> factory type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol reference)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol reference)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -92,8 +92,8 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
     /// <summary>Returns whether a call receiver's simple name is <c>DotNetObjectReference</c>.</summary>
     /// <param name="receiver">The receiver of the <c>Create</c> member access.</param>
     /// <returns><see langword="true"/> for <c>DotNetObjectReference</c> or a qualified name that ends in it.</returns>
-    private static bool IsFactoryReceiver(ExpressionSyntax receiver)
-        => receiver switch
+    private static bool IsFactoryReceiver(ExpressionSyntax receiver) =>
+        receiver switch
         {
             IdentifierNameSyntax identifier => string.Equals(identifier.Identifier.ValueText, DotNetObjectReferenceTypeName, StringComparison.Ordinal),
             MemberAccessExpressionSyntax memberAccess => string.Equals(memberAccess.Name.Identifier.ValueText, DotNetObjectReferenceTypeName, StringComparison.Ordinal),
@@ -103,11 +103,10 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
     /// <summary>Returns whether the create call's result is dropped rather than stored in a field or property.</summary>
     /// <param name="invocation">The <c>Create</c> invocation.</param>
     /// <returns><see langword="true"/> for a bare statement, a <c>_ = ...</c> discard, or a method-call argument.</returns>
-    private static bool IsNotStoredPosition(InvocationExpressionSyntax invocation)
-        => invocation.Parent switch
+    private static bool IsNotStoredPosition(InvocationExpressionSyntax invocation) =>
+        invocation.Parent switch
         {
-            ExpressionStatementSyntax => true,
-            ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax } } => true,
+            ExpressionStatementSyntax or ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax } } => true,
             AssignmentExpressionSyntax assignment
                 when assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
                     && assignment.Right == invocation

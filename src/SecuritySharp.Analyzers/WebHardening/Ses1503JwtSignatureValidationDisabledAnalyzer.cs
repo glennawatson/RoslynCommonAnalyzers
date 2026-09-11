@@ -54,7 +54,7 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
     /// <summary>Reports SES1503 for a signature flag set to <c>false</c> on the gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parametersType">The gated <c>TokenValidationParameters</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol parametersType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol parametersType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -83,8 +83,8 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
     /// <summary>Returns whether an assignment target syntactically names one of the two signature flags.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns><see langword="true"/> for <c>x.RequireSignedTokens</c>/<c>x.ValidateIssuerSigningKey</c> or their bare initializer forms.</returns>
-    private static bool IsSignatureFlagTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsSignatureFlagTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'parameters.RequireSignedTokens = false' / '...ValidateIssuerSigningKey = false'.
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } => IsSignatureFlag(name),
@@ -98,6 +98,6 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
     /// <summary>Returns whether a member name is one of the two guarded signature-verification flags.</summary>
     /// <param name="name">The member name to test.</param>
     /// <returns><see langword="true"/> for <c>RequireSignedTokens</c> or <c>ValidateIssuerSigningKey</c>.</returns>
-    private static bool IsSignatureFlag(string name)
-        => name is RequireSignedTokensPropertyName or ValidateIssuerSigningKeyPropertyName;
+    private static bool IsSignatureFlag(string name) =>
+        name is RequireSignedTokensPropertyName or ValidateIssuerSigningKeyPropertyName;
 }

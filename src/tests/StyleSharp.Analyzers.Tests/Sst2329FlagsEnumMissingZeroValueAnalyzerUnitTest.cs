@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyZero = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2329FlagsEnumMissingZeroValueAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2329FlagsEnumMissingZeroValueAnalyzerUnitTest
 {
     /// <summary>Verifies a flags enum with no zero-valued member is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagsEnumWithoutZeroIsReportedAsync()
-        => await VerifyZero.VerifyAnalyzerAsync(
+    public Task FlagsEnumWithoutZeroIsReportedAsync() =>
+        VerifyZero.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -27,9 +29,10 @@ public class Sst2329FlagsEnumMissingZeroValueAnalyzerUnitTest
 
     /// <summary>Verifies a flags enum whose zero value is written as <c>None = 0</c> is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagsEnumWithNoneIsCleanAsync()
-        => await VerifyZero.VerifyAnalyzerAsync(
+    public Task FlagsEnumWithNoneIsCleanAsync() =>
+        VerifyZero.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -44,9 +47,10 @@ public class Sst2329FlagsEnumMissingZeroValueAnalyzerUnitTest
 
     /// <summary>Verifies a zero value under any name, not only <c>None</c>, is accepted.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagsEnumWithZeroUnderAnotherNameIsCleanAsync()
-        => await VerifyZero.VerifyAnalyzerAsync(
+    public Task FlagsEnumWithZeroUnderAnotherNameIsCleanAsync() =>
+        VerifyZero.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -60,9 +64,10 @@ public class Sst2329FlagsEnumMissingZeroValueAnalyzerUnitTest
 
     /// <summary>Verifies an enum without the attribute is never reported, whatever its values.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumWithoutTheAttributeIsCleanAsync()
-        => await VerifyZero.VerifyAnalyzerAsync(
+    public Task EnumWithoutTheAttributeIsCleanAsync() =>
+        VerifyZero.VerifyAnalyzerAsync(
             """
             public enum Access
             {
@@ -74,9 +79,10 @@ public class Sst2329FlagsEnumMissingZeroValueAnalyzerUnitTest
     /// <summary>Verifies the implicit zero of a default-numbered flags enum still counts as a zero value.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The first member of a default-numbered enum is zero, so the empty set already has a name.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultNumberedFirstMemberIsZeroAndCleanAsync()
-        => await VerifyZero.VerifyAnalyzerAsync(
+    public Task DefaultNumberedFirstMemberIsZeroAndCleanAsync() =>
+        VerifyZero.VerifyAnalyzerAsync(
             """
             using System;
 

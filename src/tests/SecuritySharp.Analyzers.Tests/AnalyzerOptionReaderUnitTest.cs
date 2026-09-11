@@ -86,7 +86,7 @@ public class AnalyzerOptionReaderUnitTest
             values[key] = value;
         }
 
-        return new FakeConfigOptions(values);
+        return new(values);
     }
 
     /// <summary>An in-memory <see cref="AnalyzerConfigOptions"/> backed by a dictionary.</summary>

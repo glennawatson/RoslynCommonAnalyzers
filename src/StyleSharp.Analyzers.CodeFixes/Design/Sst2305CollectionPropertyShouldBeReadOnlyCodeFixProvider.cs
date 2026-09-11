@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,24 +23,25 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : C
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Remove the setter",
             nameof(Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Removes the setter from one reported property.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="property">The reported property.</param>
     /// <returns>The updated document, or the original when the property no longer qualifies.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, PropertyDeclarationSyntax property)
-        => RemoveSetter(property) is { } updated
+    internal static Document Apply(Document document, SyntaxNode root, PropertyDeclarationSyntax property) =>
+        RemoveSetter(property) is { } updated
             ? document.WithSyntaxRoot(root.ReplaceNode(property, updated))
             : document;
 
@@ -46,28 +49,16 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : C
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not PropertyDeclarationSyntax property
-            || RemoveSetter(property) is not { } updated)
-        {
-            return null;
-        }
-
-        return new NodeReplacement(property, updated);
-    }
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not PropertyDeclarationSyntax property
+            || RemoveSetter(property) is not { } updated
+        ? null
+        : new NodeReplacement(property, updated);
 
     /// <summary>Builds the property without its setter.</summary>
     /// <param name="property">The reported property.</param>
     /// <returns>The get-only property, or <see langword="null"/> when there is no setter to remove.</returns>
-    private static PropertyDeclarationSyntax? RemoveSetter(PropertyDeclarationSyntax property)
-    {
-        if (Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property) is not { } setter
-            || property.AccessorList is not { } accessorList)
-        {
-            return null;
-        }
-
-        return property.WithAccessorList(accessorList.WithAccessors(accessorList.Accessors.Remove(setter)));
-    }
+    private static PropertyDeclarationSyntax? RemoveSetter(PropertyDeclarationSyntax property) => Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property) is not { } setter
+            || property.AccessorList is not { } accessorList
+        ? null
+        : property.WithAccessorList(accessorList.WithAccessors(accessorList.Accessors.Remove(setter)));
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRegularString = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2262UseRegularStringLiteralAnalyzer,
     StyleSharp.Analyzers.Sst2262UseRegularStringLiteralCodeFixProvider>;
@@ -33,9 +34,10 @@ public class UseRegularStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a raw literal whose content carries a quote is left alone; raw syntax is earning its keep.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawLiteralWithQuoteIsCleanAsync()
-        => await VerifyRegularString.VerifyAnalyzerAsync(
+    public Task RawLiteralWithQuoteIsCleanAsync() =>
+        VerifyRegularString.VerifyAnalyzerAsync(
             """"
             internal class C
             {
@@ -45,9 +47,10 @@ public class UseRegularStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a raw literal whose content carries a backslash is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawLiteralWithBackslashIsCleanAsync()
-        => await VerifyRegularString.VerifyAnalyzerAsync(
+    public Task RawLiteralWithBackslashIsCleanAsync() =>
+        VerifyRegularString.VerifyAnalyzerAsync(
             """"
             internal class C
             {
@@ -57,9 +60,10 @@ public class UseRegularStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a regular literal is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegularLiteralIsCleanAsync()
-        => await VerifyRegularString.VerifyAnalyzerAsync(
+    public Task RegularLiteralIsCleanAsync() =>
+        VerifyRegularString.VerifyAnalyzerAsync(
             """
             internal class C
             {

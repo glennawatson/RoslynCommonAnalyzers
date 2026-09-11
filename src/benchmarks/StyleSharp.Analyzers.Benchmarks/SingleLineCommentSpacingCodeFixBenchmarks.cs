@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -11,6 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the single-line-comment spacing code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("SingleLineCommentSpacingCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class SingleLineCommentSpacingCodeFixBenchmarks
@@ -25,13 +27,14 @@ public class SingleLineCommentSpacingCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative standalone comment.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             LayoutTriviaCodeFixBenchmarkSource.GenerateSingleLineCommentSpacing,
             static (_, root, index) => Task.FromResult(FindCommentSpan(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -48,6 +51,7 @@ public class SingleLineCommentSpacingCodeFixBenchmarks
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based comment index to select.</param>
     /// <returns>The selected comment span.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> holds fewer single-line comments than <paramref name="index"/> selects.</exception>
     private static TextSpan FindCommentSpan(CompilationUnitSyntax root, int index)
     {
         var current = 0;

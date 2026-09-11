@@ -49,9 +49,7 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
                     return catchClause;
 
                 // A 'throw;' is only legal directly inside the catch, so any function boundary cuts it off.
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
-                case MemberDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or MemberDeclarationSyntax:
                     return null;
             }
         }
@@ -90,7 +88,7 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
     /// completely — the caller cannot tell a failure from a legitimate result — but that shape is also how a
     /// Try-style member reports "no value", so it is only reported where the codebase has asked for it.
     /// </remarks>
-    private static bool SwallowsEveryError(CatchClauseSyntax catchClause, SyntaxNodeAnalysisContext context)
+    private static bool SwallowsEveryError(CatchClauseSyntax catchClause, in SyntaxNodeAnalysisContext context)
     {
         var statements = catchClause.Block.Statements;
         if (statements.Count == 0)
@@ -111,8 +109,8 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The returned expression, or <see langword="null"/> for a bare <c>return;</c>.</param>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the value is a constant or a default.</returns>
-    private static bool IsConstantResult(ExpressionSyntax? expression, SyntaxNodeAnalysisContext context)
-        => expression is null
+    private static bool IsConstantResult(ExpressionSyntax? expression, in SyntaxNodeAnalysisContext context) =>
+        expression is null
         || expression is DefaultExpressionSyntax or LiteralExpressionSyntax
         || context.SemanticModel.GetConstantValue(expression, context.CancellationToken).HasValue;
 
@@ -142,6 +140,6 @@ public sealed class ExceptionHandlingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type symbol is <see cref="Exception"/> itself.</summary>
     /// <param name="type">The caught type.</param>
     /// <returns><see langword="true"/> for the exact <c>System.Exception</c> type.</returns>
-    private static bool IsSystemException(ITypeSymbol? type)
-        => type is { Name: "Exception", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
+    private static bool IsSystemException(ITypeSymbol? type) =>
+        type is { Name: "Exception", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
 }

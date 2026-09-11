@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDocBlankLine = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1644DocumentationHeaderBlankLineAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DocumentationHeaderBlankLineAnalyzerUnitTest
 {
     /// <summary>Verifies an interior blank documentation line is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InteriorBlankLineIsReportedAsync()
-        => await VerifyDocBlankLine.VerifyAnalyzerAsync(
+    public Task InteriorBlankLineIsReportedAsync() =>
+        VerifyDocBlankLine.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -31,9 +33,10 @@ public class DocumentationHeaderBlankLineAnalyzerUnitTest
 
     /// <summary>Verifies contiguous prose and code elements are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContiguousAndCodeDocumentationAreCleanAsync()
-        => await VerifyDocBlankLine.VerifyAnalyzerAsync(
+    public Task ContiguousAndCodeDocumentationAreCleanAsync() =>
+        VerifyDocBlankLine.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -52,9 +55,10 @@ public class DocumentationHeaderBlankLineAnalyzerUnitTest
 
     /// <summary>Verifies blank lines inside a nested <c>&lt;code&gt;</c> sample are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedCodeSampleBlankLinesAreCleanAsync()
-        => await VerifyDocBlankLine.VerifyAnalyzerAsync(
+    public Task NestedCodeSampleBlankLinesAreCleanAsync() =>
+        VerifyDocBlankLine.VerifyAnalyzerAsync(
             """
             internal class C
             {

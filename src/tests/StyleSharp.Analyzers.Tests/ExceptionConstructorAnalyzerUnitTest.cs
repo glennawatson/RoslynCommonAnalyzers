@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using VerifyConstructors = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExceptionConstructorAnalyzer,
@@ -43,9 +44,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an exception declaring all three constructors is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionWithAllConstructorsIsCleanAsync()
-        => await VerifyAsync($$"""
+    public Task ExceptionWithAllConstructorsIsCleanAsync() =>
+        VerifyAsync($$"""
             public class WidgetException : System.Exception
             {
             {{StandardConstructors}}
@@ -54,9 +56,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an exception with no constructors at all is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionWithNoConstructorsIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ExceptionWithNoConstructorsIsReportedAsync() =>
+        VerifyAsync("""
             public class {|SST1488:WidgetException|} : System.Exception
             {
             }
@@ -64,9 +67,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an exception that cannot wrap a cause is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionWithoutInnerExceptionConstructorIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ExceptionWithoutInnerExceptionConstructorIsReportedAsync() =>
+        VerifyAsync("""
             public class {|SST1488:WidgetException|} : System.Exception
             {
                 /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
@@ -86,9 +90,10 @@ public class ExceptionConstructorAnalyzerUnitTest
     /// <summary>Verifies a type deriving from a custom exception is measured on its own constructors.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A derived type does not inherit its base's constructors, so it must declare its own.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedExceptionDoesNotInheritConstructorsAsync()
-        => await VerifyAsync($$"""
+    public Task DerivedExceptionDoesNotInheritConstructorsAsync() =>
+        VerifyAsync($$"""
             public class WidgetException : System.Exception
             {
             {{StandardConstructors}}
@@ -101,9 +106,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a non-exception type is never measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExceptionTypeIsCleanAsync()
-        => await VerifyAsync("""
+    public Task NonExceptionTypeIsCleanAsync() =>
+        VerifyAsync("""
             public class Widget
             {
             }
@@ -111,9 +117,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an abstract exception may declare its constructors as protected.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractExceptionWithProtectedConstructorsIsCleanAsync()
-        => await VerifyAsync("""
+    public Task AbstractExceptionWithProtectedConstructorsIsCleanAsync() =>
+        VerifyAsync("""
             public abstract class WidgetException : System.Exception
             {
                 /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
@@ -140,9 +147,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a concrete exception whose constructors are private cannot be constructed and is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteExceptionWithPrivateConstructorsIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ConcreteExceptionWithPrivateConstructorsIsReportedAsync() =>
+        VerifyAsync("""
             public class {|SST1488:WidgetException|} : System.Exception
             {
                 private WidgetException(string message)
@@ -154,9 +162,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the constructors are matched by parameter type, not by parameter name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorsAreMatchedByTypeNotNameAsync()
-        => await VerifyAsync("""
+    public Task ConstructorsAreMatchedByTypeNotNameAsync() =>
+        VerifyAsync("""
             public class WidgetException : System.Exception
             {
                 /// <summary>Initializes a new instance of the <see cref="WidgetException"/> class.</summary>
@@ -183,9 +192,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the parameterless constructor can be waived by configuration.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessConstructorCanBeWaivedAsync()
-        => await VerifyWithConfigAsync(
+    public Task ParameterlessConstructorCanBeWaivedAsync() =>
+        VerifyWithConfigAsync(
             """
             public class WidgetException : System.Exception
             {
@@ -209,9 +219,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a non-public exception can be excluded by configuration.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicExceptionCanBeExcludedAsync()
-        => await VerifyWithConfigAsync(
+    public Task NonPublicExceptionCanBeExcludedAsync() =>
+        VerifyWithConfigAsync(
             """
             internal class WidgetException : System.Exception
             {
@@ -221,9 +232,10 @@ public class ExceptionConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a non-public exception is measured by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicExceptionIsMeasuredByDefaultAsync()
-        => await VerifyAsync("""
+    public Task NonPublicExceptionIsMeasuredByDefaultAsync() =>
+        VerifyAsync("""
             internal class {|SST1488:WidgetException|} : System.Exception
             {
             }
@@ -391,16 +403,17 @@ public class ExceptionConstructorAnalyzerUnitTest
     }
 
     /// <summary>Verifies an exception whose base offers nothing to chain to is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// A derived type cannot conjure a base it does not have. <c>ApiException</c> is reported because its
     /// own base is <see cref="Exception"/>, which offers the standard constructors to chain to. The fixture
     /// beneath it is not: <c>ApiException</c> takes only a status code and a request, so there is no
     /// <c>: base(message)</c> to write and the standard constructors cannot be declared at all.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionWhoseBaseHasNoChainableConstructorIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ExceptionWhoseBaseHasNoChainableConstructorIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -426,11 +439,7 @@ public class ExceptionConstructorAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new VerifyConstructors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyConstructors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         if (fixedSource is not null)
         {
@@ -446,11 +455,7 @@ public class ExceptionConstructorAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task VerifyWithConfigAsync(string source, string setting)
     {
-        var test = new VerifyConstructors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyConstructors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $"""
             root = true
@@ -468,11 +473,7 @@ public class ExceptionConstructorAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task VerifySerializationAsync(string source, ReferenceAssemblies referenceAssemblies)
     {
-        var test = new VerifySerialization.Test
-        {
-            ReferenceAssemblies = referenceAssemblies,
-            TestCode = source,
-        };
+        var test = new VerifySerialization.Test { ReferenceAssemblies = referenceAssemblies, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -60,8 +60,8 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation has the identity-selector sort shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when an OrderBy/OrderByDescending call passes an identity lambda first.</returns>
-    internal static bool IsIdentitySortShape(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax access
+    internal static bool IsIdentitySortShape(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText is OrderByMethodName or OrderByDescendingMethodName
             && invocation.ArgumentList.Arguments.Count is 1 or SelectorAndComparerArgumentCount
             && IsIdentityLambda(invocation.ArgumentList.Arguments[0].Expression);
@@ -69,8 +69,8 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a lambda that returns its own single parameter.</summary>
     /// <param name="expression">The candidate selector expression.</param>
     /// <returns><see langword="true"/> for <c>x =&gt; x</c> in simple or parenthesized form.</returns>
-    private static bool IsIdentityLambda(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsIdentityLambda(ExpressionSyntax expression) =>
+        expression switch
         {
             SimpleLambdaExpressionSyntax simple =>
                 simple.ExpressionBody is IdentifierNameSyntax body
@@ -85,7 +85,7 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1113 for an identity-selector sort that binds to the LINQ extension class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsIdentitySortShape(invocation)

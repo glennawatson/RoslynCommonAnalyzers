@@ -61,17 +61,12 @@ public sealed class Sst2316DisposeWithoutInterfaceCodeFixProvider : CodeFixProvi
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The type declaration and interface name, or <see langword="null"/>.</returns>
-    private static (TypeDeclarationSyntax Declaration, string InterfaceName)? Resolve(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
+    private static (TypeDeclarationSyntax Declaration, string InterfaceName)? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
             || !diagnostic.Properties.TryGetValue(Sst2316DisposeWithoutInterfaceAnalyzer.InterfaceKey, out var interfaceName)
-            || interfaceName is null)
-        {
-            return null;
-        }
-
-        return (declaration, interfaceName);
-    }
+            || interfaceName is null
+            ? null
+            : (declaration, interfaceName);
 
     /// <summary>Adds the fully-qualified disposal interface to a type's base list.</summary>
     /// <param name="declaration">The type declaration.</param>
@@ -79,7 +74,7 @@ public sealed class Sst2316DisposeWithoutInterfaceCodeFixProvider : CodeFixProvi
     /// <returns>The updated declaration.</returns>
     private static TypeDeclarationSyntax AddInterface(TypeDeclarationSyntax declaration, string interfaceName)
     {
-        var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName("global::System." + interfaceName))
+        var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName($"global::System.{interfaceName}"))
             .WithAdditionalAnnotations(Simplifier.Annotation);
         return BaseListInsertion.AddBaseType(declaration, baseType).WithAdditionalAnnotations(Formatter.Annotation);
     }

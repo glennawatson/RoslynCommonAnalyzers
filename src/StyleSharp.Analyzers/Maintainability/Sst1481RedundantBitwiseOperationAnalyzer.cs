@@ -64,8 +64,8 @@ public sealed class Sst1481RedundantBitwiseOperationAnalyzer : DiagnosticAnalyze
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.RedundantBitwiseOperation);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -115,7 +115,7 @@ public sealed class Sst1481RedundantBitwiseOperationAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node context.</param>
     /// <param name="binary">The reported operation.</param>
     /// <param name="properties">The surviving-operand properties, or <see langword="null"/> when there is no fix.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, ImmutableDictionary<string, string?>? properties)
+    private static void Report(in SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, ImmutableDictionary<string, string?>? properties)
     {
         var text = binary.ToString();
         context.ReportDiagnostic(properties is null
@@ -271,9 +271,7 @@ public sealed class Sst1481RedundantBitwiseOperationAnalyzer : DiagnosticAnalyze
     /// </remarks>
     private static bool CanBeConstant(ExpressionSyntax expression) => expression switch
     {
-        LiteralExpressionSyntax => true,
-        IdentifierNameSyntax => true,
-        MemberAccessExpressionSyntax => true,
+        LiteralExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax => true,
         ParenthesizedExpressionSyntax parenthesized => CanBeConstant(parenthesized.Expression),
         PrefixUnaryExpressionSyntax prefix => CanBeConstant(prefix.Operand),
         CastExpressionSyntax cast => CanBeConstant(cast.Expression),

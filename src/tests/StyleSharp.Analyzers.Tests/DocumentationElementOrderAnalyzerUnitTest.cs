@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDocumentationElementOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1666DocumentationElementOrderAnalyzer,
     StyleSharp.Analyzers.Sst1666DocumentationElementOrderCodeFixProvider>;
@@ -179,9 +180,10 @@ public class DocumentationElementOrderAnalyzerUnitTest
 
     /// <summary>Verifies a comment already in the conventional order is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionalOrderIsCleanAsync()
-        => await VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
+    public Task ConventionalOrderIsCleanAsync() =>
+        VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -199,9 +201,10 @@ public class DocumentationElementOrderAnalyzerUnitTest
 
     /// <summary>Verifies an unranked element is left wherever it was written.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrankedElementIsCleanAsync()
-        => await VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
+    public Task UnrankedElementIsCleanAsync() =>
+        VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -214,9 +217,10 @@ public class DocumentationElementOrderAnalyzerUnitTest
 
     /// <summary>Verifies a comment with one element is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleElementIsCleanAsync()
-        => await VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
+    public Task SingleElementIsCleanAsync() =>
+        VerifyDocumentationElementOrder.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -39,7 +39,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="comment">The comment trivia to inspect.</param>
     /// <returns><see langword="true"/> when the line begins with a single-line comment.</returns>
-    internal static bool IsStandaloneComment(SourceText text, SyntaxTrivia comment)
+    internal static bool IsStandaloneComment(SourceText text, in SyntaxTrivia comment)
     {
         var lineSpan = text.Lines.GetLineFromPosition(comment.SpanStart).Span;
         for (var position = lineSpan.Start; position < comment.SpanStart; position++)
@@ -120,7 +120,7 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The first comment trivia.</param>
     /// <param name="last">The last comment trivia.</param>
     /// <param name="firstTokenStart">The start position of the first token in the file.</param>
-    private static void ReportBlock(SyntaxTreeAnalysisContext context, SourceText text, int start, int end, SyntaxTrivia first, SyntaxTrivia last, int firstTokenStart)
+    private static void ReportBlock(in SyntaxTreeAnalysisContext context, SourceText text, int start, int end, in SyntaxTrivia first, in SyntaxTrivia last, int firstTokenStart)
     {
         if (start > 0 && !LayoutHelpers.IsBlankLine(text, start - 1) && !PreviousLineOpensBody(text, start - 1) && !PreviousLineIsDirective(text, start - 1))
         {
@@ -139,8 +139,8 @@ public sealed class SingleLineCommentSpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="last">The last comment trivia in the block.</param>
     /// <param name="firstTokenStart">The start position of the first token in the file.</param>
     /// <returns><see langword="true"/> when the block sits before the file's first token.</returns>
-    private static bool IsFileHeaderBlock(SyntaxTrivia last, int firstTokenStart)
-        => last.SpanStart < firstTokenStart;
+    private static bool IsFileHeaderBlock(in SyntaxTrivia last, int firstTokenStart) =>
+        last.SpanStart < firstTokenStart;
 
     /// <summary>Returns whether the line is a preprocessor directive (its first non-whitespace character is <c>#</c>).</summary>
     /// <param name="text">The source text.</param>

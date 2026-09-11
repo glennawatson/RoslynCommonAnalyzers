@@ -24,8 +24,8 @@ internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroCom
     /// An unset or unparsable value yields the default, so a typo neither turns the rule off nor starts
     /// reporting every <c>x == 0</c> in the file.
     /// </remarks>
-    public static FloatingPointComparisonOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, AllowZeroRuleKey, AllowZeroGeneralKey, DefaultAllowZeroComparison));
+    internal static FloatingPointComparisonOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadBool(options, AllowZeroRuleKey, AllowZeroGeneralKey, DefaultAllowZeroComparison));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyNestedOnly = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer,
@@ -180,12 +180,12 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
     }
 
     /// <summary>Verifies an instance member the nested type reaches through the outer instance is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// An instance member belongs to an instance of the outer type, and the nested type reaches it through
     /// a reference it holds. Moving it would hand each nested instance its own copy — a different program —
     /// so there is nowhere for it to go.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InstanceFieldReachedThroughTheOwnerIsNotReportedAsync()
     {
@@ -208,13 +208,13 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
     }
 
     /// <summary>Verifies an instance method a nested type calls back into is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// This is the ordinary shape of a subscription that unsubscribes itself: the nested type holds its
     /// owner and calls one private method on it. Reporting that method does not terminate — move it, and
     /// the private helpers it called become nested-only in turn, then the fields those touch, until the
     /// outer type's whole state has been asked to move into the nested one.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task InstanceMethodANestedTypeCallsBackIntoIsNotReportedAsync()
     {
@@ -321,9 +321,10 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member the outer type also uses stays where both can see it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberTheOuterTypeAlsoUsesIsCleanAsync()
-        => await VerifyNestedOnly.VerifyAnalyzerAsync(
+    public Task MemberTheOuterTypeAlsoUsesIsCleanAsync() =>
+        VerifyNestedOnly.VerifyAnalyzerAsync(
             """
             internal class Outer
             {
@@ -340,9 +341,10 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member two nested types share has no single place to move to.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberSharedByTwoNestedTypesIsCleanAsync()
-        => await VerifyNestedOnly.VerifyAnalyzerAsync(
+    public Task MemberSharedByTwoNestedTypesIsCleanAsync() =>
+        VerifyNestedOnly.VerifyAnalyzerAsync(
             """
             internal class Outer
             {
@@ -362,9 +364,10 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member carrying an attribute is left alone: something we cannot see may be using it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberWithAnAttributeIsCleanAsync()
-        => await VerifyNestedOnly.VerifyAnalyzerAsync(
+    public Task MemberWithAnAttributeIsCleanAsync() =>
+        VerifyNestedOnly.VerifyAnalyzerAsync(
             """
             internal sealed class MarkAttribute : System.Attribute
             {
@@ -384,9 +387,10 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a partial type is not analyzed: a use of the member could sit in another file.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeIsCleanAsync()
-        => await VerifyNestedOnly.VerifyAnalyzerAsync(
+    public Task PartialTypeIsCleanAsync() =>
+        VerifyNestedOnly.VerifyAnalyzerAsync(
             """
             internal partial class Outer
             {
@@ -401,9 +405,10 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member nothing uses at all is not this rule's business.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedMemberIsCleanAsync()
-        => await VerifyNestedOnly.VerifyAnalyzerAsync(
+    public Task UnusedMemberIsCleanAsync() =>
+        VerifyNestedOnly.VerifyAnalyzerAsync(
             """
             internal class Outer
             {
@@ -419,12 +424,12 @@ public class PrivateMemberUsedOnlyByNestedTypeAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a member an extension block uses is not reported, because an extension block is not a nested type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// An extension block parses as a type declaration but declares no type — its identifier is empty, and
     /// nothing can move into it. Code written there is the enclosing static class's own code, so a private
     /// member it uses is used by the type itself.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task MemberUsedByAnExtensionBlockIsNotReportedAsync()
     {

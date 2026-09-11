@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionBodyAnalyzer,
     StyleSharp.Analyzers.ExpressionBodyCodeFixProvider>;
@@ -15,9 +16,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ExpressionBodyAnalyzerUnitTest
 {
-    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies the body still becomes an expression body, wrapped, when one line would overrun.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The break goes after the arrow, which is where the default arrow placement puts it.</remarks>
@@ -49,8 +47,8 @@ public class ExpressionBodyAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -85,8 +83,8 @@ public class ExpressionBodyAnalyzerUnitTest
                         }
                         """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, Config));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", Config));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -97,9 +95,10 @@ public class ExpressionBodyAnalyzerUnitTest
     /// no expression body fits it. The two shapes cannot both be written, and introducing a local to satisfy
     /// the rules that inline a redundant one restores this diagnostic — nothing satisfies both.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodySplitAcrossPreprocessorBranchesIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BodySplitAcrossPreprocessorBranchesIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -127,9 +126,10 @@ public class ExpressionBodyAnalyzerUnitTest
     /// expression's full span while the collapse — which splices the expression in without its trivia — drops
     /// it. Nothing that would be lost may be reported.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidMethodWithACommentAboveTheStatementIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task VoidMethodWithACommentAboveTheStatementIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -159,11 +159,11 @@ public class ExpressionBodyAnalyzerUnitTest
                                _value = value;
                            }
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             dotnet_diagnostic.SST2276.severity = warning
@@ -244,9 +244,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a method whose block has more than one statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiStatementMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MultiStatementMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -260,9 +261,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a method that already has an expression body is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -272,9 +274,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a void method whose only statement is a bare return is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareReturnMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BareReturnMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -287,9 +290,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a single-statement body that carries a comment is left alone so the comment is not lost.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodWithCommentInBodyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MethodWithCommentInBodyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -357,9 +361,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a constructor with a base initializer is left alone even when SST2276 is enabled.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorWithInitializerIsCleanAsync()
-        => await RunAnalyzerWithEnabledAsync(
+    public Task ConstructorWithInitializerIsCleanAsync() =>
+        RunAnalyzerWithEnabledAsync(
             """
             internal class B
             {
@@ -473,9 +478,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a property with a setter keeps its per-accessor shape (SST2279 stays out).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyWithSetterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PropertyWithSetterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal sealed class C
             {
@@ -491,9 +497,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a property whose getter already has an expression body is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedGetterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedGetterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal sealed class C
             {
@@ -508,9 +515,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a get accessor carrying an attribute is left alone, since the whole-member form cannot hold it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyWithAttributedGetterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PropertyWithAttributedGetterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -555,9 +563,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies an indexer with a setter keeps its per-accessor shape (SST2280 stays out).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerWithSetterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IndexerWithSetterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal sealed class C
             {
@@ -639,9 +648,10 @@ public class ExpressionBodyAnalyzerUnitTest
 
     /// <summary>Verifies a local function whose block has more than one statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiStatementLocalFunctionIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MultiStatementLocalFunctionIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal sealed class C
             {
@@ -689,13 +699,13 @@ public class ExpressionBodyAnalyzerUnitTest
         var builder = new System.Text.StringBuilder("root = true\n\n[*.cs]\n");
         for (var i = 0; i < enabledIds.Length; i++)
         {
-            builder.Append("dotnet_diagnostic.").Append(enabledIds[i]).Append(".severity = warning\n");
+            _ = builder.Append("dotnet_diagnostic.").Append(enabledIds[i]).Append(".severity = warning\n");
         }
 
         var config = builder.ToString();
         var test = new Verify.Test { TestCode = source };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
-        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
         return test;
     }
 }

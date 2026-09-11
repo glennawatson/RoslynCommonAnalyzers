@@ -257,7 +257,7 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new NameScan(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(node, ref scan, VisitName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(node, ref scan, VisitName);
         return scan.Found;
     }
 
@@ -308,8 +308,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type symbol is <c>System.Collections.IEnumerable</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> when the type is non-generic <c>IEnumerable</c>.</returns>
-    private static bool IsNonGenericEnumerable(ITypeSymbol type)
-        => type.SpecialType == SpecialType.System_Collections_IEnumerable;
+    private static bool IsNonGenericEnumerable(ITypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Collections_IEnumerable;
 
     /// <summary>Extracts <c>x == null ? fallback : whenNotNull</c> and <c>x != null ? whenNotNull : fallback</c> parts.</summary>
     /// <param name="conditional">The conditional expression to inspect.</param>
@@ -376,8 +376,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax receiver,
         ISymbol receiverSymbol,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => expression is MemberAccessExpressionSyntax memberAccess
+        CancellationToken cancellationToken) =>
+        expression is MemberAccessExpressionSyntax memberAccess
         && IsSameStableSymbol(receiver, memberAccess.Expression, receiverSymbol, model, cancellationToken);
 
     /// <summary>Returns whether two expressions bind to the same stable symbol.</summary>
@@ -431,15 +431,15 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether repeated reads avoid user code.</summary>
     /// <param name="symbol">The symbol read by an expression.</param>
     /// <returns><see langword="true"/> for locals and parameters.</returns>
-    private static bool IsStableSymbol(ISymbol? symbol)
-        => symbol is ILocalSymbol or IParameterSymbol;
+    private static bool IsStableSymbol(ISymbol? symbol) =>
+        symbol is ILocalSymbol or IParameterSymbol;
 
     /// <summary>Returns whether two expressions are the same identifier token.</summary>
     /// <param name="left">The first expression.</param>
     /// <param name="right">The second expression.</param>
     /// <returns><see langword="true"/> when both expressions read the same identifier text.</returns>
-    private static bool IsSameIdentifierRead(ExpressionSyntax left, ExpressionSyntax right)
-        => left is IdentifierNameSyntax leftIdentifier
+    private static bool IsSameIdentifierRead(ExpressionSyntax left, ExpressionSyntax right) =>
+        left is IdentifierNameSyntax leftIdentifier
         && right is IdentifierNameSyntax rightIdentifier
         && leftIdentifier.Identifier.ValueText == rightIdentifier.Identifier.ValueText;
 
@@ -469,22 +469,22 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <c>cond ? false : value</c> is a logical operator written the long way, which is the shape SST2288
     /// reports, so collapsing to it would trade one diagnostic for another.
     /// </remarks>
-    private static bool HasOneBooleanLiteralBranch(ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
-        => IsBooleanLiteral(whenTrue) != IsBooleanLiteral(whenFalse);
+    private static bool HasOneBooleanLiteralBranch(ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
+        IsBooleanLiteral(whenTrue) != IsBooleanLiteral(whenFalse);
 
     /// <summary>Returns whether an expression is the <c>true</c> or <c>false</c> literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a boolean literal.</returns>
-    private static bool IsBooleanLiteral(ExpressionSyntax expression)
-        => expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
+    private static bool IsBooleanLiteral(ExpressionSyntax expression) =>
+        expression.IsKind(SyntaxKind.TrueLiteralExpression) || expression.IsKind(SyntaxKind.FalseLiteralExpression);
 
     /// <summary>Returns whether a conditional rewrite would create nested conditional expressions.</summary>
     /// <param name="condition">The condition expression.</param>
     /// <param name="whenTrue">The expression used for the true branch.</param>
     /// <param name="whenFalse">The expression used for the false branch.</param>
     /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
-    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
-        => ContainsConditionalExpression(condition)
+    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
+        ContainsConditionalExpression(condition)
             || ContainsConditionalExpression(whenTrue)
             || ContainsConditionalExpression(whenFalse);
 
@@ -567,8 +567,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to inspect.</param>
     /// <param name="value">The expected identifier text.</param>
     /// <returns><see langword="true"/> when the expression is the expected identifier.</returns>
-    private static bool IsIdentifier(ExpressionSyntax expression, string value)
-        => expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == value;
+    private static bool IsIdentifier(ExpressionSyntax expression, string value) =>
+        expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == value;
 
     /// <summary>Returns whether a type can be written as the operand of <c>nameof</c>.</summary>
     /// <param name="type">The type syntax to inspect.</param>
@@ -586,8 +586,8 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
     /// renamed, which is the whole reason this rule prefers <c>nameof</c>.
     /// </para>
     /// </remarks>
-    private static bool CanBeNameofOperand(TypeSyntax type)
-        => type switch
+    private static bool CanBeNameofOperand(TypeSyntax type) =>
+        type switch
         {
             GenericNameSyntax => false,
             IdentifierNameSyntax => true,

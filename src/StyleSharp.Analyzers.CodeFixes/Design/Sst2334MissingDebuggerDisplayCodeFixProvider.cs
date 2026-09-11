@@ -42,8 +42,8 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
     private const int FieldRank = 2;
 
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -121,17 +121,19 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
         var members = declaration.Members;
         for (var i = 0; i < members.Count; i++)
         {
-            if (TryNameMember(members[i], out var name, out var rank) && rank < bestRank)
+            if (!TryNameMember(members[i], out var name, out var rank) || rank >= bestRank)
             {
-                best = name;
-                bestRank = rank;
+                continue;
             }
+
+            best = name;
+            bestRank = rank;
         }
 
         var typeName = declaration.Identifier.ValueText;
         return best is null
             ? typeName + PrefixSeparator + ToStringExpression
-            : typeName + PrefixSeparator + "{" + best + "}";
+            : $"{typeName}{PrefixSeparator}{{{best}}}";
     }
 
     /// <summary>Names a member a display string could use, and ranks how well it identifies an instance.</summary>
@@ -196,8 +198,8 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
     /// <summary>Returns the indentation trivia (the whitespace immediately before the type) of its leading trivia.</summary>
     /// <param name="leading">The type's leading trivia.</param>
     /// <returns>The indentation trivia list, or an empty list when the type starts at column zero.</returns>
-    private static SyntaxTriviaList IndentTrivia(SyntaxTriviaList leading)
-        => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
+    private static SyntaxTriviaList IndentTrivia(in SyntaxTriviaList leading) =>
+        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? SyntaxFactory.TriviaList(leading[leading.Count - 1])
             : SyntaxTriviaList.Empty;
 }

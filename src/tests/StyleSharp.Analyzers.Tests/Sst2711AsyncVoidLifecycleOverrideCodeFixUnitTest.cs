@@ -8,10 +8,7 @@ using VerifyLifecycle = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>
-/// Tests for <see cref="Sst2711AsyncVoidLifecycleOverrideCodeFixProvider"/> (SST2711 override the Task-returning
-/// lifecycle twin).
-/// </summary>
+/// <summary>Tests for <see cref="Sst2711AsyncVoidLifecycleOverrideCodeFixProvider"/> (SST2711 override the Task-returning lifecycle twin).</summary>
 public class Sst2711AsyncVoidLifecycleOverrideCodeFixUnitTest
 {
     /// <summary>The component marker stub added to both the test and fixed documents so the marker resolves.</summary>

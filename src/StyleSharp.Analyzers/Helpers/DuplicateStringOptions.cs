@@ -41,7 +41,7 @@ internal readonly record struct DuplicateStringOptions(int Threshold, int Minimu
     /// literal in the file and a length of 0 would report every <c>""</c>, so a typo there must not become a
     /// rule that shouts at everything.
     /// </remarks>
-    public static DuplicateStringOptions Read(AnalyzerConfigOptions options) => new(
+    internal static DuplicateStringOptions Read(AnalyzerConfigOptions options) => new(
         ReadCount(options, ThresholdRuleKey, ThresholdGeneralKey, SmallestThreshold, DefaultThreshold),
         ReadCount(options, MinimumLengthRuleKey, MinimumLengthGeneralKey, SmallestLength, DefaultMinimumLength));
 

@@ -63,8 +63,8 @@ public sealed class Psh1105AvoidDoubleLookupCodeFixProvider : CodeFixProvider, I
     /// <param name="root">The syntax root.</param>
     /// <param name="ifStatement">The reported if statement.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement)
-        => !Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape)
+    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement) =>
+        !Psh1105AvoidDoubleLookupAnalyzer.TryGetShape(ifStatement, out var shape)
             ? document
             : document.WithSyntaxRoot(root.ReplaceNode(ifStatement, CreateReplacement(ifStatement, shape)));
 

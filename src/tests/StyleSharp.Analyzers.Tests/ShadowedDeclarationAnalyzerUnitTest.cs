@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyShadowed = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1484ShadowedDeclarationAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,9 +10,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1484 (declarations should not shadow an outer field or property).</summary>
 public class ShadowedDeclarationAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the base-type-check option is read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
     private const string IsExternalInit = """
 
@@ -20,9 +18,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a local that reuses a field's name is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalShadowingFieldIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task LocalShadowingFieldIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -40,9 +39,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a local that reuses a property's name is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalShadowingPropertyIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task LocalShadowingPropertyIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -58,9 +58,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a method parameter that reuses a field's name without storing it is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterShadowingFieldIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task ParameterShadowingFieldIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -79,9 +80,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
     /// field it shadows is how C# construction is written, so every shape of it — block-bodied,
     /// expression-bodied, unqualified, tuple, and forwarded to another constructor — has to stay silent.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorAssignmentIdiomIsCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task ConstructorAssignmentIdiomIsCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Classic
             {
@@ -166,9 +168,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
     /// backing a member is the reason they exist. A positional record's properties are generated from the
     /// very parameters that would be reported.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrimaryConstructorParametersAreCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task PrimaryConstructorParametersAreCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             $$"""
             public record Person(string Name, int Age);
 
@@ -184,9 +187,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a setter-shaped method that stores its argument is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterThatFeedsTheMemberIsCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task ParameterThatFeedsTheMemberIsCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -200,9 +204,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies an instance field is not in scope inside a static member, so a local cannot shadow it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMemberDoesNotSeeInstanceFieldsAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task StaticMemberDoesNotSeeInstanceFieldsAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -227,9 +232,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a static local function does not see the instance fields of its enclosing method.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticLocalFunctionDoesNotSeeInstanceFieldsAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task StaticLocalFunctionDoesNotSeeInstanceFieldsAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -252,9 +258,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a loop variable, a pattern variable, an out variable and a catch variable are all measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryLocalDeclarationFormIsMeasuredAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task EveryLocalDeclarationFormIsMeasuredAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -319,9 +326,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a local that shadows a visible base-type field is reported, and a private one is not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedMembersAreShadowedOnlyWhenVisibleAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task InheritedMembersAreShadowedOnlyWhenVisibleAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -349,9 +357,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a name that only matches a member of an unrelated type is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTypeMembersAreCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task UnrelatedTypeMembersAreCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public static class Defaults
             {
@@ -375,9 +384,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
     /// containing type's static member resolves the wrong symbol. A static field, a const and a static
     /// property are all in scope by simple name and all count.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeFieldShadowingOuterStaticMemberIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task NestedTypeFieldShadowingOuterStaticMemberIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Registry
             {
@@ -400,9 +410,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a nested type's property that reuses a containing type's static member name is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypePropertyShadowingOuterStaticMemberIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task NestedTypePropertyShadowingOuterStaticMemberIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Configuration
             {
@@ -422,9 +433,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies every containing type is measured, including statics the containing type inherits.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeMemberShadowingDeeperOuterStaticIsReportedAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task NestedTypeMemberShadowingDeeperOuterStaticIsReportedAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class BaseSettings
             {
@@ -459,9 +471,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
     /// a farther containing type has a static of that name — which is why <c>Middle.Value</c> itself is the
     /// one reported.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeMemberMatchingOuterInstanceMemberIsCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task NestedTypeMemberMatchingOuterInstanceMemberIsCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Host
             {
@@ -503,9 +516,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
     /// An <c>override</c> keeps the name its base declared, a member marked <c>new</c> says the hiding is
     /// deliberate, and an explicit interface implementation is not reachable by simple name at all.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeMemberWithContractOrDeliberateNameIsCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task NestedTypeMemberWithContractOrDeliberateNameIsCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public interface INamed
             {
@@ -549,9 +563,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a sibling nested type's static member is not in scope and so cannot be shadowed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SiblingNestedTypeMembersAreCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task SiblingNestedTypeMembersAreCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Pair
             {
@@ -573,9 +588,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a discard-named member and a catch clause with no name shadow nothing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardNamedMemberAndNamelessCatchAreCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task DiscardNamedMemberAndNamelessCatchAreCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Shell
             {
@@ -603,9 +619,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a field that hides an inherited field is not reported by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldHidingInheritedFieldIsCleanByDefaultAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task FieldHidingInheritedFieldIsCleanByDefaultAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -650,7 +667,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = true
@@ -683,7 +700,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.check_base_types = true
@@ -716,7 +733,7 @@ public class ShadowedDeclarationAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1484.check_base_types = yes please
@@ -728,9 +745,10 @@ public class ShadowedDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a discard names nothing and so shadows nothing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardIsCleanAsync()
-        => await VerifyShadowed.VerifyAnalyzerAsync(
+    public Task DiscardIsCleanAsync() =>
+        VerifyShadowed.VerifyAnalyzerAsync(
             """
             public class C
             {

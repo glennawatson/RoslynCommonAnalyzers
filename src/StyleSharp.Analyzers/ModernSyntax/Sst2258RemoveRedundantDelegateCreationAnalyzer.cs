@@ -96,7 +96,7 @@ public sealed class Sst2258RemoveRedundantDelegateCreationAnalyzer : DiagnosticA
         }
 
         if (info.CandidateReason is not (CandidateReason.OverloadResolutionFailure or CandidateReason.MemberGroup)
-            || info.CandidateSymbols.Length == 0)
+            || info.CandidateSymbols.IsEmpty)
         {
             return false;
         }
@@ -152,6 +152,6 @@ public sealed class Sst2258RemoveRedundantDelegateCreationAnalyzer : DiagnosticA
     /// <summary>Returns whether an assignment kind takes a method-group right-hand side.</summary>
     /// <param name="kind">The assignment expression's kind.</param>
     /// <returns><see langword="true"/> for <c>=</c>, <c>+=</c>, and <c>-=</c>.</returns>
-    private static bool IsDelegateAssignmentKind(SyntaxKind kind)
-        => kind is SyntaxKind.SimpleAssignmentExpression or SyntaxKind.AddAssignmentExpression or SyntaxKind.SubtractAssignmentExpression;
+    private static bool IsDelegateAssignmentKind(SyntaxKind kind) =>
+        kind is SyntaxKind.SimpleAssignmentExpression or SyntaxKind.AddAssignmentExpression or SyntaxKind.SubtractAssignmentExpression;
 }

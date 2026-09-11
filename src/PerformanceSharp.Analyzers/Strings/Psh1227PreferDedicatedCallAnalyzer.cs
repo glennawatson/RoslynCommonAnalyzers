@@ -96,8 +96,8 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is the reported <c>string.Compare(a, b, StringComparison.Ordinal)</c> shape, syntactically.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the callee names <c>Compare</c> with three arguments and is not compared to zero.</returns>
-    internal static bool IsCompareOrdinalShape(InvocationExpressionSyntax invocation)
-        => IsSimpleCall(invocation, CompareName)
+    internal static bool IsCompareOrdinalShape(InvocationExpressionSyntax invocation) =>
+        IsSimpleCall(invocation, CompareName)
             && invocation.ArgumentList.Arguments.Count == CompareArgumentCount
             && !IsComparedToZero(invocation);
 
@@ -118,7 +118,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <param name="debugType">The debug type carrying the assertion helpers, when it resolves.</param>
     /// <param name="failArities">The argument counts the <c>Debug.Fail</c> replacement supports.</param>
     private static void AnalyzeInvocation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         bool hasCompareOrdinal,
         INamedTypeSymbol? debugType,
         FailArities failArities)
@@ -143,7 +143,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the <c>string.Compare</c> shape once it binds to the ordinal overload.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="invocation">The candidate invocation.</param>
-    private static void AnalyzeCompare(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+    private static void AnalyzeCompare(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
     {
         if (!IsCompareOrdinalShape(invocation)
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
@@ -167,7 +167,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <param name="debugType">The debug type carrying the assertion helpers.</param>
     /// <param name="failArities">The argument counts the <c>Debug.Fail</c> replacement supports.</param>
     private static void AnalyzeAssert(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol debugType,
         FailArities failArities)
@@ -192,8 +192,8 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The invocation to inspect.</param>
     /// <param name="name">The member name to match.</param>
     /// <returns><see langword="true"/> when the callee is <c>receiver.name(...)</c>.</returns>
-    private static bool IsSimpleCall(InvocationExpressionSyntax invocation, string name)
-        => invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+    private static bool IsSimpleCall(InvocationExpressionSyntax invocation, string name) =>
+        invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name is IdentifierNameSyntax identifier
             && identifier.Identifier.ValueText == name;
 
@@ -219,8 +219,8 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the numeric literal <c>0</c>.</summary>
     /// <param name="expression">The candidate operand expression.</param>
     /// <returns><see langword="true"/> for a numeric literal whose value is the integer zero.</returns>
-    private static bool IsZeroLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
             && literal.Token.Value is 0;
 
     /// <summary>Returns whether a bound method is the ordinal-comparison overload of <c>string.Compare</c>.</summary>
@@ -307,7 +307,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
             two |= method.Parameters.Length == StringPairParameterCount;
         }
 
-        return new FailArities(one, two);
+        return new(one, two);
     }
 
     /// <summary>Returns whether every parameter of a method is a string.</summary>

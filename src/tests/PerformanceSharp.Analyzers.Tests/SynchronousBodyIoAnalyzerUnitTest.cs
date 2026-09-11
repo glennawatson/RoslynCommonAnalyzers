@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeBodyIo = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -41,9 +42,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a direct synchronous read of the request body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequestBodyReadByteReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task RequestBodyReadByteReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -55,9 +57,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a direct synchronous write of the response body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResponseBodyWriteReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task ResponseBodyWriteReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -70,9 +73,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous flush of the response body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResponseBodyFlushReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task ResponseBodyFlushReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -84,9 +88,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous read through a reader wrapping the request body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StreamReaderReadToEndReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task StreamReaderReadToEndReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -99,9 +104,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous read on a local initialised from the request body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalBodyStreamReadReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task LocalBodyStreamReadReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -118,9 +124,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous read on a local reader initialised over the request body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalStreamReaderReadToEndReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task LocalStreamReaderReadToEndReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -137,9 +144,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies a synchronous read on an unrelated stream is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedStreamIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task UnrelatedStreamIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -156,9 +164,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies an already asynchronous body read is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncBodyReadIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task AsyncBodyReadIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Http;
@@ -172,9 +181,10 @@ public class SynchronousBodyIoAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the ASP.NET Core request type is absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenHttpRequestAbsentAsync()
-        => await VerifyAnalyzerAsync(
+    public Task SilentWhenHttpRequestAbsentAsync() =>
+        VerifyAnalyzerAsync(
             """
             public class Handler
             {
@@ -382,11 +392,7 @@ public class SynchronousBodyIoAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerAsync(string source)
     {
-        var test = new AnalyzeBodyIo.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeBodyIo.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -397,12 +403,7 @@ public class SynchronousBodyIoAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyCodeFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyBodyIoFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyBodyIoFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

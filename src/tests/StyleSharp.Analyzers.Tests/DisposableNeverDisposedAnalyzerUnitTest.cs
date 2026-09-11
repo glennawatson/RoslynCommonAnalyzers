@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDisposable = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2410DisposableNeverDisposedAnalyzer>;
 using VerifyDisposableFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2410DisposableNeverDisposedAnalyzer,
@@ -116,9 +117,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a created disposable that is used and dropped is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NeverDisposedIsReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task NeverDisposedIsReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -134,9 +136,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable that is created and never touched again is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NeverUsedIsReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task NeverUsedIsReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -151,9 +154,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined disposable is reported, not just the framework's.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedDisposableIsReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task UserDefinedDisposableIsReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -180,9 +184,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies an async disposable that is never disposed is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncDisposableIsReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AsyncDisposableIsReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -208,9 +213,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable that is disposed is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposedIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task DisposedIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -227,9 +233,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable disposed in a finally block is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposedInFinallyIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task DisposedInFinallyIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -252,9 +259,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies an async disposable that is awaited to disposal is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeAsyncIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task DisposeAsyncIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -276,9 +284,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration is not reported — it is already disposal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task UsingDeclarationIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -294,9 +303,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies an await using declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitUsingDeclarationIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AwaitUsingDeclarationIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -318,9 +328,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a using statement is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStatementIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task UsingStatementIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -338,9 +349,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable that is returned is not reported — the caller owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task ReturnedIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -357,9 +369,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable stored in a field is not reported — the type owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedToFieldIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AssignedToFieldIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -379,9 +392,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable stored in a property is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedToPropertyIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AssignedToPropertyIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -399,9 +413,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable copied into another local is not reported — that one may be disposed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedToAnotherLocalIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AssignedToAnotherLocalIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -418,9 +433,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable passed to a method is not reported — the callee may take ownership.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassedToMethodIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task PassedToMethodIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -440,9 +456,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable handed to a constructor is not reported — the new object owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassedToConstructorIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task PassedToConstructorIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -459,9 +476,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable added to a collection is not reported — the collection may own it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddedToCollectionIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task AddedToCollectionIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.IO;
@@ -478,9 +496,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable that is yielded is not reported — the consumer owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task YieldReturnedIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task YieldReturnedIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.IO;
@@ -497,9 +516,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable captured by a lambda is not reported — the closure outlives the scan.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturedByLambdaIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task CapturedByLambdaIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
             using System.IO;
@@ -516,9 +536,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable captured by a local function is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturedByLocalFunctionIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task CapturedByLocalFunctionIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -536,9 +557,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable struct is never reported; disposing a copy is not this rule's call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposableStructIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task DisposableStructIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -565,9 +587,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a Task is never reported; it is disposable but must not be disposed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TaskIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task TaskIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -583,9 +606,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a disposable that is not created with 'new' is not reported — a factory's result may be owned elsewhere.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactoryCreatedIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task FactoryCreatedIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -601,9 +625,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies a non-disposable local is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDisposableIsCleanAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task NonDisposableIsCleanAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -617,21 +642,24 @@ public class DisposableNeverDisposedAnalyzerUnitTest
 
     /// <summary>Verifies the code fix turns the local into a using declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CodeFixAddsUsingDeclarationAsync()
-        => await VerifyDisposableFix.VerifyCodeFixAsync(UndisposedSource, UndisposedFixed);
+    public Task CodeFixAddsUsingDeclarationAsync() =>
+        VerifyDisposableFix.VerifyCodeFixAsync(UndisposedSource, UndisposedFixed);
 
     /// <summary>Verifies the code fix awaits the using declaration for an async-disposable in an async body.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CodeFixAddsAwaitUsingDeclarationAsync()
-        => await VerifyDisposableFix.VerifyCodeFixAsync(AsyncUndisposedSource, AsyncUndisposedFixed);
+    public Task CodeFixAddsAwaitUsingDeclarationAsync() =>
+        VerifyDisposableFix.VerifyCodeFixAsync(AsyncUndisposedSource, AsyncUndisposedFixed);
 
     /// <summary>Verifies no fix is offered for an async-only disposable in a synchronous body: the diagnostic stands, but 'await using' would not compile.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoCodeFixForAsyncDisposableInSyncBodyAsync()
-        => await VerifyDisposableFix.VerifyCodeFixAsync(AsyncDisposableInSyncBodySource, AsyncDisposableInSyncBodySource);
+    public Task NoCodeFixForAsyncDisposableInSyncBodyAsync() =>
+        VerifyDisposableFix.VerifyCodeFixAsync(AsyncDisposableInSyncBodySource, AsyncDisposableInSyncBodySource);
 
     /// <summary>Verifies a local whose own method hands it back to the caller is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -641,9 +669,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
     /// <c>return</c> statement, so a scan that only looks for <c>return local;</c> calls it a leak — which it
     /// is not.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalHandedBackByItsOwnCallIsNotReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task LocalHandedBackByItsOwnCallIsNotReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -675,9 +704,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
     /// concrete type. A type's interface list does not contain the type itself, so matching only against
     /// <c>AllInterfaces</c> misses this and calls a handed-off subscription a leak.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalHandedBackAsTheInterfaceIsNotReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task LocalHandedBackAsTheInterfaceIsNotReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -706,9 +736,10 @@ public class DisposableNeverDisposedAnalyzerUnitTest
     /// The counterpart to the test above: <c>Read()</c> returns an <c>int</c>, so it cannot be passing the
     /// coordinator on, and the local really is dropped undisposed.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalWhoseCallHandsBackANonDisposableIsReportedAsync()
-        => await VerifyDisposable.VerifyAnalyzerAsync(
+    public Task LocalWhoseCallHandsBackANonDisposableIsReportedAsync() =>
+        VerifyDisposable.VerifyAnalyzerAsync(
             """
             using System;
 

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -11,6 +12,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Micro-benchmarks for the SST1110 opening-token declaration-line check.</summary>
+[System.Diagnostics.DebuggerDisplay("OpeningParenOnDeclarationLineBenchmarks: {CurrentScenario}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class OpeningParenOnDeclarationLineBenchmarks
@@ -28,13 +30,13 @@ public class OpeningParenOnDeclarationLineBenchmarks
     public enum Scenario
     {
         /// <summary>A normal declaration-line opening token.</summary>
-        Clean,
+        Clean = 0,
 
         /// <summary>An opening token that has moved onto the next line.</summary>
-        Violating,
+        Violating = 1,
 
         /// <summary>A parenthesized callback lambda on the next argument line.</summary>
-        ParenthesizedLambda
+        ParenthesizedLambda = 2,
     }
 
     /// <summary>Gets or sets the scenario under test.</summary>
@@ -43,6 +45,7 @@ public class OpeningParenOnDeclarationLineBenchmarks
 
     /// <summary>Builds the token fixture for the selected scenario.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
+    /// <exception cref="InvalidOperationException">The scenario produced an opening token that is not attached to a parsed tree, so no source text is reachable.</exception>
     [GlobalSetup]
     public async Task SetupAsync()
     {
@@ -104,13 +107,14 @@ public class OpeningParenOnDeclarationLineBenchmarks
 
     /// <summary>Benchmarks the SST1110 opening-line predicate.</summary>
     /// <returns><see langword="true"/> when the opening token is treated as on the declaration line.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
-    public bool IsOpeningOnDeclarationLine()
-        => ParameterListLayoutAnalyzer.IsOpeningOnDeclarationLine(_text, _openingToken, _openingLine);
+    public bool IsOpeningOnDeclarationLine() =>
+        ParameterListLayoutAnalyzer.IsOpeningOnDeclarationLine(_text, _openingToken, _openingLine);
 
     /// <summary>Parses the single method declaration from a single-type snippet.</summary>
     /// <param name="source">The source to parse.</param>
     /// <returns>The parsed method declaration.</returns>
-    private static MethodDeclarationSyntax ParseSingleMethod(string source)
-        => (MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1]).Members[0];
+    private static MethodDeclarationSyntax ParseSingleMethod(string source) =>
+        (MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[^1]).Members[0];
 }

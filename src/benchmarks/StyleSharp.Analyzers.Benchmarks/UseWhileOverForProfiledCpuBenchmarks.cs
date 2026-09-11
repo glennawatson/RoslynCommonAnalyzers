@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for condition-only-loop analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseWhileOverForProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class UseWhileOverForProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class UseWhileOverForProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean loop path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseWhileOverFor_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating loop path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseWhileOverFor_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

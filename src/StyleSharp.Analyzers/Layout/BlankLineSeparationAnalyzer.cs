@@ -6,9 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a blank line left inside a construct that should read as one thing.
-/// </summary>
+/// <summary>Reports a blank line left inside a construct that should read as one thing.</summary>
 /// <remarks>
 /// <para>
 /// Reports SST1535 (a blank line follows a constructor initializer's <c>:</c>), SST1536 (a blank line
@@ -102,7 +100,7 @@ public sealed class BlankLineSeparationAnalyzer : DiagnosticAnalyzer
     /// holds the node that owns it, so a descent into that node replaces a walk up and across the tree.
     /// </remarks>
     private static void ReportIfBlankLineFollows(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxToken token,
         SyntaxToken next,
         DiagnosticDescriptor descriptor,

@@ -61,7 +61,7 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1303 for a <c>new Regex(pattern, ...)</c> whose pattern argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -84,7 +84,7 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1303 for a static <c>Regex</c> call whose pattern argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -104,7 +104,7 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportWhenPatternNonConstant(context, invocation.ArgumentList, method, "Regex." + method.Name);
+        ReportWhenPatternNonConstant(context, invocation.ArgumentList, method, $"Regex.{method.Name}");
     }
 
     /// <summary>Reports SES1303 when the method's <c>pattern</c> argument is not a compile-time constant.</summary>
@@ -112,7 +112,7 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
     /// <param name="argumentList">The call's argument list.</param>
     /// <param name="method">The bound constructor or static method.</param>
     /// <param name="sink">The message label identifying the call.</param>
-    private static void ReportWhenPatternNonConstant(SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, string sink)
+    private static void ReportWhenPatternNonConstant(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, string sink)
     {
         if (GetPatternArgument(argumentList, method) is not { } patternExpression
             || context.SemanticModel.GetConstantValue(patternExpression, context.CancellationToken).HasValue)
@@ -160,19 +160,18 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an object-creation type names the <c>Regex</c> type.</summary>
     /// <param name="type">The created type syntax.</param>
     /// <returns><see langword="true"/> when the right-most name is <c>Regex</c>.</returns>
-    private static bool IsRegexTypeName(TypeSyntax type)
-        => type switch
+    private static bool IsRegexTypeName(TypeSyntax type) =>
+        type switch
         {
-            IdentifierNameSyntax { Identifier.ValueText: RegexTypeName } => true,
-            QualifiedNameSyntax { Right.Identifier.ValueText: RegexTypeName } => true,
+            IdentifierNameSyntax { Identifier.ValueText: RegexTypeName } or QualifiedNameSyntax { Right.Identifier.ValueText: RegexTypeName } => true,
             _ => false,
         };
 
     /// <summary>Returns whether a name is one of the guarded static <c>Regex</c> methods.</summary>
     /// <param name="name">The candidate method name.</param>
     /// <returns><see langword="true"/> for <c>IsMatch</c>, <c>Match</c>, <c>Matches</c>, <c>Replace</c>, or <c>Split</c>.</returns>
-    private static bool IsGuardedStaticMethodName(string name)
-        => name switch
+    private static bool IsGuardedStaticMethodName(string name) =>
+        name switch
         {
             "IsMatch" or "Match" or "Matches" or "Replace" or "Split" => true,
             _ => false,

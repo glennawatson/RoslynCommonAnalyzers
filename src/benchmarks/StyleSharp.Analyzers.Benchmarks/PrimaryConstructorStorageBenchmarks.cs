@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for primary-constructor storage analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("PrimaryConstructorStorageBenchmarks: {Types}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PrimaryConstructorStorageBenchmarks
@@ -24,11 +26,13 @@ public class PrimaryConstructorStorageBenchmarks
 
     /// <summary>Benchmarks constructor storage already expressed on the type declaration.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrimaryConstructorStorage_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks constructors that only store parameters.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrimaryConstructorStorage_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -39,8 +43,8 @@ public class PrimaryConstructorStorageBenchmarks
         /// <param name="types">The number of synthetic types to emit.</param>
         /// <param name="violating">Whether to emit constructors that only copy parameters to members.</param>
         /// <returns>The generated source text.</returns>
-        public static string Generate(int types, bool violating)
-            => $$"""
+        public static string Generate(int types, bool violating) =>
+            $$"""
                namespace Bench;
 
                {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -50,8 +54,8 @@ public class PrimaryConstructorStorageBenchmarks
         /// <param name="index">The synthetic type index.</param>
         /// <param name="violating">Whether to emit the reportable constructor form.</param>
         /// <returns>The generated type block.</returns>
-        private static string GenerateType(int index, bool violating)
-            => violating
+        private static string GenerateType(int index, bool violating) =>
+            violating
                 ? $$"""
                   internal sealed class C{{index}}
                   {
@@ -77,7 +81,8 @@ public class PrimaryConstructorStorageBenchmarks
         /// <summary>Creates the prepared benchmark state for the requested type count.</summary>
         /// <param name="types">The synthetic type count.</param>
         /// <returns>The prepared benchmark state.</returns>
-        public static SingleAnalyzerBenchmarkState Create(int types)
-            => SingleAnalyzerBenchmarkCases.Create(new Sst2241PrimaryConstructorStorageAnalyzer(), Source.Generate, types);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleAnalyzerBenchmarkState Create(int types) =>
+            SingleAnalyzerBenchmarkCases.Create(new Sst2241PrimaryConstructorStorageAnalyzer(), Source.Generate, types);
     }
 }

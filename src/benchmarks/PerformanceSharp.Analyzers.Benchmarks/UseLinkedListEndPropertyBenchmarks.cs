@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for linked-list end-property analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseLinkedListEndPropertyBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseLinkedListEndPropertyBenchmarks
@@ -24,11 +26,13 @@ public class UseLinkedListEndPropertyBenchmarks
 
     /// <summary>Benchmarks the clean end-element path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseLinkedListEndProperty_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating end-element path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseLinkedListEndProperty_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

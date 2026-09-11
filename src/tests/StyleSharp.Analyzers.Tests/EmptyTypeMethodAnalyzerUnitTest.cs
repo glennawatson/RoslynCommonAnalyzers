@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmpty = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer>;
 
@@ -12,9 +13,10 @@ public class EmptyTypeMethodAnalyzerUnitTest
 {
     /// <summary>Verifies an empty class, interface, and method are each reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyConstructsReportedAsync()
-        => await VerifyEmpty.VerifyAnalyzerAsync(
+    public Task EmptyConstructsReportedAsync() =>
+        VerifyEmpty.VerifyAnalyzerAsync(
             """
             public class {|SST1436:Empty|}
             {
@@ -34,9 +36,10 @@ public class EmptyTypeMethodAnalyzerUnitTest
 
     /// <summary>Verifies populated types and empty virtual/override hooks are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PopulatedAndExcludedConstructsAreCleanAsync()
-        => await VerifyEmpty.VerifyAnalyzerAsync(
+    public Task PopulatedAndExcludedConstructsAreCleanAsync() =>
+        VerifyEmpty.VerifyAnalyzerAsync(
             """
             public class Populated
             {
@@ -65,9 +68,10 @@ public class EmptyTypeMethodAnalyzerUnitTest
 
     /// <summary>Verifies an empty method documented with a comment is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentedEmptyMethodIsCleanAsync()
-        => await VerifyEmpty.VerifyAnalyzerAsync(
+    public Task DocumentedEmptyMethodIsCleanAsync() =>
+        VerifyEmpty.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -80,9 +84,10 @@ public class EmptyTypeMethodAnalyzerUnitTest
 
     /// <summary>Verifies an empty method that implements an interface member (a no-op) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyInterfaceImplementationIsCleanAsync()
-        => await VerifyEmpty.VerifyAnalyzerAsync(
+    public Task EmptyInterfaceImplementationIsCleanAsync() =>
+        VerifyEmpty.VerifyAnalyzerAsync(
             """
             public sealed class NullScope : System.IDisposable
             {

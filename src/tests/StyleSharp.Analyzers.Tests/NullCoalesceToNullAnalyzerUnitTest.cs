@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNullCoalesceToNull = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2453NullCoalesceToNullAnalyzer,
     StyleSharp.Analyzers.Sst2453NullCoalesceToNullCodeFixProvider>;
@@ -171,9 +172,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a repeated call is left alone; the two evaluations are not the same thing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedCallIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task RepeatedCallIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -185,9 +187,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a real fallback value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RealFallbackIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task RealFallbackIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -197,9 +200,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a computed fallback is left alone without asking the model for a constant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedFallbackIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task ComputedFallbackIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -211,9 +215,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a coalescing whose left is also a constant null is left to the rule that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantNullOnBothSidesIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task ConstantNullOnBothSidesIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -225,9 +230,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a fallback that widens the result type is left alone; folding would change the type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideningNullFallbackIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task WideningNullFallbackIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -237,9 +243,10 @@ public class NullCoalesceToNullAnalyzerUnitTest
 
     /// <summary>Verifies a null-coalescing assignment is a different operator and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CoalesceAssignmentIsCleanAsync()
-        => await VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
+    public Task CoalesceAssignmentIsCleanAsync() =>
+        VerifyNullCoalesceToNull.VerifyAnalyzerAsync(
             """
             internal class C
             {

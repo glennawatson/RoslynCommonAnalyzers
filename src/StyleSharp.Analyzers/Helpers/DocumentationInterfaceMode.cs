@@ -4,18 +4,15 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// How the documentation-coverage rules treat interfaces and their members, via the
-/// <c>documentInterfaces</c> setting.
-/// </summary>
+/// <summary>How the documentation-coverage rules treat interfaces and their members, via the <c>documentInterfaces</c> setting.</summary>
 internal enum DocumentationInterfaceMode
 {
     /// <summary>Document every interface and interface member regardless of accessibility.</summary>
-    All,
+    All = 0,
 
     /// <summary>Document only externally visible (non-internal) interfaces and their public members.</summary>
-    Exposed,
+    Exposed = 1,
 
     /// <summary>Never require documentation on interfaces or their members.</summary>
-    None,
+    None = 2,
 }

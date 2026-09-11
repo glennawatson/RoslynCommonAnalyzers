@@ -14,8 +14,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2330FlagsCombinationLiteralCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.FlagsCombinationLiteralShouldNameMembers.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.FlagsCombinationLiteralShouldNameMembers.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;

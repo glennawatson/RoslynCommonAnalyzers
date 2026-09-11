@@ -43,8 +43,7 @@ public sealed class Sst1319EnumNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var declaration = (EnumDeclarationSyntax)context.Node;
-        var identifier = declaration.Identifier;
+        var identifier = ((EnumDeclarationSyntax)context.Node).Identifier;
         var name = identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 
         // A name that does not start upper-case is SST1300's to report; taking it here as well would

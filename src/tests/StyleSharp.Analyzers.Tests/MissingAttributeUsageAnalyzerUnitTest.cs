@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMissingAttributeUsage = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2336MissingAttributeUsageAnalyzer>;
 
@@ -12,9 +13,10 @@ public class MissingAttributeUsageAnalyzerUnitTest
 {
     /// <summary>Verifies an attribute type with no declared usage is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeWithoutUsageIsFlaggedAsync()
-        => await VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
+    public Task AttributeWithoutUsageIsFlaggedAsync() =>
+        VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -25,9 +27,10 @@ public class MissingAttributeUsageAnalyzerUnitTest
 
     /// <summary>Verifies an attribute declaring its usage is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeWithUsageIsCleanAsync()
-        => await VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
+    public Task AttributeWithUsageIsCleanAsync() =>
+        VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -39,9 +42,10 @@ public class MissingAttributeUsageAnalyzerUnitTest
 
     /// <summary>Verifies usage inherited from a base attribute counts.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedUsageIsCleanAsync()
-        => await VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
+    public Task InheritedUsageIsCleanAsync() =>
+        VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -57,9 +61,10 @@ public class MissingAttributeUsageAnalyzerUnitTest
 
     /// <summary>Verifies an abstract attribute base is left to its concrete derivations.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractAttributeIsCleanAsync()
-        => await VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
+    public Task AbstractAttributeIsCleanAsync() =>
+        VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -70,9 +75,10 @@ public class MissingAttributeUsageAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAttributeTypeIsCleanAsync()
-        => await VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
+    public Task NonAttributeTypeIsCleanAsync() =>
+        VerifyMissingAttributeUsage.VerifyAnalyzerAsync(
             """
             internal sealed class Marker
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeCors = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -26,9 +27,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a discard-parameter <c>_ =&gt; true</c> predicate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardExpressionLambdaReportedAsync()
-        => await VerifyAsync(
+    public Task DiscardExpressionLambdaReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -43,9 +45,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a named-parameter <c>origin =&gt; true</c> predicate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedExpressionLambdaReportedAsync()
-        => await VerifyAsync(
+    public Task NamedExpressionLambdaReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -60,9 +63,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a parenthesized-parameter lambda with a parenthesized <c>true</c> body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedLambdaReportedAsync()
-        => await VerifyAsync(
+    public Task ParenthesizedLambdaReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -77,9 +81,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a block lambda whose only result is <c>return true;</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockLambdaReturnTrueReportedAsync()
-        => await VerifyAsync(
+    public Task BlockLambdaReturnTrueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -97,9 +102,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a block lambda that does work before an unconditional <c>return true;</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockLambdaWithLeadingStatementsReportedAsync()
-        => await VerifyAsync(
+    public Task BlockLambdaWithLeadingStatementsReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
             using System;
@@ -119,9 +125,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous method that always returns true is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousMethodReturnTrueReportedAsync()
-        => await VerifyAsync(
+    public Task AnonymousMethodReturnTrueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -139,9 +146,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a method group to an always-true method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupToAlwaysTrueReportedAsync()
-        => await VerifyAsync(
+    public Task MethodGroupToAlwaysTrueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -158,9 +166,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a method group to a block method whose only result is <c>return true;</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupToBlockReturnTrueReportedAsync()
-        => await VerifyAsync(
+    public Task MethodGroupToBlockReturnTrueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -180,9 +189,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a local-function method group to an always-true function is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionMethodGroupReportedAsync()
-        => await VerifyAsync(
+    public Task LocalFunctionMethodGroupReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -198,9 +208,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies an expression lambda that inspects the origin is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OriginCheckingLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task OriginCheckingLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -215,9 +226,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a block lambda with a conditional <c>return false;</c> path is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockLambdaWithFalsePathIsCleanAsync()
-        => await VerifyAsync(
+    public Task BlockLambdaWithFalsePathIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -240,9 +252,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies a method group to a method that inspects the origin is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupToOriginCheckIsCleanAsync()
-        => await VerifyAsync(
+    public Task MethodGroupToOriginCheckIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Cors.Infrastructure;
 
@@ -259,9 +272,10 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
 
     /// <summary>Verifies an always-true predicate on a same-named method of an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMethodOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -304,11 +318,7 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeCors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeCors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -318,11 +328,7 @@ public class AlwaysAllowedCorsOriginAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeCors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + CorsStub
-        };
+        var test = new AnalyzeCors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + CorsStub };
 
         await test.RunAsync(CancellationToken.None);
     }

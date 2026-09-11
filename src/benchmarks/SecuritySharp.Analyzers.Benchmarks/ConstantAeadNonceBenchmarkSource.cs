@@ -11,8 +11,8 @@ internal static class ConstantAeadNonceBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit a constant (violating) nonce.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Security.Cryptography;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class ConstantAeadNonceBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => $$"""
+    private static string GenerateType(int index, bool violating) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void Encrypt(byte[] key, byte[] plaintext, byte[] ciphertext, byte[] tag)

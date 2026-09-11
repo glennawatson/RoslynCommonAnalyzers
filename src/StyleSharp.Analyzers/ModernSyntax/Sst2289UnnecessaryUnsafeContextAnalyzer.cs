@@ -43,7 +43,7 @@ public sealed class Sst2289UnnecessaryUnsafeContextAnalyzer : DiagnosticAnalyzer
 
         var statement = (UnsafeStatementSyntax)context.Node;
         var scan = new UnsafeScan(context.SemanticModel, false, false, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, UnsafeScan>(statement.Block, ref scan, Visit);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, UnsafeScan>(statement.Block, ref scan, Visit);
 
         if (scan.RequiresUnsafe || !scan.Relaxed)
         {
@@ -92,8 +92,8 @@ public sealed class Sst2289UnnecessaryUnsafeContextAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets whether a node is a pointer operation C# 15 permits outside an unsafe context.</summary>
     /// <param name="node">The descendant node.</param>
     /// <returns><see langword="true"/> for a relaxed operation.</returns>
-    private static bool IsRelaxedInCSharp15(SyntaxNode node)
-        => node is PointerTypeSyntax
+    private static bool IsRelaxedInCSharp15(SyntaxNode node) =>
+        node is PointerTypeSyntax
             or FixedStatementSyntax
             or SizeOfExpressionSyntax
             or StackAllocArrayCreationExpressionSyntax

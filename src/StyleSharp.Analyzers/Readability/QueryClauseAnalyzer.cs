@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -65,7 +66,7 @@ public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier clause.</param>
     /// <param name="current">The later clause.</param>
     /// <param name="allOnOneLine">Whether the whole query sits on a single line.</param>
-    private static void Examine(SyntaxNodeAnalysisContext context, SourceText text, SyntaxNode previous, SyntaxNode current, bool allOnOneLine)
+    private static void Examine(in SyntaxNodeAnalysisContext context, SourceText text, SyntaxNode previous, SyntaxNode current, bool allOnOneLine)
     {
         var previousStart = LineOf(text, previous.SpanStart);
         var previousEnd = LineOf(text, previous.Span.End);
@@ -102,12 +103,14 @@ public sealed class QueryClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="rule">The descriptor to report.</param>
     /// <param name="clause">The clause to flag.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxNode clause)
-        => context.ReportDiagnostic(Diagnostic.Create(rule, clause.GetLocation()));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxNode clause) =>
+        context.ReportDiagnostic(Diagnostic.Create(rule, clause.GetLocation()));
 
     /// <summary>Returns the zero-based line number for a position.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="position">The position to look up.</param>
     /// <returns>The line number.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int LineOf(SourceText text, int position) => text.Lines.GetLineFromPosition(position).LineNumber;
 }

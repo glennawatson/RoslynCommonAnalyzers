@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -154,9 +155,10 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
 
     /// <summary>Verifies a search from a start index is not a prefix question and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexOfWithStartIndexIsCleanAsync()
-        => await VerifyAsync(
+    public Task IndexOfWithStartIndexIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -166,9 +168,10 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against something other than zero is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonAgainstNonZeroIsCleanAsync()
-        => await VerifyAsync(
+    public Task ComparisonAgainstNonZeroIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -180,9 +183,10 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
 
     /// <summary>Verifies a search on something that is not a string is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringReceiverIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonStringReceiverIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -194,9 +198,10 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
 
     /// <summary>Verifies a comparison inside an expression tree is not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonInsideExpressionTreeIsCleanAsync()
-        => await VerifyAsync(
+    public Task ComparisonInsideExpressionTreeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -234,10 +239,7 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>
-    /// Verifies the StringComparison form still reports against netstandard2.0, where that overload
-    /// does exist.
-    /// </summary>
+    /// <summary>Verifies the StringComparison form still reports against netstandard2.0, where that overload does exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The gate is per shape, not per rule: the same compilation that cannot offer
@@ -263,12 +265,7 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
                                        public bool M(string text) => text.StartsWith("ab", StringComparison.Ordinal);
                                    }
                                    """;
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = FixedSource, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -278,11 +275,7 @@ public class UseStartsWithOverIndexOfAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

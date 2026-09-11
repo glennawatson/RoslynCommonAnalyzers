@@ -20,8 +20,8 @@ public sealed class Sst1534RedundantSwitchSectionBracesAnalyzer : DiagnosticAnal
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(LayoutRules.RedundantSwitchSectionBraces);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -37,7 +37,7 @@ public sealed class Sst1534RedundantSwitchSectionBracesAnalyzer : DiagnosticAnal
     internal static bool DeclaresAnything(BlockSyntax block)
     {
         var state = false;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(
             block,
             ref state,
             static (node, ref found) =>

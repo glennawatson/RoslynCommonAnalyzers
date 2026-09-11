@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySectionText = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.DocumentationTextAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DocumentationSectionTextAnalyzerUnitTest
 {
     /// <summary>Verifies empty remarks are reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyRemarksAreReportedAsync()
-        => await VerifySectionText.VerifyAnalyzerAsync(
+    public Task EmptyRemarksAreReportedAsync() =>
+        VerifySectionText.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -28,9 +30,10 @@ public class DocumentationSectionTextAnalyzerUnitTest
 
     /// <summary>Verifies non-empty remarks and empty summaries are not SST1627 diagnostics.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyRemarksAreCleanAsync()
-        => await VerifySectionText.VerifyAnalyzerAsync(
+    public Task NonEmptyRemarksAreCleanAsync() =>
+        VerifySectionText.VerifyAnalyzerAsync(
             """
             internal class C
             {

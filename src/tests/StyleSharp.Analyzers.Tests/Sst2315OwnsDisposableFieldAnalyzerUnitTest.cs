@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOwnsDisposable = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2315OwnsDisposableFieldAnalyzer,
     StyleSharp.Analyzers.Sst2315OwnsDisposableFieldCodeFixProvider>;
@@ -49,9 +50,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies a field assigned from a static factory is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactoryAssignedFieldReportedAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task FactoryAssignedFieldReportedAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2315:C|}
             {
@@ -61,9 +63,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies an auto-property initialized with new is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AutoPropertyNewReportedAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task AutoPropertyNewReportedAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             public sealed class {|SST2315:C|}
             {
@@ -73,9 +76,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies a collection the type fills with new disposables is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionOfDisposablesReportedAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task CollectionOfDisposablesReportedAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -89,9 +93,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies an injected disposable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InjectedFieldIsCleanAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task InjectedFieldIsCleanAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -103,9 +108,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies a field constructed directly with new is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewAssignedFieldIsCleanAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task NewAssignedFieldIsCleanAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -115,9 +121,10 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies a type that already implements IDisposable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlreadyDisposableIsCleanAsync()
-        => await VerifyOwnsDisposable.VerifyAnalyzerAsync(
+    public Task AlreadyDisposableIsCleanAsync() =>
+        VerifyOwnsDisposable.VerifyAnalyzerAsync(
             """
             public sealed class C : System.IDisposable
             {
@@ -129,7 +136,8 @@ public class Sst2315OwnsDisposableFieldAnalyzerUnitTest
 
     /// <summary>Verifies the fix adds IDisposable and a Dispose that releases the owned member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactoryFieldFixedToDisposableAsync()
-        => await VerifyOwnsDisposable.VerifyCodeFixAsync(FactoryFieldSource, FactoryFieldFixed);
+    public Task FactoryFieldFixedToDisposableAsync() =>
+        VerifyOwnsDisposable.VerifyCodeFixAsync(FactoryFieldSource, FactoryFieldFixed);
 }

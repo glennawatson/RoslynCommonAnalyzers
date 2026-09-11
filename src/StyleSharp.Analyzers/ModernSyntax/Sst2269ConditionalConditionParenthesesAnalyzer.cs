@@ -41,8 +41,8 @@ public sealed class Sst2269ConditionalConditionParenthesesAnalyzer : DiagnosticA
     /// <summary>Returns whether an expression is a single simple token — an identifier or a literal.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression is one identifier or one literal.</returns>
-    internal static bool IsSingleSimpleToken(ExpressionSyntax expression)
-        => expression is IdentifierNameSyntax or LiteralExpressionSyntax;
+    internal static bool IsSingleSimpleToken(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax or LiteralExpressionSyntax;
 
     /// <summary>Reports a conditional condition whose parentheses style does not match the configured one.</summary>
     /// <param name="context">The syntax node analysis context.</param>

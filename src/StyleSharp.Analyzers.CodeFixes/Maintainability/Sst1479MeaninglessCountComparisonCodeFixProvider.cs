@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Replaces a comparison that a count can never fail with the constant it always evaluates to (SST1479).
-/// </summary>
+/// <summary>Replaces a comparison that a count can never fail with the constant it always evaluates to (SST1479).</summary>
 /// <remarks>
 /// The fix stops at the comparison. Collapsing the <c>if</c> that wraps it is a judgement about what the
 /// author meant — the guard is usually salvageable, not deletable — so the constant is left in place for them
@@ -64,8 +64,9 @@ public sealed class Sst1479MeaninglessCountComparisonCodeFixProvider : CodeFixPr
     /// <param name="binary">The reported comparison.</param>
     /// <param name="result">The constant the comparison always evaluates to.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary, bool result)
-        => document.WithSyntaxRoot(root.ReplaceNode(binary, BuildLiteral(binary, result)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary, bool result) =>
+        document.WithSyntaxRoot(root.ReplaceNode(binary, BuildLiteral(binary, result)));
 
     /// <summary>Resolves the diagnostic's span back to the comparison, and re-derives its constant.</summary>
     /// <param name="root">The syntax root.</param>
@@ -85,7 +86,8 @@ public sealed class Sst1479MeaninglessCountComparisonCodeFixProvider : CodeFixPr
     /// <param name="node">The comparison being replaced, including any nested batch edits.</param>
     /// <param name="result">The constant the comparison always evaluates to.</param>
     /// <returns>The <c>true</c> or <c>false</c> literal.</returns>
-    private static LiteralExpressionSyntax BuildLiteral(SyntaxNode node, bool result)
-        => SyntaxFactory.LiteralExpression(result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LiteralExpressionSyntax BuildLiteral(SyntaxNode node, bool result) =>
+        SyntaxFactory.LiteralExpression(result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)
             .WithTriviaFrom(node);
 }

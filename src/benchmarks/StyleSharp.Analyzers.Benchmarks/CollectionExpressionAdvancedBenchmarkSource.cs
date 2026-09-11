@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for advanced collection-expression analysis.</summary>
@@ -14,23 +16,25 @@ internal static class CollectionExpressionAdvancedBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => GenerateCore(members, violating, shape: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating) =>
+        GenerateCore(members, violating, shape: null);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFix(int members, CollectionExpressionAdvancedBenchmarkShape shape)
-        => GenerateCore(members, violating: true, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateCodeFix(int members, CollectionExpressionAdvancedBenchmarkShape shape) =>
+        GenerateCore(members, violating: true, shape);
 
     /// <summary>Builds the benchmark source body.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The fixed shape, or <see langword="null"/> to cycle all shapes.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCore(int members, bool violating, CollectionExpressionAdvancedBenchmarkShape? shape)
-        => $$"""
+    private static string GenerateCore(int members, bool violating, CollectionExpressionAdvancedBenchmarkShape? shape) =>
+        $$"""
            using System;
            using System.Collections;
            using System.Collections.Generic;
@@ -74,8 +78,8 @@ internal static class CollectionExpressionAdvancedBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating, CollectionExpressionAdvancedBenchmarkShape shape)
-        => (shape, violating) switch
+    private static string GenerateMember(int index, bool violating, CollectionExpressionAdvancedBenchmarkShape shape) =>
+        (shape, violating) switch
         {
             (CollectionExpressionAdvancedBenchmarkShape.Stackalloc, true) => $$"""
                                                                                internal static int Stackalloc{{index}}()

@@ -11,8 +11,8 @@ internal static class SerializationCallbackSignatureBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Runtime.Serialization;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class SerializationCallbackSignatureBenchmarkSource
     /// <summary>Builds one type whose callback has the shape the serializer invokes.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class C{{index}}
            {
                [OnDeserialized]
@@ -37,8 +37,8 @@ internal static class SerializationCallbackSignatureBenchmarkSource
     /// <summary>Builds one type whose callback parameter is not a StreamingContext.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class V{{index}}
            {
                [OnDeserialized]

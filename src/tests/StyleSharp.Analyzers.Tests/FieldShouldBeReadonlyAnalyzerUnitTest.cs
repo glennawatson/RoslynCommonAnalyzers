@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReadonlyField = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyAnalyzer,
     StyleSharp.Analyzers.Sst1424FieldShouldBeReadonlyCodeFixProvider>;
@@ -37,9 +38,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a method assignment prevents the diagnostic.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodAssignmentIsCleanAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task MethodAssignmentIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -51,9 +53,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies several constructor-only fields in one type are each reported independently.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleConstructorOnlyFieldsAreEachReportedAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task MultipleConstructorOnlyFieldsAreEachReportedAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -72,9 +75,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a same-named local written in another method does not block the report.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNameLocalWriteInOtherMethodDoesNotBlockReportAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task SameNameLocalWriteInOtherMethodDoesNotBlockReportAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -93,9 +97,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a write inside a constructor lambda counts as outside the constructor and is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteInsideConstructorLambdaIsCleanAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task WriteInsideConstructorLambdaIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -113,9 +118,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a mutable struct field with a non-readonly method invoked is not reported (readonly would mutate a copy).</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableStructFieldWithMutatingMethodIsCleanAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task MutableStructFieldWithMutatingMethodIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -142,9 +148,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a mutable struct field passed by ref is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableStructFieldPassedByRefIsCleanAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task MutableStructFieldPassedByRefIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public struct Counter
             {
@@ -169,9 +176,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a mutable struct field whose non-readonly property setter is used is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableStructFieldWithSetterUsedIsCleanAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task MutableStructFieldWithSetterUsedIsCleanAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public struct Box
             {
@@ -190,9 +198,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a readonly-struct field assigned only in the constructor is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyStructFieldStillReportedAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task ReadonlyStructFieldStillReportedAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public readonly struct Token
             {
@@ -215,9 +224,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a reference-type field assigned only in the constructor is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceTypeFieldStillReportedAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task ReferenceTypeFieldStillReportedAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public sealed class Holder
             {
@@ -231,9 +241,10 @@ public class FieldShouldBeReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a value-type field only read through a readonly getter is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueTypeFieldReadThroughReadonlyGetterStillReportedAsync()
-        => await VerifyReadonlyField.VerifyAnalyzerAsync(
+    public Task ValueTypeFieldReadThroughReadonlyGetterStillReportedAsync() =>
+        VerifyReadonlyField.VerifyAnalyzerAsync(
             """
             public struct Counter
             {

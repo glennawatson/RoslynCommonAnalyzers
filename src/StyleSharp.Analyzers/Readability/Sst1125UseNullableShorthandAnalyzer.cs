@@ -62,7 +62,7 @@ public sealed class Sst1125UseNullableShorthandAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an identifier token spells <c>Nullable</c>.</summary>
     /// <param name="identifier">The identifier token.</param>
     /// <returns><see langword="true"/> when the token denotes <c>Nullable</c>.</returns>
-    private static bool IsNullableIdentifier(SyntaxToken identifier)
-        => identifier.Text == "Nullable"
+    private static bool IsNullableIdentifier(SyntaxToken identifier) =>
+        identifier.Text == "Nullable"
             || (identifier.Text is ['@', ..] && identifier.ValueText == "Nullable");
 }

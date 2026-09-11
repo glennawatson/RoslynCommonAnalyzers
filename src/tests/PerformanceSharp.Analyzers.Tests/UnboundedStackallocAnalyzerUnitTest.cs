@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 {
     /// <summary>Verifies a data-driven length with no bound is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnboundedLengthIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task UnboundedLengthIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -32,9 +34,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies a constant length is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantLengthIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantLengthIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -50,9 +53,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies the guarded conditional spill shape is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedConditionalIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task GuardedConditionalIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -68,9 +72,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies an enclosing if guard with a constant comparison is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnclosingIfGuardIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EnclosingIfGuardIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -91,9 +96,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies a relational pattern guard is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RelationalPatternGuardIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RelationalPatternGuardIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -114,9 +120,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies a Math.Min clamped length is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MinClampedLengthIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task MinClampedLengthIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -132,9 +139,10 @@ public class UnboundedStackallocAnalyzerUnitTest
 
     /// <summary>Verifies a static readonly threshold length is treated as bounded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyLengthIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task StaticReadonlyLengthIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -155,11 +163,7 @@ public class UnboundedStackallocAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

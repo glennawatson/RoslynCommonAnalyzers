@@ -14,8 +14,8 @@ internal static class MutableStaticFieldBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to expose mutable static state.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
 
@@ -28,8 +28,8 @@ internal static class MutableStaticFieldBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose static state nobody outside it can change.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -38,8 +38,8 @@ internal static class MutableStaticFieldBenchmarkSource
     /// Covers every rejection route the no-diagnostic path takes: a constant, an instance field, a private
     /// static field, a per-thread field, and a readonly field of a type whose contents cannot be rewritten.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public const int Limit = 90;
@@ -63,8 +63,8 @@ internal static class MutableStaticFieldBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Each type carries exactly <see cref="ViolationsPerType"/> exposed mutable static fields.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public static int Timeout = 30;

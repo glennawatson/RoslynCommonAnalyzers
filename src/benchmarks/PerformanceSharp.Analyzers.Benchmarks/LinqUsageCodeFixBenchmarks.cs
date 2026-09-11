@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the LINQ collapse code-fix paths (PSH1101, PSH1102).</summary>
+[System.Diagnostics.DebuggerDisplay("LinqUsageCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LinqUsageCodeFixBenchmarks : IDisposable
@@ -44,7 +46,7 @@ public class LinqUsageCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             LinqUsageBenchmarkSource.GenerateCodeFix(Nodes, CurrentShape));
@@ -53,6 +55,7 @@ public class LinqUsageCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -87,8 +90,8 @@ public class LinqUsageCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates the representative diagnostic for the selected shape.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateDiagnostic()
-        => CurrentShape == LinqUsageBenchmarkShape.WhereTerminal
+    private Diagnostic CreateDiagnostic() =>
+        CurrentShape == LinqUsageBenchmarkShape.WhereTerminal
             ? CreateWhereTerminalDiagnostic()
             : CreateTypeFilterDiagnostic();
 

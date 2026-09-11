@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace StyleSharp.Analyzers.Benchmarks;
@@ -14,11 +15,12 @@ internal static class SingleAnalyzerBenchmarkCases
     /// <param name="sourceFactory">Builds clean or violating source for the requested node count.</param>
     /// <param name="nodes">The synthetic node count.</param>
     /// <returns>The prepared benchmark state.</returns>
-    public static SingleAnalyzerBenchmarkState Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SingleAnalyzerBenchmarkState Create(
         DiagnosticAnalyzer analyzer,
         Func<int, bool, string> sourceFactory,
-        int nodes)
-        => Create(analyzer, sourceFactory, nodes, []);
+        int nodes) =>
+        Create(analyzer, sourceFactory, nodes, []);
 
     /// <summary>Creates one analyzer state, forcing the supplied opt-in rule ids on so the analyzer runs.</summary>
     /// <param name="analyzer">The analyzer under test.</param>
@@ -26,12 +28,13 @@ internal static class SingleAnalyzerBenchmarkCases
     /// <param name="nodes">The synthetic node count.</param>
     /// <param name="enabledRuleIds">Diagnostic ids to force on for disabled-by-default (opt-in) rules.</param>
     /// <returns>The prepared benchmark state.</returns>
-    public static SingleAnalyzerBenchmarkState Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SingleAnalyzerBenchmarkState Create(
         DiagnosticAnalyzer analyzer,
         Func<int, bool, string> sourceFactory,
         int nodes,
-        IReadOnlyList<string> enabledRuleIds)
-        => SingleAnalyzerBenchmarkHelper.Create(
+        IReadOnlyList<string> enabledRuleIds) =>
+        SingleAnalyzerBenchmarkHelper.Create(
             analyzer,
             CreateScenario(sourceFactory, nodes, violating: false, enabledRuleIds),
             CreateScenario(sourceFactory, nodes, violating: true, enabledRuleIds));
@@ -46,6 +49,6 @@ internal static class SingleAnalyzerBenchmarkCases
         Func<int, bool, string> sourceFactory,
         int nodes,
         bool violating,
-        IReadOnlyList<string> enabledRuleIds)
-        => new(BenchmarkCompilationFactory.CreateCompilation(sourceFactory(nodes, violating), enabledRuleIds).Compilation);
+        IReadOnlyList<string> enabledRuleIds) =>
+        new(BenchmarkCompilationFactory.CreateCompilation(sourceFactory(nodes, violating), enabledRuleIds).Compilation);
 }

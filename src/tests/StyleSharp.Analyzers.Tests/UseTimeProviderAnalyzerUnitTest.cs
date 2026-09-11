@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using VerifyTimeProvider = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2010UseTimeProviderAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UseTimeProviderAnalyzerUnitTest
 {
     /// <summary>Verifies every direct clock read inside a type is reported when TimeProvider is available.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryClockReadInsideATypeIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task EveryClockReadInsideATypeIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -34,9 +36,10 @@ public class UseTimeProviderAnalyzerUnitTest
 
     /// <summary>Verifies a type that already takes a TimeProvider reads the clock through it, and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadingThroughTheProviderIsCleanAsync()
-        => await VerifyNet80Async(
+    public Task ReadingThroughTheProviderIsCleanAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -52,9 +55,10 @@ public class UseTimeProviderAnalyzerUnitTest
 
     /// <summary>Verifies a clock property on some other type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClockShapedMemberOfAnotherTypeIsCleanAsync()
-        => await VerifyNet80Async(
+    public Task ClockShapedMemberOfAnotherTypeIsCleanAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -99,11 +103,7 @@ public class UseTimeProviderAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80Async(string source)
     {
-        var test = new VerifyTimeProvider.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyTimeProvider.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

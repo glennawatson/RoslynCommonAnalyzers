@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 {
     /// <summary>Verifies a multidimensional field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultidimensionalFieldIsReportedAsync()
-        => await VerifyAsync(
+    public Task MultidimensionalFieldIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -30,9 +32,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
     /// The shape is chosen once, so it is reported once. The declaration is the site the author edits,
     /// so the creation that repeats the same type stays quiet.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultidimensionalLocalIsReportedOnceAsync()
-        => await VerifyAsync(
+    public Task MultidimensionalLocalIsReportedOnceAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -46,9 +49,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies an implicitly typed local reports on the creation, which is the only site there is.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VarLocalReportsOnTheCreationAsync()
-        => await VerifyAsync(
+    public Task VarLocalReportsOnTheCreationAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -62,9 +66,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies a multidimensional parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultidimensionalParameterIsReportedAsync()
-        => await VerifyAsync(
+    public Task MultidimensionalParameterIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -74,9 +79,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies a multidimensional return type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultidimensionalReturnTypeIsReportedAsync()
-        => await VerifyAsync(
+    public Task MultidimensionalReturnTypeIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -86,9 +92,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies a three-dimensional array is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeDimensionalArrayIsReportedAsync()
-        => await VerifyAsync(
+    public Task ThreeDimensionalArrayIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -98,9 +105,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies an implicitly typed multidimensional creation is reported, though it names no type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitMultidimensionalCreationIsReportedAsync()
-        => await VerifyAsync(
+    public Task ImplicitMultidimensionalCreationIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -114,9 +122,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies a jagged array — the shape the rule is asking for — is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JaggedArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task JaggedArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -128,9 +137,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
 
     /// <summary>Verifies a single-dimensional array is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleDimensionalArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task SingleDimensionalArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -145,9 +155,10 @@ public class PreferJaggedArraysAnalyzerUnitTest
     /// very often one handed over by an API the author does not own. Reporting there would be noise
     /// nobody can act on.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamingTheTypeWithoutDeclaringItIsCleanAsync()
-        => await VerifyAsync(
+    public Task NamingTheTypeWithoutDeclaringItIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -162,9 +173,7 @@ public class PreferJaggedArraysAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the rule behaves identically against netstandard2.0, because it suggests no API at all.
-    /// </summary>
+    /// <summary>Verifies the rule behaves identically against netstandard2.0, because it suggests no API at all.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// PSH1020 is the one rule in this batch with nothing to prove the existence of: a jagged array is
@@ -193,11 +202,7 @@ public class PreferJaggedArraysAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

@@ -87,8 +87,8 @@ public sealed class ModernSyntaxStyleCodeFixProvider : CodeFixProvider, IBatchFi
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <param name="oldNode">The node to replace.</param>
     /// <returns>The replacement node, or <see langword="null"/>.</returns>
-    private static SyntaxNode? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode)
-        => diagnostic.Id switch
+    private static SyntaxNode? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode) =>
+        diagnostic.Id switch
         {
             "SST2202" => CreateTargetTypedNewReplacement(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST2203" => CreateIndexReplacement(root, diagnostic.Location.SourceSpan, out oldNode),

@@ -50,13 +50,13 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     private enum LoadRisk
     {
         /// <summary>Not a guarded load site.</summary>
-        None,
+        None = 0,
 
         /// <summary>An in-memory load (raw bytes or a stream); reported unless the source is a trusted resource.</summary>
-        InMemory,
+        InMemory = 1,
 
         /// <summary>A file load; reported only when the path argument is not a compile-time constant.</summary>
-        NonConstantPath,
+        NonConstantPath = 2,
     }
 
     /// <inheritdoc/>
@@ -87,7 +87,7 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assemblyType">The resolved <c>System.Reflection.Assembly</c> type.</param>
     /// <param name="loadContextType">The resolved <c>AssemblyLoadContext</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType, INamedTypeSymbol? loadContextType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType, INamedTypeSymbol? loadContextType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -123,8 +123,8 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a simple method name is one of the guarded load methods.</summary>
     /// <param name="name">The invoked simple method name.</param>
     /// <returns><see langword="true"/> when the name is a candidate for binding.</returns>
-    private static bool IsCandidateMethodName(string name)
-        => name is LoadMethodName or LoadFromMethodName or LoadFileMethodName or UnsafeLoadFromMethodName or LoadFromStreamMethodName;
+    private static bool IsCandidateMethodName(string name) =>
+        name is LoadMethodName or LoadFromMethodName or LoadFileMethodName or UnsafeLoadFromMethodName or LoadFromStreamMethodName;
 
     /// <summary>Classifies how a bound load method puts trust at risk.</summary>
     /// <param name="method">The bound method symbol.</param>
@@ -138,19 +138,14 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
             return ClassifyAssemblyMethod(method);
         }
 
-        if (method.Name == LoadFromStreamMethodName && IsDeclaredOn(method, loadContextType))
-        {
-            return LoadRisk.InMemory;
-        }
-
-        return LoadRisk.None;
+        return method.Name == LoadFromStreamMethodName && IsDeclaredOn(method, loadContextType) ? LoadRisk.InMemory : LoadRisk.None;
     }
 
     /// <summary>Classifies a load method declared on <c>System.Reflection.Assembly</c>.</summary>
     /// <param name="method">The bound method symbol.</param>
     /// <returns>The load-risk classification for the assembly method.</returns>
-    private static LoadRisk ClassifyAssemblyMethod(IMethodSymbol method)
-        => method.Name switch
+    private static LoadRisk ClassifyAssemblyMethod(IMethodSymbol method) =>
+        method.Name switch
         {
             // Only the raw-bytes overload is a risk; Load(string) / Load(AssemblyName) resolve a trusted identity.
             LoadMethodName => HasByteArrayFirstParameter(method) ? LoadRisk.InMemory : LoadRisk.None,
@@ -164,8 +159,8 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the site is reported.</returns>
-    private static bool IsReported(LoadRisk risk, ExpressionSyntax sourceArgument, SemanticModel model, CancellationToken cancellationToken)
-        => risk switch
+    private static bool IsReported(LoadRisk risk, ExpressionSyntax sourceArgument, SemanticModel model, CancellationToken cancellationToken) =>
+        risk switch
         {
             // A constant, hard-coded path is lower risk and out of scope.
             LoadRisk.NonConstantPath => !model.GetConstantValue(sourceArgument, cancellationToken).HasValue,
@@ -180,14 +175,14 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The bound method symbol.</param>
     /// <param name="type">The resolved type to compare against, or <see langword="null"/> when absent.</param>
     /// <returns><see langword="true"/> when the method is declared on <paramref name="type"/>.</returns>
-    private static bool IsDeclaredOn(IMethodSymbol method, INamedTypeSymbol? type)
-        => type is not null && SymbolEqualityComparer.Default.Equals(method.ContainingType, type);
+    private static bool IsDeclaredOn(IMethodSymbol method, INamedTypeSymbol? type) =>
+        type is not null && SymbolEqualityComparer.Default.Equals(method.ContainingType, type);
 
     /// <summary>Returns whether a method's first parameter is a <c>byte[]</c>.</summary>
     /// <param name="method">The bound method symbol.</param>
     /// <returns><see langword="true"/> for a leading <c>byte[]</c> parameter (the raw-bytes overload).</returns>
-    private static bool HasByteArrayFirstParameter(IMethodSymbol method)
-        => method.Parameters.Length > 0
+    private static bool HasByteArrayFirstParameter(IMethodSymbol method) =>
+        !method.Parameters.IsEmpty
            && method.Parameters[0].Type is IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte };
 
     /// <summary>Returns the argument bound to the method's first parameter, honouring an explicit name.</summary>
@@ -197,7 +192,7 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     private static ExpressionSyntax? GetFirstParameterArgument(ArgumentListSyntax argumentList, IMethodSymbol method)
     {
         var arguments = argumentList.Arguments;
-        if (method.Parameters.Length > 0)
+        if (!method.Parameters.IsEmpty)
         {
             var firstParameterName = method.Parameters[0].Name;
             for (var i = 0; i < arguments.Count; i++)
@@ -218,8 +213,8 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is directly a <c>GetManifestResourceStream</c> call.</summary>
     /// <param name="expression">The source argument expression.</param>
     /// <returns><see langword="true"/> when the source is a trusted embedded manifest resource.</returns>
-    private static bool IsManifestResourceStream(ExpressionSyntax expression)
-        => Unwrap(expression) is InvocationExpressionSyntax invocation
+    private static bool IsManifestResourceStream(ExpressionSyntax expression) =>
+        Unwrap(expression) is InvocationExpressionSyntax invocation
            && GetInvokedSimpleName(invocation.Expression) is ManifestResourceStreamMethodName;
 
     /// <summary>Strips enclosing parentheses and a trailing null-forgiving operator from an expression.</summary>
@@ -253,8 +248,8 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedSimpleName(ExpressionSyntax invoked)
-        => invoked switch
+    private static string? GetInvokedSimpleName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
@@ -265,11 +260,11 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns a caller-facing description of the reported load call for the message.</summary>
     /// <param name="method">The bound method symbol.</param>
     /// <returns>The call description embedded in the diagnostic message.</returns>
-    private static string DescribeCall(IMethodSymbol method)
-        => method.Name switch
+    private static string DescribeCall(IMethodSymbol method) =>
+        method.Name switch
         {
             LoadMethodName => "Assembly.Load(byte[])",
             LoadFromStreamMethodName => "AssemblyLoadContext.LoadFromStream",
-            _ => "Assembly." + method.Name,
+            _ => $"Assembly.{method.Name}",
         };
 }

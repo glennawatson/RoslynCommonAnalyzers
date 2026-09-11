@@ -15,7 +15,7 @@ namespace StyleSharp.Analyzers;
 /// The rule is gated at compilation start on <c>System.Windows.Forms.Application</c> and
 /// <c>System.STAThreadAttribute</c> resolving, so a non-Windows-Forms project registers nothing, and the
 /// suggested attribute is never offered against a target framework that lacks it. The entry point is resolved
-/// once through <see cref="Compilation.GetEntryPoint(System.Threading.CancellationToken)"/>; when it already
+/// once through <see cref="Compilation.GetEntryPoint(CancellationToken)"/>; when it already
 /// declares an apartment attribute no syntax callback is registered at all. Otherwise a single
 /// <c>MethodDeclaration</c> action fires, pre-filtered on the <c>Main</c> name before it binds, and reports the
 /// one declaration whose symbol is the entry point.
@@ -78,7 +78,7 @@ public sealed class Sst2706StaThreadEntryPointAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the entry-point declaration that lacks an apartment attribute.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="entryPoint">The resolved entry-point symbol the rule reports.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, IMethodSymbol entryPoint)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, IMethodSymbol entryPoint)
     {
         var method = (MethodDeclarationSyntax)context.Node;
 

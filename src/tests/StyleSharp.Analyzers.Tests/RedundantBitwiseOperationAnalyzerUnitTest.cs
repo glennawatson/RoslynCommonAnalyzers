@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBitwise = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1481RedundantBitwiseOperationAnalyzer,
     StyleSharp.Analyzers.Sst1481RedundantBitwiseOperationCodeFixProvider>;
@@ -129,9 +130,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
     /// The result is always zero, which is almost never what the author wanted. Rewriting it to <c>0</c>
     /// would preserve the behaviour and hide the bug, so the rule reports and stops.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MaskOfZeroIsReportedWithoutAFixAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task MaskOfZeroIsReportedWithoutAFixAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -147,9 +149,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
     /// A zero shift is the same class of mistake, but SST1478 knows the operand's width and can say what
     /// the shift actually does. Reporting it here as well would say the same thing twice.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroShiftIsNotReportedHereAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task ZeroShiftIsNotReportedHereAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -163,9 +166,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
 
     /// <summary>Verifies boolean operands are left to SST1468.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BooleanOperandsAreNotReportedAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task BooleanOperandsAreNotReportedAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -179,9 +183,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
 
     /// <summary>Verifies an enum operation is not reported, since it has no integral operation type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumOperandsAreNotReportedAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task EnumOperandsAreNotReportedAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             [System.Flags]
             public enum Access
@@ -205,9 +210,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
     /// <c>value &amp; 0xFF</c> is <c>-1</c>, not <c>0xFF</c> — the defensive narrowing everybody writes is
     /// left alone.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonIdentityConstantIsCleanAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task NonIdentityConstantIsCleanAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -223,9 +229,10 @@ public class RedundantBitwiseOperationAnalyzerUnitTest
 
     /// <summary>Verifies an operation with no constant operand is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantOperandsAreCleanAsync()
-        => await VerifyBitwise.VerifyAnalyzerAsync(
+    public Task NonConstantOperandsAreCleanAsync() =>
+        VerifyBitwise.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

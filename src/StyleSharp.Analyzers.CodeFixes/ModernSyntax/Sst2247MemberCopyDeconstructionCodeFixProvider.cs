@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -85,7 +87,7 @@ public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProv
     /// <param name="root">The syntax root.</param>
     /// <param name="candidate">The resolved run.</param>
     /// <returns>The updated document.</returns>
-    private static Document Apply(Document document, SyntaxNode root, Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
+    private static Document Apply(Document document, SyntaxNode root, in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
     {
         var block = candidate.Block;
         var statements = new List<StatementSyntax>(block.Statements.Count - candidate.Count + 1);
@@ -108,8 +110,9 @@ public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProv
     /// <summary>Builds the <c>var (a, b, …) = source;</c> statement for a run.</summary>
     /// <param name="candidate">The resolved run.</param>
     /// <returns>The deconstruction statement carrying the run's outer trivia.</returns>
-    private static StatementSyntax BuildDeconstruction(Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
-        => SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};")
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static StatementSyntax BuildDeconstruction(in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate) =>
+        SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};")
             .WithLeadingTrivia(candidate.FirstStatement.GetLeadingTrivia())
             .WithTrailingTrivia(candidate.LastStatement.GetTrailingTrivia());
 }

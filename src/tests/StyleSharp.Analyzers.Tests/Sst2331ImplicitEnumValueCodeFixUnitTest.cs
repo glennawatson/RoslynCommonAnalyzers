@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyImplicit = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2331ImplicitEnumValueAnalyzer,
     StyleSharp.Analyzers.Sst2331ImplicitEnumValueCodeFixProvider>;
@@ -95,25 +96,29 @@ public class Sst2331ImplicitEnumValueCodeFixUnitTest
     /// Without a separating comma that break is the identifier's own trailing trivia, so a fix that clears the
     /// identifier's trivia pulls the brace up onto the member's line.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LastMemberWithoutTrailingCommaKeepsItsLineBreakAsync()
-        => await VerifyImplicit.VerifyCodeFixAsync(NoTrailingCommaSource, NoTrailingCommaFixed);
+    public Task LastMemberWithoutTrailingCommaKeepsItsLineBreakAsync() =>
+        VerifyImplicit.VerifyCodeFixAsync(NoTrailingCommaSource, NoTrailingCommaFixed);
 
     /// <summary>Verifies a comment after the last member survives the fix.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingCommentSurvivesTheFixAsync()
-        => await VerifyImplicit.VerifyCodeFixAsync(TrailingCommentSource, TrailingCommentFixed);
+    public Task TrailingCommentSurvivesTheFixAsync() =>
+        VerifyImplicit.VerifyCodeFixAsync(TrailingCommentSource, TrailingCommentFixed);
 
     /// <summary>Verifies the fix assigns each member the value the compiler currently gives it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignsSequentialValuesAsync()
-        => await VerifyImplicit.VerifyCodeFixAsync(AllImplicitSource, AllImplicitFixed);
+    public Task AssignsSequentialValuesAsync() =>
+        VerifyImplicit.VerifyCodeFixAsync(AllImplicitSource, AllImplicitFixed);
 
     /// <summary>Verifies the fix fills only the missing initializers, keeping the ones already written.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FillsOnlyTheMissingMembersAsync()
-        => await VerifyImplicit.VerifyCodeFixAsync(PartialSource, PartialFixed);
+    public Task FillsOnlyTheMissingMembersAsync() =>
+        VerifyImplicit.VerifyCodeFixAsync(PartialSource, PartialFixed);
 }

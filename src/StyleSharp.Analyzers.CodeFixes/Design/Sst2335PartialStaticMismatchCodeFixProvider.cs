@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,8 +15,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.PartialTypeStaticModifierMismatch.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.PartialTypeStaticModifierMismatch.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
@@ -52,15 +54,16 @@ public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvide
             return;
         }
 
-        editor.ReplaceNode(declaration, (current, _) => MakeStatic((ClassDeclarationSyntax)current));
+        editor.ReplaceNode(declaration, static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
     }
 
     /// <summary>Resolves the diagnostic's span to the class part it was reported on.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The class declaration, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ClassDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ClassDeclarationSyntax>();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ClassDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ClassDeclarationSyntax>();
 
     /// <summary>Builds the class declaration with <c>static</c> inserted before <c>partial</c>.</summary>
     /// <param name="declaration">The class part to make static.</param>

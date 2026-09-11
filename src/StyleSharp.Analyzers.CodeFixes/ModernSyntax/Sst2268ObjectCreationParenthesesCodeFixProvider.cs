@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,33 +23,29 @@ public sealed class Sst2268ObjectCreationParenthesesCodeFixProvider : CodeFixPro
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the object-creation parentheses", nameof(Sst2268ObjectCreationParenthesesCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the object-creation parentheses", nameof(Sst2268ObjectCreationParenthesesCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported creation and flips its parentheses.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ObjectCreationExpressionSyntax>() is not { } creation
-            || !Sst2268ObjectCreationParenthesesAnalyzer.IsCandidate(creation))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(creation, Flip(creation), RewriteCurrent);
-    }
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ObjectCreationExpressionSyntax>() is not { } creation
+            || !Sst2268ObjectCreationParenthesesAnalyzer.IsCandidate(creation)
+            ? null
+            : new NodeReplacement(creation, Flip(creation), RewriteCurrent);
 
     /// <summary>Flips the current creation's parentheses during batch FixAll composition.</summary>
     /// <param name="current">The current creation node, possibly carrying nested edits.</param>
     /// <returns>The flipped creation, or the node unchanged when the shape no longer matches.</returns>
-    private static SyntaxNode RewriteCurrent(SyntaxNode current)
-        => current is ObjectCreationExpressionSyntax creation && Sst2268ObjectCreationParenthesesAnalyzer.IsCandidate(creation)
+    private static SyntaxNode RewriteCurrent(SyntaxNode current) =>
+        current is ObjectCreationExpressionSyntax creation && Sst2268ObjectCreationParenthesesAnalyzer.IsCandidate(creation)
             ? Flip(creation)
             : current;
 

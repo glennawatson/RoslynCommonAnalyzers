@@ -34,7 +34,7 @@ internal static class NestedTypeOnlyMembers
     /// <param name="type">The type declaration to analyze.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The members to report, or <see langword="null"/> when the type has none.</returns>
-    public static List<NestedTypeOnlyMember>? Collect(SemanticModel model, TypeDeclarationSyntax type, CancellationToken cancellationToken)
+    internal static List<NestedTypeOnlyMember>? Collect(SemanticModel model, TypeDeclarationSyntax type, CancellationToken cancellationToken)
     {
         if (ModifierListHelper.Contains(type.Modifiers, SyntaxKind.PartialKeyword) || !HasNestedTypeAndCandidate(type))
         {
@@ -80,8 +80,8 @@ internal static class NestedTypeOnlyMembers
     /// purposes. Testing the identifier rather than the node kind keeps this working on the Roslyn
     /// floor, which cannot name the extension-block syntax at all.
     /// </remarks>
-    private static bool IsNestedType(SyntaxNode member)
-        => member is BaseTypeDeclarationSyntax { Identifier.ValueText.Length: > 0 };
+    private static bool IsNestedType(SyntaxNode member) =>
+        member is BaseTypeDeclarationSyntax { Identifier.ValueText.Length: > 0 };
 
     /// <summary>Returns whether a member could be one a nested type has taken over, judged on syntax alone.</summary>
     /// <param name="member">The member declaration.</param>
@@ -188,7 +188,7 @@ internal static class NestedTypeOnlyMembers
         const int InitialMovableMemberCapacity = 4;
 
         candidates ??= new List<NestedTypeOnlyMember>(InitialMovableMemberCapacity);
-        candidates.Add(new NestedTypeOnlyMember(symbol, declaration, identifier));
+        candidates.Add(new(symbol, declaration, identifier));
     }
 
     /// <summary>Gets the identifier a member declaration is named by.</summary>
@@ -227,7 +227,7 @@ internal static class NestedTypeOnlyMembers
             var scan = IsNestedType(child)
                 ? new ReferenceScan(model, candidates, Owner: null, (BaseTypeDeclarationSyntax)child, cancellationToken)
                 : new ReferenceScan(model, candidates, child as MemberDeclarationSyntax, Nested: null, cancellationToken);
-            DescendantTraversalHelper.VisitDescendants(child, ref scan, ReferenceVisitor);
+            _ = DescendantTraversalHelper.VisitDescendants(child, ref scan, ReferenceVisitor);
         }
     }
 
@@ -288,15 +288,15 @@ internal static class NestedTypeOnlyMembers
     /// <summary>Returns whether a name is written against a receiver rather than on its own.</summary>
     /// <param name="name">The referencing name.</param>
     /// <returns><see langword="true"/> for the <c>Helper</c> in <c>Outer.Helper()</c>.</returns>
-    private static bool IsQualified(SimpleNameSyntax name)
-        => name.Parent is MemberAccessExpressionSyntax member && member.Name == name;
+    private static bool IsQualified(SimpleNameSyntax name) =>
+        name.Parent is MemberAccessExpressionSyntax member && member.Name == name;
 
     /// <summary>Returns whether a resolved symbol is the candidate's member.</summary>
     /// <param name="reference">The symbol the reference resolved to.</param>
     /// <param name="candidate">The candidate's symbol.</param>
     /// <returns><see langword="true"/> when both name the same member.</returns>
-    private static bool IsSameMember(ISymbol reference, ISymbol candidate)
-        => SymbolEqualityComparer.Default.Equals(reference, candidate)
+    private static bool IsSameMember(ISymbol reference, ISymbol candidate) =>
+        SymbolEqualityComparer.Default.Equals(reference, candidate)
             || SymbolEqualityComparer.Default.Equals(reference.OriginalDefinition, candidate.OriginalDefinition);
 
     /// <summary>Keeps the candidates that exactly one nested type uses and the type itself does not.</summary>

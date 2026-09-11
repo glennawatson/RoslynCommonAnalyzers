@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConditionalOperatorIndentation = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1145ConditionalOperatorPlacementAnalyzer,
     StyleSharp.Analyzers.Sst1140ConditionalOperatorIndentationCodeFixProvider>;
@@ -63,9 +64,10 @@ public class ConditionalOperatorIndentationAnalyzerUnitTest
 
     /// <summary>Verifies correctly indented conditional operators are clean when branch expressions wrap later.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WrappedBranchesAfterLeadingOperatorsAreCleanAsync()
-        => await VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
+    public Task WrappedBranchesAfterLeadingOperatorsAreCleanAsync() =>
+        VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -83,9 +85,10 @@ public class ConditionalOperatorIndentationAnalyzerUnitTest
 
     /// <summary>Verifies leading operators are clean when the condition starts after a wrapped signature.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WrappedExpressionBodiedMemberSignatureIsCleanAsync()
-        => await VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
+    public Task WrappedExpressionBodiedMemberSignatureIsCleanAsync() =>
+        VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -101,9 +104,10 @@ public class ConditionalOperatorIndentationAnalyzerUnitTest
 
     /// <summary>Verifies single-line conditionals are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineConditionalIsCleanAsync()
-        => await VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
+    public Task SingleLineConditionalIsCleanAsync() =>
+        VerifyConditionalOperatorIndentation.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LoggerCallAnalyzer,
     StyleSharp.Analyzers.Sst2439ExceptionAsTemplateArgumentCodeFixProvider>;
@@ -61,9 +62,10 @@ public class LoggerExceptionAsTemplateArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an exception already in the exception argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionInItsArgumentIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ExceptionInItsArgumentIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -74,9 +76,10 @@ public class LoggerExceptionAsTemplateArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a projection of an exception, which is not itself an exception, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionMessageValueIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ExceptionMessageValueIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

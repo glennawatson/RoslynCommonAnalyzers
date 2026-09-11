@@ -50,7 +50,7 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             var capabilities = ModernSyntaxReadabilityCapabilities.Create(start.Compilation);
             start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
@@ -113,7 +113,7 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     /// a keyword, a qualified name, or a generic name cannot name a value — so the lookup runs for
     /// nothing else, and only once the pattern already looks reportable.
     /// </remarks>
-    private static bool TypeNameIsShadowed(SyntaxNodeAnalysisContext context, TypeSyntax type)
+    private static bool TypeNameIsShadowed(in SyntaxNodeAnalysisContext context, TypeSyntax type)
     {
         if (type is not IdentifierNameSyntax identifier)
         {
@@ -189,7 +189,7 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The expression to report.</param>
     /// <param name="target">The UTF-8 target kind.</param>
-    private static void ReportUtf8(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, string target)
+    private static void ReportUtf8(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, string target)
     {
         var properties = target == ModernSyntaxReadabilityAnalysis.Utf8ArrayTarget ? Utf8ArrayProperties : Utf8SpanProperties;
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.UseUtf8StringLiteral, expression.GetLocation(), properties));
@@ -226,22 +226,22 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a declaration pattern uses a discard designation.</summary>
     /// <param name="designation">The candidate designation.</param>
     /// <returns><see langword="true"/> when the declaration binds no useful local.</returns>
-    private static bool IsDiscardDesignation(VariableDesignationSyntax designation)
-        => designation is DiscardDesignationSyntax
+    private static bool IsDiscardDesignation(VariableDesignationSyntax designation) =>
+        designation is DiscardDesignationSyntax
             or SingleVariableDesignationSyntax { Identifier.ValueText: "_" };
 
     /// <summary>Returns whether a declaration pattern is the broad <c>var _</c> shape.</summary>
     /// <param name="type">The pattern type.</param>
     /// <returns><see langword="true"/> when the pattern is a var pattern.</returns>
-    private static bool IsVarPatternType(TypeSyntax type)
-        => type is IdentifierNameSyntax { Identifier.ValueText: "var" };
+    private static bool IsVarPatternType(TypeSyntax type) =>
+        type is IdentifierNameSyntax { Identifier.ValueText: "var" };
 
     /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Capability flags resolved once per compilation.</summary>
     /// <param name="HasHashCodeCombine">Whether <c>System.HashCode.Combine</c> is available.</param>
@@ -250,8 +250,8 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         /// <summary>Resolves modern syntax readability capabilities from the compilation.</summary>
         /// <param name="compilation">The compilation to inspect.</param>
         /// <returns>The capability set.</returns>
-        public static ModernSyntaxReadabilityCapabilities Create(Compilation compilation)
-            => new(HasStaticHashCodeCombine(compilation.GetTypeByMetadataName("System.HashCode")));
+        public static ModernSyntaxReadabilityCapabilities Create(Compilation compilation) =>
+            new(HasStaticHashCodeCombine(compilation.GetTypeByMetadataName("System.HashCode")));
 
         /// <summary>Returns whether a <c>System.HashCode</c> type exposes a static <c>Combine</c> method.</summary>
         /// <param name="type">The resolved type.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDuplicatedString = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1486DuplicatedStringLiteralAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1486 (repeated string literals should be named constants).</summary>
 public class DuplicatedStringLiteralAnalyzerUnitTest
 {
-    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies three copies of one literal are reported once, on the first copy.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeCopiesAreReportedOnTheFirstCopyAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task ThreeCopiesAreReportedOnTheFirstCopyAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -30,9 +29,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies two copies stay below the default threshold.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoCopiesAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task TwoCopiesAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -44,9 +44,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies distinct literals are never merged, however often each is written.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctLiteralsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task DistinctLiteralsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -62,9 +63,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a literal shorter than the minimum length buys nothing by being named.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShortLiteralsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task ShortLiteralsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -85,9 +87,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
     /// <summary>Verifies the empty string and a whitespace-only literal are never reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The whitespace-only literal is long enough to pass the minimum length, so only the value can exclude it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyAndWhitespaceLiteralsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task EmptyAndWhitespaceLiteralsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -107,9 +110,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a repeated attribute argument is idiomatic rather than a duplicate.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeArgumentsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task AttributeArgumentsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -128,9 +132,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a constant declaration is the named constant, so it is never asked to be named again.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantAndStaticReadonlyFieldsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task ConstantAndStaticReadonlyFieldsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -146,9 +151,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c> local is the named constant too.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantLocalsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task ConstantLocalsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -174,9 +180,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a plain field initializer is still reported, because nothing has named it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainFieldInitializersAreReportedAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task PlainFieldInitializersAreReportedAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -192,9 +199,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a switch already names its cases structurally.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseLabelsAndArmPatternsAreCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task CaseLabelsAndArmPatternsAreCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -225,9 +233,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies the value an arm produces is not a case label, so a repeated one is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchArmValuesAreReportedAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task SwitchArmValuesAreReportedAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -242,9 +251,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string's text segments are a template, not a repeated value.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedStringTextIsCleanAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task InterpolatedStringTextIsCleanAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -258,9 +268,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a literal written inside an interpolation hole is an ordinary literal.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralInsideInterpolationHoleIsReportedAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task LiteralInsideInterpolationHoleIsReportedAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -276,9 +287,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a literal in a lambda does not inherit the enclosing field's name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralsInsideLambdasUnderConstantFieldsAreReportedAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task LiteralsInsideLambdasUnderConstantFieldsAreReportedAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -296,9 +308,10 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a verbatim spelling of the same value counts as the same value.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerbatimSpellingOfTheSameValueCountsAsync()
-        => await VerifyDuplicatedString.VerifyAnalyzerAsync(
+    public Task VerbatimSpellingOfTheSameValueCountsAsync() =>
+        VerifyDuplicatedString.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -356,7 +369,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1486.duplicate_string_threshold = 2
@@ -392,7 +405,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1486.minimum_string_length = 3
@@ -420,7 +433,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.duplicate_string_threshold = 2
@@ -453,7 +466,7 @@ public class DuplicatedStringLiteralAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1486.duplicate_string_threshold = 1

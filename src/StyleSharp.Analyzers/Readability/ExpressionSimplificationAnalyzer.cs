@@ -304,8 +304,8 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment sets a member of the object being built rather than one in scope.</summary>
     /// <param name="assignment">The assignment expression.</param>
     /// <returns><see langword="true"/> for an assignment directly inside an object or <c>with</c> initializer.</returns>
-    private static bool IsMemberInitializer(AssignmentExpressionSyntax assignment)
-        => assignment.Parent is InitializerExpressionSyntax initializer
+    private static bool IsMemberInitializer(AssignmentExpressionSyntax assignment) =>
+        assignment.Parent is InitializerExpressionSyntax initializer
             && (initializer.IsKind(SyntaxKind.ObjectInitializerExpression) || initializer.IsKind(SyntaxKind.WithInitializerExpression));
 
     /// <summary>Reports SST1186 when a non-null literal sits on the left of an equality comparison.</summary>
@@ -390,16 +390,15 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a literal that may be moved to the right of a comparison.</summary>
     /// <param name="expression">The comparison operand.</param>
     /// <returns><see langword="true"/> for any literal other than <c>null</c>.</returns>
-    private static bool IsReorderableLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal && !literal.IsKind(SyntaxKind.NullLiteralExpression);
+    private static bool IsReorderableLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal && !literal.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a <c>default(T)</c> sits where the compiler supplies an unambiguous target type.</summary>
     /// <param name="defaultExpression">The default expression.</param>
     /// <returns><see langword="true"/> for a return, arrow body, assignment value, or non-<c>var</c> initializer.</returns>
     private static bool IsTargetTypedDefaultPosition(DefaultExpressionSyntax defaultExpression) => defaultExpression.Parent switch
     {
-        ReturnStatementSyntax => true,
-        ArrowExpressionClauseSyntax => true,
+        ReturnStatementSyntax or ArrowExpressionClauseSyntax => true,
         AssignmentExpressionSyntax assignment => assignment.Right == defaultExpression,
         EqualsValueClauseSyntax equals => !IsVarLocalInitializer(equals),
         _ => false
@@ -408,14 +407,14 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an initializer belongs to a <c>var</c> local, where bare <c>default</c> has no type.</summary>
     /// <param name="equals">The initializer clause.</param>
     /// <returns><see langword="true"/> when the initializer is for a <c>var</c>-typed local declaration.</returns>
-    private static bool IsVarLocalInitializer(EqualsValueClauseSyntax equals)
-        => equals.Parent is VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
+    private static bool IsVarLocalInitializer(EqualsValueClauseSyntax equals) =>
+        equals.Parent is VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration }
             && declaration.Type.IsVar;
 
     /// <summary>Returns whether a type is a floating-point type that has a <c>NaN</c> value.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <see cref="float"/>, <see cref="double"/>, <c>Half</c>, or <c>NFloat</c>.</returns>
-    private static bool IsFloatingPoint(ITypeSymbol type)
-        => type.SpecialType is SpecialType.System_Single or SpecialType.System_Double
+    private static bool IsFloatingPoint(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_Single or SpecialType.System_Double
             || type.Name is "Half" or "NFloat";
 }

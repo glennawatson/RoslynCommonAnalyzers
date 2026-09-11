@@ -49,16 +49,16 @@ internal static class EmptyConnectionStringPasswordClassifier
         None = 0,
 
         /// <summary>A data-source key is present.</summary>
-        DataSource = 1,
+        DataSource = 1 << 0,
 
         /// <summary>A user key is present.</summary>
-        User = 2,
+        User = 1 << 1,
 
         /// <summary>A password key is present with a non-empty value.</summary>
-        NonEmptyPassword = 4,
+        NonEmptyPassword = 1 << 2,
 
         /// <summary>Integrated or trusted authentication is enabled.</summary>
-        IntegratedAuthentication = 8,
+        IntegratedAuthentication = 1 << 3,
     }
 
     /// <summary>Returns whether a string literal's content is a connection string that names a user but has an empty or missing password.</summary>
@@ -187,8 +187,8 @@ internal static class EmptyConnectionStringPasswordClassifier
     /// <summary>Returns whether a character is one of the ASCII whitespace characters trimmed around keys and values.</summary>
     /// <param name="c">The character to test.</param>
     /// <returns><see langword="true"/> when the character is whitespace.</returns>
-    private static bool IsWhitespace(char c)
-        => c is ' ' or '\t' or '\r' or '\n';
+    private static bool IsWhitespace(char c) =>
+        c is ' ' or '\t' or '\r' or '\n';
 
     /// <summary>Returns whether a span equals any of the supplied lower-case words, compared ASCII case-insensitively.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -236,6 +236,6 @@ internal static class EmptyConnectionStringPasswordClassifier
     /// <summary>Lower-cases an ASCII letter, leaving every other character untouched.</summary>
     /// <param name="c">The character to fold.</param>
     /// <returns>The lower-cased character.</returns>
-    private static char ToLowerAscii(char c)
-        => c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
+    private static char ToLowerAscii(char c) =>
+        c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 }

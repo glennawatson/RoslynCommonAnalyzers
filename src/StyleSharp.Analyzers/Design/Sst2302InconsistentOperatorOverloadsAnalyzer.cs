@@ -2,12 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports an operator overload whose set is incomplete in a way the language itself does not catch
-/// (SST2302).
-/// </summary>
+/// <summary>Reports an operator overload whose set is incomplete in a way the language itself does not catch (SST2302).</summary>
 /// <remarks>
 /// <para>
 /// The language already refuses to compile a type that declares <c>==</c> without <c>!=</c>, <c>&lt;</c>
@@ -132,7 +131,7 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <c>+ - * / %</c>, so the type is not squiggled per operator.
     /// </remarks>
     private static void AnalyzeArithmeticOperator(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         OperatorDeclarationSyntax declaration,
         INamedTypeSymbol type,
         Location location,
@@ -154,7 +153,7 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <param name="context">The syntax node context.</param>
     /// <param name="type">The type that declares the operator.</param>
     /// <param name="location">The operator token's location.</param>
-    private static void AnalyzeEqualityOperator(SyntaxNodeAnalysisContext context, INamedTypeSymbol type, Location location)
+    private static void AnalyzeEqualityOperator(in SyntaxNodeAnalysisContext context, INamedTypeSymbol type, Location location)
     {
         var missingEquals = !OverridesObjectMethod(type, nameof(Equals), parameterCount: 1);
         var missingHashCode = !OverridesObjectMethod(type, nameof(GetHashCode), parameterCount: 0);
@@ -184,16 +183,16 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// already said; and a type missing both the other pair and the ordering contract is told so once
     /// rather than squiggled twice in the same place.
     /// </remarks>
-    private static void AnalyzeRelationalOperator(SyntaxNodeAnalysisContext context, INamedTypeSymbol type, Location location, SyntaxKind kind)
+    private static void AnalyzeRelationalOperator(in SyntaxNodeAnalysisContext context, INamedTypeSymbol type, Location location, SyntaxKind kind)
     {
         var declaresLessThan = kind == SyntaxKind.LessThanToken;
-        var hasLessThan = type.GetMembers(LessThanName).Length > 0;
+        var hasLessThan = !type.GetMembers(LessThanName).IsEmpty;
         if (!declaresLessThan && hasLessThan)
         {
             return;
         }
 
-        var hasLessThanOrEqual = type.GetMembers(LessThanOrEqualName).Length > 0;
+        var hasLessThanOrEqual = !type.GetMembers(LessThanOrEqualName).IsEmpty;
         var missingPair = hasLessThan != hasLessThanOrEqual;
 
         // The ordering contract is only asked for once it is known to exist in the analyzed compilation.
@@ -272,14 +271,14 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <summary>Returns whether the analyzed compilation actually has the contract the rule is about to ask for.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>
     /// <returns><see langword="true"/> when <c>IComparable&lt;T&gt;</c> can be implemented.</returns>
-    private static bool CanImplementComparable(Compilation compilation)
-        => compilation.GetTypeByMetadataName(ComparableMetadataName) is not null;
+    private static bool CanImplementComparable(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(ComparableMetadataName) is not null;
 
     /// <summary>Returns whether an operator token is one of the binary arithmetic operators.</summary>
     /// <param name="kind">The operator token kind.</param>
     /// <returns><see langword="true"/> for <c>+ - * / %</c>.</returns>
-    private static bool IsArithmeticToken(SyntaxKind kind)
-        => kind is SyntaxKind.PlusToken
+    private static bool IsArithmeticToken(SyntaxKind kind) =>
+        kind is SyntaxKind.PlusToken
             or SyntaxKind.MinusToken
             or SyntaxKind.AsteriskToken
             or SyntaxKind.SlashToken
@@ -329,7 +328,7 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <param name="type">The type that declares the operator.</param>
     /// <param name="metadataName">The operator's metadata name.</param>
     /// <returns><see langword="true"/> when the type has a member with that metadata name.</returns>
-    private static bool HasOperator(INamedTypeSymbol type, string metadataName) => type.GetMembers(metadataName).Length > 0;
+    private static bool HasOperator(INamedTypeSymbol type, string metadataName) => !type.GetMembers(metadataName).IsEmpty;
 
     /// <summary>Gets the text of an arithmetic operator for the diagnostic message.</summary>
     /// <param name="kind">The declared arithmetic operator token.</param>
@@ -347,8 +346,8 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <param name="type">The type that declares the operator.</param>
     /// <returns><see langword="true"/> when the type declares <c>==</c>, or overrides <c>Equals(object)</c> or <c>GetHashCode()</c>.</returns>
     /// <remarks>A type with any one of these is trying; the equality checks own the shape of what remains.</remarks>
-    private static bool DeclaresValueEquality(INamedTypeSymbol type)
-        => type.GetMembers(EqualityOperatorName).Length > 0
+    private static bool DeclaresValueEquality(INamedTypeSymbol type) =>
+        !type.GetMembers(EqualityOperatorName).IsEmpty
             || OverridesObjectMethod(type, nameof(Equals), parameterCount: 1)
             || OverridesObjectMethod(type, nameof(GetHashCode), parameterCount: 0);
 
@@ -358,6 +357,7 @@ public sealed class Sst2302InconsistentOperatorOverloadsAnalyzer : DiagnosticAna
     /// <param name="type">The type that declares the operator.</param>
     /// <param name="declared">The operator the type declares.</param>
     /// <param name="missing">What the type does not declare.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, Location location, INamedTypeSymbol type, string declared, string missing)
-        => context.ReportDiagnostic(Diagnostic.Create(DesignRules.InconsistentOperatorOverloads, location, type.Name, declared, missing));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, Location location, INamedTypeSymbol type, string declared, string missing) =>
+        context.ReportDiagnostic(Diagnostic.Create(DesignRules.InconsistentOperatorOverloads, location, type.Name, declared, missing));
 }

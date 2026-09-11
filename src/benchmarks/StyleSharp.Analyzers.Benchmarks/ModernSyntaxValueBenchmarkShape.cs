@@ -8,41 +8,41 @@ namespace StyleSharp.Analyzers.Benchmarks;
 public enum ModernSyntaxValueBenchmarkShape
 {
     /// <summary>Interpolation with a redundant ToString call.</summary>
-    Interpolation,
+    Interpolation = 0,
 
     /// <summary>Ignored expression value.</summary>
-    IgnoredValue,
+    IgnoredValue = 1,
 
     /// <summary>Local value overwritten before use.</summary>
-    OverwrittenValue,
+    OverwrittenValue = 2,
 
     /// <summary>Null fallback assignment.</summary>
-    CoalesceAssignment,
+    CoalesceAssignment = 3,
 
     /// <summary>Anonymous object that can be a tuple.</summary>
-    AnonymousTuple,
+    AnonymousTuple = 4,
 
     /// <summary>Foreach loop with hidden element cast.</summary>
-    ForeachCast,
+    ForeachCast = 5,
 
     /// <summary>Cast with a hidden inner conversion.</summary>
-    HiddenCast,
+    HiddenCast = 6,
 
     /// <summary>Post-assignment null fallback.</summary>
-    FoldNullCheck,
+    FoldNullCheck = 7,
 
     /// <summary>Delegate local that can be a local function.</summary>
-    LocalFunction,
+    LocalFunction = 8,
 
     /// <summary>Broad object pattern used as a null check.</summary>
-    NullPattern,
+    NullPattern = 9,
 
     /// <summary>Concrete generic arguments inside nameof.</summary>
-    UnboundGenericName,
+    UnboundGenericName = 10,
 
     /// <summary>Postfix step discarded by the enclosing return.</summary>
-    ReturnedIncrement,
+    ReturnedIncrement = 11,
 
     /// <summary>Local assigned its own postfix step.</summary>
-    SelfAssignedIncrement
+    SelfAssignedIncrement = 12,
 }

@@ -68,13 +68,13 @@ internal sealed class MutableCollectionTypes
 
     /// <summary>Initializes a new instance of the <see cref="MutableCollectionTypes"/> class.</summary>
     /// <param name="compilation">The compilation whose types are resolved.</param>
-    public MutableCollectionTypes(Compilation compilation)
-        => _types = new Lazy<HashSet<ISymbol>>(() => Resolve(compilation));
+    public MutableCollectionTypes(Compilation compilation) =>
+        _types = new(() => Resolve(compilation));
 
     /// <summary>Returns whether a field's type is one whose contents a caller can change.</summary>
     /// <param name="type">The field's type.</param>
     /// <returns><see langword="true"/> for an array, and for a collection this set names.</returns>
-    public bool IsMutable(ITypeSymbol type)
+    internal bool IsMutable(ITypeSymbol type)
     {
         if (type.TypeKind == TypeKind.Array)
         {
@@ -94,7 +94,7 @@ internal sealed class MutableCollectionTypes
         {
             if (compilation.GetTypeByMetadataName(MetadataNames[i]) is { } type)
             {
-                types.Add(type);
+                _ = types.Add(type);
             }
         }
 

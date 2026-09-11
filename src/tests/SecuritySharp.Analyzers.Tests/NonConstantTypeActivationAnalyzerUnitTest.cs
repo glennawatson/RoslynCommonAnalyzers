@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeActivation = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 {
     /// <summary>Verifies an inline <c>Activator.CreateInstance(Type.GetType(nonConstant))</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineTypeGetTypeToActivatorReportedAsync()
-        => await VerifyNet90Async(
+    public Task InlineTypeGetTypeToActivatorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -31,9 +33,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies the <c>type:</c>-named argument form is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedTypeArgumentToActivatorReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedTypeArgumentToActivatorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -48,9 +51,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a Type-taking <c>Deserialize</c> call whose type argument is <c>Type.GetType(nonConstant)</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeGetTypeToDeserializeReportedAsync()
-        => await VerifyNet90Async(
+    public Task TypeGetTypeToDeserializeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.IO;
@@ -72,9 +76,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Deserialize</c> overload whose Type parameter is not first is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeArgInSecondPositionToDeserializeReportedAsync()
-        => await VerifyNet90Async(
+    public Task TypeArgInSecondPositionToDeserializeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -94,9 +99,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a constant type name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantTypeNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantTypeNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -111,9 +117,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a type first stored in a local is out of the inline-only scope and not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeStoredInLocalIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task TypeStoredInLocalIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -129,9 +136,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies the generic <c>Activator.CreateInstance&lt;T&gt;()</c> form is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericCreateInstanceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task GenericCreateInstanceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -146,9 +154,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>typeof</c> type argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeofArgumentIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task TypeofArgumentIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -163,9 +172,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies an instance <c>Assembly.GetType(nonConstant)</c> (not the static <c>Type.GetType</c>) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssemblyGetTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AssemblyGetTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Reflection;
@@ -181,9 +191,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CreateInstance</c> method that is not on <c>System.Activator</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonActivatorCreateInstanceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonActivatorCreateInstanceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -204,9 +215,10 @@ public class NonConstantTypeActivationAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated method taking <c>Type.GetType(nonConstant)</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedMethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedMethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -232,11 +244,7 @@ public class NonConstantTypeActivationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeActivation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeActivation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

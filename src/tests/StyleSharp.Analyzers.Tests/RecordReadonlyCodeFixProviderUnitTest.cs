@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReadonly = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RecordAnalyzer,
     StyleSharp.Analyzers.RecordReadonlyCodeFixProvider>;
@@ -55,9 +56,10 @@ public class RecordReadonlyCodeFixProviderUnitTest
 
     /// <summary>Verifies a readonly record struct and a record class are not reported by SST1803.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyStructAndRecordClassAreCleanAsync()
-        => await VerifyReadonly.VerifyAnalyzerAsync(
+    public Task ReadonlyStructAndRecordClassAreCleanAsync() =>
+        VerifyReadonly.VerifyAnalyzerAsync(
             $$"""
             public readonly record struct Point(int X, int Y);
             public sealed record Person(string Name);{{IsExternalInit}}

@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Removes a local nothing reads (SST1497) without removing what computing it did.
-/// </summary>
+/// <summary>Removes a local nothing reads (SST1497) without removing what computing it did.</summary>
 /// <remarks>
 /// <para>
 /// Deleting the declaration is only half the job. The value may have come from a call that does something —
@@ -78,8 +76,8 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         SyntaxNode root,
         SemanticModel model,
         Diagnostic diagnostic,
-        CancellationToken cancellationToken)
-        => TryBuildEdits(root, model, diagnostic, cancellationToken) is { } edits
+        CancellationToken cancellationToken) =>
+        TryBuildEdits(root, model, diagnostic, cancellationToken) is { } edits
             ? ApplyEdits(document, root, edits)
             : document;
 
@@ -266,8 +264,8 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
     /// creates a delegate, and the body never runs unless something invokes it — and nothing can, because
     /// nothing reads the local.
     /// </remarks>
-    private static bool IsRemovable(ExpressionSyntax expression)
-        => expression is AnonymousFunctionExpressionSyntax || SideEffectFreeExpression.IsSideEffectFree(expression);
+    private static bool IsRemovable(ExpressionSyntax expression) =>
+        expression is AnonymousFunctionExpressionSyntax || SideEffectFreeExpression.IsSideEffectFree(expression);
 
     /// <summary>Returns whether an expression is one the language allows as a statement on its own.</summary>
     /// <param name="expression">The assigned expression.</param>
@@ -314,8 +312,8 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
     /// <summary>Returns whether the tree's language version has discards.</summary>
     /// <param name="node">A node of the tree being fixed.</param>
     /// <returns><see langword="true"/> for C# 7 and later.</returns>
-    private static bool SupportsDiscard(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
+    private static bool SupportsDiscard(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
 
     /// <summary>One node the fix removes or replaces.</summary>
     internal readonly record struct LocalEdit

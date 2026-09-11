@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -63,35 +65,38 @@ public sealed class Psh1001UseArrayEmptyCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="creation">The array creation to rewrite.</param>
     /// <param name="useCollectionExpression">Whether to emit <c>[]</c> instead of <c>System.Array.Empty&lt;T&gt;()</c>.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ArrayCreationExpressionSyntax creation, bool useCollectionExpression)
-        => document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation, useCollectionExpression)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ArrayCreationExpressionSyntax creation, bool useCollectionExpression) =>
+        document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation, useCollectionExpression)));
 
     /// <summary>Returns whether the analyzer marked this diagnostic for a collection-expression replacement.</summary>
     /// <param name="diagnostic">The reported diagnostic.</param>
     /// <returns><see langword="true"/> when the fix should emit <c>[]</c>.</returns>
-    private static bool UsesCollectionExpression(Diagnostic diagnostic)
-        => diagnostic.Properties.ContainsKey(Psh1001UseArrayEmptyAnalyzer.UseCollectionExpressionKey);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool UsesCollectionExpression(Diagnostic diagnostic) =>
+        diagnostic.Properties.ContainsKey(Psh1001UseArrayEmptyAnalyzer.UseCollectionExpressionKey);
 
     /// <summary>Rewrites the creation to <c>[]</c> or a fully-qualified <c>System.Array.Empty&lt;T&gt;()</c> invocation.</summary>
     /// <param name="creation">The array creation to rewrite.</param>
     /// <param name="useCollectionExpression">Whether to emit <c>[]</c> instead of <c>System.Array.Empty&lt;T&gt;()</c>.</param>
     /// <returns>The replacement expression, carrying the creation's surrounding trivia.</returns>
-    private static ExpressionSyntax Rewrite(ArrayCreationExpressionSyntax creation, bool useCollectionExpression)
-        => useCollectionExpression
+    private static ExpressionSyntax Rewrite(ArrayCreationExpressionSyntax creation, bool useCollectionExpression) =>
+        useCollectionExpression
             ? SyntaxFactory.CollectionExpression().WithTriviaFrom(creation)
             : CreateArrayEmptyInvocation(creation);
 
     /// <summary>Rewrites the creation to a fully-qualified <c>System.Array.Empty&lt;T&gt;()</c> invocation.</summary>
     /// <param name="creation">The array creation to rewrite.</param>
     /// <returns>The replacement invocation, carrying the creation's surrounding trivia.</returns>
-    private static InvocationExpressionSyntax CreateArrayEmptyInvocation(ArrayCreationExpressionSyntax creation)
-        => SyntaxFactory.InvocationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static InvocationExpressionSyntax CreateArrayEmptyInvocation(ArrayCreationExpressionSyntax creation) =>
+        SyntaxFactory.InvocationExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     SyntaxFactory.MemberAccessExpression(
                         SyntaxKind.SimpleMemberAccessExpression,
                         SyntaxFactory.IdentifierName("System"),
-                        SyntaxFactory.IdentifierName("Array")),
+                        SyntaxFactory.IdentifierName(nameof(Array))),
                     SyntaxFactory.GenericName(
                         SyntaxFactory.Identifier("Empty"),
                         SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(GetElementTypeSyntax(creation.Type))))))

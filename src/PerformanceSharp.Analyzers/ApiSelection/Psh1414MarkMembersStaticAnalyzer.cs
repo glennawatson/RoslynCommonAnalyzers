@@ -123,8 +123,8 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member carries a modifier that either widens its surface or fixes its dispatch.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns><see langword="true"/> when the member cannot be made static without changing a contract.</returns>
-    private static bool HasDisqualifyingModifier(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.ProtectedKeyword)
+    private static bool HasDisqualifyingModifier(in SyntaxTokenList modifiers) =>
+        modifiers.Any(SyntaxKind.ProtectedKeyword)
             || modifiers.Any(SyntaxKind.PublicKeyword)
             || modifiers.Any(SyntaxKind.StaticKeyword)
             || modifiers.Any(SyntaxKind.VirtualKeyword)
@@ -137,7 +137,7 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="memberMarkers">The resolved attributes that pin a member to instance dispatch.</param>
     /// <param name="fixtureMarkers">The resolved attributes that mark a type's members as reflection targets.</param>
-    private static void AnalyzeMember(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] memberMarkers, INamedTypeSymbol[] fixtureMarkers)
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] memberMarkers, INamedTypeSymbol[] fixtureMarkers)
     {
         var member = (MemberDeclarationSyntax)context.Node;
         if (!IsEligibleDeclaration(member)
@@ -170,10 +170,13 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < metadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(metadataNames[i]) is { } marker)
+            if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
             {
-                buffer[count++] = marker;
+                continue;
             }
+
+            buffer[count] = marker;
+            count++;
         }
 
         if (count == buffer.Length)
@@ -217,8 +220,8 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the member's executable body, or nothing when it has none to inspect.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The body to scan, or <see langword="null"/> for an abstract or auto-implemented member.</returns>
-    private static SyntaxNode? TryGetExecutableBody(MemberDeclarationSyntax member)
-        => member switch
+    private static SyntaxNode? TryGetExecutableBody(MemberDeclarationSyntax member) =>
+        member switch
         {
             MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
             PropertyDeclarationSyntax { ExpressionBody: { } expressionBody } => expressionBody,
@@ -246,8 +249,8 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the identifier token the diagnostic is reported on.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The member's name token.</returns>
-    private static SyntaxToken GetIdentifier(MemberDeclarationSyntax member)
-        => member switch
+    private static SyntaxToken GetIdentifier(MemberDeclarationSyntax member) =>
+        member switch
         {
             MethodDeclarationSyntax method => method.Identifier,
             PropertyDeclarationSyntax property => property.Identifier,
@@ -273,7 +276,7 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         }
 
         var state = default(BackingFieldScanState);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitBackingFieldToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitBackingFieldToken);
         return state.Found;
     }
 
@@ -295,8 +298,8 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a token names a member being read off some other expression.</summary>
     /// <param name="token">The token to classify.</param>
     /// <returns><see langword="true"/> for the name half of a member access such as <c>other.field</c>.</returns>
-    private static bool IsMemberOfAnotherReceiver(SyntaxToken token)
-        => token.Parent is SimpleNameSyntax name
+    private static bool IsMemberOfAnotherReceiver(SyntaxToken token) =>
+        token.Parent is SimpleNameSyntax name
             && name.Parent is MemberAccessExpressionSyntax access
             && access.Name == name;
 
@@ -305,10 +308,10 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <param name="body">The member's executable body.</param>
     /// <param name="symbol">The member being analyzed, whose own self-references do not count.</param>
     /// <returns><see langword="true"/> when the member depends on its receiver.</returns>
-    private static bool UsesInstanceState(SyntaxNodeAnalysisContext context, SyntaxNode body, ISymbol symbol)
+    private static bool UsesInstanceState(in SyntaxNodeAnalysisContext context, SyntaxNode body, ISymbol symbol)
     {
         var state = new InstanceUseScanState(symbol, symbol.ContainingType, context.SemanticModel, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, InstanceUseScanState>(body, ref state, VisitBodyExpression);
+        _ = DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, InstanceUseScanState>(body, ref state, VisitBodyExpression);
         return state.UsesInstance;
     }
 

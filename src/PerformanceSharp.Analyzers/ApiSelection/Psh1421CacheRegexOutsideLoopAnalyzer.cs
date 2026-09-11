@@ -32,8 +32,8 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.CacheRegexOutsideLoop);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -86,16 +86,10 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         {
             switch (current)
             {
-                case ForStatementSyntax:
-                case ForEachStatementSyntax:
-                case ForEachVariableStatementSyntax:
-                case WhileStatementSyntax:
-                case DoStatementSyntax:
+                case ForStatementSyntax or ForEachStatementSyntax or ForEachVariableStatementSyntax or WhileStatementSyntax or DoStatementSyntax:
                     return current;
 
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
-                case MemberDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or MemberDeclarationSyntax:
                     return null;
 
                 default:
@@ -136,8 +130,8 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="pattern">The pattern argument.</param>
     /// <returns><see langword="true"/> when the pattern is fixed at compile time.</returns>
-    private static bool IsConstantPattern(SyntaxNodeAnalysisContext context, ExpressionSyntax pattern)
-        => pattern is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression }
+    private static bool IsConstantPattern(in SyntaxNodeAnalysisContext context, ExpressionSyntax pattern) =>
+        pattern is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression }
             || context.SemanticModel.GetConstantValue(pattern, context.CancellationToken) is { HasValue: true, Value: string };
 
     /// <summary>Returns whether the pattern is a different string on each pass of the loop.</summary>
@@ -164,7 +158,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         // The descendant walk starts below its root, and a foreach declares its iteration variable on the
         // loop node itself — the single most common way a pattern changes between passes.
         AddRefreshedName(loop, refreshed);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, RefreshedNameScanState>(loop, ref loopState, VisitLoopNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, RefreshedNameScanState>(loop, ref loopState, VisitLoopNode);
 
         if (refreshed.Count == 0)
         {
@@ -177,7 +171,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, PatternScanState>(pattern, ref patternState, VisitPatternIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, PatternScanState>(pattern, ref patternState, VisitPatternIdentifier);
         return patternState.Varies;
     }
 
@@ -211,14 +205,14 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        names.Add(name);
+        _ = names.Add(name);
     }
 
     /// <summary>Returns whether an identifier occurrence is the target of a write.</summary>
     /// <param name="identifier">The identifier occurrence.</param>
     /// <returns><see langword="true"/> for assignment targets, increments, decrements, and ref/out arguments.</returns>
-    private static bool IsWriteTarget(IdentifierNameSyntax identifier)
-        => identifier.Parent switch
+    private static bool IsWriteTarget(IdentifierNameSyntax identifier) =>
+        identifier.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == identifier,
             PrefixUnaryExpressionSyntax or PostfixUnaryExpressionSyntax => true,
@@ -244,7 +238,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one static <c>Regex</c> call whose pattern is resolved again on every call.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="regex">The resolved regular-expression type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name } access
@@ -277,7 +271,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Collects the names a loop declares or writes, in one pass over it.</summary>
     /// <param name="Names">The names collected so far.</param>
-    private record struct RefreshedNameScanState(HashSet<string> Names);
+    private readonly record struct RefreshedNameScanState(HashSet<string> Names);
 
     /// <summary>Decides whether the identifiers a pattern reads are among the names the loop refreshes.</summary>
     /// <param name="Refreshed">The names the loop declares or writes.</param>

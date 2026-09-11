@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -42,24 +44,25 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Validate the arguments eagerly and return a private iterator",
             nameof(Sst2404IteratorValidatesTooLateCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies one SST2404 split for the reported iterator.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original when the reported shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => TryRewrite(root, diagnostic) is { } edit
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
 
@@ -79,12 +82,7 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         }
 
         var guards = IteratorGuardAnalysis.CountLeadingGuards(body, method.ParameterList);
-        if (guards == 0 || body.Statements.Count <= guards || !IteratorGuardAnalysis.IsIterator(body))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(method, Split(method, body, guards));
+        return guards == 0 || body.Statements.Count <= guards || !IteratorGuardAnalysis.IsIterator(body) ? null : new NodeReplacement(method, Split(method, body, guards));
     }
 
     /// <summary>Rewrites the method as guards, a return, and the iterator they were guarding.</summary>
@@ -141,7 +139,6 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         // The first kept statement carries the blank line that separated it from the guards; an elastic marker
         // in its place lets the formatter close that gap, so the iterator's body does not open on one. The
         // local function itself is left with no leading trivia at all: the blank line in front of it is the
-        // return statement's, and one elastic trivia anywhere in that gap would hand the whole of it back to
         // the formatter, which would close it.
         kept[0] = kept[0].WithLeadingTrivia(SyntaxFactory.ElasticMarker);
         var returnType = method.ReturnType.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.ElasticSpace);
@@ -179,7 +176,7 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
     private static bool IsNameUsed(MethodDeclarationSyntax method, string name)
     {
         var scan = new NameScan(name);
-        DescendantTraversalHelper.VisitDescendantTokens(method, ref scan, VisitToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(method, ref scan, VisitToken);
         return scan.Found;
     }
 

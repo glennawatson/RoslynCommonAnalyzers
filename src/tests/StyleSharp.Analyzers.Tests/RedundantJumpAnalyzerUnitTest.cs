@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantJump = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.RedundantJumpCodeFixProvider>;
@@ -111,9 +112,10 @@ public class RedundantJumpAnalyzerUnitTest
 
     /// <summary>Verifies a <c>return;</c> that is not the tail of the method body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTrailingReturnIsCleanAsync()
-        => await VerifyRedundantJump.VerifyAnalyzerAsync(
+    public Task NonTrailingReturnIsCleanAsync() =>
+        VerifyRedundantJump.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -131,9 +133,10 @@ public class RedundantJumpAnalyzerUnitTest
 
     /// <summary>Verifies a <c>return;</c> with a value and a trailing <c>continue;</c> inside a nested block are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueReturnAndNestedContinueAreCleanAsync()
-        => await VerifyRedundantJump.VerifyAnalyzerAsync(
+    public Task ValueReturnAndNestedContinueAreCleanAsync() =>
+        VerifyRedundantJump.VerifyAnalyzerAsync(
             """
             public class C
             {

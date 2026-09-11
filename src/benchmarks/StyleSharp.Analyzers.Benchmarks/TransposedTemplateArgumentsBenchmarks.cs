@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the transposed-log-values rule (SST2440).</summary>
+[System.Diagnostics.DebuggerDisplay("TransposedTemplateArgumentsBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class TransposedTemplateArgumentsBenchmarks
@@ -24,11 +26,13 @@ public class TransposedTemplateArgumentsBenchmarks
 
     /// <summary>Benchmarks the clean path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TransposedTemplateArguments_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TransposedTemplateArguments_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

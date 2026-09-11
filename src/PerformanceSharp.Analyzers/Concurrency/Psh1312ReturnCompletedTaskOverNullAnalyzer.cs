@@ -77,8 +77,8 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <summary>Returns whether an expression is a null literal, default literal, or <c>default(T)</c>, before any binding.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression is one of the null/default shapes.</returns>
-    internal static bool IsNullOrDefaultShape(ExpressionSyntax expression)
-        => expression.IsKind(SyntaxKind.NullLiteralExpression)
+    internal static bool IsNullOrDefaultShape(ExpressionSyntax expression) =>
+        expression.IsKind(SyntaxKind.NullLiteralExpression)
             || expression.IsKind(SyntaxKind.DefaultLiteralExpression)
             || expression.IsKind(SyntaxKind.DefaultExpression);
 
@@ -86,7 +86,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="taskOfTType">The generic task type definition.</param>
-    private static void AnalyzeReturnStatement(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
+    private static void AnalyzeReturnStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
     {
         var returnStatement = (ReturnStatementSyntax)context.Node;
         if (returnStatement.Expression is not { } expression
@@ -103,7 +103,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="taskOfTType">The generic task type definition.</param>
-    private static void AnalyzeArrowClause(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
+    private static void AnalyzeArrowClause(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol taskOfTType)
     {
         var arrow = (ArrowExpressionClauseSyntax)context.Node;
         if (!IsNullOrDefaultShape(arrow.Expression) || GetArrowOwnerReturnType(arrow) is not { } returnTypeSyntax)
@@ -123,9 +123,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
         {
             switch (node)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case GlobalStatementSyntax:
-                case BaseTypeDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or GlobalStatementSyntax or BaseTypeDeclarationSyntax:
                     return null;
                 case LocalFunctionStatementSyntax localFunction:
                     return localFunction.Modifiers.Any(SyntaxKind.AsyncKeyword) ? null : localFunction.ReturnType;
@@ -144,8 +142,8 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <summary>Gets the declared return type owning an expression body, skipping async owners and lambdas.</summary>
     /// <param name="arrow">The expression body being analyzed.</param>
     /// <returns>The return type syntax, or <see langword="null"/> when the owner is async or not a supported member kind.</returns>
-    private static TypeSyntax? GetArrowOwnerReturnType(ArrowExpressionClauseSyntax arrow)
-        => arrow.Parent switch
+    private static TypeSyntax? GetArrowOwnerReturnType(ArrowExpressionClauseSyntax arrow) =>
+        arrow.Parent switch
         {
             MethodDeclarationSyntax method when !method.Modifiers.Any(SyntaxKind.AsyncKeyword) => method.ReturnType,
             LocalFunctionStatementSyntax localFunction when !localFunction.Modifiers.Any(SyntaxKind.AsyncKeyword) => localFunction.ReturnType,
@@ -158,8 +156,8 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <summary>Gets the declared type of the property or indexer owning a get accessor.</summary>
     /// <param name="accessor">The get accessor.</param>
     /// <returns>The owner's type syntax, or <see langword="null"/> for other accessor owners.</returns>
-    private static TypeSyntax? GetAccessorOwnerType(AccessorDeclarationSyntax accessor)
-        => accessor.Parent?.Parent switch
+    private static TypeSyntax? GetAccessorOwnerType(AccessorDeclarationSyntax accessor) =>
+        accessor.Parent?.Parent switch
         {
             PropertyDeclarationSyntax property => property.Type,
             IndexerDeclarationSyntax indexer => indexer.Type,
@@ -173,7 +171,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullAnalyzer : DiagnosticAnaly
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="taskOfTType">The generic task type definition.</param>
     private static void AnalyzeReturnedExpression(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression,
         TypeSyntax returnTypeSyntax,
         INamedTypeSymbol taskType,

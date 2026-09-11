@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeEncoding = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -46,9 +47,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>AllowDangerouslySetContent = true</c> on the config is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectAssignmentOnConfigReportedAsync()
-        => await VerifyAsync(
+    public Task DirectAssignmentOnConfigReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -63,9 +65,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form on the config is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerOnConfigReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectInitializerOnConfigReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -78,9 +81,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form on an input variable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerOnInputVariableReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectInitializerOnInputVariableReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -93,9 +97,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form on the template factory is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerOnKernelFactoryReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectInitializerOnKernelFactoryReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -108,9 +113,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the flag on the Handlebars template factory is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HandlebarsFactoryReportedAsync()
-        => await VerifyAsync(
+    public Task HandlebarsFactoryReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel.PromptTemplates.Handlebars;
 
@@ -125,9 +131,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies setting the flag to false is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetToFalseIsCleanAsync()
-        => await VerifyAsync(
+    public Task SetToFalseIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -142,9 +149,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a non-literal right-hand side is not reported (only the literal <c>true</c> is).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralValueIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonLiteralValueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.SemanticKernel;
 
@@ -159,9 +167,10 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a same-named property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyOptions
             {
@@ -197,11 +206,7 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeEncoding.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeEncoding.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -211,11 +216,7 @@ public class PromptTemplateContentEncodingDisabledAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeEncoding.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + SemanticKernelStub
-        };
+        var test = new AnalyzeEncoding.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + SemanticKernelStub };
 
         await test.RunAsync(CancellationToken.None);
     }

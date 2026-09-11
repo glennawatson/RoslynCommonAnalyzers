@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -113,9 +114,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies First on reference-typed elements stays clean; MinBy would return null where First throws.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceElementsWithFirstIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ReferenceElementsWithFirstIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -127,9 +129,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies FirstOrDefault on value-typed elements stays clean; MinBy would throw where FirstOrDefault returns default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueElementsWithFirstOrDefaultIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ValueElementsWithFirstOrDefaultIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -141,9 +144,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies a ThenBy between the sort and the terminal stays clean; the secondary sort still matters.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThenByChainIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ThenByChainIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -155,9 +159,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies a terminal carrying a predicate stays clean; the predicate filters after the sort.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PredicateTerminalIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PredicateTerminalIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -169,9 +174,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies a sort carrying a comparer argument stays clean; MinBy(k) would drop the comparer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparerOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ComparerOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -184,9 +190,10 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
 
     /// <summary>Verifies keyed suggestions stay silent on frameworks without Enumerable.MinBy.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MinBySuggestionIsGatedOnApiExistingAsync()
-        => await VerifyNet50Async(
+    public Task MinBySuggestionIsGatedOnApiExistingAsync() =>
+        VerifyNet50Async(
             """
             using System.Linq;
 
@@ -224,15 +231,17 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static Task VerifyNet90Async(string source, string? fixedSource = null)
-        => VerifyAsync(ReferenceAssemblies.Net.Net90, source, fixedSource);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90Async(string source, string? fixedSource = null) =>
+        VerifyAsync(ReferenceAssemblies.Net.Net90, source, fixedSource);
 
     /// <summary>Runs a verification against the .NET 5 reference assemblies, which lack Enumerable.MinBy.</summary>
     /// <param name="source">The test source.</param>
     /// <param name="fixedSource">The expected fixed source, when a fix should apply.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static Task VerifyNet50Async(string source, string? fixedSource = null)
-        => VerifyAsync(ReferenceAssemblies.Net.Net50, source, fixedSource);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet50Async(string source, string? fixedSource = null) =>
+        VerifyAsync(ReferenceAssemblies.Net.Net50, source, fixedSource);
 
     /// <summary>Runs a verification against the supplied reference assemblies.</summary>
     /// <param name="referenceAssemblies">The reference assemblies to compile against.</param>
@@ -241,11 +250,7 @@ public class TakeExtremeWithoutSortingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(ReferenceAssemblies referenceAssemblies, string source, string? fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = referenceAssemblies,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = referenceAssemblies, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

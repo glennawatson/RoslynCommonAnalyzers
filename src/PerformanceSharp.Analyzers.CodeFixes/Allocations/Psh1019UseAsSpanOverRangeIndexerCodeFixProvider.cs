@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -26,16 +28,17 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerCodeFixProvider : CodeFixPro
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Slice in place instead of copying",
             nameof(Psh1019UseAsSpanOverRangeIndexerCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported range indexer and builds its slice rewrite.</summary>
     /// <param name="root">The syntax root.</param>
@@ -64,8 +67,8 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerCodeFixProvider : CodeFixPro
     /// <param name="slice">The rewritten slice call.</param>
     /// <param name="sliceMethod">The slice method name the analyzer chose.</param>
     /// <returns><see langword="true"/> when the rewrite binds to <c>MemoryExtensions</c>.</returns>
-    private static bool BindsToSlice(SemanticModel model, int position, InvocationExpressionSyntax slice, string sliceMethod)
-        => model.GetSpeculativeSymbolInfo(position, slice, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol resolved
+    private static bool BindsToSlice(SemanticModel model, int position, InvocationExpressionSyntax slice, string sliceMethod) =>
+        model.GetSpeculativeSymbolInfo(position, slice, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol resolved
             && resolved.Name == sliceMethod
             && resolved.ContainingType is
             {

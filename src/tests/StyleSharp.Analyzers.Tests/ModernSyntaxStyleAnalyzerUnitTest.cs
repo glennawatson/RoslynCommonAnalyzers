@@ -47,12 +47,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -86,12 +81,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        public Person Creator { get; } = new();
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -111,11 +101,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   public object Owner { get; set; } = new Person();
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -135,11 +121,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   public Person Owner { get; set; } = new Person();
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -166,12 +148,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        public int M(int[] values) => values[^1];
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -197,12 +174,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        public string Slice(string text, int start, int length) => text[start..(start + length)];
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -232,11 +204,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   public string Slice(string text, int start) => text.Substring(start + 1);
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -279,11 +247,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -307,10 +271,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80 };
         test.TestState.Sources.Add(("ModernSyntaxStyleBench.g.cs", Source));
 
         await test.RunAsync(CancellationToken.None);
@@ -337,12 +298,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        private List<int> _values = new();
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -394,12 +350,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -443,12 +394,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -506,12 +452,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -561,12 +502,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -666,12 +602,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -711,12 +642,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                        public Box Make() => new(new List<int>());
                                    }
                                    """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -741,11 +667,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -774,11 +696,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -824,11 +742,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -863,11 +777,7 @@ public class ModernSyntaxStyleAnalyzerUnitTest
                                   public void M() => Sink.Take(new Item(1));
                               }
                               """;
-        var test = new VerifyModernSyntaxStyle.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxStyle.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }

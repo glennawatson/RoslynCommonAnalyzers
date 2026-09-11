@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOptionalParameter = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2309OptionalParameterAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class OptionalParameterAnalyzerUnitTest
 {
     /// <summary>Verifies an optional parameter on a visible method and constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalParameterOnAVisibleMemberIsReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task OptionalParameterOnAVisibleMemberIsReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             public class Client
             {
@@ -33,9 +35,10 @@ public class OptionalParameterAnalyzerUnitTest
 
     /// <summary>Verifies an optional parameter on an extension method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalParameterOnAnExtensionMethodIsReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task OptionalParameterOnAnExtensionMethodIsReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             public static class Extensions
             {
@@ -51,9 +54,10 @@ public class OptionalParameterAnalyzerUnitTest
     /// These attributes only work on an optional parameter — the default is the slot the compiler writes the
     /// caller's details into — so an overload is not something the language would accept here.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerInfoParameterIsNotReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task CallerInfoParameterIsNotReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -72,9 +76,10 @@ public class OptionalParameterAnalyzerUnitTest
     /// <summary>Verifies a member whose signature belongs to a base or an interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The declarations that set the shape carry the diagnostic; the implementations cannot change it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberThatCannotChangeItsSignatureIsNotReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task MemberThatCannotChangeItsSignatureIsNotReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             public interface ISender
             {
@@ -108,9 +113,10 @@ public class OptionalParameterAnalyzerUnitTest
     /// <summary>Verifies a positional record's primary constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Its parameter list is the record's definition, and there is no overload to write it as.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordPrimaryConstructorIsNotReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task PositionalRecordPrimaryConstructorIsNotReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             namespace System.Runtime.CompilerServices
             {
@@ -128,9 +134,10 @@ public class OptionalParameterAnalyzerUnitTest
     /// A params array carries no default to bake in, and inside an assembly every caller recompiles together,
     /// so an internal or private default can never go stale.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParamsAndNonVisibleMembersAreNotReportedAsync()
-        => await VerifyOptionalParameter.VerifyAnalyzerAsync(
+    public Task ParamsAndNonVisibleMembersAreNotReportedAsync() =>
+        VerifyOptionalParameter.VerifyAnalyzerAsync(
             """
             public class Batch
             {

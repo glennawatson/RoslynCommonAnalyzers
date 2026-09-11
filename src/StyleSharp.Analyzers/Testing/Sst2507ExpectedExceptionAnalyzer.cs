@@ -74,13 +74,13 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         var expectedExceptionMarkers = Resolve(context.Compilation, ExpectedExceptionMetadataNames);
-        if (expectedExceptionMarkers.Length == 0)
+        if (expectedExceptionMarkers.IsEmpty)
         {
             return;
         }
 
         var testMarkers = Resolve(context.Compilation, TestMarkerMetadataNames);
-        if (testMarkers.Length == 0)
+        if (testMarkers.IsEmpty)
         {
             return;
         }
@@ -92,7 +92,7 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a test method whose expected failure is declared with an expected-exception attribute.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="facts">The resolved expected-exception and test-marker attribute types.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, TestingFacts facts)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, TestingFacts facts)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (FindExpectedExceptionAttribute(method) is not { } expectedExceptionAttribute)

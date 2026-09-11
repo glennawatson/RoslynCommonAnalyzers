@@ -58,7 +58,7 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="resultsType">The resolved <c>Results</c> factory type.</param>
     /// <param name="typedResultsType">The resolved <c>TypedResults</c> factory type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol resultsType, INamedTypeSymbol typedResultsType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol resultsType, INamedTypeSymbol typedResultsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess

@@ -90,8 +90,8 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
     /// <summary>Finds a <c>set</c> or <c>init</c> accessor that has a body.</summary>
     /// <param name="accessors">The property's accessor list.</param>
     /// <returns>The accessor, or <see langword="null"/>.</returns>
-    private static AccessorDeclarationSyntax? GetSetter(AccessorListSyntax accessors)
-        => GetAccessor(accessors, SyntaxKind.SetAccessorDeclaration) ?? GetAccessor(accessors, SyntaxKind.InitAccessorDeclaration);
+    private static AccessorDeclarationSyntax? GetSetter(AccessorListSyntax accessors) =>
+        GetAccessor(accessors, SyntaxKind.SetAccessorDeclaration) ?? GetAccessor(accessors, SyntaxKind.InitAccessorDeclaration);
 
     /// <summary>Returns whether an accessor has a block or expression body.</summary>
     /// <param name="accessor">The accessor.</param>
@@ -131,12 +131,13 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
         var statements = body.Statements;
         for (var i = 0; i < statements.Count; i++)
         {
-            if (statements[i] is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment }
-                && ValueAssignmentTarget(assignment) is { } target)
+            if (statements[i] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment } || ValueAssignmentTarget(assignment) is not { } target)
             {
-                count++;
-                found = target;
+                continue;
             }
+
+            count++;
+            found = target;
         }
 
         return count == 1 ? found : null;
@@ -145,11 +146,11 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the field an assignment writes <c>value</c> to, when that is its shape.</summary>
     /// <param name="assignment">The assignment.</param>
     /// <returns>The assigned field expression, or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? ValueAssignmentTarget(AssignmentExpressionSyntax assignment)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+    private static ExpressionSyntax? ValueAssignmentTarget(AssignmentExpressionSyntax assignment) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && assignment.Right is IdentifierNameSyntax { Identifier.ValueText: "value" }
-                ? AsFieldReference(assignment.Left)
-                : null;
+            ? AsFieldReference(assignment.Left)
+            : null;
 
     /// <summary>Reduces an expression to a plain field reference, if it is one.</summary>
     /// <param name="expression">The expression.</param>
@@ -165,6 +166,6 @@ public sealed class Sst2422BackingFieldMismatchAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The field-reference expression.</param>
     /// <returns>The instance field symbol, or <see langword="null"/>.</returns>
-    private static IFieldSymbol? ResolveInstanceField(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
-        => context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IFieldSymbol { IsStatic: false } field ? field : null;
+    private static IFieldSymbol? ResolveInstanceField(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IFieldSymbol { IsStatic: false } field ? field : null;
 }

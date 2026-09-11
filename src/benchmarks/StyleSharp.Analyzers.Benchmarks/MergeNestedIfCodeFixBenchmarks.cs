@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the nested-if merge code fix.</summary>
+[System.Diagnostics.DebuggerDisplay("MergeNestedIfCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class MergeNestedIfCodeFixBenchmarks : IDisposable
@@ -43,7 +45,7 @@ public class MergeNestedIfCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         var source = MergeNestedIfBenchmarkSource.Generate(Nodes, violating: true);
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, source);
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
@@ -55,6 +57,7 @@ public class MergeNestedIfCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

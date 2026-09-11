@@ -74,8 +74,8 @@ public sealed class Sst2421ReadonlyGenericFieldWriteAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a method call could mutate the receiver.</summary>
     /// <param name="method">The resolved method.</param>
     /// <returns><see langword="true"/> for a non-readonly, non-static instance method that is not an object member.</returns>
-    private static bool Mutates(IMethodSymbol method)
-        => method is { IsStatic: false, IsReadOnly: false }
+    private static bool Mutates(IMethodSymbol method) =>
+        method is { IsStatic: false, IsReadOnly: false }
             && method.ContainingType?.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType or SpecialType.System_Enum);
 
     /// <summary>Returns whether a receiver is a readonly field of an unconstrained type parameter.</summary>
@@ -83,7 +83,7 @@ public sealed class Sst2421ReadonlyGenericFieldWriteAnalyzer : DiagnosticAnalyze
     /// <param name="receiver">The receiver expression.</param>
     /// <param name="name">The field's name.</param>
     /// <returns><see langword="true"/> when a write through the receiver lands on a copy.</returns>
-    private static bool TryGetReadonlyGenericField(SyntaxNodeAnalysisContext context, ExpressionSyntax receiver, out string name)
+    private static bool TryGetReadonlyGenericField(in SyntaxNodeAnalysisContext context, ExpressionSyntax receiver, out string name)
     {
         name = string.Empty;
         if (receiver is not IdentifierNameSyntax and not MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax })

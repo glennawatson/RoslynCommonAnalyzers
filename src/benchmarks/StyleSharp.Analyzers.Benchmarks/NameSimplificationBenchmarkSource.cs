@@ -26,8 +26,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable qualified names and <c>this.</c> accesses.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            using System.Text;
 
            namespace Bench;
@@ -53,8 +53,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <summary>Builds source where the shorter name is visible through normal lookup.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUnshadowedLookup(int members)
-        => $$"""
+    internal static string GenerateUnshadowedLookup(int members) =>
+        $$"""
            using System.Text;
 
            namespace Bench;
@@ -70,8 +70,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <summary>Builds source where shorter names are hidden by nearer declarations.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateShadowedLookup(int members)
-        => $$"""
+    internal static string GenerateShadowedLookup(int members) =>
+        $$"""
            namespace Other
            {
                internal sealed class Widget
@@ -96,8 +96,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <summary>Builds source that keeps generic names on the speculative-binding fallback path.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateGenericFallback(int members)
-        => $$"""
+    internal static string GenerateGenericFallback(int members) =>
+        $$"""
            using System.Collections.Generic;
 
            namespace Bench;
@@ -122,9 +122,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="shape">The member shape to emit.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index, int shape)
-    {
-        return shape switch
+    /// <exception cref="InvalidOperationException"><paramref name="shape"/> is not one of the shapes that has a reportable form.</exception>
+    private static string GenerateViolatingMember(int index, int shape) => shape switch
         {
             QualifiedShape or AlternateQualifiedShape => $$"""
                                                            public int Qualified{{index}}(System.Text.StringBuilder builder) => builder.Length;
@@ -134,15 +133,13 @@ internal static class NameSimplificationBenchmarkSource
                                                         """,
             _ => throw new InvalidOperationException("Unexpected name-simplification benchmark shape.")
         };
-    }
 
     /// <summary>Builds one synthetic clean member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <param name="shape">The member shape to emit.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index, int shape)
-    {
-        return shape switch
+    /// <exception cref="InvalidOperationException"><paramref name="shape"/> is not one of the shapes that has a clean form.</exception>
+    private static string GenerateCleanMember(int index, int shape) => shape switch
         {
             QualifiedShape => $$"""
                                 public int Qualified{{index}}(StringBuilder builder) => builder.Length;
@@ -159,13 +156,12 @@ internal static class NameSimplificationBenchmarkSource
                                                                  """,
             _ => throw new InvalidOperationException("Unexpected name-simplification benchmark shape.")
         };
-    }
 
     /// <summary>Builds one unshadowed lookup member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUnshadowedLookupMember(int index)
-        => (index & 1) == 0
+    private static string GenerateUnshadowedLookupMember(int index) =>
+        (index & 1) == 0
             ? $$"""
                 public int Qualified{{index}}(System.Text.StringBuilder builder) => builder.Length;
                 """
@@ -176,8 +172,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <summary>Builds one shadowed lookup member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateShadowedLookupMember(int index)
-        => (index & 1) == 0
+    private static string GenerateShadowedLookupMember(int index) =>
+        (index & 1) == 0
             ? $$"""
                 public Other.Widget Qualified{{index}}() => new Other.Widget();
                 """
@@ -192,8 +188,8 @@ internal static class NameSimplificationBenchmarkSource
     /// <summary>Builds one generic fallback member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateGenericFallbackMember(int index)
-        => $$"""
+    private static string GenerateGenericFallbackMember(int index) =>
+        $$"""
            public int Generic{{index}}(System.Collections.Generic.List<int> values) => values.Count + {{index}};
            """;
 }

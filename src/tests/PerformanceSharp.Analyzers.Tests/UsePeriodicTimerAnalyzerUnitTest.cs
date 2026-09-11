@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 {
     /// <summary>Verifies a delay pacing a while loop's tail is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelayPacedWhileLoopIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task DelayPacedWhileLoopIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -39,9 +41,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a retry loop that adjusts its delay stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BackoffLoopIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BackoffLoopIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -66,9 +69,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a conditional delay inside the loop stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalDelayIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConditionalDelayIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -94,9 +98,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a bounded for loop stays clean because it is usually retry logic.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundedForLoopIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BoundedForLoopIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -119,9 +124,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a delay-only spin loop body is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelayOnlyLoopBodyIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task DelayOnlyLoopBodyIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -141,9 +147,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a delay outside any loop stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelayOutsideLoopIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task DelayOutsideLoopIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -184,9 +191,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies a deadline-bounded poll is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeadlineBoundedPollIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task DeadlineBoundedPollIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -213,9 +221,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies an elapsed-time bounded poll is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElapsedBoundedPollIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ElapsedBoundedPollIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Diagnostics;
@@ -238,9 +247,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies an attempt-bounded retry loop is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttemptBoundedLoopIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AttemptBoundedLoopIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -268,9 +278,10 @@ public class UsePeriodicTimerAnalyzerUnitTest
 
     /// <summary>Verifies an unbounded cancellation-driven loop is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CancellationDrivenLoopIsStillReportedAsync()
-        => await VerifyNet90Async(
+    public Task CancellationDrivenLoopIsStillReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading;
             using System.Threading.Tasks;
@@ -297,11 +308,7 @@ public class UsePeriodicTimerAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

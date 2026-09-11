@@ -57,7 +57,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one invocation for a null-sender or null-args event raise.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="eventArgsType">The resolved <c>System.EventArgs</c> symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var arguments = invocation.ArgumentList.Arguments;
@@ -112,7 +112,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
     /// <param name="invoke">The bound delegate <c>Invoke</c>, when the call is an event raise.</param>
     /// <returns><see langword="true"/> when the invocation raises an instance-or-static event.</returns>
     private static bool TryGetRaisedEvent(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol eventArgsType,
         [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out IEventSymbol? raisedEvent,

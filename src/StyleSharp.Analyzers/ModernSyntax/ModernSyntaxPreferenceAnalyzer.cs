@@ -135,15 +135,15 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
     /// a single diagnostic on that shape and steers the fix toward the cleaner member form. A <c>set</c>/<c>init</c>
     /// accessor, or a <c>get</c> that shares its property with another accessor, has no whole-member form and still reports.
     /// </remarks>
-    private static bool DefersToWholeMemberExpressionBody(AccessorDeclarationSyntax accessor)
-        => accessor.IsKind(SyntaxKind.GetAccessorDeclaration)
+    private static bool DefersToWholeMemberExpressionBody(AccessorDeclarationSyntax accessor) =>
+        accessor.IsKind(SyntaxKind.GetAccessorDeclaration)
             && ExpressionBodyAnalyzer.AccessorListCollapsesToExpressionBody(accessor.Parent as AccessorListSyntax);
 
     /// <summary>Returns whether syntax already supplies a direct explicit target for the lambda.</summary>
     /// <param name="lambda">The lambda.</param>
     /// <returns><see langword="true"/> for explicit variable or field initializers.</returns>
-    private static bool HasExplicitLambdaTarget(ParenthesizedLambdaExpressionSyntax lambda)
-        => lambda.Parent is EqualsValueClauseSyntax
+    private static bool HasExplicitLambdaTarget(ParenthesizedLambdaExpressionSyntax lambda) =>
+        lambda.Parent is EqualsValueClauseSyntax
         {
             Parent: VariableDeclaratorSyntax
             {
@@ -220,8 +220,8 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the call has explicit generic method type arguments.</summary>
     /// <param name="call">The call expression.</param>
     /// <returns><see langword="true"/> when the method type arguments are written in source.</returns>
-    private static bool HasExplicitTypeArguments(ExpressionSyntax call)
-        => call is InvocationExpressionSyntax
+    private static bool HasExplicitTypeArguments(ExpressionSyntax call) =>
+        call is InvocationExpressionSyntax
         {
             Expression: GenericNameSyntax or MemberAccessExpressionSyntax { Name: GenericNameSyntax }
         };
@@ -296,8 +296,7 @@ public sealed class ModernSyntaxPreferenceAnalyzer : DiagnosticAnalyzer
     /// <returns>The updated lambda.</returns>
     private static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
     {
-        var parameters = lambda.ParameterList.Parameters;
-        var parametersWithSeparators = parameters.GetWithSeparators();
+        var parametersWithSeparators = lambda.ParameterList.Parameters.GetWithSeparators();
         var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
         for (var i = 0; i < parametersWithSeparators.Count; i++)
         {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using AnalyzeCsp = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     SecuritySharp.Analyzers.Ses1515PermissiveContentSecurityPolicyAnalyzer>;
 
@@ -36,9 +37,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Headers.Add</c> call setting the CSP header to an inline-permitting value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HeadersAddUnsafeInlineReportedAsync()
-        => await VerifyAsync(
+    public Task HeadersAddUnsafeInlineReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -49,9 +51,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Headers.Append</c> call setting the CSP header to an eval-permitting value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HeadersAppendUnsafeEvalReportedAsync()
-        => await VerifyAsync(
+    public Task HeadersAppendUnsafeEvalReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -62,9 +65,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies an indexer assignment setting the CSP header to an inline-permitting value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task IndexerAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -75,9 +79,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies the header name is matched case-insensitively.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseInsensitiveHeaderNameReportedAsync()
-        => await VerifyAsync(
+    public Task CaseInsensitiveHeaderNameReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -88,9 +93,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a self-evident policy value (begins with a directive) is reported without any header call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfEvidentDefaultSrcUnsafeInlineReportedAsync()
-        => await VerifyAsync(
+    public Task SelfEvidentDefaultSrcUnsafeInlineReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -101,9 +107,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a self-evident verbatim string policy value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfEvidentVerbatimStringReportedAsync()
-        => await VerifyAsync(
+    public Task SelfEvidentVerbatimStringReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -114,9 +121,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a self-evident policy ending in a bare wildcard source is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfEvidentTrailingWildcardReportedAsync()
-        => await VerifyAsync(
+    public Task SelfEvidentTrailingWildcardReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -127,9 +135,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a self-evident policy with a wildcard source followed by a semicolon is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfEvidentWildcardBeforeSemicolonReportedAsync()
-        => await VerifyAsync(
+    public Task SelfEvidentWildcardBeforeSemicolonReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -140,9 +149,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a wildcard set on the CSP header via an indexer assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerWildcardReportedAsync()
-        => await VerifyAsync(
+    public Task IndexerWildcardReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -153,9 +163,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a string with no CSP directive token is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonCspStringIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonCspStringIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -166,9 +177,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a locked-down policy with no permissive source is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectiveWithoutPermissiveSourceIsCleanAsync()
-        => await VerifyAsync(
+    public Task DirectiveWithoutPermissiveSourceIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -179,9 +191,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a wildcard subdomain host is not treated as a bare wildcard source.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WildcardSubdomainHostIsCleanAsync()
-        => await VerifyAsync(
+    public Task WildcardSubdomainHostIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -192,9 +205,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a scheme-relative wildcard host is not treated as a bare wildcard source.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SchemeWildcardHostIsCleanAsync()
-        => await VerifyAsync(
+    public Task SchemeWildcardHostIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -205,9 +219,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a string that merely mentions a directive mid-text, off a header, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContainsDirectiveButNotHeaderIsCleanAsync()
-        => await VerifyAsync(
+    public Task ContainsDirectiveButNotHeaderIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -218,9 +233,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a directive-like prefix without a source boundary is not treated as self-evident.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectivePrefixWithoutBoundaryIsCleanAsync()
-        => await VerifyAsync(
+    public Task DirectivePrefixWithoutBoundaryIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -231,9 +247,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a permissive value set on a different header is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentHeaderNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task DifferentHeaderNameIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -244,9 +261,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a permissive value set on a different header via an indexer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentIndexerHeaderNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task DifferentIndexerHeaderNameIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -257,9 +275,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies the literal in the name slot (not the value slot) does not report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PolicyInNameSlotIsCleanAsync()
-        => await VerifyAsync(
+    public Task PolicyInNameSlotIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -270,9 +289,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a call with more than two arguments is not treated as a header set.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeArgumentCallIsCleanAsync()
-        => await VerifyAsync(
+    public Task ThreeArgumentCallIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -283,9 +303,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a non-string header-name argument is not matched.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericNameArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NumericNameArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -296,9 +317,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a non-literal header-name argument is not matched.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralNameArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonLiteralNameArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -309,9 +331,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a multi-argument indexer key is not matched as a header name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiArgumentIndexerIsCleanAsync()
-        => await VerifyAsync(
+    public Task MultiArgumentIndexerIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -322,9 +345,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a permissive value passed to a constructor is not treated as a header set.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstructorArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -335,9 +359,10 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
 
     /// <summary>Verifies a permissive value assigned to a plain field is not treated as a header set.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SimpleAssignmentIsCleanAsync()
-        => await VerifyAsync(
+    public Task SimpleAssignmentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -353,10 +378,7 @@ public class PermissiveContentSecurityPolicyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeCsp.Test
-        {
-            TestCode = source + HeadersStub
-        };
+        var test = new AnalyzeCsp.Test { TestCode = source + HeadersStub };
 
         await test.RunAsync(CancellationToken.None);
     }

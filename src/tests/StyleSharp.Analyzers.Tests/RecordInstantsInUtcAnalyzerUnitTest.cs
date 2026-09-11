@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUtc = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2011RecordInstantsInUtcAnalyzer,
     StyleSharp.Analyzers.Sst2011RecordInstantsInUtcCodeFixProvider>;
@@ -155,9 +156,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies the reads off an offset that already carry the UTC instant are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UtcReadsOffAnOffsetAreCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task UtcReadsOffAnOffsetAreCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -175,9 +177,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies a Today that is consulted rather than recorded is left alone, as a consulted Now is.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsultingTodayIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task ConsultingTodayIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -197,9 +200,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies a Today of the user's own is not mistaken for the framework clock.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TodayOnAnotherTypeIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task TodayOnAnotherTypeIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             namespace Fakes
             {
@@ -219,9 +223,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies a local clock read that never escapes the expression is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsultingTheLocalClockIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task ConsultingTheLocalClockIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -243,9 +248,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies the UTC clock is never reported: it is what the rule asks for.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UtcClockIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task UtcClockIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -261,9 +267,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
 
     /// <summary>Verifies a constructed DateTime is SST1451's business, not this rule's.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructedDateTimeIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task ConstructedDateTimeIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -278,9 +285,10 @@ public class RecordInstantsInUtcAnalyzerUnitTest
     /// <summary>Verifies a 'Now' on a type of the user's own that is also called DateTime is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The spelling matches, so the rule binds — and the bind is what saves it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClockShapedMemberOfAnotherTypeIsCleanAsync()
-        => await VerifyUtc.VerifyAnalyzerAsync(
+    public Task ClockShapedMemberOfAnotherTypeIsCleanAsync() =>
+        VerifyUtc.VerifyAnalyzerAsync(
             """
             namespace Fakes
             {

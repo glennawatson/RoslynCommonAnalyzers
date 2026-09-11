@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifySpacing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.SpacingAnalyzer,
@@ -12,26 +13,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the trivia spacing rules (SST1005/SST1025/SST1027/SST1028).</summary>
 public class SpacingAnalyzerUnitTest
 {
-    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
-    /// <summary>Turns the opening-bracket rule on and leaves collection-expression spacing at its tight default.</summary>
-    private const string BracketSpacingEnabledConfig = """
-        root = true
-        [*.cs]
-        dotnet_diagnostic.SST1010.severity = warning
-
-        """;
-
-    /// <summary>Turns the opening-bracket rule on and asks for collection expressions to be padded inside their brackets.</summary>
-    private const string PaddedCollectionExpressionConfig = """
-        root = true
-        [*.cs]
-        dotnet_diagnostic.SST1010.severity = warning
-        stylesharp.collection_expression_spacing = space
-
-        """;
-
     /// <summary>Verifies a single-line comment without a leading space is reported (SST1005) and fixed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -686,9 +667,10 @@ public class SpacingAnalyzerUnitTest
 
     /// <summary>Verifies interpolation braces are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolationBracesAreCleanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task InterpolationBracesAreCleanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -748,9 +730,10 @@ public class SpacingAnalyzerUnitTest
 
     /// <summary>Verifies a correctly spaced base-list colon is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectBaseListColonIsCleanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task CorrectBaseListColonIsCleanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             internal class B
             {
@@ -793,9 +776,15 @@ public class SpacingAnalyzerUnitTest
                        {
                            private static readonly int[] Field = [1, 2, 3];
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -814,9 +803,15 @@ public class SpacingAnalyzerUnitTest
                        {
                            private static Dictionary<string, int> Make() => new Dictionary<string, int> { ["a"] = 1, ["b"] = 2 };
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -833,9 +828,15 @@ public class SpacingAnalyzerUnitTest
                        {
                            private static bool M(int[] a) => a is [1, 2];
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -858,9 +859,15 @@ public class SpacingAnalyzerUnitTest
                         {
                             private static readonly int[] Field = [1, 2];
                         }
-                        """
+                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BracketSpacingEnabledConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -877,9 +884,16 @@ public class SpacingAnalyzerUnitTest
                        {
                            private static readonly int[] Field = [ 1, 2, 3 ];
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -902,9 +916,16 @@ public class SpacingAnalyzerUnitTest
                         {
                             private static readonly int[] Field = [ 1, 2, 3 ];
                         }
-                        """
+                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -921,9 +942,16 @@ public class SpacingAnalyzerUnitTest
                        {
                            private static readonly int[] Field = [];
                        }
-                       """
+                       """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -946,9 +974,16 @@ public class SpacingAnalyzerUnitTest
                         {
                             private static int M(int[] arr) => arr[0];
                         }
-                        """
+                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, PaddedCollectionExpressionConfig));
+        test.TestState.AnalyzerConfigFiles.Add(
+            ("/.editorconfig", """
+            root = true
+            [*.cs]
+            dotnet_diagnostic.SST1010.severity = warning
+            stylesharp.collection_expression_spacing = space
+
+            """));
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -981,9 +1016,10 @@ public class SpacingAnalyzerUnitTest
 
     /// <summary>Verifies a correctly spaced documentation line is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectDocExteriorIsCleanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task CorrectDocExteriorIsCleanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -1018,9 +1054,10 @@ public class SpacingAnalyzerUnitTest
 
     /// <summary>Verifies a correctly written preprocessor directive is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectPreprocessorKeywordIsCleanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task CorrectPreprocessorKeywordIsCleanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             #if true
             internal class C
@@ -1077,9 +1114,10 @@ public class SpacingAnalyzerUnitTest
 
     /// <summary>Verifies dereference and address-of symbols that touch their operand are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectPointerSymbolsAreCleanAsync()
-        => await RunUnsafeAsync(
+    public Task CorrectPointerSymbolsAreCleanAsync() =>
+        RunUnsafeAsync(
             """
             unsafe class C
             {
@@ -1093,15 +1131,16 @@ public class SpacingAnalyzerUnitTest
             null);
 
     /// <summary>Verifies the comma before an interpolation's alignment is not required to carry a space.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// That comma separates a value from its width, not one list item from the next. <c>{value,-34}</c> is
     /// how the format is written everywhere and what the compiler's own formatter produces; asking for a
     /// space after it would set this rule against every other formatter in the toolchain.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolationAlignmentCommaIsNotReportedAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task InterpolationAlignmentCommaIsNotReportedAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -1115,10 +1154,7 @@ public class SpacingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunUnsafeAsync(string source, string? fixedSource)
     {
-        var test = new VerifySpacing.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifySpacing.Test { TestCode = source };
 
         if (fixedSource is not null)
         {

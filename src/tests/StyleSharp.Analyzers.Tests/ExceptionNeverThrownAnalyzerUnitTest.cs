@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyExceptionNeverThrown = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1480ExceptionNeverThrownAnalyzer,
     StyleSharp.Analyzers.Sst1480ExceptionNeverThrownCodeFixProvider>;
@@ -95,9 +96,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
 
     /// <summary>Verifies an exception that is thrown is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrownExceptionIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task ThrownExceptionIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -115,9 +117,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
 
     /// <summary>Verifies an exception factory that returns its exception is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedExceptionIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task ReturnedExceptionIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -134,9 +137,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
 
     /// <summary>Verifies an exception assigned to a local, a field or a property is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedExceptionIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task AssignedExceptionIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -158,9 +162,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
 
     /// <summary>Verifies an exception passed as an argument is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentExceptionIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task ArgumentExceptionIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -181,9 +186,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
 
     /// <summary>Verifies an exception produced by a lambda or captured in a collection is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturedExceptionIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task CapturedExceptionIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -204,9 +210,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
     /// The creation's parent is the assignment, not the statement, and a discard is a deliberate act — the
     /// author wrote something on the left of the exception, which is not the mistake this rule is about.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardAssignmentIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task DiscardAssignmentIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -222,9 +229,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
     /// <summary>Verifies an object that is not an exception may be constructed as a statement.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The bind is what makes this clean, and it is the only thing the rule uses the semantic model for.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExceptionCreationIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task NonExceptionCreationIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -244,9 +252,10 @@ public class ExceptionNeverThrownAnalyzerUnitTest
     /// A target-typed creation cannot stand alone as a statement — an expression statement gives it no target
     /// type — so the implicit form only ever appears in a consuming position, and is always clean.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitCreationIsCleanAsync()
-        => await VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
+    public Task ImplicitCreationIsCleanAsync() =>
+        VerifyExceptionNeverThrown.VerifyAnalyzerAsync(
             """
             using System;
 

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.NonShortCircuitOperatorAnalyzer,
     StyleSharp.Analyzers.Sst2415NonShortCircuitGuardCodeFixProvider>;
@@ -34,15 +35,17 @@ public class NonShortCircuitGuardAnalyzerUnitTest
 
     /// <summary>Verifies an eager boolean operator whose right operand does work is reported as SST2415.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WorkingRightOperandIsReportedAsync()
-        => await VerifyGuard.VerifyAnalyzerAsync(WorkingRightSource);
+    public Task WorkingRightOperandIsReportedAsync() =>
+        VerifyGuard.VerifyAnalyzerAsync(WorkingRightSource);
 
     /// <summary>Verifies two plain reads are the tidy SST1468 case, not the guard case.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainReadsAreTheTidyCaseAsync()
-        => await VerifyGuard.VerifyAnalyzerAsync(
+    public Task PlainReadsAreTheTidyCaseAsync() =>
+        VerifyGuard.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -52,9 +55,10 @@ public class NonShortCircuitGuardAnalyzerUnitTest
 
     /// <summary>Verifies an integer bitwise operation is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntegerBitwiseIsCleanAsync()
-        => await VerifyGuard.VerifyAnalyzerAsync(
+    public Task IntegerBitwiseIsCleanAsync() =>
+        VerifyGuard.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -64,7 +68,8 @@ public class NonShortCircuitGuardAnalyzerUnitTest
 
     /// <summary>Verifies the fix short-circuits the guard.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixShortCircuitsTheGuardAsync()
-        => await VerifyFix.VerifyCodeFixAsync(WorkingRightSource, WorkingRightFixed);
+    public Task FixShortCircuitsTheGuardAsync() =>
+        VerifyFix.VerifyCodeFixAsync(WorkingRightSource, WorkingRightFixed);
 }

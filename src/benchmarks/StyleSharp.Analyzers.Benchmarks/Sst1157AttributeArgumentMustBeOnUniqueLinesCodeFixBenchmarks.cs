@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1157 code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixBenchmarks
@@ -22,12 +24,13 @@ public class Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative unique-lines violation.</summary>
     /// <returns>A task that completes when the benchmark state has been prepared.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await UniqueLinesCodeFixBenchmarkHelper.CreateAsync<AttributeSyntax>(
+    public async Task SetupAsync() =>
+        _context = await UniqueLinesCodeFixBenchmarkHelper.CreateAsync<AttributeSyntax>(
             Members,
             UniqueLinesCodeFixBenchmarkSource.GenerateAttributeArguments).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

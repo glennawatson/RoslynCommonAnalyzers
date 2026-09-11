@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for unused-type-parameter analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UnusedTypeParameterBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UnusedTypeParameterBenchmarks
@@ -24,11 +26,13 @@ public class UnusedTypeParameterBenchmarks
 
     /// <summary>Benchmarks the clean unused-type-parameter path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnusedTypeParameter_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating unused-type-parameter path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnusedTypeParameter_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

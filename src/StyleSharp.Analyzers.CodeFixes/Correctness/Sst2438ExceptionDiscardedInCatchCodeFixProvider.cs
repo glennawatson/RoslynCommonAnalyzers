@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,16 +22,17 @@ public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixPro
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Pass the caught exception to the logger",
             nameof(Sst2438ExceptionDiscardedInCatchCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported call and rewrites it to pass the caught exception.</summary>
     /// <param name="root">The syntax root.</param>
@@ -85,6 +88,7 @@ public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixPro
     /// <param name="removeIndex">The stand-in value's position, or -1.</param>
     /// <param name="tailStart">The first value argument's position.</param>
     /// <returns>The rewritten call, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? Apply(InvocationExpressionSyntax invocation, string name, int insertIndex, int removeIndex, int tailStart)
-        => LoggerExceptionHoist.Rewrite(invocation, SyntaxFactory.IdentifierName(name), insertIndex, removeIndex, tailStart);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static InvocationExpressionSyntax? Apply(InvocationExpressionSyntax invocation, string name, int insertIndex, int removeIndex, int tailStart) =>
+        LoggerExceptionHoist.Rewrite(invocation, SyntaxFactory.IdentifierName(name), insertIndex, removeIndex, tailStart);
 }

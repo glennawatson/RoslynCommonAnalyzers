@@ -124,8 +124,8 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a constructor initializer cannot be represented on a primary constructor.</summary>
     /// <param name="initializer">The constructor initializer.</param>
     /// <returns><see langword="true"/> when the initializer blocks the rewrite.</returns>
-    private static bool HasUnsupportedConstructorInitializer(ConstructorInitializerSyntax? initializer)
-        => initializer is { ArgumentList.Arguments.Count: > 0 }
+    private static bool HasUnsupportedConstructorInitializer(ConstructorInitializerSyntax? initializer) =>
+        initializer is { ArgumentList.Arguments.Count: > 0 }
             && !initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword);
 
     /// <summary>Returns whether the containing type has exactly one explicit instance constructor.</summary>
@@ -226,11 +226,8 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
         ConstructorDeclarationSyntax constructor,
         IParameterSymbol parameter,
         SemanticModel model,
-        CancellationToken cancellationToken)
-    {
-        return parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor } method
+        CancellationToken cancellationToken) => parameter.ContainingSymbol is IMethodSymbol { MethodKind: MethodKind.Constructor } method
             && SymbolEqualityComparer.Default.Equals(method, model.GetDeclaredSymbol(constructor, cancellationToken));
-    }
 
     /// <summary>Maps a parameter name to its index in the constructor parameter list.</summary>
     /// <param name="parameters">The parameter list.</param>
@@ -241,11 +238,13 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
     {
         for (var i = 0; i < parameters.Count; i++)
         {
-            if (parameters[i].Identifier.ValueText == name)
+            if (parameters[i].Identifier.ValueText != name)
             {
-                index = i;
-                return true;
+                continue;
             }
+
+            index = i;
+            return true;
         }
 
         index = -1;
@@ -265,8 +264,7 @@ public sealed class Sst2241PrimaryConstructorStorageAnalyzer : DiagnosticAnalyze
 
         return model.GetSymbolInfo(target, cancellationToken).Symbol switch
         {
-            IFieldSymbol { IsStatic: false } => true,
-            IPropertySymbol { IsStatic: false, SetMethod: not null } => true,
+            IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false, SetMethod: not null } => true,
             _ => false
         };
     }

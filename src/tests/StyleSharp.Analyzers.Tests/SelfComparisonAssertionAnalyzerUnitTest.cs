@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2501SelfComparisonAssertionAnalyzer>;
@@ -71,9 +72,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit <c>Assert.Equal</c> comparing a local with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XUnitEqualSameVariableIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task XUnitEqualSameVariableIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -90,9 +92,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit <c>Assert.Same</c> comparing a reference with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XUnitSameSameVariableIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task XUnitSameSameVariableIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -109,9 +112,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit <c>Assert.NotEqual</c> comparing a local with itself is reported (it can never pass).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XUnitNotEqualSameVariableIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task XUnitNotEqualSameVariableIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -128,9 +132,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest <c>Assert.AreEqual</c> comparing a constant with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MSTestAreEqualSameConstantIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task MSTestAreEqualSameConstantIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -147,9 +152,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest <c>Assert.AreNotSame</c> comparing a reference with itself is reported (it can never pass).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MSTestAreNotSameSameVariableIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task MSTestAreNotSameSameVariableIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -167,9 +173,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit <c>Assert.That(x, Is.EqualTo(x))</c> comparing the actual with itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitThatEqualToSelfIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task NUnitThatEqualToSelfIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -186,9 +193,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison through a member-access operand is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessSelfIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task MemberAccessSelfIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -207,9 +215,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an assertion comparing two different operands is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentOperandsAreCleanAsync()
-        => await VerifyAsync(
+    public Task DifferentOperandsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -227,9 +236,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose operands are method calls is never reported, since two calls need not agree.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodCallOperandsAreCleanAsync()
-        => await VerifyAsync(
+    public Task MethodCallOperandsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -247,9 +257,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Assert.That</c> whose constraint compares a different value is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitThatEqualToDifferentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitThatEqualToDifferentIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -267,9 +278,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method that is not a framework assertion is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAssertionCallIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonAssertionCallIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -291,9 +303,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies that with no test framework referenced, a same-named <c>Assert</c> of the project's own is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoFrameworkReferenceIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoFrameworkReferenceIsCleanAsync() =>
+        VerifyAsync(
             """
             public static class Assert
             {
@@ -312,9 +325,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison reached through a <c>using static</c> import (a bare method name) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticEqualSelfIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UsingStaticEqualSelfIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using static Xunit.Assert;
 
@@ -330,9 +344,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Assert.That</c> whose constraint is not <c>EqualTo</c>/<c>SameAs</c> is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitThatNonEqualityConstraintIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitThatNonEqualityConstraintIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -349,9 +364,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose first argument is named is left alone, since named arguments may reorder operands.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedFirstArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NamedFirstArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -368,9 +384,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose second argument is named is left alone, since named arguments may reorder operands.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedSecondArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NamedSecondArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -387,9 +404,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies two separate object creations are never reported, since each allocates a distinct instance.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateCreationsAreCleanAsync()
-        => await VerifyAsync(
+    public Task SeparateCreationsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -407,9 +425,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Assert.That</c> whose second argument is not a constraint call is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitThatBareSecondArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitThatBareSecondArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -426,9 +445,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose operands increment a variable is never reported, since each read has a side effect.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IncrementOperandsAreCleanAsync()
-        => await VerifyAsync(
+    public Task IncrementOperandsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -445,9 +465,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an invocation whose callee is not a simple name (a delegate reached through an indexer) is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateThroughIndexerIsCleanAsync()
-        => await VerifyAsync(
+    public Task DelegateThroughIndexerIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -464,9 +485,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Assert.That</c> whose constraint argument is named is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitThatNamedConstraintArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitThatNamedConstraintArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -483,9 +505,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose operands nest a method call is never reported, even when the outer shape is stable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedCallInOperandIsCleanAsync()
-        => await VerifyAsync(
+    public Task NestedCallInOperandIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -504,9 +527,10 @@ public class SelfComparisonAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison whose operands assign a variable is never reported, since each read has a side effect.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentOperandsAreCleanAsync()
-        => await VerifyAsync(
+    public Task AssignmentOperandsAreCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -526,11 +550,7 @@ public class SelfComparisonAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

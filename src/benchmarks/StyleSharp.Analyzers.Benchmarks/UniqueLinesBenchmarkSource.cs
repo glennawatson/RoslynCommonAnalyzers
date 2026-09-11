@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for the unique-lines analyzer benchmark family.</summary>
@@ -11,8 +13,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateMethodDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateMethodDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class MethodDeclarationParameterBench
            {
@@ -24,8 +26,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateInvocationArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateInvocationArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class InvocationExpressionArgumentBench
            {
@@ -37,15 +39,16 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    public static string GenerateInvocationMember(int index, bool violating)
-        => GenerateInvocationArgumentMember(index, violating);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateInvocationMember(int index, bool violating) =>
+        GenerateInvocationArgumentMember(index, violating);
 
     /// <summary>Builds synthetic source for object-creation argument benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateObjectCreationArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateObjectCreationArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class ObjectCreationExpressionArgumentBench
            {
@@ -64,8 +67,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateTypeArgumentLists(int members, bool violating)
-        => $$"""
+    internal static string GenerateTypeArgumentLists(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal sealed class TypeArgumentListBench
            {
@@ -77,8 +80,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateConstructorDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateConstructorDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateConstructorDeclarationType(i, violating))}}
            """;
@@ -87,8 +90,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateDelegateDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateDelegateDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateDelegateDeclaration(i, violating))}}
            """;
@@ -97,8 +100,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateIndexerDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateIndexerDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateIndexerDeclarationType(i, violating))}}
            """;
@@ -107,8 +110,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateElementAccessArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateElementAccessArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class ElementAccessExpressionArgumentBench
            {
@@ -127,8 +130,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateAttributeArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateAttributeArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            [global::System.AttributeUsage(global::System.AttributeTargets.Class)]
@@ -146,8 +149,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateAnonymousMethodExpressionParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateAnonymousMethodExpressionParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class AnonymousMethodExpressionBench
            {
@@ -159,8 +162,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateParenthesizedLambdaExpressionParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateParenthesizedLambdaExpressionParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class ParenthesizedLambdaExpressionBench
            {
@@ -172,8 +175,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRecordDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateRecordDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateRecordDeclarationType(i, violating))}}
            """;
@@ -182,8 +185,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateClassDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateClassDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateClassDeclarationType(i, violating))}}
            """;
@@ -192,8 +195,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateStructDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateStructDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateStructDeclarationType(i, violating))}}
            """;
@@ -202,8 +205,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateImplicitObjectCreationArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateImplicitObjectCreationArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class ImplicitObjectCreationExpressionArgumentBench
            {
@@ -222,8 +225,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateConstructorInitializerArguments(int members, bool violating)
-        => $$"""
+    internal static string GenerateConstructorInitializerArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateConstructorInitializerType(i, violating))}}
            """;
@@ -232,8 +235,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePrimaryConstructorBaseTypeArguments(int members, bool violating)
-        => $$"""
+    internal static string GeneratePrimaryConstructorBaseTypeArguments(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal class BasePrimaryConstructor(int x, int y, int z)
@@ -247,8 +250,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateLocalFunctionStatementParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateLocalFunctionStatementParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal static class LocalFunctionStatementBench
            {
@@ -260,8 +263,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateOperatorDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateOperatorDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateOperatorDeclarationType(i, violating))}}
            """;
@@ -270,8 +273,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations. A single-parameter conversion operator cannot produce a jagged layout, so this only varies the wrapping.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateConversionOperatorDeclarationParameters(int members, bool violating)
-        => $$"""
+    internal static string GenerateConversionOperatorDeclarationParameters(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateConversionOperatorDeclarationType(i, violating))}}
            """;
@@ -280,8 +283,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateTypeParameterLists(int members, bool violating)
-        => $$"""
+    internal static string GenerateTypeParameterLists(int members, bool violating) =>
+        $$"""
            namespace Bench;
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateTypeParameterListType(i, violating))}}
            """;
@@ -290,8 +293,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="members">The number of synthetic declarations to emit.</param>
     /// <param name="violating">Whether to emit layout violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateFunctionPointerParameterLists(int members, bool violating)
-        => $$"""
+    internal static string GenerateFunctionPointerParameterLists(int members, bool violating) =>
+        $$"""
            namespace Bench;
            internal unsafe class FunctionPointerParameterListBench
            {
@@ -303,8 +306,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMethodDeclarationParameterMember(int index, bool violating)
-        => violating
+    private static string GenerateMethodDeclarationParameterMember(int index, bool violating) =>
+        violating
             ? $$"""
                private static int Add{{index}}(int x,
                    int y,
@@ -318,8 +321,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateInvocationArgumentMember(int index, bool violating)
-        => violating
+    private static string GenerateInvocationArgumentMember(int index, bool violating) =>
+        violating
             ? $$"""
                private static int Add{{index}}(int x, int y, int z) => x + y + z;
 
@@ -339,8 +342,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateObjectCreationArgumentMember(int index, bool violating)
-        => violating
+    private static string GenerateObjectCreationArgumentMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static object Use{{index}}()
                     => new Item(1,
@@ -356,8 +359,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateTypeArgumentListMember(int index, bool violating)
-        => violating
+    private static string GenerateTypeArgumentListMember(int index, bool violating) =>
+        violating
             ? $$"""
                private readonly global::System.Collections.Generic.Dictionary<
                    int, string> _map{{index}} = new();
@@ -370,8 +373,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateConstructorDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateConstructorDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class ConstructorDeclarationBench{{index}}
                {
@@ -395,8 +398,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateDelegateDeclaration(int index, bool violating)
-        => violating
+    private static string GenerateDelegateDeclaration(int index, bool violating) =>
+        violating
             ? $$"""
                internal delegate int DelegateDeclarationBench{{index}}(int x,
                    int y,
@@ -410,8 +413,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateIndexerDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateIndexerDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class IndexerDeclarationBench{{index}}
                {
@@ -431,8 +434,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateElementAccessArgumentMember(int index, bool violating)
-        => violating
+    private static string GenerateElementAccessArgumentMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static int Use{{index}}()
                    => Values[1,
@@ -448,8 +451,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateAttributeArgumentType(int index, bool violating)
-        => violating
+    private static string GenerateAttributeArgumentType(int index, bool violating) =>
+        violating
             ? $$"""
                [Demo(1,
                    2,
@@ -469,8 +472,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateAnonymousMethodExpressionMember(int index, bool violating)
-        => violating
+    private static string GenerateAnonymousMethodExpressionMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static System.Action<int, int, int> M{{index}}()
                {
@@ -496,8 +499,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateParenthesizedLambdaExpressionMember(int index, bool violating)
-        => violating
+    private static string GenerateParenthesizedLambdaExpressionMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static System.Func<int, int, int, int> M{{index}}()
                {
@@ -517,8 +520,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateRecordDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateRecordDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal record RecordDeclarationBench{{index}}(int x,
                    int y,
@@ -532,8 +535,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateClassDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateClassDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal class ClassDeclarationBench{{index}}(int x,
                    int y,
@@ -551,8 +554,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateStructDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateStructDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal struct StructDeclarationBench{{index}}(int x,
                    int y,
@@ -570,8 +573,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateImplicitObjectCreationArgumentMember(int index, bool violating)
-        => violating
+    private static string GenerateImplicitObjectCreationArgumentMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static object Use{{index}}()
                {
@@ -593,8 +596,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateConstructorInitializerType(int index, bool violating)
-        => violating
+    private static string GenerateConstructorInitializerType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class ConstructorInitializerBench{{index}}
                {
@@ -628,8 +631,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GeneratePrimaryConstructorBaseTypeType(int index, bool violating)
-        => violating
+    private static string GeneratePrimaryConstructorBaseTypeType(int index, bool violating) =>
+        violating
             ? $$"""
                internal class PrimaryConstructorBaseTypeBench{{index}}()
                    : BasePrimaryConstructor(1,
@@ -649,8 +652,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateLocalFunctionStatementMember(int index, bool violating)
-        => violating
+    private static string GenerateLocalFunctionStatementMember(int index, bool violating) =>
+        violating
             ? $$"""
                internal static int Use{{index}}()
                {
@@ -680,8 +683,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateOperatorDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateOperatorDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class OperatorDeclarationBench{{index}}
                {
@@ -700,8 +703,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit the wrapped layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateConversionOperatorDeclarationType(int index, bool violating)
-        => violating
+    private static string GenerateConversionOperatorDeclarationType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class ConversionOperatorDeclarationBench{{index}}
                {
@@ -720,8 +723,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated declaration block.</returns>
-    private static string GenerateTypeParameterListType(int index, bool violating)
-        => violating
+    private static string GenerateTypeParameterListType(int index, bool violating) =>
+        violating
             ? $$"""
                internal sealed class TypeParameterListBench{{index}}<T1,
                    T2>
@@ -738,8 +741,8 @@ internal static class UniqueLinesBenchmarkSource
     /// <param name="index">The synthetic declaration index.</param>
     /// <param name="violating">Whether to emit a violating layout.</param>
     /// <returns>The generated field block.</returns>
-    private static string GenerateFunctionPointerField(int index, bool violating)
-        => violating
+    private static string GenerateFunctionPointerField(int index, bool violating) =>
+        violating
             ? $$"""
                private delegate*<int,
                    string,

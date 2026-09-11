@@ -82,18 +82,18 @@ public sealed class DocumentationHeaderSpacingCodeFixProvider : CodeFixProvider,
     /// <returns>The text change to apply.</returns>
     private static TextChange BuildChange(SourceText text, MemberDeclarationSyntax member, bool insertBefore)
     {
-        LayoutHelpers.TryGetDocHeader(member, out var header);
+        _ = LayoutHelpers.TryGetDocHeader(member, out var header);
 
         if (insertBefore)
         {
             var headerFirstLine = LayoutHelpers.LineOf(text, header.SpanStart);
             var position = text.Lines[headerFirstLine].Start;
-            return new TextChange(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
+            return new(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
         }
 
         var headerLastLine = LayoutHelpers.LineOf(text, header.Span.End - 1);
         var memberLine = LayoutHelpers.StartLine(text, member.GetFirstToken());
         var span = TextSpan.FromBounds(text.Lines[headerLastLine + 1].Start, text.Lines[memberLine].Start);
-        return new TextChange(span, string.Empty);
+        return new(span, string.Empty);
     }
 }

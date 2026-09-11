@@ -11,8 +11,8 @@ internal static class ExpressionSimplificationBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit inverted-comparison violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class ExpressionSimplificationBench
@@ -25,8 +25,8 @@ internal static class ExpressionSimplificationBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an inverted-comparison violation.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $"internal static bool M{index}(int left, int right) => !(left == right);"
             : $"internal static bool M{index}(int left, int right) => left == right;";
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -17,8 +19,9 @@ internal static class AlwaysTrueCallback
     /// <summary>Returns whether a lambda or anonymous method always yields <see langword="true"/>.</summary>
     /// <param name="function">The lambda or anonymous method.</param>
     /// <returns><see langword="true"/> when the body is <c>=&gt; true</c> or a block whose only result is <c>return true;</c>.</returns>
-    internal static bool IsAlwaysTrueLambda(AnonymousFunctionExpressionSyntax function)
-        => IsAlwaysTrueBody(function.ExpressionBody, function.Block);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsAlwaysTrueLambda(AnonymousFunctionExpressionSyntax function) =>
+        IsAlwaysTrueBody(function.ExpressionBody, function.Block);
 
     /// <summary>Returns whether the method a method group references always yields <see langword="true"/>.</summary>
     /// <param name="model">The semantic model.</param>
@@ -47,15 +50,8 @@ internal static class AlwaysTrueCallback
     /// <param name="expressionBody">The arrow-body expression, when the member is expression-bodied.</param>
     /// <param name="block">The block body, when the member is block-bodied.</param>
     /// <returns><see langword="true"/> for an expression body of <c>true</c> or a block whose only result is <c>return true;</c>.</returns>
-    private static bool IsAlwaysTrueBody(ExpressionSyntax? expressionBody, BlockSyntax? block)
-    {
-        if (expressionBody is not null)
-        {
-            return IsTrueLiteral(expressionBody);
-        }
-
-        return block is not null && BlockAlwaysReturnsTrue(block);
-    }
+    private static bool IsAlwaysTrueBody(ExpressionSyntax? expressionBody, BlockSyntax? block) =>
+        expressionBody is not null ? IsTrueLiteral(expressionBody) : block is not null && BlockAlwaysReturnsTrue(block);
 
     /// <summary>Returns whether every <c>return</c> in a block yields the literal <see langword="true"/>.</summary>
     /// <param name="block">The block body to inspect.</param>
@@ -88,8 +84,7 @@ internal static class AlwaysTrueCallback
                 }
 
                 // A nested lambda, anonymous method, or local function owns its own returns; do not descend.
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
                     break;
 
                 default:

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -123,9 +124,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies a using statement over an existing expression whose type implements both interfaces is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStatementExpressionWithBothInterfacesIsFlaggedAsync()
-        => await VerifyNet90Async(
+    public Task UsingStatementExpressionWithBothInterfacesIsFlaggedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -207,9 +209,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration in a synchronous method stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationInSynchronousMethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UsingDeclarationInSynchronousMethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -234,9 +237,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies a resource that only implements IDisposable stays clean in an async method.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OnlyDisposableResourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task OnlyDisposableResourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -260,9 +264,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies an existing await using declaration stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitUsingDeclarationIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AwaitUsingDeclarationIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -288,9 +293,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration in a synchronous lambda inside an async method stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingInSynchronousLambdaIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UsingInSynchronousLambdaIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -320,9 +326,10 @@ public class UseAwaitUsingAnalyzerUnitTest
 
     /// <summary>Verifies a multi-resource using statement stays clean when one declarator is not asynchronously disposable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedMultiDeclaratorUsingStatementIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task MixedMultiDeclaratorUsingStatementIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Threading.Tasks;
@@ -360,11 +367,7 @@ public class UseAwaitUsingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -374,12 +377,7 @@ public class UseAwaitUsingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90CodeFixAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
         await test.RunAsync(CancellationToken.None);
     }
 }

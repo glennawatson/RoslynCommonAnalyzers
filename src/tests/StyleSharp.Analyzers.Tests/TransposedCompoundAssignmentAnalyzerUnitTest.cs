@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2417TransposedCompoundAssignmentAnalyzer,
     StyleSharp.Analyzers.Sst2417TransposedCompoundAssignmentCodeFixProvider>;
@@ -19,28 +20,28 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
     /// <summary>The unary-value fix's equivalence key.</summary>
     private const string UnaryKey = "Sst2417TransposedCompoundAssignmentCodeFixProvider.Unary";
 
-    /// <summary>The reported <c>=+</c> assignment, the one shape both fix readings are offered on.</summary>
-    private const string TransposedPlusSource = """
-        public sealed class C
-        {
-            public void M(int x)
-            {
-                x {|SST2417:=+|} 1;
-            }
-        }
-        """;
-
     /// <summary>Verifies a transposed <c>+</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TransposedPlusIsReportedAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(TransposedPlusSource);
+    public Task TransposedPlusIsReportedAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public void M(int x)
+                {
+                    x {|SST2417:=+|} 1;
+                }
+            }
+            """);
 
     /// <summary>Verifies a transposed <c>-</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TransposedMinusIsReportedAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
+    public Task TransposedMinusIsReportedAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -53,9 +54,10 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a transposed <c>!</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TransposedNotIsReportedAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
+    public Task TransposedNotIsReportedAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -68,9 +70,10 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a deliberate unary assignment with a space after '=' is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeliberateUnaryIsCleanAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
+    public Task DeliberateUnaryIsCleanAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -84,9 +87,10 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a real compound assignment is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentIsCleanAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentIsCleanAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -99,9 +103,10 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies the closed-up form (no space after the sign) is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClosedUpFormIsCleanAsync()
-        => await VerifyTransposed.VerifyAnalyzerAsync(
+    public Task ClosedUpFormIsCleanAsync() =>
+        VerifyTransposed.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -114,9 +119,10 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies the spacing rules stay silent on the transposed span, preserving the evidence.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpacingRulesAreSuppressedOnTheTransposedSpanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task SpacingRulesAreSuppressedOnTheTransposedSpanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -135,7 +141,15 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             CodeActionEquivalenceKey = CompoundKey,
-            TestCode = TransposedPlusSource,
+            TestCode = """
+                public sealed class C
+                {
+                    public void M(int x)
+                    {
+                        x {|SST2417:=+|} 1;
+                    }
+                }
+                """,
             FixedCode = """
                 public sealed class C
                 {
@@ -158,7 +172,15 @@ public class TransposedCompoundAssignmentAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             CodeActionEquivalenceKey = UnaryKey,
-            TestCode = TransposedPlusSource,
+            TestCode = """
+                public sealed class C
+                {
+                    public void M(int x)
+                    {
+                        x {|SST2417:=+|} 1;
+                    }
+                }
+                """,
             FixedCode = """
                 public sealed class C
                 {

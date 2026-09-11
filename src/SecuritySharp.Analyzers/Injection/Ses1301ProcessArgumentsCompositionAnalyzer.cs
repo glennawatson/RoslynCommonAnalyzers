@@ -10,7 +10,7 @@ namespace SecuritySharp.Analyzers;
 /// and the <c>arguments</c> string of a <c>System.Diagnostics.Process.Start(string fileName, string arguments)</c>
 /// call. In both, the value is reported only when it is a composition — an interpolated string with at
 /// least one interpolation, or a <c>+</c> concatenation — that is not a compile-time constant
-/// (<see cref="SemanticModel.GetConstantValue(SyntaxNode, System.Threading.CancellationToken)"/> decides
+/// (<see cref="SemanticModel.GetConstantValue(SyntaxNode, CancellationToken)"/> decides
 /// this precisely, so a fully constant <c>Arguments</c> string is left alone). The suggested fix is to add
 /// each argument to <c>ArgumentList</c>, which escapes each argument for the platform; the rule is resolved
 /// once per compilation by probing <c>ProcessStartInfo</c> and confirming it exposes <c>ArgumentList</c>
@@ -62,7 +62,7 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
             // Gate on ProcessStartInfo.ArgumentList: without it the 'use ArgumentList' suggestion is not
             // actionable, so the rule stays silent on netstandard2.0 / .NET Framework.
             var processStartInfoType = start.Compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
-            if (processStartInfoType is null || processStartInfoType.GetMembers(ArgumentListPropertyName).Length == 0)
+            if (processStartInfoType is null || processStartInfoType.GetMembers(ArgumentListPropertyName).IsEmpty)
             {
                 return;
             }
@@ -80,7 +80,7 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
     /// <summary>Reports SES1301 for a <c>ProcessStartInfo.Arguments</c> assignment given a non-constant composition.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="processStartInfoType">The gated <c>ProcessStartInfo</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -114,7 +114,7 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
     /// <summary>Reports SES1301 for a <c>Process.Start(fileName, arguments)</c> call whose arguments string is a non-constant composition.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="processType">The gated <c>Process</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -170,19 +170,18 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
     /// <summary>Returns whether an assignment target names the <c>Arguments</c> member.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns><see langword="true"/> for a <c>.Arguments</c> or bare <c>Arguments</c> target.</returns>
-    private static bool IsArgumentsTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsArgumentsTarget(ExpressionSyntax left) =>
+        left switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: ArgumentsPropertyName } => true,
-            IdentifierNameSyntax { Identifier.ValueText: ArgumentsPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: ArgumentsPropertyName } or IdentifierNameSyntax { Identifier.ValueText: ArgumentsPropertyName } => true,
             _ => false,
         };
 
     /// <summary>Returns whether an expression is a command-line composition shape (interpolation or <c>+</c> concatenation).</summary>
     /// <param name="expression">The candidate value expression.</param>
     /// <returns><see langword="true"/> for an interpolated string with an interpolation, or an add expression.</returns>
-    private static bool IsCompositionShape(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsCompositionShape(ExpressionSyntax expression) =>
+        expression switch
         {
             InterpolatedStringExpressionSyntax interpolated => HasInterpolation(interpolated),
             BinaryExpressionSyntax binary => binary.IsKind(SyntaxKind.AddExpression),

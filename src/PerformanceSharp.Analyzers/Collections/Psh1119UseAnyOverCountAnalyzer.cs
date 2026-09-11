@@ -76,7 +76,7 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1119 for an emptiness comparison of an Enumerable Count() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)
@@ -107,8 +107,8 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns an invocation when it is a member-access Count call with at most one argument.</summary>
     /// <param name="expression">The comparison operand.</param>
     /// <returns>The invocation, or <see langword="null"/>.</returns>
-    private static InvocationExpressionSyntax? TryGetCountInvocation(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: <= 1 } invocation
+    private static InvocationExpressionSyntax? TryGetCountInvocation(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: <= 1 } invocation
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == CountMethodName
             ? invocation
@@ -124,7 +124,7 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol enumerableType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 }

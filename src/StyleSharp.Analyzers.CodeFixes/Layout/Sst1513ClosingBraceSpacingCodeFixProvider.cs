@@ -70,12 +70,7 @@ public sealed class Sst1513ClosingBraceSpacingCodeFixProvider : CodeFixProvider,
     internal static async Task<Document> InsertBlankLineAsync(Document document, SyntaxToken brace, CancellationToken cancellationToken)
     {
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (!TryBuildChange(text, brace, out var change))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return !TryBuildChange(text, brace, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the blank-line insertion before the token that follows the closing brace.</summary>
@@ -94,7 +89,7 @@ public sealed class Sst1513ClosingBraceSpacingCodeFixProvider : CodeFixProvider,
 
         var nextLine = text.Lines.GetLineFromPosition(next.SpanStart).LineNumber;
         var position = text.Lines[nextLine].Start;
-        change = new TextChange(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
+        change = new(new(position, 0), LayoutFixHelpers.DetectNewLine(text));
         return true;
     }
 }

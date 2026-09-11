@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyThisEscapes = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2403ThisEscapesConstructorAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 {
     /// <summary>Verifies handing the object to somebody else as an argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentEscapeIsReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task ArgumentEscapeIsReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public static class Registry
             {
@@ -30,9 +32,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies handing the object to another object being built is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectCreationEscapeIsReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task ObjectCreationEscapeIsReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class Child
             {
@@ -51,9 +54,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies storing the object in the type's own static state is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticFieldEscapeIsReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task StaticFieldEscapeIsReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -67,9 +71,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies subscribing a closure over the object to another object's event is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventSubscriptionEscapeIsReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task EventSubscriptionEscapeIsReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -94,9 +99,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a closure that touches the object several times is still one escape.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClosureIsReportedOnceAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task ClosureIsReportedOnceAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -117,9 +123,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the object talking to itself is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnMemberAccessIsCleanAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task OwnMemberAccessIsCleanAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -141,9 +148,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies storing the object in its own instance state, or in a local, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnStateAndLocalsAreCleanAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task OwnStateAndLocalsAreCleanAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -164,9 +172,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies subscribing to the object's own event is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnEventSubscriptionIsCleanAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task OwnEventSubscriptionIsCleanAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -188,9 +197,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies passing a member's value, rather than the object, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassingAMemberValueIsCleanAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task PassingAMemberValueIsCleanAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -208,9 +218,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a method other than a constructor is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodIsCleanAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task MethodIsCleanAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public static class Registry
             {
@@ -226,15 +237,16 @@ public class ThisEscapesConstructorAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a struct built around <c>this</c> and stored in this object's own field is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A struct field's storage is part of the object, so the copy holding the reference lives inside the
     /// very object it points at. There is no second reference for anything else to reach it through, and
     /// nothing can get to the struct without already holding the object.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructStoredInThisObjectsOwnFieldIsNotReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task StructStoredInThisObjectsOwnFieldIsNotReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -258,14 +270,15 @@ public class ThisEscapesConstructorAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a class built around <c>this</c> and stored in this object's own field is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A class is a separate object the constructor could have handed somewhere else first, so storing it
     /// in a field proves nothing about who else can already see it.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassStoredInThisObjectsOwnFieldIsStillReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task ClassStoredInThisObjectsOwnFieldIsStillReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class Sink(object owner)
             {
@@ -288,9 +301,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
     /// object it came from. A constructor is not exempted, since it runs before the result can be
     /// stored and can dereference the half-built object there and then.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallResultStoredBackOnThisObjectIsNotReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task CallResultStoredBackOnThisObjectIsNotReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class Helper
             {
@@ -344,7 +358,7 @@ public class ThisEscapesConstructorAnalyzerUnitTest
                            {
                            }
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
@@ -359,9 +373,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the same closure is reported when nothing is configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClosureHandedToAnUnconfiguredMethodIsReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task ClosureHandedToAnUnconfiguredMethodIsReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -382,9 +397,10 @@ public class ThisEscapesConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a call result stored anywhere but this object is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallResultStoredElsewhereIsStillReportedAsync()
-        => await VerifyThisEscapes.VerifyAnalyzerAsync(
+    public Task CallResultStoredElsewhereIsStillReportedAsync() =>
+        VerifyThisEscapes.VerifyAnalyzerAsync(
             """
             public sealed class Helper
             {

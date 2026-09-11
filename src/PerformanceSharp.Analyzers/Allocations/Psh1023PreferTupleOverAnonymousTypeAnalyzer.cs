@@ -102,7 +102,7 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnal
     private static bool EscapesTheBlock(BlockSyntax block, string name)
     {
         var state = new EscapeScan(name, Escapes: false);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(block, ref state, static (node, ref scan) =>
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, EscapeScan>(block, ref state, static (node, ref scan) =>
         {
             if (node.Identifier.ValueText != scan.Name)
             {
@@ -125,8 +125,8 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeAnalyzer : DiagnosticAnal
     /// <summary>Returns whether the tree is parsed at a language version that has named tuples.</summary>
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 7 or later.</returns>
-    private static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp7;
+    private static bool IsLanguageSupported(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp7;
 
     /// <summary>Threads the local's name and the verdict through the escape traversal.</summary>
     /// <param name="Name">The local's name.</param>

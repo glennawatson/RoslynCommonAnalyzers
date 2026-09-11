@@ -158,16 +158,16 @@ public sealed class Psh1200AvoidCaseConversionComparisonAnalyzer : DiagnosticAna
     /// <summary>Returns whether a name is one of the parameterless string case-conversion methods.</summary>
     /// <param name="name">The member name to test.</param>
     /// <returns><see langword="true"/> for the four case-conversion method names.</returns>
-    private static bool IsCaseConversionName(string name)
-        => name is "ToLower" or "ToUpper" or "ToLowerInvariant" or "ToUpperInvariant";
+    private static bool IsCaseConversionName(string name) =>
+        name is "ToLower" or "ToUpper" or "ToLowerInvariant" or "ToUpperInvariant";
 
     /// <summary>Returns whether a conversion invocation binds to a parameterless instance method on <see cref="string"/>.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="conversion">The conversion invocation to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the invocation is a real string case conversion.</returns>
-    private static bool IsStringCaseConversion(SemanticModel model, InvocationExpressionSyntax conversion, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(conversion, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsStringCaseConversion(SemanticModel model, InvocationExpressionSyntax conversion, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(conversion, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Parameters.Length: 0,

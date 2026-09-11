@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyExtensionDoc = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -17,9 +18,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies an extension block with no documentation comment is reported (SST1654).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndocumentedBlockReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task UndocumentedBlockReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -32,9 +34,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a documented block that omits the summary is reported (SST1654).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingSummaryReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task MissingSummaryReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -48,9 +51,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented receiver parameter is reported (SST1655).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndocumentedParameterReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task UndocumentedParameterReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -64,9 +68,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented type parameter is reported (SST1656).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndocumentedTypeParameterReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task UndocumentedTypeParameterReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -81,9 +86,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies stray parameter and type-parameter references are reported (SST1657).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvalidReferenceReportedAsync()
-        => await RunAnalyzerAsync(
+    public Task InvalidReferenceReportedAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -101,9 +107,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a fully documented extension block produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyDocumentedBlockIsCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task FullyDocumentedBlockIsCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -119,9 +126,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an extension block in an internal container is reported by default (internal elements are documented by default).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalContainerReportedByDefaultAsync()
-        => await RunAnalyzerAsync(
+    public Task InternalContainerReportedByDefaultAsync() =>
+        RunAnalyzerAsync(
             """
             internal static class SampleExtensions
             {
@@ -158,9 +166,10 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a block that inherits its documentation is ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritDocBlockIsCleanAsync()
-        => await RunAnalyzerAsync(
+    public Task InheritDocBlockIsCleanAsync() =>
+        RunAnalyzerAsync(
             """
             public static class SampleExtensions
             {
@@ -238,10 +247,7 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAnalyzerAsync(string source, string? editorConfig = null)
     {
-        var test = new VerifyExtensionDoc.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyExtensionDoc.Test { TestCode = source };
 
         if (editorConfig is not null)
         {
@@ -258,11 +264,7 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunCodeFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyExtensionDocFix.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyExtensionDocFix.Test { TestCode = source, FixedCode = fixedSource };
 
         ApplyExtensionBlockParseOptions(test.SolutionTransforms);
         await test.RunAsync(CancellationToken.None);
@@ -270,8 +272,9 @@ public class ExtensionBlockDocumentationAnalyzerUnitTest
 
     /// <summary>Applies preview parse options to a verifier so extension blocks parse.</summary>
     /// <param name="solutionTransforms">The solution-transform collection to update.</param>
-    private static void ApplyExtensionBlockParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms)
-        => solutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ApplyExtensionBlockParseOptions(List<Func<Solution, ProjectId, Solution>> solutionTransforms) =>
+        solutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));

@@ -117,10 +117,9 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="streamType">The compilation's stream type.</param>
     /// <param name="suggestion">The compilation-specific replacement advice.</param>
-    private static void AnalyzeAwait(SyntaxNodeAnalysisContext context, INamedTypeSymbol streamType, string suggestion)
+    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, INamedTypeSymbol streamType, string suggestion)
     {
-        var awaitExpression = (AwaitExpressionSyntax)context.Node;
-        if (TryGetDiscardedRead(context.SemanticModel, awaitExpression, context.CancellationToken) is not { } readInvocation)
+        if (TryGetDiscardedRead(context.SemanticModel, (AwaitExpressionSyntax)context.Node, context.CancellationToken) is not { } readInvocation)
         {
             return;
         }

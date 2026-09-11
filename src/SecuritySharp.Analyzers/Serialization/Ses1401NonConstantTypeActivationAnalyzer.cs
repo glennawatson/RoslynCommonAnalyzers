@@ -64,7 +64,7 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="activatorType">The resolved <c>System.Activator</c> type, or <see langword="null"/> when absent.</param>
     /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? activatorType, INamedTypeSymbol? typeType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? activatorType, INamedTypeSymbol? typeType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -89,7 +89,7 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
             SecurityRules.NonConstantTypeActivation,
             getType.SyntaxTree,
             getType.Span,
-            member.ContainingType.Name + "." + member.Name));
+            $"{member.ContainingType.Name}.{member.Name}"));
     }
 
     /// <summary>Returns the first <see cref="System.Type"/> argument backed by an inline <c>Type.GetType(nonConstant)</c> call.</summary>
@@ -143,8 +143,8 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     /// <param name="method">The bound outer method.</param>
     /// <param name="activatorType">The resolved <c>System.Activator</c> type, or <see langword="null"/> when absent.</param>
     /// <returns><see langword="true"/> when the call is a guarded instantiation or deserialization target.</returns>
-    private static bool IsGuardedTarget(IMethodSymbol method, INamedTypeSymbol? activatorType)
-        => (method.Name == CreateInstanceMethodName && SymbolEqualityComparer.Default.Equals(method.ContainingType, activatorType))
+    private static bool IsGuardedTarget(IMethodSymbol method, INamedTypeSymbol? activatorType) =>
+        (method.Name == CreateInstanceMethodName && SymbolEqualityComparer.Default.Equals(method.ContainingType, activatorType))
             || method.Name == DeserializeMethodName;
 
     /// <summary>Returns the <c>Type.GetType(...)</c> invocation syntax backing an argument value, or <see langword="null"/>.</summary>
@@ -161,15 +161,11 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
         }
 
         var target = invocation.TargetMethod;
-        if (!target.IsStatic
+        return !target.IsStatic
             || target.Name != GetTypeMethodName
-            || !SymbolEqualityComparer.Default.Equals(target.ContainingType, typeType))
-        {
-            return null;
-        }
-
-        // A bound 'Type.GetType' call is always an invocation expression carrying its string name argument.
-        return (InvocationExpressionSyntax)invocation.Syntax;
+            || !SymbolEqualityComparer.Default.Equals(target.ContainingType, typeType)
+            ? null
+            : (InvocationExpressionSyntax)invocation.Syntax;
     }
 
     /// <summary>Returns whether the first argument of a <c>Type.GetType</c> call is not a compile-time constant.</summary>

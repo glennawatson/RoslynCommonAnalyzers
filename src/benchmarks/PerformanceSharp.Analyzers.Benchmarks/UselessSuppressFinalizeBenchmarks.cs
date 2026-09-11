@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for useless-SuppressFinalize analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UselessSuppressFinalizeBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UselessSuppressFinalizeBenchmarks
@@ -24,11 +26,13 @@ public class UselessSuppressFinalizeBenchmarks
 
     /// <summary>Benchmarks the clean useless-SuppressFinalize path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UselessSuppressFinalize_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating useless-SuppressFinalize path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UselessSuppressFinalize_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

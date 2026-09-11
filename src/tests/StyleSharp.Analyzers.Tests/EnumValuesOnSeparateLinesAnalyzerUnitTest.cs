@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEnumLines = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1136EnumValuesOnSeparateLinesAnalyzer>;
 
@@ -12,9 +13,10 @@ public class EnumValuesOnSeparateLinesAnalyzerUnitTest
 {
     /// <summary>Verifies enum members sharing a line are reported (SST1136).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameLineEnumMembersReportedAsync()
-        => await VerifyEnumLines.VerifyAnalyzerAsync(
+    public Task SameLineEnumMembersReportedAsync() =>
+        VerifyEnumLines.VerifyAnalyzerAsync(
             """
             internal enum E
             {
@@ -24,9 +26,10 @@ public class EnumValuesOnSeparateLinesAnalyzerUnitTest
 
     /// <summary>Verifies enum members on separate lines are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateLineEnumMembersAreCleanAsync()
-        => await VerifyEnumLines.VerifyAnalyzerAsync(
+    public Task SeparateLineEnumMembersAreCleanAsync() =>
+        VerifyEnumLines.VerifyAnalyzerAsync(
             """
             internal enum E
             {

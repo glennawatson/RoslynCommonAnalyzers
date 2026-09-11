@@ -35,8 +35,8 @@ public sealed class Psh1016UseBitwiseFlagTestAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the member access of an <c>x.HasFlag(flag)</c> shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns>The <c>HasFlag</c> member access, or <see langword="null"/> when the shape does not match.</returns>
-    internal static MemberAccessExpressionSyntax? TryGetHasFlagAccess(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 1
+    internal static MemberAccessExpressionSyntax? TryGetHasFlagAccess(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 1
             && invocation.Expression is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Name.Identifier.ValueText == HasFlagMethodName

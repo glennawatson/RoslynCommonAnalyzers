@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDiscarded = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2418DiscardedImmutableResultAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 {
     /// <summary>Verifies a discarded DateTime method result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardedDateTimeResultIsReportedAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task DiscardedDateTimeResultIsReportedAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -28,9 +30,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 
     /// <summary>Verifies a discarded static numeric-helper result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardedMathResultIsReportedAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task DiscardedMathResultIsReportedAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -45,9 +48,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 
     /// <summary>Verifies a discarded readonly-record-struct result is reported, derived from the type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardedReadonlyRecordStructResultIsReportedAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task DiscardedReadonlyRecordStructResultIsReportedAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             public readonly record struct Money(int Amount)
             {
@@ -65,9 +69,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 
     /// <summary>Verifies a discarded string result is left to the unused-string diagnostic.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardedStringResultIsCleanAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task DiscardedStringResultIsCleanAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -80,9 +85,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 
     /// <summary>Verifies a void mutating method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidMethodIsCleanAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task VoidMethodIsCleanAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -97,9 +103,10 @@ public class DiscardedImmutableResultAnalyzerUnitTest
 
     /// <summary>Verifies a used result is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsedResultIsCleanAsync()
-        => await VerifyDiscarded.VerifyAnalyzerAsync(
+    public Task UsedResultIsCleanAsync() =>
+        VerifyDiscarded.VerifyAnalyzerAsync(
             """
             using System;
 

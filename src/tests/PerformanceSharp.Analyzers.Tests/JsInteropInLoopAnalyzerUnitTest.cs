@@ -244,11 +244,7 @@ public class JsInteropInLoopAnalyzerUnitTest
                                             }
                                         }
                                         """;
-        var test = new Analyze.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source + "\n" + RuntimeOnlyStubs,
-        };
+        var test = new Analyze.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = $"{Source}\n{RuntimeOnlyStubs}", };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -278,11 +274,7 @@ public class JsInteropInLoopAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new Analyze.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new Analyze.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -292,11 +284,7 @@ public class JsInteropInLoopAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Analyze.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + "\n" + Stubs,
-        };
+        var test = new Analyze.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = $"{source}\n{Stubs}", };
 
         await test.RunAsync(CancellationToken.None);
     }

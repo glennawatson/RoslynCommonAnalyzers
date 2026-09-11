@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -61,8 +63,9 @@ public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider, I
     /// <param name="spelling">The full name node to replace.</param>
     /// <param name="argument">The nullable value type argument.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, TypeSyntax spelling, TypeSyntax argument)
-        => document.WithSyntaxRoot(root.ReplaceNode(spelling, BuildShorthand(spelling, argument)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, TypeSyntax spelling, TypeSyntax argument) =>
+        document.WithSyntaxRoot(root.ReplaceNode(spelling, BuildShorthand(spelling, argument)));
 
     /// <summary>Resolves the diagnostic to the replaceable spelling and its type argument.</summary>
     /// <param name="root">The syntax root.</param>
@@ -95,6 +98,7 @@ public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider, I
     /// <param name="spelling">The name node being replaced.</param>
     /// <param name="argument">The nullable value type argument.</param>
     /// <returns>The shorthand type syntax.</returns>
-    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument)
-        => SyntaxFactory.NullableType(argument.WithoutTrivia()).WithTriviaFrom(spelling);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument) =>
+        SyntaxFactory.NullableType(argument.WithoutTrivia()).WithTriviaFrom(spelling);
 }

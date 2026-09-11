@@ -14,8 +14,8 @@ internal static class UnwrapElseAfterJumpBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit reportable else clauses.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class UnwrapElseAfterJumpBench
@@ -28,8 +28,8 @@ internal static class UnwrapElseAfterJumpBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => (index % BranchShapeCount, violating) switch
+    private static string GenerateMember(int index, bool violating) =>
+        (index % BranchShapeCount, violating) switch
         {
             (0, true) => $$"""
                            public int Block{{index}}(int value)

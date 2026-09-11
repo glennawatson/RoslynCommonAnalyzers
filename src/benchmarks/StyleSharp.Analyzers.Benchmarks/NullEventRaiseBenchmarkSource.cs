@@ -11,8 +11,8 @@ internal static class NullEventRaiseBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class NullEventRaiseBenchmarkSource
     /// <summary>Builds one type that raises its event with this and empty args.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public event EventHandler Changed;
@@ -36,8 +36,8 @@ internal static class NullEventRaiseBenchmarkSource
     /// <summary>Builds one type that raises its event with a null sender.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public event EventHandler Changed;

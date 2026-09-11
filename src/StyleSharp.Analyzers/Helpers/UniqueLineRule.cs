@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,8 +21,9 @@ internal static class UniqueLineRule
     /// <summary>Builds the descriptor for a rule that reports parameters spread onto shared lines.</summary>
     /// <param name="id">The diagnostic id (for example <c>SST1150</c>).</param>
     /// <returns>The descriptor carrying the family's parameter-worded resources.</returns>
-    public static DiagnosticDescriptor ForParameters(string id)
-        => Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static DiagnosticDescriptor ForParameters(string id) =>
+        Create(
             id,
             nameof(Resources.ParameterAnalyzerTitle),
             nameof(Resources.ParameterAnalyzerMessageFormat),
@@ -29,8 +32,9 @@ internal static class UniqueLineRule
     /// <summary>Builds the descriptor for a rule that reports arguments spread onto shared lines.</summary>
     /// <param name="id">The diagnostic id (for example <c>SST1154</c>).</param>
     /// <returns>The descriptor carrying the family's argument-worded resources.</returns>
-    public static DiagnosticDescriptor ForArguments(string id)
-        => Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static DiagnosticDescriptor ForArguments(string id) =>
+        Create(
             id,
             nameof(Resources.ArgumentAnalyzerTitle),
             nameof(Resources.ArgumentAnalyzerMessageFormat),
@@ -47,13 +51,14 @@ internal static class UniqueLineRule
     /// <see cref="AnalysisContext.ConfigureGeneratedCodeAnalysis"/> stay in each analyzer's
     /// <c>Initialize</c> because the analyzer-design rules that require them look for those calls there.
     /// </remarks>
-    public static void Register<TNode>(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void Register<TNode>(
         AnalysisContext context,
         DiagnosticDescriptor rule,
         Action<SyntaxNodeAnalysisContext, TNode, DiagnosticDescriptor> handle,
         params SyntaxKind[] syntaxKinds)
-        where TNode : SyntaxNode
-        => context.RegisterSyntaxNodeAction(
+        where TNode : SyntaxNode =>
+        context.RegisterSyntaxNodeAction(
             nodeContext =>
             {
                 if (nodeContext.Node is not TNode node)
@@ -71,8 +76,8 @@ internal static class UniqueLineRule
     /// <param name="messageResource">The resource key for the message format.</param>
     /// <param name="descriptionResource">The resource key for the description.</param>
     /// <returns>The constructed descriptor.</returns>
-    private static DiagnosticDescriptor Create(string id, string titleResource, string messageResource, string descriptionResource)
-        => new(
+    private static DiagnosticDescriptor Create(string id, string titleResource, string messageResource, string descriptionResource) =>
+        new(
             id,
             new LocalizableResourceString(titleResource, Resources.ResourceManager, typeof(Resources)),
             new LocalizableResourceString(messageResource, Resources.ResourceManager, typeof(Resources)),

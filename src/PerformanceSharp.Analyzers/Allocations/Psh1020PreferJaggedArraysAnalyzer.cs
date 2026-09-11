@@ -85,7 +85,7 @@ public sealed class Psh1020PreferJaggedArraysAnalyzer : DiagnosticAnalyzer
             AllocationRules.PreferJaggedArrays,
             creation.SyntaxTree,
             creation.Span,
-            "new[" + new string(',', creation.Commas.Count) + "]"));
+            $"new[{new string(',', creation.Commas.Count)}]"));
     }
 
     /// <summary>Returns whether an array type has a rank specifier of two dimensions or more.</summary>
@@ -113,14 +113,10 @@ public sealed class Psh1020PreferJaggedArraysAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an array type is written where the array's shape is being chosen.</summary>
     /// <param name="arrayType">The array type to inspect.</param>
     /// <returns><see langword="true"/> for a declaration or a creation the author owns.</returns>
-    private static bool IsDeclaringPosition(ArrayTypeSyntax arrayType)
-        => arrayType.Parent switch
+    private static bool IsDeclaringPosition(ArrayTypeSyntax arrayType) =>
+        arrayType.Parent switch
         {
-            VariableDeclarationSyntax => true,
-            ParameterSyntax => true,
-            PropertyDeclarationSyntax => true,
-            MethodDeclarationSyntax => true,
-            DelegateDeclarationSyntax => true,
+            VariableDeclarationSyntax or ParameterSyntax or PropertyDeclarationSyntax or MethodDeclarationSyntax or DelegateDeclarationSyntax => true,
             ArrayCreationExpressionSyntax creation => !IsRedundantWithDeclaredType(creation),
             _ => false,
         };
@@ -133,7 +129,7 @@ public sealed class Psh1020PreferJaggedArraysAnalyzer : DiagnosticAnalyzer
     /// is the site the author edits, so the creation stays quiet — but only when the declaration really
     /// did spell the type out. Under <c>var</c>, the creation is the only site there is.
     /// </remarks>
-    private static bool IsRedundantWithDeclaredType(ArrayCreationExpressionSyntax creation)
-        => creation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Type: ArrayTypeSyntax declared } } }
+    private static bool IsRedundantWithDeclaredType(ArrayCreationExpressionSyntax creation) =>
+        creation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Type: ArrayTypeSyntax declared } } }
             && IsMultidimensional(declared);
 }

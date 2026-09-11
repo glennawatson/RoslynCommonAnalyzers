@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyZero = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2329FlagsEnumMissingZeroValueAnalyzer,
     StyleSharp.Analyzers.Sst2329FlagsEnumMissingZeroValueCodeFixProvider>;
@@ -65,15 +66,17 @@ public class Sst2329FlagsEnumMissingZeroValueCodeFixUnitTest
 
     /// <summary>Verifies the fix inserts <c>None = 0</c> as the first member.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsNoneMemberAsync()
-        => await VerifyZero.VerifyCodeFixAsync(ExplicitSource, ExplicitFixed);
+    public Task AddsNoneMemberAsync() =>
+        VerifyZero.VerifyCodeFixAsync(ExplicitSource, ExplicitFixed);
 
     /// <summary>Verifies the fix inserts the zero member ahead of the other members.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsNoneBeforeOtherMembersAsync()
-        => await VerifyZero.VerifyCodeFixAsync(ThreeMemberSource, ThreeMemberFixed);
+    public Task AddsNoneBeforeOtherMembersAsync() =>
+        VerifyZero.VerifyCodeFixAsync(ThreeMemberSource, ThreeMemberFixed);
 
     /// <summary>Verifies an enum whose body carries a directive is reported but not edited.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

@@ -13,7 +13,7 @@ internal static class LineEndingHelper
     /// <summary>Returns the anchor's own line-break trivia, falling back to a bare line feed.</summary>
     /// <param name="anchor">The node whose file supplies the convention.</param>
     /// <returns>The end-of-line trivia to insert.</returns>
-    public static SyntaxTrivia GetLineBreak(SyntaxNode anchor)
+    internal static SyntaxTrivia GetLineBreak(SyntaxNode anchor)
     {
         // A trivia walk is fine here: fixes run on demand for one reported node, never on the
         // analyzer hot path, and the first line break almost always sits within a few tokens.

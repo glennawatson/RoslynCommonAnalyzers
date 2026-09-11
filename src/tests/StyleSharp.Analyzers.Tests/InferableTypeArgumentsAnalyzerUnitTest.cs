@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInferableTypeArguments = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2251InferableTypeArgumentsAnalyzer,
     StyleSharp.Analyzers.Sst2251InferableTypeArgumentsCodeFixProvider>;
@@ -61,9 +62,10 @@ public class InferableTypeArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent whenever dropping the type arguments would change what the call means.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallsWhoseMeaningWouldChangeAreCleanAsync()
-        => await VerifyInferableTypeArguments.VerifyAnalyzerAsync(
+    public Task CallsWhoseMeaningWouldChangeAreCleanAsync() =>
+        VerifyInferableTypeArguments.VerifyAnalyzerAsync(
             """
             public static class Box<T>
             {
@@ -108,9 +110,10 @@ public class InferableTypeArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a type argument that only differs from inference in nullability is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullabilityChangingTypeArgumentIsCleanAsync()
-        => await VerifyInferableTypeArguments.VerifyAnalyzerAsync(
+    public Task NullabilityChangingTypeArgumentIsCleanAsync() =>
+        VerifyInferableTypeArguments.VerifyAnalyzerAsync(
             """
             #nullable enable
 

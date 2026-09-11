@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -37,12 +38,13 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use Array.Clear", nameof(Psh1127ClearOverFillDefaultCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use Array.Clear", nameof(Psh1127ClearOverFillDefaultCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces a reported Fill call with its Clear form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -50,8 +52,8 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The Fill invocation to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation)
-        => TryGetReplacement(model, invocation, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation) =>
+        TryGetReplacement(model, invocation, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement!))
             : document;
 
@@ -60,8 +62,8 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && TryGetReplacement(model, invocation, out var replacement)
             ? new NodeReplacement(invocation, replacement!)
             : null;
@@ -106,8 +108,8 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     /// <summary>Builds the argument list for the ranged Clear(array, startIndex, count) form.</summary>
     /// <param name="arguments">The original Fill arguments.</param>
     /// <returns>The Clear arguments.</returns>
-    private static ArgumentSyntax[] BuildRangedArguments(SeparatedSyntaxList<ArgumentSyntax> arguments)
-        => [arguments[0].WithoutTrivia(), arguments[StartIndexArgumentIndex].WithoutTrivia(), arguments[CountArgumentIndex].WithoutTrivia()];
+    private static ArgumentSyntax[] BuildRangedArguments(SeparatedSyntaxList<ArgumentSyntax> arguments) =>
+        [arguments[0].WithoutTrivia(), arguments[StartIndexArgumentIndex].WithoutTrivia(), arguments[CountArgumentIndex].WithoutTrivia()];
 
     /// <summary>Builds the argument list for the whole-array Clear form.</summary>
     /// <param name="arrayExpression">The array expression.</param>
@@ -151,8 +153,8 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
     /// <param name="candidate">The rewritten invocation.</param>
     /// <param name="arrayType">The <c>System.Array</c> type in the current compilation.</param>
     /// <returns><see langword="true"/> when the replacement binds to Array.Clear.</returns>
-    private static bool BindsToArrayClear(SemanticModel model, int position, InvocationExpressionSyntax candidate, INamedTypeSymbol arrayType)
-        => model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol
+    private static bool BindsToArrayClear(SemanticModel model, int position, InvocationExpressionSyntax candidate, INamedTypeSymbol arrayType) =>
+        model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol
                 is IMethodSymbol { IsStatic: true, Name: Psh1127ClearOverFillDefaultAnalyzer.ClearMethodName } clear
             && SymbolEqualityComparer.Default.Equals(clear.ContainingType, arrayType);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -20,9 +21,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
     /// semantics this rule asks <c>Volatile.Read</c>/<c>Volatile.Write</c> to supply, so there is nothing
     /// left to change and the suggestion would be noise. Reported as issue #51.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VolatileFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task VolatileFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -119,9 +121,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies constructor initialization stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorWriteIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstructorWriteIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -140,9 +143,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies fields never touched by Interlocked stay clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -163,9 +167,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies a read through a readonly member stays clean — the Volatile fix can't take a ref there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyMemberReadIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReadonlyMemberReadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -183,9 +188,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies a read through a whole-property readonly block accessor stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyPropertyBlockAccessorIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReadonlyPropertyBlockAccessorIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -204,9 +210,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies the reported false positive — readonly equality/hash members reading an interlocked field.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyEqualityMembersAreCleanAsync()
-        => await VerifyAsync(
+    public Task ReadonlyEqualityMembersAreCleanAsync() =>
+        VerifyAsync(
             """
             #nullable enable
             using System;
@@ -260,9 +267,10 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
 
     /// <summary>Verifies accesses inside a lock stay clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LockedAccessIsCleanAsync()
-        => await VerifyAsync(
+    public Task LockedAccessIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
 
@@ -289,11 +297,7 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

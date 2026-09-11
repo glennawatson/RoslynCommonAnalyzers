@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -87,9 +88,10 @@ public class UseSpanBasedConcatAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation with no slice at all is not reported — there is nothing to save.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatWithoutSubstringIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConcatWithoutSubstringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -101,9 +103,10 @@ public class UseSpanBasedConcatAnalyzerUnitTest
 
     /// <summary>Verifies the object overload is not reported — it has no span counterpart.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task ObjectOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -115,9 +118,10 @@ public class UseSpanBasedConcatAnalyzerUnitTest
 
     /// <summary>Verifies a Substring on something other than a string is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringSubstringIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonStringSubstringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -134,9 +138,10 @@ public class UseSpanBasedConcatAnalyzerUnitTest
 
     /// <summary>Verifies the params overload is not reported — it has no span counterpart either.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParamsOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task ParamsOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -149,9 +154,10 @@ public class UseSpanBasedConcatAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation inside an expression tree is not rewritten — a tree cannot hold a span.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatInsideExpressionTreeIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConcatInsideExpressionTreeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -162,10 +168,7 @@ public class UseSpanBasedConcatAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the rule registers nothing against netstandard2.0, where the span overloads of
-    /// <c>string.Concat</c> do not exist.
-    /// </summary>
+    /// <summary>Verifies the rule registers nothing against netstandard2.0, where the span overloads of <c>string.Concat</c> do not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The reported code compiles perfectly well on netstandard2.0 — it is the <i>suggestion</i> that
@@ -195,11 +198,7 @@ public class UseSpanBasedConcatAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

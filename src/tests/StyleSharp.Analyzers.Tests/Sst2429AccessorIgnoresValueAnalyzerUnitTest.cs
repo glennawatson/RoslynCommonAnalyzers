@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2429AccessorIgnoresValueAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 {
     /// <summary>Verifies a set accessor whose body never reads value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetIgnoresValueIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SetIgnoresValueIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -28,9 +30,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies an init accessor whose body never reads value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitIgnoresValueIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InitIgnoresValueIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -43,9 +46,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies an add accessor whose body never reads value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddIgnoresValueIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AddIgnoresValueIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -69,9 +73,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies a set accessor that reads value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetReadsValueIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SetReadsValueIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -83,9 +88,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies an empty set body is a deliberate no-op and left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptySetBodyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptySetBodyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -95,9 +101,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies a throw-only expression-bodied set is a deliberate refusal and left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowingSetExpressionIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ThrowingSetExpressionIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -109,9 +116,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies a throw-only block-bodied set is a deliberate refusal and left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowingSetBlockIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ThrowingSetBlockIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -123,9 +131,10 @@ public class Sst2429AccessorIgnoresValueAnalyzerUnitTest
 
     /// <summary>Verifies an auto-implemented accessor carries no body to scan and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AutoPropertyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AutoPropertyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {

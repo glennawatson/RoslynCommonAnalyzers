@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyComment = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1659EmptyCommentAnalyzer,
     StyleSharp.Analyzers.Sst1659EmptyCommentCodeFixProvider>;
@@ -18,9 +19,10 @@ public class EmptyCommentAnalyzerUnitTest
     /// squiggles on one comment and ask the reader to dismiss the same finding twice, so this rule sees only
     /// documentation comments. This test is the boundary between the two.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyOrdinaryCommentsBelongToTheOtherRuleAsync()
-        => await VerifyEmptyComment.VerifyAnalyzerAsync(
+    public Task EmptyOrdinaryCommentsBelongToTheOtherRuleAsync() =>
+        VerifyEmptyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -99,9 +101,10 @@ public class EmptyCommentAnalyzerUnitTest
 
     /// <summary>Verifies a blank line inside a documentation comment that says something is ordinary formatting.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineInsideDocumentationCommentIsCleanAsync()
-        => await VerifyEmptyComment.VerifyAnalyzerAsync(
+    public Task BlankLineInsideDocumentationCommentIsCleanAsync() =>
+        VerifyEmptyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -114,9 +117,10 @@ public class EmptyCommentAnalyzerUnitTest
 
     /// <summary>Verifies the commented-out code marker keeps its slashes as text and is never empty.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentedOutCodeMarkerIsCleanAsync()
-        => await VerifyEmptyComment.VerifyAnalyzerAsync(
+    public Task CommentedOutCodeMarkerIsCleanAsync() =>
+        VerifyEmptyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -127,9 +131,10 @@ public class EmptyCommentAnalyzerUnitTest
 
     /// <summary>Verifies comments with text, and preprocessor directives, are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentsWithTextAndDirectivesAreCleanAsync()
-        => await VerifyEmptyComment.VerifyAnalyzerAsync(
+    public Task CommentsWithTextAndDirectivesAreCleanAsync() =>
+        VerifyEmptyComment.VerifyAnalyzerAsync(
             """
             #region Values
             internal class C

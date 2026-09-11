@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -23,14 +25,15 @@ internal static class FloatingPointTypes
     /// <summary>Returns whether a type is <see cref="float"/> or <see cref="double"/>, or the nullable form of either.</summary>
     /// <param name="type">The type to classify, which may be unresolved.</param>
     /// <returns><see langword="true"/> for a binary floating-point type.</returns>
-    public static bool IsBinaryFloatingPoint(ITypeSymbol? type) => TryGetKeyword(type, out _, out _);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsBinaryFloatingPoint(ITypeSymbol? type) => TryGetKeyword(type, out _, out _);
 
     /// <summary>Reads the C# keyword of a binary floating-point type, seeing through <see cref="Nullable{T}"/>.</summary>
     /// <param name="type">The type to classify, which may be unresolved.</param>
     /// <param name="keyword">The <c>float</c> or <c>double</c> keyword, or an empty string.</param>
     /// <param name="isNullable">Whether the type was the nullable form, which no <c>IsNaN</c> overload accepts.</param>
     /// <returns><see langword="true"/> when the type is a binary floating-point type.</returns>
-    public static bool TryGetKeyword(ITypeSymbol? type, out string keyword, out bool isNullable)
+    internal static bool TryGetKeyword(ITypeSymbol? type, out string keyword, out bool isNullable)
     {
         keyword = string.Empty;
         isNullable = false;

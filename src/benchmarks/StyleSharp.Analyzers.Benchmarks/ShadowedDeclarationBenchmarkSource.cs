@@ -11,8 +11,8 @@ internal static class ShadowedDeclarationBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit shadowed-declaration rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class ShadowedDeclarationBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose declarations are all clean.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class ShadowedDeclarationBenchmarkSource
     /// method that reuses an instance field's name, which is not in scope there, a property of a non-nested
     /// type, and a nested type whose field and property miss the containing type's table.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                private readonly string name;
@@ -84,8 +84,8 @@ internal static class ShadowedDeclarationBenchmarkSource
     /// Emits six diagnostics: a parameter, a local, a loop variable, an out variable, and a nested type's
     /// field and property that shadow the containing type's static members.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public static int Limit;

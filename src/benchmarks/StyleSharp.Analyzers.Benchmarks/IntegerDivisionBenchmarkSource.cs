@@ -11,8 +11,8 @@ internal static class IntegerDivisionBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit integer-division rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class IntegerDivisionBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose divisions never truncate into a floating-point target.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -33,8 +33,8 @@ internal static class IntegerDivisionBenchmarkSource
     /// text, an operand that is already floating point, a division that stays integral, and one that is
     /// already promoted by hand.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public double Half(int value) => value / 2.0;
@@ -54,8 +54,8 @@ internal static class IntegerDivisionBenchmarkSource
     /// <summary>Builds one type whose divisions all truncate before they are widened.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public double Average(int total, int count) => total / count;

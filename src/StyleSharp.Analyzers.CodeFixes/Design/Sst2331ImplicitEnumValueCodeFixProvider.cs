@@ -17,8 +17,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.EnumMembersShouldBeExplicit.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.EnumMembersShouldBeExplicit.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -102,7 +102,7 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
     /// <summary>Moves the trivia that followed the member's name so it follows its value.</summary>
     /// <param name="trailing">The identifier's trailing trivia.</param>
     /// <returns>The same trivia with the indentation that used to precede a comma or brace dropped.</returns>
-    private static SyntaxTriviaList TrailingAfterValue(SyntaxTriviaList trailing)
+    private static SyntaxTriviaList TrailingAfterValue(in SyntaxTriviaList trailing)
     {
         var kept = new List<SyntaxTrivia>(trailing.Count + 1);
         foreach (var trivia in trailing)

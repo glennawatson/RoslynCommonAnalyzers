@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConstant = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1493MethodReturnsConstantAnalyzer,
     StyleSharp.Analyzers.Sst1493MethodReturnsConstantCodeFixProvider>;
@@ -138,9 +139,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies an override is left alone; answering with a constant is what an override is for.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task OverrideIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public abstract class Base
             {
@@ -159,9 +161,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies a virtual method is left alone; a derived type may answer differently.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualMethodIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task VirtualMethodIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public class Service
             {
@@ -171,9 +174,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies an interface implementation is left alone, implicit or explicit.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceImplementationIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task InterfaceImplementationIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public interface IWeighted
             {
@@ -192,9 +196,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies an interface's own member is left alone, body or no body.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceMemberIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task InterfaceMemberIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public interface IWeighted
             {
@@ -205,9 +210,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
     /// <summary>Verifies a method carrying any attribute is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The attribute may be the whole reason the member is a method, and this rule cannot know what reads it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributedMethodIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task AttributedMethodIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -225,9 +231,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies a partial method is left alone; its shape belongs to the declaration it follows.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialMethodIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task PartialMethodIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public partial class C
             {
@@ -239,9 +246,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies returning null or default is a "nothing to give you" answer, not a constant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullAndDefaultGuardShapesAreCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task NullAndDefaultGuardShapesAreCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -259,9 +267,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
     /// <summary>Verifies a method that takes parameters or type parameters is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Neither could become a property, so the rule's advice would not be followable.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterizedAndGenericMethodsAreCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task ParameterizedAndGenericMethodsAreCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -273,9 +282,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies a method that computes something is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedResultIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task ComputedResultIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -295,9 +305,10 @@ public class Sst1493MethodReturnsConstantAnalyzerUnitTest
 
     /// <summary>Verifies a local function is not a member and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionIsCleanAsync()
-        => await VerifyConstant.VerifyAnalyzerAsync(
+    public Task LocalFunctionIsCleanAsync() =>
+        VerifyConstant.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

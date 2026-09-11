@@ -74,32 +74,32 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     private enum SequenceSource
     {
         /// <summary>Not a reported copy.</summary>
-        None,
+        None = 0,
 
         /// <summary>A <c>string.ToCharArray()</c> copy.</summary>
-        String,
+        String = 1,
 
         /// <summary>A <c>ReadOnlySpan&lt;T&gt;.ToArray()</c> copy.</summary>
-        Span,
+        Span = 2,
     }
 
     /// <summary>What the copied array is handed to.</summary>
     private enum ConsumerKind
     {
         /// <summary>Not a consumer the original would satisfy.</summary>
-        None,
+        None = 0,
 
         /// <summary>The array is enumerated by a <c>foreach</c>.</summary>
-        ForEach,
+        ForEach = 1,
 
         /// <summary>The array's <c>Length</c> is read.</summary>
-        Length,
+        Length = 2,
 
         /// <summary>A single element of the array is read.</summary>
-        Indexer,
+        Indexer = 3,
 
         /// <summary>The array is passed as an argument.</summary>
-        Argument,
+        Argument = 4,
     }
 
     /// <inheritdoc/>
@@ -116,8 +116,8 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a bare <c>x.ToCharArray()</c> or <c>x.ToArray()</c>, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsSequenceCopyShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsSequenceCopyShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText is ToCharArrayMethodName or ToArrayMethodName;
 
@@ -189,9 +189,9 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess) => elementAccess.Parent switch
     {
         AssignmentExpressionSyntax assignment => assignment.Left == elementAccess,
-        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression } => true,
-        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression } => true,
-        RefExpressionSyntax => true,
+        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PreIncrementExpression or (int)SyntaxKind.PreDecrementExpression }
+            or PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.PostIncrementExpression or (int)SyntaxKind.PostDecrementExpression }
+            or RefExpressionSyntax => true,
         ArgumentSyntax argument => argument.RefOrOutKeyword.RawKind != (int)SyntaxKind.None,
         _ => false,
     };
@@ -202,18 +202,15 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <param name="elementType">The span's element type, for a span copy.</param>
     /// <returns>The sequence source, or <see cref="SequenceSource.None"/> when this is not a copy the rule reports.</returns>
     private static SequenceSource GetBoundSequenceSource(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         out ITypeSymbol? elementType)
     {
         elementType = null;
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol copy
-            || !IsInstanceCopyCall(copy))
-        {
-            return SequenceSource.None;
-        }
-
-        return GetSequenceSource(copy, out elementType);
+        return context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol copy
+            || !IsInstanceCopyCall(copy)
+            ? SequenceSource.None
+            : GetSequenceSource(copy, out elementType);
     }
 
     /// <summary>Returns whether a bound member really is the framework's parameterless copy.</summary>
@@ -224,9 +221,9 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <c>ToArray</c> all share the reported name, and none of them is the copy the receiver already
     /// satisfies.
     /// </remarks>
-    private static bool IsInstanceCopyCall(IMethodSymbol copy)
-        => !copy.IsStatic
-            && copy.Parameters.Length == 0
+    private static bool IsInstanceCopyCall(IMethodSymbol copy) =>
+        !copy.IsStatic
+            && copy.Parameters.IsEmpty
             && !copy.IsExtensionMethod
             && copy.ReducedFrom is null;
 
@@ -266,12 +263,12 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// <param name="elementType">The span's element type, for a span copy.</param>
     /// <returns>The consumer's display, or <see langword="null"/> when the copy must stay.</returns>
     private static string? GetConsumerDisplay(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         ConsumerKind kind,
         SequenceSource source,
-        ITypeSymbol? elementType)
-        => kind switch
+        ITypeSymbol? elementType) =>
+        kind switch
         {
             // A ref struct enumerated directly cannot survive an await or a yield in the loop body,
             // so only the string receiver — a plain reference type — is reported here.
@@ -295,7 +292,7 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// produces the same value after the copy is dropped.
     /// </remarks>
     private static string? GetIndexerDisplay(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SequenceSource source,
         ITypeSymbol? elementType)
@@ -328,7 +325,7 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
     /// to know which overload the fix would land on.
     /// </remarks>
     private static string? GetArgumentConsumerName(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SequenceSource source,
         ITypeSymbol? elementType)
@@ -360,13 +357,10 @@ public sealed class Psh1217RedundantSequenceCopyAnalyzer : DiagnosticAnalyzer
 
         var receiver = ((MemberAccessExpressionSyntax)invocation.Expression).Expression;
         var rewritten = outer.ReplaceNode(invocation, receiver);
-        if (model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol is not IMethodSymbol resolved
-            || !IsSameCallWithSequenceSlot(resolved, consumer, index, source, elementType))
-        {
-            return null;
-        }
-
-        return consumer.Name;
+        return model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol is not IMethodSymbol resolved
+            || !IsSameCallWithSequenceSlot(resolved, consumer, index, source, elementType)
+            ? null
+            : consumer.Name;
     }
 
     /// <summary>Returns whether a parameter takes exactly the array the copy produces.</summary>

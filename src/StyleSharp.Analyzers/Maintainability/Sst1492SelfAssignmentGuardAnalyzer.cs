@@ -124,7 +124,7 @@ public sealed class Sst1492SelfAssignmentGuardAnalyzer : DiagnosticAnalyzer
     /// auto-implemented: a hand-written setter — the change-notification shape — is exactly the case the guard
     /// exists for. A property this compilation has no source for is treated as hand-written.
     /// </remarks>
-    private static bool HasSideEffectFreeSetter(ExpressionSyntax target, SyntaxNodeAnalysisContext context)
+    private static bool HasSideEffectFreeSetter(ExpressionSyntax target, in SyntaxNodeAnalysisContext context)
     {
         if (context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol is not IPropertySymbol property)
         {
@@ -137,7 +137,7 @@ public sealed class Sst1492SelfAssignmentGuardAnalyzer : DiagnosticAnalyzer
         }
 
         var declarations = setter.DeclaringSyntaxReferences;
-        if (declarations.Length == 0)
+        if (declarations.IsEmpty)
         {
             return false;
         }

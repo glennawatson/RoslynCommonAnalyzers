@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyAssert = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2503BooleanLiteralAssertionAnalyzer>;
@@ -416,9 +417,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an equality against a non-boolean literal is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBooleanLiteralExpectedIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonBooleanLiteralExpectedIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -443,9 +445,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an equality whose other operand is not a boolean value is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBooleanActualIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonBooleanActualIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -470,9 +473,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a three-argument equality (with a message) is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeArgumentEqualityIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ThreeArgumentEqualityIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -497,9 +501,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an equality on an <c>Assert</c> class outside a recognised namespace is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrecognisedAssertNamespaceIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task UnrecognisedAssertNamespaceIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using Xunit;
             using Contoso;
@@ -535,9 +540,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a recognised equality name that is not the framework's equality method is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonClassicEqualityNameIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonClassicEqualityNameIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using NUnit.Framework;
 
@@ -562,9 +568,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported when the framework exposes no single-argument boolean assertion.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingBooleanAssertionIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task MissingBooleanAssertionIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -589,9 +596,10 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named call with no test framework referenced registers nothing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoTestFrameworkReferencedIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NoTestFrameworkReferencedIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -613,12 +621,7 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyAssertFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyAssertFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -628,11 +631,7 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyCleanAsync(string source)
     {
-        var test = new VerifyAssert.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyAssert.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

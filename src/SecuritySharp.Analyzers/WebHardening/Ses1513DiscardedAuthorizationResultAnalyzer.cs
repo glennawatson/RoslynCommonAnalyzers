@@ -60,7 +60,7 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
     /// <summary>Reports SES1513 for an <c>AuthorizeAsync</c> call on the authorization service whose result is discarded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="authorizationService">The <c>IAuthorizationService</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol authorizationService)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol authorizationService)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -113,8 +113,8 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
     /// <param name="assignment">The candidate assignment.</param>
     /// <param name="value">The value expression on the assignment's right side.</param>
     /// <returns><see langword="true"/> for a <c>_ = value</c> simple assignment.</returns>
-    private static bool IsDiscardAssignmentOf(AssignmentExpressionSyntax assignment, ExpressionSyntax value)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+    private static bool IsDiscardAssignmentOf(AssignmentExpressionSyntax assignment, ExpressionSyntax value) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && assignment.Right == value
             && assignment.Left is IdentifierNameSyntax { Identifier.ValueText: DiscardIdentifier };
 
@@ -173,7 +173,7 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         // The convenience overloads (for example 'AuthorizeAsync(user, policyName)') are extension methods
         // declared on 'this IAuthorizationService'; their first parameter is the service.
         return definition.IsExtensionMethod
-            && definition.Parameters.Length > 0
+            && !definition.Parameters.IsEmpty
             && SymbolEqualityComparer.Default.Equals(definition.Parameters[0].Type, authorizationService);
     }
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class CacheSerializerOptionsAnalyzerUnitTest
 {
     /// <summary>Verifies options built inside a method are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionsBuiltInMethodAreReportedAsync()
-        => await VerifyAsync(
+    public Task OptionsBuiltInMethodAreReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
 
@@ -32,9 +34,10 @@ public class CacheSerializerOptionsAnalyzerUnitTest
 
     /// <summary>Verifies target-typed options built inside a method are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TargetTypedOptionsInMethodAreReportedAsync()
-        => await VerifyAsync(
+    public Task TargetTypedOptionsInMethodAreReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
 
@@ -50,9 +53,10 @@ public class CacheSerializerOptionsAnalyzerUnitTest
 
     /// <summary>Verifies options rebuilt on every read of an expression-bodied property are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionsInExpressionBodiedPropertyAreReportedAsync()
-        => await VerifyAsync(
+    public Task OptionsInExpressionBodiedPropertyAreReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
 
@@ -64,9 +68,10 @@ public class CacheSerializerOptionsAnalyzerUnitTest
 
     /// <summary>Verifies the cached static readonly field the rule steers toward is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CachedStaticReadonlyFieldIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task CachedStaticReadonlyFieldIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
 
@@ -80,9 +85,10 @@ public class CacheSerializerOptionsAnalyzerUnitTest
 
     /// <summary>Verifies options built in a constructor are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionsBuiltInConstructorAreNotReportedAsync()
-        => await VerifyAsync(
+    public Task OptionsBuiltInConstructorAreNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
 
@@ -95,15 +101,16 @@ public class CacheSerializerOptionsAnalyzerUnitTest
             """);
 
     /// <summary>Verifies options shaped by a parameter are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The suggestion is a <c>static readonly</c> field, and these options cannot live in one: a shared
     /// instance would hand every caller the first caller's resolver. They are built per call because they
     /// are built per caller, and the rule has nothing to offer.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionsBuiltAroundAParameterAreNotReportedAsync()
-        => await VerifyAsync(
+    public Task OptionsBuiltAroundAParameterAreNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Text.Json;
             using System.Text.Json.Serialization.Metadata;
@@ -120,11 +127,7 @@ public class CacheSerializerOptionsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -40,8 +40,8 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.UncheckedSequenceSum);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -65,7 +65,7 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one invocation when it is an integral sequence Sum wrapped in unchecked.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="enumerableType">The lazily resolved <c>System.Linq.Enumerable</c> type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count > 2
@@ -108,11 +108,9 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
         {
             switch (node.RawKind)
             {
-                case (int)SyntaxKind.UncheckedExpression:
-                case (int)SyntaxKind.UncheckedStatement:
+                case (int)SyntaxKind.UncheckedExpression or (int)SyntaxKind.UncheckedStatement:
                     return true;
-                case (int)SyntaxKind.CheckedExpression:
-                case (int)SyntaxKind.CheckedStatement:
+                case (int)SyntaxKind.CheckedExpression or (int)SyntaxKind.CheckedStatement:
                     return false;
             }
 
@@ -131,10 +129,10 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
     /// <returns><see langword="true"/> when the call is a Sum overload that accumulates with checked arithmetic.</returns>
     private static bool IsIntegralEnumerableSum(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType)
-        => context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
+        INamedTypeSymbol enumerableType) =>
+        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
             && SymbolEqualityComparer.Default.Equals((method.ReducedFrom ?? method).ContainingType, enumerableType)
             && IsIntegralSumResult(method.ReturnType);
 

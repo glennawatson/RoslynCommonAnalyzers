@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -38,12 +40,13 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Compare the bytes with SequenceEqual", nameof(Psh1210Utf8SequenceEqualCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Compare the bytes with SequenceEqual", nameof(Psh1210Utf8SequenceEqualCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported comparison and builds its byte-comparison replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -119,8 +122,8 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     /// <param name="constant">The constant operand expression.</param>
     /// <param name="value">The constant string value.</param>
     /// <returns>The literal text including the u8 suffix.</returns>
-    private static string BuildLiteralText(ExpressionSyntax constant, string value)
-        => constant is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+    private static string BuildLiteralText(ExpressionSyntax constant, string value) =>
+        constant is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
             ? literal.Token.Text + Utf8Suffix
             : SymbolDisplay.FormatLiteral(value, quote: true) + Utf8Suffix;
 
@@ -144,8 +147,8 @@ public sealed class Psh1210Utf8SequenceEqualCodeFixProvider : CodeFixProvider, I
     /// <summary>Wraps an expression in parentheses when using it as a member-access receiver could reparse.</summary>
     /// <param name="expression">The expression to protect.</param>
     /// <returns>The original or a parenthesized copy.</returns>
-    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression)
-        => expression is IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax
+    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax or MemberAccessExpressionSyntax or InvocationExpressionSyntax
             or ElementAccessExpressionSyntax or ParenthesizedExpressionSyntax
             ? expression
             : SyntaxFactory.ParenthesizedExpression(expression);

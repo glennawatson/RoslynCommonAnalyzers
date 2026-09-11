@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -62,9 +63,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies an instance HttpClient field of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceHttpClientFieldIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task InstanceHttpClientFieldIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -81,9 +83,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies an injected instance HttpClient field of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InjectedInstanceHttpClientFieldIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task InjectedInstanceHttpClientFieldIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -102,9 +105,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies an instance HttpClient auto-property of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceHttpClientAutoPropertyIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task InstanceHttpClientAutoPropertyIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -121,9 +125,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies the fully-qualified function attribute form still resolves the gate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedFunctionAttributeIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task QualifiedFunctionAttributeIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -139,9 +144,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a record function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordFunctionClassIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task RecordFunctionClassIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -158,9 +164,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies an injected service-client field of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceServiceClientFieldIsFlaggedAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task InstanceServiceClientFieldIsFlaggedAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Microsoft.Azure.Cosmos;
             using Microsoft.Azure.Functions.Worker;
@@ -178,9 +185,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a static client field is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClientFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task StaticClientFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -197,9 +205,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a computed property and a static field are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedPropertyIsCleanAsync()
-        => await VerifyAsync(
+    public Task ComputedPropertyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -218,9 +227,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a client field in a class with no function method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonFunctionClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonFunctionClassIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -234,9 +244,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a non-client instance field in a function class is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonClientFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonClientFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.Azure.Functions.Worker;
 
@@ -251,9 +262,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a client field is never reported when the worker attribute is absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClientFieldWithoutWorkerAttributeIsCleanAsync()
-        => await VerifyWithoutWorkerAttributeAsync(
+    public Task ClientFieldWithoutWorkerAttributeIsCleanAsync() =>
+        VerifyWithoutWorkerAttributeAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -280,9 +292,10 @@ public class FunctionClassClientFieldAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute that is not the worker attribute is never treated as a function.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignFunctionAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task ForeignFunctionAttributeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -308,11 +321,7 @@ public class FunctionClassClientFieldAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.Sources.Add(FunctionAttributeStubSource);
 
         await test.RunAsync(CancellationToken.None);
@@ -323,11 +332,7 @@ public class FunctionClassClientFieldAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithServiceClientsAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.Sources.Add(FunctionAttributeStubSource);
         test.TestState.Sources.Add(ServiceClientStubsSource);
 
@@ -339,11 +344,7 @@ public class FunctionClassClientFieldAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithoutWorkerAttributeAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

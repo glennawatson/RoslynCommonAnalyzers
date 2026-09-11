@@ -37,8 +37,8 @@ public sealed class Sst2430SerializationCallbackSignatureAnalyzer : DiagnosticAn
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.SerializationCallbackSignature);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -58,7 +58,7 @@ public sealed class Sst2430SerializationCallbackSignatureAnalyzer : DiagnosticAn
         }
 
         var attributes = ResolveCallbackAttributes(context.Compilation);
-        if (attributes.Length == 0)
+        if (attributes.IsEmpty)
         {
             return;
         }
@@ -87,17 +87,17 @@ public sealed class Sst2430SerializationCallbackSignatureAnalyzer : DiagnosticAn
     /// <summary>Reports a serialization callback whose signature stops it from ever running.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="facts">The resolved callback attributes and streaming-context type.</param>
-    private static void AnalyzeMethod(SymbolAnalysisContext context, CallbackFacts facts)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, CallbackFacts facts)
     {
         var method = (IMethodSymbol)context.Symbol;
         var attributes = method.GetAttributes();
-        if (attributes.Length == 0 || !CarriesCallbackAttribute(attributes, facts.Attributes))
+        if (attributes.IsEmpty || !CarriesCallbackAttribute(attributes, facts.Attributes))
         {
             return;
         }
 
         if (HasCallbackShape(method, facts.StreamingContext)
-            || method.Locations.Length == 0
+            || method.Locations.IsEmpty
             || !method.Locations[0].IsInSource)
         {
             return;
@@ -136,8 +136,8 @@ public sealed class Sst2430SerializationCallbackSignatureAnalyzer : DiagnosticAn
     /// <param name="method">The candidate callback method.</param>
     /// <param name="streamingContext">The resolved streaming-context type.</param>
     /// <returns><see langword="true"/> for a non-generic instance <c>void</c> method taking one <c>StreamingContext</c>.</returns>
-    private static bool HasCallbackShape(IMethodSymbol method, INamedTypeSymbol streamingContext)
-        => !method.IsStatic
+    private static bool HasCallbackShape(IMethodSymbol method, INamedTypeSymbol streamingContext) =>
+        !method.IsStatic
             && !method.IsGenericMethod
             && method.ReturnsVoid
             && method.Parameters.Length == CallbackParameterCount

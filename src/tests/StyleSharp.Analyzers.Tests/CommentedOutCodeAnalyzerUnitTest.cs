@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCommentedCode = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1148CommentedOutCodeAnalyzer>;
 
@@ -12,9 +13,10 @@ public class CommentedOutCodeAnalyzerUnitTest
 {
     /// <summary>Verifies a commented statement is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentedStatementIsReportedAsync()
-        => await VerifyCommentedCode.VerifyAnalyzerAsync(
+    public Task CommentedStatementIsReportedAsync() =>
+        VerifyCommentedCode.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -27,9 +29,10 @@ public class CommentedOutCodeAnalyzerUnitTest
 
     /// <summary>Verifies prose, task markers, documentation, and a file header are ignored.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonCodeCommentsAreCleanAsync()
-        => await VerifyCommentedCode.VerifyAnalyzerAsync(
+    public Task NonCodeCommentsAreCleanAsync() =>
+        VerifyCommentedCode.VerifyAnalyzerAsync(
             """
             // Copyright information.
             public class C
@@ -46,9 +49,10 @@ public class CommentedOutCodeAnalyzerUnitTest
 
     /// <summary>Verifies real commented-out statements (assignment, call, bare jump) are still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentedStatementsAreReportedAsync()
-        => await VerifyCommentedCode.VerifyAnalyzerAsync(
+    public Task CommentedStatementsAreReportedAsync() =>
+        VerifyCommentedCode.VerifyAnalyzerAsync(
             """
             public class C
             {

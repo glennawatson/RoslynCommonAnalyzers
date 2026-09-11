@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Micro-benchmarks for the remaining descendant-traversal replacements.</summary>
+[System.Diagnostics.DebuggerDisplay("DescendantTraversalBenchmarks: {_fileNameRoot}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DescendantTraversalBenchmarks
@@ -93,61 +95,73 @@ public class DescendantTraversalBenchmarks
 
     /// <summary>Benchmarks the original first-type scan.</summary>
     /// <returns>Whether the file contains a first eligible type-like declaration.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark(Baseline = true)]
     public bool FileName_Baseline() => BaselineTryGetFirstTypeIdentifier(_fileNameRoot, out _);
 
     /// <summary>Benchmarks the helper-driven first-type scan.</summary>
     /// <returns>Whether the file contains a first eligible type-like declaration.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool FileName_Optimized() => OptimizedTryGetFirstTypeIdentifier(_fileNameRoot, out _);
 
     /// <summary>Benchmarks the original file-type/namespace scan.</summary>
     /// <returns>The number of excess namespaces or types found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int FileTypeNamespace_Baseline() => BaselineCountTopLevelDiagnostics(_fileTypeNamespaceRoot);
 
     /// <summary>Benchmarks the direct-member file-type/namespace scan.</summary>
     /// <returns>The number of excess namespaces or types found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int FileTypeNamespace_Optimized() => OptimizedCountTopLevelDiagnostics(_fileTypeNamespaceRoot);
 
     /// <summary>Benchmarks the original XML inheritdoc scan.</summary>
     /// <returns>Whether an inheritdoc descendant exists.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool XmlDocumentation_Baseline() => BaselineContainsInheritDoc(_xmlSummary);
 
     /// <summary>Benchmarks the helper-driven XML inheritdoc scan.</summary>
     /// <returns>Whether an inheritdoc descendant exists.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool XmlDocumentation_Optimized() => OptimizedContainsInheritDoc(_xmlSummary);
 
     /// <summary>Benchmarks the original earlier-local scan.</summary>
     /// <returns>Whether a matching earlier local exists.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool EarlierLocal_Baseline() => BaselineHasEarlierLocalNamed(_localScope, _localPosition, "target");
 
     /// <summary>Benchmarks the helper-driven earlier-local scan.</summary>
     /// <returns>Whether a matching earlier local exists.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool EarlierLocal_Optimized() => OptimizedHasEarlierLocalNamed(_localScope, _localPosition, "target");
 
     /// <summary>Benchmarks the original lock-field reference scan.</summary>
     /// <returns>Whether the candidate remains lock-only.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool PreferLockType_Baseline() => BaselineScanLockFieldReferences(_lockType, _lockModel, _lockFieldSymbol);
 
     /// <summary>Benchmarks the helper-driven lock-field reference scan.</summary>
     /// <returns>Whether the candidate remains lock-only.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool PreferLockType_Optimized() => OptimizedScanLockFieldReferences(_lockType, _lockModel, _lockFieldSymbol);
 
     /// <summary>Benchmarks the original property backing-field collection.</summary>
     /// <returns>The number of references collected for rewriting.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int PreferFieldKeyword_Baseline() => BaselineCollectFieldReferences(_property, _propertyModel, _propertyFieldSymbol);
 
     /// <summary>Benchmarks the helper-driven property backing-field collection.</summary>
     /// <returns>The number of references collected for rewriting.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int PreferFieldKeyword_Optimized() => OptimizedCollectFieldReferences(_property, _propertyModel, _propertyFieldSymbol);
 
@@ -192,7 +206,7 @@ public class DescendantTraversalBenchmarks
     private static bool OptimizedTryGetFirstTypeIdentifier(SyntaxNode root, out SyntaxToken identifier)
     {
         var state = (Found: false, Identifier: default(SyntaxToken));
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, (bool Found, SyntaxToken Identifier)>(root, ref state, VisitTypeLikeDeclaration);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, (bool Found, SyntaxToken Identifier)>(root, ref state, VisitTypeLikeDeclaration);
         identifier = state.Identifier;
         return state.Found;
     }
@@ -276,7 +290,7 @@ public class DescendantTraversalBenchmarks
     private static bool OptimizedContainsInheritDoc(XmlNodeSyntax element)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<XmlNodeSyntax, bool>(element, ref found, VisitInheritDocNode);
+        _ = DescendantTraversalHelper.VisitDescendants<XmlNodeSyntax, bool>(element, ref found, VisitInheritDocNode);
         return found;
     }
 
@@ -316,7 +330,7 @@ public class DescendantTraversalBenchmarks
     private static bool OptimizedHasEarlierLocalNamed(SyntaxNode scope, int position, string name)
     {
         var state = (Position: position, Name: name, Found: false);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, (int Position, string Name, bool Found)>(scope, ref state, VisitEarlierLocalCandidate);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, (int Position, string Name, bool Found)>(scope, ref state, VisitEarlierLocalCandidate);
         return state.Found;
     }
 
@@ -329,10 +343,7 @@ public class DescendantTraversalBenchmarks
     {
         // Intentional baseline: keep the original DescendantNodes() shape for comparison.
         var candidate = new LockCandidateState(fieldSymbol);
-        var candidates = new Dictionary<string, LockCandidateState>(1, StringComparer.Ordinal)
-        {
-            [fieldSymbol.Name] = candidate
-        };
+        var candidates = new Dictionary<string, LockCandidateState>(1, StringComparer.Ordinal) { [fieldSymbol.Name] = candidate, };
 
         foreach (var node in type.DescendantNodes())
         {
@@ -367,13 +378,10 @@ public class DescendantTraversalBenchmarks
     private static bool OptimizedScanLockFieldReferences(TypeDeclarationSyntax type, SemanticModel model, IFieldSymbol fieldSymbol)
     {
         var candidate = new LockCandidateState(fieldSymbol);
-        var candidates = new Dictionary<string, LockCandidateState>(1, StringComparer.Ordinal)
-        {
-            [fieldSymbol.Name] = candidate
-        };
+        var candidates = new Dictionary<string, LockCandidateState>(1, StringComparer.Ordinal) { [fieldSymbol.Name] = candidate, };
         var state = (Model: model, Candidates: candidates);
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SemanticModel Model, Dictionary<string, LockCandidateState> Candidates)>(
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SemanticModel Model, Dictionary<string, LockCandidateState> Candidates)>(
             type,
             ref state,
             VisitLockFieldReference);
@@ -412,7 +420,7 @@ public class DescendantTraversalBenchmarks
         var references = new List<IdentifierNameSyntax>(ExpectedBackingFieldReferenceCount);
         var state = (Model: model, Symbol: symbol, References: references);
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SemanticModel Model, IFieldSymbol Symbol, List<IdentifierNameSyntax> References)>(
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SemanticModel Model, IFieldSymbol Symbol, List<IdentifierNameSyntax> References)>(
             property,
             ref state,
             CollectFieldReference);
@@ -588,8 +596,8 @@ public class DescendantTraversalBenchmarks
     /// <summary>Returns the XML element name for supported XML node kinds.</summary>
     /// <param name="node">The XML node.</param>
     /// <returns>The XML element name, or <see langword="null"/>.</returns>
-    private static string? GetElementName(XmlNodeSyntax node)
-        => node switch
+    private static string? GetElementName(XmlNodeSyntax node) =>
+        node switch
         {
             XmlElementSyntax element => element.StartTag.Name.LocalName.ValueText,
             XmlEmptyElementSyntax element => element.Name.LocalName.ValueText,
@@ -615,10 +623,7 @@ public class DescendantTraversalBenchmarks
     {
         /// <summary>Initializes a new instance of the <see cref="LockCandidateState"/> class.</summary>
         /// <param name="fieldSymbol">The candidate field symbol.</param>
-        public LockCandidateState(IFieldSymbol fieldSymbol)
-        {
-            FieldSymbol = fieldSymbol;
-        }
+        public LockCandidateState(IFieldSymbol fieldSymbol) => FieldSymbol = fieldSymbol;
 
         /// <summary>Gets the candidate field symbol.</summary>
         public IFieldSymbol FieldSymbol { get; }

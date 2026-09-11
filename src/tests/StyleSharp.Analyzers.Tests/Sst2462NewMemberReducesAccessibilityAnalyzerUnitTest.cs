@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2462NewMemberReducesAccessibilityAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 {
     /// <summary>Verifies a <c>new private</c> method hiding a <c>public</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateMethodHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateMethodHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -32,9 +34,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new internal</c> method hiding a <c>public</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalMethodHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InternalMethodHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -53,9 +56,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new protected</c> method hiding a <c>public</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedMethodHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedMethodHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -74,9 +78,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new private</c> method hiding a <c>protected</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateMethodHidingProtectedIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateMethodHidingProtectedIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -95,9 +100,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new private</c> property hiding a <c>public</c> base property is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivatePropertyHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivatePropertyHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -112,9 +118,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new private</c> field hiding a <c>public</c> base field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateFieldHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateFieldHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -129,9 +136,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new private</c> event hiding a <c>public</c> base event is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateEventHidingPublicIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateEventHidingPublicIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -148,9 +156,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new private static</c> method hiding a <c>public static</c> base method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateStaticMethodHidingPublicStaticIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateStaticMethodHidingPublicStaticIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -169,9 +178,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a member that narrows a hidden member declared two levels up is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NarrowingGrandparentMemberIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NarrowingGrandparentMemberIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Root
             {
@@ -194,9 +204,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new</c> member of equal accessibility is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualAccessibilityIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EqualAccessibilityIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -215,9 +226,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a <c>new</c> member that widens accessibility is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WiderAccessibilityIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task WiderAccessibilityIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -236,9 +248,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies an incomparable accessibility change (protected to internal) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IncomparableAccessibilityIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IncomparableAccessibilityIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -257,9 +270,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies an <c>override</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OverrideIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -278,9 +292,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a narrower method that hides nothing (a different signature) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentSignatureHidesNothingAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentSignatureHidesNothingAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -299,9 +314,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a narrower member is not reported when the hidden base member is private and never inherited.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateBaseMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateBaseMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -320,9 +336,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a narrower member without the <c>new</c> modifier is left to the compiler and not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NarrowingWithoutNewModifierIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NarrowingWithoutNewModifierIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -341,9 +358,10 @@ public class Sst2462NewMemberReducesAccessibilityAnalyzerUnitTest
 
     /// <summary>Verifies a plain new method that neither hides nor narrows is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnrelatedMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {

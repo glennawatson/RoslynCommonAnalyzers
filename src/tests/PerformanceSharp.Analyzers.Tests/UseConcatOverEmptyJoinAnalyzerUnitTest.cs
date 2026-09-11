@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEmptyJoin = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -111,9 +112,10 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
 
     /// <summary>Verifies a non-empty separator is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptySeparatorIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task NonEmptySeparatorIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -124,9 +126,10 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
 
     /// <summary>Verifies the start/count overload <c>Join(string, string[], int, int)</c> is not reported — it has no Concat equivalent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StartCountOverloadIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task StartCountOverloadIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -137,9 +140,10 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
 
     /// <summary>Verifies a char separator is not reported — it can never be the empty string.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CharSeparatorIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task CharSeparatorIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -150,9 +154,10 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined <c>String.Join</c> method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedJoinIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task UserDefinedJoinIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public static class String
             {
@@ -172,12 +177,7 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyEmptyJoin.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyEmptyJoin.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -185,6 +185,7 @@ public class UseConcatOverEmptyJoinAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

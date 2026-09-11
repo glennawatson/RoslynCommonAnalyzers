@@ -76,7 +76,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports empty non-summary section elements.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="documentation">The documentation comment.</param>
-    private static void CheckEmptySections(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation)
+    private static void CheckEmptySections(in SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax documentation)
     {
         for (var i = 0; i < documentation.Content.Count; i++)
         {
@@ -111,8 +111,8 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an element is a prose section that must contain text.</summary>
     /// <param name="name">The element name.</param>
     /// <returns><see langword="true"/> for handled section elements.</returns>
-    private static bool IsSectionElement(ReadOnlySpan<char> name)
-        => name.SequenceEqual("remarks".AsSpan())
+    private static bool IsSectionElement(ReadOnlySpan<char> name) =>
+        name.SequenceEqual("remarks".AsSpan())
             || name.SequenceEqual("para".AsSpan())
             || name.SequenceEqual("note".AsSpan())
             || name.SequenceEqual("example".AsSpan())
@@ -124,7 +124,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <param name="summary">The summary element.</param>
     /// <param name="text">The normalized summary text.</param>
     /// <param name="location">The summary location.</param>
-    private static void CheckCapital(SyntaxNodeAnalysisContext context, XmlNodeSyntax summary, string text, Location location)
+    private static void CheckCapital(in SyntaxNodeAnalysisContext context, XmlNodeSyntax summary, string text, Location location)
     {
         if (!char.IsLetter(text[0]) || !char.IsLower(text[0]) || BeginsWithElement(summary))
         {
@@ -214,7 +214,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="text">The normalized summary text.</param>
     /// <param name="location">The summary location.</param>
-    private static void CheckWhitespace(SyntaxNodeAnalysisContext context, string text, Location location)
+    private static void CheckWhitespace(in SyntaxNodeAnalysisContext context, string text, Location location)
     {
         if (text.IndexOf(' ') >= 0)
         {
@@ -228,7 +228,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="text">The normalized summary text.</param>
     /// <param name="location">The summary location.</param>
-    private static void CheckPercentage(SyntaxNodeAnalysisContext context, string text, Location location)
+    private static void CheckPercentage(in SyntaxNodeAnalysisContext context, string text, Location location)
     {
         var letters = 0;
         foreach (var character in text)
@@ -251,7 +251,7 @@ public sealed class DocumentationTextAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="text">The normalized summary text.</param>
     /// <param name="location">The summary location.</param>
-    private static void CheckLength(SyntaxNodeAnalysisContext context, string text, Location location)
+    private static void CheckLength(in SyntaxNodeAnalysisContext context, string text, Location location)
     {
         if (text.Length >= MinimumLength)
         {

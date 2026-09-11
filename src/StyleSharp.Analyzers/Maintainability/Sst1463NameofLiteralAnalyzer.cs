@@ -57,8 +57,8 @@ public sealed class Sst1463NameofLiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a parameter is likely to receive a symbol name.</summary>
     /// <param name="parameterName">The parameter name.</param>
     /// <returns><see langword="true"/> when the name includes "name".</returns>
-    private static bool IsNameShapedParameter(string parameterName)
-        => parameterName.IndexOf("name", StringComparison.OrdinalIgnoreCase) >= 0;
+    private static bool IsNameShapedParameter(string parameterName) =>
+        parameterName.IndexOf("name", StringComparison.OrdinalIgnoreCase) >= 0;
 
     /// <summary>Returns whether a non-namespace symbol with the supplied name is visible at a source position.</summary>
     /// <param name="model">The semantic model.</param>

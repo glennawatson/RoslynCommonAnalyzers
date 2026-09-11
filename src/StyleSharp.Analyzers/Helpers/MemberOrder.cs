@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -88,7 +89,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <param name="member">The member declaration.</param>
     /// <param name="isUnion">Whether a nested class/record member is a union (detected semantically by the caller).</param>
     /// <returns>The rank, or <see langword="null"/>.</returns>
-    public static MemberOrder? Classify(MemberDeclarationSyntax member, bool isUnion = false)
+    internal static MemberOrder? Classify(MemberDeclarationSyntax member, bool isUnion = false)
     {
         if (HasExplicitInterfaceSpecifier(member))
         {
@@ -127,8 +128,9 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>Resolves the <c>IUnion</c> marker interface in a compilation, or <see langword="null"/> when no unions are present.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The marker symbol, or <see langword="null"/>.</returns>
-    public static INamedTypeSymbol? ResolveUnionMarker(Compilation compilation)
-        => compilation.GetTypeByMetadataName(UnionMarkerMetadataName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static INamedTypeSymbol? ResolveUnionMarker(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(UnionMarkerMetadataName);
 
     /// <summary>Returns whether a nested class/record member is a union (implements the marker interface).</summary>
     /// <param name="member">The member declaration.</param>
@@ -136,7 +138,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <param name="marker">The resolved <c>IUnion</c> marker symbol.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the member is a union type.</returns>
-    public static bool IsUnion(MemberDeclarationSyntax member, SemanticModel model, INamedTypeSymbol marker, CancellationToken cancellationToken)
+    internal static bool IsUnion(MemberDeclarationSyntax member, SemanticModel model, INamedTypeSymbol marker, CancellationToken cancellationToken)
     {
         var isReferenceType = member is ClassDeclarationSyntax
             || (member is RecordDeclarationSyntax record && !record.ClassOrStructKeyword.IsKind(SyntaxKind.StructKeyword));
@@ -161,20 +163,10 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         return false;
     }
 
-    /// <summary>Compares this rank with another in the default precedence order.</summary>
-    /// <param name="other">The rank to compare against.</param>
-    /// <returns>Negative when this sorts first, positive when last, zero when equal.</returns>
-    public int CompareTo(in MemberOrder other) => CompareDimensions(this, other);
-
-    /// <summary>Returns the rule violated when this member follows <paramref name="previous"/>, or <see langword="null"/> when in order.</summary>
-    /// <param name="previous">The preceding member's rank.</param>
-    /// <returns>The violated rule, or <see langword="null"/>.</returns>
-    public DiagnosticDescriptor? ViolationAfter(in MemberOrder previous) => SelectViolationRule(this, previous);
-
     /// <summary>Returns the token to report on (and name) for a member.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The representative identifier token.</returns>
-    public static SyntaxToken NameToken(MemberDeclarationSyntax member) => member switch
+    internal static SyntaxToken NameToken(MemberDeclarationSyntax member) => member switch
     {
         FieldDeclarationSyntax field => FirstVariable(field.Declaration),
         EventFieldDeclarationSyntax @event => FirstVariable(@event.Declaration),
@@ -188,7 +180,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>Reads the relevant modifier facts from one token-list scan.</summary>
     /// <param name="modifiers">The modifiers to inspect.</param>
     /// <returns>The gathered modifier facts.</returns>
-    internal static ModifierFacts ReadModifierFacts(SyntaxTokenList modifiers)
+    internal static ModifierFacts ReadModifierFacts(in SyntaxTokenList modifiers)
     {
         var isPublic = false;
         var isInternal = false;
@@ -203,46 +195,49 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             switch (modifiers[i].Kind())
             {
                 case SyntaxKind.PublicKeyword:
-                {
-                    isPublic = true;
-                    break;
-                }
+                    {
+                        isPublic = true;
+                        break;
+                    }
 
                 case SyntaxKind.InternalKeyword:
-                {
-                    isInternal = true;
-                    break;
-                }
+                    {
+                        isInternal = true;
+                        break;
+                    }
 
                 case SyntaxKind.ProtectedKeyword:
-                {
-                    isProtected = true;
-                    break;
-                }
+                    {
+                        isProtected = true;
+                        break;
+                    }
 
                 case SyntaxKind.PrivateKeyword:
-                {
-                    isPrivate = true;
-                    break;
-                }
+                    {
+                        isPrivate = true;
+                        break;
+                    }
 
                 case SyntaxKind.ConstKeyword:
-                {
-                    isConst = true;
-                    break;
-                }
+                    {
+                        isConst = true;
+                        break;
+                    }
 
                 case SyntaxKind.StaticKeyword:
-                {
-                    isStatic = true;
-                    break;
-                }
+                    {
+                        isStatic = true;
+                        break;
+                    }
 
                 case SyntaxKind.ReadOnlyKeyword:
-                {
-                    isReadOnly = true;
+                    {
+                        isReadOnly = true;
+                        break;
+                    }
+
+                default:
                     break;
-                }
             }
         }
 
@@ -274,12 +269,7 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
         }
 
         difference = left.Static - right.Static;
-        if (difference != 0)
-        {
-            return difference;
-        }
-
-        return left.ReadOnly - right.ReadOnly;
+        return difference != 0 ? difference : left.ReadOnly - right.ReadOnly;
     }
 
     /// <summary>Returns the member-kind rank for a syntax kind, or <see cref="NoKind"/> when it is not ordered.</summary>
@@ -328,6 +318,18 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
             ? null
             : rule;
 
+    /// <summary>Compares this rank with another in the default precedence order.</summary>
+    /// <param name="other">The rank to compare against.</param>
+    /// <returns>Negative when this sorts first, positive when last, zero when equal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal int CompareTo(in MemberOrder other) => CompareDimensions(this, other);
+
+    /// <summary>Returns the rule violated when this member follows <paramref name="previous"/>, or <see langword="null"/> when in order.</summary>
+    /// <param name="previous">The preceding member's rank.</param>
+    /// <returns>The violated rule, or <see langword="null"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal DiagnosticDescriptor? ViolationAfter(in MemberOrder previous) => SelectViolationRule(this, previous);
+
     /// <summary>Returns the identifier token for the member kinds that carry a plain name.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The identifier token, or the member's first token as a fallback.</returns>
@@ -345,8 +347,8 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>Returns the identifier of the first variable in a field/event declaration.</summary>
     /// <param name="declaration">The variable declaration.</param>
     /// <returns>The first variable's identifier, or the declaration's first token.</returns>
-    private static SyntaxToken FirstVariable(VariableDeclarationSyntax declaration)
-        => declaration.Variables.Count > 0 ? declaration.Variables[0].Identifier : declaration.GetFirstToken();
+    private static SyntaxToken FirstVariable(VariableDeclarationSyntax declaration) =>
+        declaration.Variables.Count > 0 ? declaration.Variables[0].Identifier : declaration.GetFirstToken();
 
     /// <summary>Returns whether a member is an explicit interface implementation (skipped for ordering).</summary>
     /// <param name="member">The member declaration.</param>
@@ -363,8 +365,8 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <summary>Routes a readonly-ordering violation to the instance variant (SST1215) for instance fields.</summary>
     /// <param name="order">The member order that violated readonly ordering.</param>
     /// <returns>SST1215 for an instance readonly violation, otherwise SST1214.</returns>
-    private static DiagnosticDescriptor ReadonlyViolationRule(in MemberOrder order)
-        => order.Static == 1
+    private static DiagnosticDescriptor ReadonlyViolationRule(in MemberOrder order) =>
+        order.Static == 1
             ? OrderingRules.InstanceReadonlyBeforeNonReadonly
             : OrderingRules.ReadonlyBeforeNonReadonly;
 
@@ -437,6 +439,13 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     }
 
     /// <summary>Modifier facts gathered from one token-list scan.</summary>
+    /// <param name="IsPublic">Whether the modifier list contains <c>public</c>.</param>
+    /// <param name="IsInternal">Whether the modifier list contains <c>internal</c>; with <paramref name="IsProtected"/> that is <c>protected internal</c>.</param>
+    /// <param name="IsProtected">Whether the modifier list contains <c>protected</c>.</param>
+    /// <param name="IsPrivate">Whether the modifier list contains <c>private</c>; with <paramref name="IsProtected"/> that is <c>private protected</c>.</param>
+    /// <param name="IsConst">Whether the modifier list contains <c>const</c>.</param>
+    /// <param name="IsStatic">Whether the modifier list contains <c>static</c>; a <c>const</c> member does not, and is ranked static by the caller instead.</param>
+    /// <param name="IsReadOnly">Whether the modifier list contains <c>readonly</c>; it also appears on readonly methods and structs, so only a field's is an ordering fact.</param>
     internal readonly record struct ModifierFacts(
         bool IsPublic,
         bool IsInternal,

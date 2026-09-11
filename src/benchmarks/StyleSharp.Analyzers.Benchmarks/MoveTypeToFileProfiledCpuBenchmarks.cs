@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 using Microsoft.CodeAnalysis;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile (EventPipe) benchmarks for the SST1402 move-type-to-file code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("MoveTypeToFileProfiledCpuBenchmarks: {Types}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class MoveTypeToFileProfiledCpuBenchmarks
@@ -24,18 +26,20 @@ public class MoveTypeToFileProfiledCpuBenchmarks
     /// <summary>Builds the benchmark document of many top-level types and selects a middle type to move.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Types,
             static types => FileTypeNamespaceBenchmarkSource.Generate(types, violating: true),
-            static (root, index) => CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(root, index)).ConfigureAwait(false);
+            CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
     /// <summary>Profiles moving one representative type out to its own file.</summary>
     /// <returns>The updated original document's text length.</returns>
+    /// <exception cref="InvalidOperationException">The applied fix dropped the original document from the solution, so its text cannot be measured.</exception>
     [Benchmark]
     public async Task<int> MoveTypeToFile_ApplyFixAsync()
     {

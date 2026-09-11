@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -28,24 +30,25 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceCodeFixProvider : CodeFixProvide
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use string.IsNullOrWhiteSpace",
             nameof(Psh1219UseIsNullOrWhiteSpaceCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported blank test with its <c>string.IsNullOrWhiteSpace</c> form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="test">The reported test expression.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax test)
-        => Psh1219UseIsNullOrWhiteSpaceAnalyzer.TryGetBlankTest(test, out var receiver, out var negated)
+    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax test) =>
+        Psh1219UseIsNullOrWhiteSpaceAnalyzer.TryGetBlankTest(test, out var receiver, out var negated)
             ? document.WithSyntaxRoot(root.ReplaceNode(test, Rewrite(test, receiver!, negated)))
             : document;
 
@@ -53,8 +56,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceCodeFixProvider : CodeFixProvide
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is ExpressionSyntax test
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is ExpressionSyntax test
             && Psh1219UseIsNullOrWhiteSpaceAnalyzer.TryGetBlankTest(test, out var receiver, out var negated)
             ? new NodeReplacement(test, Rewrite(test, receiver!, negated))
             : null;

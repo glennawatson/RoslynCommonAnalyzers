@@ -14,8 +14,8 @@ internal static class AnalyzerThroughputSource
     /// </summary>
     /// <param name="types">Number of classes to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types)
-        => $$"""
+    internal static string Generate(int types) =>
+        $$"""
            using System;
            namespace Bench;
 
@@ -25,8 +25,8 @@ internal static class AnalyzerThroughputSource
     /// <summary>Builds one synthetic type for the throughput benchmark.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index)
-        => $$"""
+    private static string GenerateType(int index) =>
+        $$"""
            public class C{{index}}
            {
                public void Wrapped{{index}}(

@@ -30,18 +30,15 @@ internal readonly record struct ComparisonContractTypes(
     /// <summary>Resolves the comparison contracts for a compilation.</summary>
     /// <param name="compilation">The compilation to resolve against.</param>
     /// <returns>The resolved contracts, or <see langword="null"/> when no generic contract exists at all.</returns>
-    public static ComparisonContractTypes? Create(Compilation compilation)
+    internal static ComparisonContractTypes? Create(Compilation compilation)
     {
         var comparableOfT = compilation.GetTypeByMetadataName("System.IComparable`1");
         var comparerOfT = compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1");
         var equalityComparerOfT = compilation.GetTypeByMetadataName("System.Collections.Generic.IEqualityComparer`1");
         var equatableOfT = compilation.GetTypeByMetadataName("System.IEquatable`1");
-        if (comparableOfT is null && comparerOfT is null && equalityComparerOfT is null && equatableOfT is null)
-        {
-            return null;
-        }
-
-        return new ComparisonContractTypes(
+        return comparableOfT is null && comparerOfT is null && equalityComparerOfT is null && equatableOfT is null
+            ? null
+            : new ComparisonContractTypes(
             comparableOfT,
             comparerOfT,
             equalityComparerOfT,
@@ -55,7 +52,7 @@ internal readonly record struct ComparisonContractTypes(
     /// <param name="type">The type to inspect.</param>
     /// <param name="contract">The unbound generic contract, or <see langword="null"/> when the framework has none.</param>
     /// <returns>The bound type argument, or <see langword="null"/> when the type does not implement the contract.</returns>
-    public static ITypeSymbol? GetImplementedArgument(INamedTypeSymbol type, INamedTypeSymbol? contract)
+    internal static ITypeSymbol? GetImplementedArgument(INamedTypeSymbol type, INamedTypeSymbol? contract)
     {
         if (contract is null)
         {
@@ -79,7 +76,7 @@ internal readonly record struct ComparisonContractTypes(
     /// <param name="type">The type to inspect.</param>
     /// <param name="contract">The non-generic interface, or <see langword="null"/> when the framework has none.</param>
     /// <returns><see langword="true"/> when the type implements the interface.</returns>
-    public static bool Implements(INamedTypeSymbol type, INamedTypeSymbol? contract)
+    internal static bool Implements(INamedTypeSymbol type, INamedTypeSymbol? contract)
     {
         if (contract is null)
         {

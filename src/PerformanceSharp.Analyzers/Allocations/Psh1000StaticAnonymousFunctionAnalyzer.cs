@@ -47,8 +47,8 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an anonymous function passes the syntax-only candidate checks.</summary>
     /// <param name="function">The anonymous function to inspect.</param>
     /// <returns><see langword="true"/> when the function is not already static and the language version allows the modifier.</returns>
-    internal static bool IsSyntaxCandidate(AnonymousFunctionExpressionSyntax function)
-        => !ModifierListHelper.Contains(function.Modifiers, SyntaxKind.StaticKeyword)
+    internal static bool IsSyntaxCandidate(AnonymousFunctionExpressionSyntax function) =>
+        !ModifierListHelper.Contains(function.Modifiers, SyntaxKind.StaticKeyword)
             && ((CSharpParseOptions)function.SyntaxTree.Options).LanguageVersion >= LanguageVersion.CSharp9;
 
     /// <summary>Returns the small leading span the diagnostic is reported on.</summary>
@@ -65,7 +65,7 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1000 for an anonymous function that provably captures nothing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeAnonymousFunction(SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
         if (!IsSyntaxCandidate(function)
@@ -91,8 +91,8 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         AnonymousFunctionExpressionSyntax function,
         INamedTypeSymbol? expressionOfTType,
-        CancellationToken cancellationToken)
-        => expressionOfTType is not null
+        CancellationToken cancellationToken) =>
+        expressionOfTType is not null
             && model.GetTypeInfo(function, cancellationToken).ConvertedType is INamedTypeSymbol convertedType
             && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionOfTType);
 

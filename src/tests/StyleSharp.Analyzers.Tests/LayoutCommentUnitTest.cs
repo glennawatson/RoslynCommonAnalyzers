@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -21,9 +22,10 @@ public class LayoutCommentUnitTest
     /// blank line — one after the arrow is what SST1537 reports, so requiring it here would leave the two
     /// rules unable to agree.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentOpeningAnExpressionBodyIsCleanAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task CommentOpeningAnExpressionBodyIsCleanAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -39,9 +41,10 @@ public class LayoutCommentUnitTest
 
     /// <summary>Verifies a comment after a line that merely ends in '>' is still reported (SST1515).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentAfterAGenericCloseIsStillReportedAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task CommentAfterAGenericCloseIsStillReportedAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -154,9 +157,10 @@ public class LayoutCommentUnitTest
 
     /// <summary>Verifies a comment that hugs its code with a blank line above is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WellSpacedCommentIsCleanAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task WellSpacedCommentIsCleanAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -172,9 +176,10 @@ public class LayoutCommentUnitTest
 
     /// <summary>Verifies a comment immediately after a preprocessor directive is not flagged for a missing preceding blank line (SST1515).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentAfterDirectiveIsCleanAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task CommentAfterDirectiveIsCleanAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -200,9 +205,10 @@ public class LayoutCommentUnitTest
 
     /// <summary>Verifies a file header comment keeps the blank separator before using directives (no SST1512).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileHeaderBeforeUsingIsCleanAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task FileHeaderBeforeUsingIsCleanAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             // Copyright text.
 
@@ -250,9 +256,10 @@ public class LayoutCommentUnitTest
 
     /// <summary>Verifies a comment that opens an #if branch after a blank line is not flagged (SST1512/SST1515 exempt the directive boundary).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CommentAfterConditionalDirectiveWithBlankNotFlaggedAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task CommentAfterConditionalDirectiveWithBlankNotFlaggedAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -268,15 +275,16 @@ public class LayoutCommentUnitTest
             """);
 
     /// <summary>Verifies the file header is still exempt when the whole body is compiled out.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// Under a target framework where the condition is false, the file has no token but the end-of-file
     /// one. Skipping that zero-width token would put the header after the "first" token at position 0 and
     /// collapse the header exemption, reporting the copyright banner of every file compiled out.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileHeaderIsExemptWhenTheWholeBodyIsCompiledOutAsync()
-        => await VerifyComment.VerifyAnalyzerAsync(
+    public Task FileHeaderIsExemptWhenTheWholeBodyIsCompiledOutAsync() =>
+        VerifyComment.VerifyAnalyzerAsync(
             """
             // Copyright (c) Contributors. All rights reserved.
             // Licensed under the MIT license.
@@ -290,6 +298,7 @@ public class LayoutCommentUnitTest
     /// <summary>Parses the first single-line comment trivia from the supplied source.</summary>
     /// <param name="source">The source containing the target comment.</param>
     /// <returns>The parsed single-line comment trivia.</returns>
-    private static SyntaxTrivia ParseSingleLineComment(string source)
-        => SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(static trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxTrivia ParseSingleLineComment(string source) =>
+        SyntaxFactory.ParseCompilationUnit(source).DescendantTrivia().First(static trivia => trivia.IsKind(SyntaxKind.SingleLineCommentTrivia));
 }

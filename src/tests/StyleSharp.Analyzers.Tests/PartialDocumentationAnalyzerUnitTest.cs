@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMember = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer>;
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class PartialDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies an undocumented exposed partial type is reported (SST1601).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndocumentedPartialReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task UndocumentedPartialReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             public partial class {|SST1601:C|}
             {
@@ -25,9 +27,10 @@ public class PartialDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a documented partial without a summary is reported (SST1605).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialWithoutSummaryReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialWithoutSummaryReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             /// <remarks>Notes.</remarks>
             public partial class {|SST1605:C|}
@@ -41,9 +44,10 @@ public class PartialDocumentationAnalyzerUnitTest
     /// One part says what the type is; the rest say what they add. Demanding the summary in every part
     /// would state the same thing several times and leave the reader to pick the authoritative copy.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialDocumentedWithContentIsCleanAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialDocumentedWithContentIsCleanAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             /// <content>The parsing members.</content>
             public partial class C
@@ -53,9 +57,10 @@ public class PartialDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an empty content element does not stand in for the summary (SST1605).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialWithEmptyContentIsReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialWithEmptyContentIsReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             /// <content></content>
             public partial class {|SST1605:C|}
@@ -66,9 +71,10 @@ public class PartialDocumentationAnalyzerUnitTest
     /// <summary>Verifies a content element on a type that is not partial does not stand in for the summary.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>There is no other part to carry the summary, so the type would be left undescribed.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContentOnANonPartialTypeIsStillReportedAsync()
-        => await VerifyMember.VerifyAnalyzerAsync(
+    public Task ContentOnANonPartialTypeIsStillReportedAsync() =>
+        VerifyMember.VerifyAnalyzerAsync(
             """
             /// <content>The parsing members.</content>
             public class {|SST1604:C|}
@@ -78,9 +84,10 @@ public class PartialDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies a documented partial with an empty summary is reported (SST1607).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialWithEmptySummaryReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialWithEmptySummaryReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             /// <summary></summary>
             public partial class {|SST1607:C|}
@@ -90,9 +97,10 @@ public class PartialDocumentationAnalyzerUnitTest
 
     /// <summary>Verifies an undocumented partial type parameter is reported (SST1619).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeParameterUndocumentedReportedAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialTypeParameterUndocumentedReportedAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             /// <summary>A container.</summary>
             public partial class C<{|SST1619:T|}>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -78,8 +80,9 @@ public sealed class Sst2270ArrayCreationTypeStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Builds the implicit form of an explicit array creation, dropping the element type.</summary>
     /// <param name="creation">The explicit array creation; callers must have validated the shape.</param>
     /// <returns>The implicit array creation.</returns>
-    internal static ImplicitArrayCreationExpressionSyntax BuildImplicit(ArrayCreationExpressionSyntax creation)
-        => SyntaxFactory.ImplicitArrayCreationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImplicitArrayCreationExpressionSyntax BuildImplicit(ArrayCreationExpressionSyntax creation) =>
+        SyntaxFactory.ImplicitArrayCreationExpression(
             creation.NewKeyword.WithTrailingTrivia(),
             SyntaxFactory.Token(SyntaxKind.OpenBracketToken),
             default,
@@ -90,8 +93,9 @@ public sealed class Sst2270ArrayCreationTypeStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="creation">The implicit array creation; callers must have validated the shape.</param>
     /// <param name="typeName">The minimally-qualified element type name to splice in.</param>
     /// <returns>The explicit array creation.</returns>
-    internal static ArrayCreationExpressionSyntax BuildExplicit(ImplicitArrayCreationExpressionSyntax creation, string typeName)
-        => SyntaxFactory.ArrayCreationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ArrayCreationExpressionSyntax BuildExplicit(ImplicitArrayCreationExpressionSyntax creation, string typeName) =>
+        SyntaxFactory.ArrayCreationExpression(
             creation.NewKeyword.WithTrailingTrivia(SyntaxFactory.Space),
             SyntaxFactory.ArrayType(
                 SyntaxFactory.ParseTypeName(typeName),
@@ -157,7 +161,7 @@ public sealed class Sst2270ArrayCreationTypeStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The implicit array creation.</param>
     /// <param name="style">The configured element-type style.</param>
-    private static void AnalyzeImplicit(SyntaxNodeAnalysisContext context, ImplicitArrayCreationExpressionSyntax creation, ArrayCreationTypeStyle style)
+    private static void AnalyzeImplicit(in SyntaxNodeAnalysisContext context, ImplicitArrayCreationExpressionSyntax creation, ArrayCreationTypeStyle style)
     {
         if (style != ArrayCreationTypeStyle.Explicit || TryConvertToExplicit(context.SemanticModel, creation) is null)
         {
@@ -171,7 +175,7 @@ public sealed class Sst2270ArrayCreationTypeStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The explicit array creation.</param>
     /// <param name="style">The configured element-type style.</param>
-    private static void AnalyzeExplicit(SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, ArrayCreationTypeStyle style)
+    private static void AnalyzeExplicit(in SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, ArrayCreationTypeStyle style)
     {
         if (style == ArrayCreationTypeStyle.Explicit || !IsConvertibleExplicit(creation))
         {

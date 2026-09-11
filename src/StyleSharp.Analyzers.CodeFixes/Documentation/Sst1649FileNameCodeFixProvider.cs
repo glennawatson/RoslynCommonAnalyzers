@@ -49,7 +49,7 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var fileName = TypeFileNaming.Stem(member, useMetadata) + ".cs";
+            var fileName = $"{TypeFileNaming.Stem(member, useMetadata)}.cs";
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Rename file to '{fileName}'",
@@ -121,12 +121,9 @@ public sealed class Sst1649FileNameCodeFixProvider : CodeFixProvider
             var useMetadata = TypeFileNaming.UseMetadataConvention(options, DocumentationRules.FileNameMatchesType.Id);
 
             // SST1649 fires once per file (on its first declared type), so the first diagnostic names the file.
-            if (root.FindNode(diagnostics[0].Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member)
-            {
-                return solution;
-            }
-
-            return await RenameAsync(document, TypeFileNaming.Stem(member, useMetadata) + ".cs", cancellationToken).ConfigureAwait(false);
+            return root.FindNode(diagnostics[0].Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<MemberDeclarationSyntax>() is not { } member
+                ? solution
+                : await RenameAsync(document, $"{TypeFileNaming.Stem(member, useMetadata)}.cs", cancellationToken).ConfigureAwait(false);
         }
     }
 }

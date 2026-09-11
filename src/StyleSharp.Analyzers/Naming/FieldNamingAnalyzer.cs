@@ -55,7 +55,7 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="pascalCaseRule">The PascalCase rule for this field, or <see langword="null"/> for a private (_camelCase) field.</param>
     /// <param name="identifier">The field variable's identifier.</param>
-    private static void Check(SyntaxNodeAnalysisContext context, DiagnosticDescriptor? pascalCaseRule, SyntaxToken identifier)
+    private static void Check(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor? pascalCaseRule, SyntaxToken identifier)
     {
         var name = GetIdentifierText(identifier);
         if (NamingHelper.IsAllUnderscores(name))
@@ -104,6 +104,6 @@ public sealed class FieldNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
     /// <param name="identifier">The identifier token.</param>
     /// <returns>The comparison-ready identifier text.</returns>
-    private static string GetIdentifierText(SyntaxToken identifier)
-        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
+    private static string GetIdentifierText(SyntaxToken identifier) =>
+        identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

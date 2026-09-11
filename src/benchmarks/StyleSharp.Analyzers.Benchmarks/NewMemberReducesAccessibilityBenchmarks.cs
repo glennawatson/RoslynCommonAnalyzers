@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for new-member-reduces-accessibility analysis (SST2462).</summary>
+[System.Diagnostics.DebuggerDisplay("NewMemberReducesAccessibilityBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class NewMemberReducesAccessibilityBenchmarks
@@ -24,11 +26,13 @@ public class NewMemberReducesAccessibilityBenchmarks
 
     /// <summary>Benchmarks the clean new-member-reduces-accessibility path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NewMemberReducesAccessibility_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating new-member-reduces-accessibility path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NewMemberReducesAccessibility_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -11,8 +11,8 @@ internal static class GeneralExceptionThrowBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class GeneralExceptionThrowBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Covers both throw forms — the statement and the expression — with a specific type in each.</remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public string Get(string value)
@@ -43,8 +43,8 @@ internal static class GeneralExceptionThrowBenchmarkSource
     /// <summary>Builds one type that throws a general and a runtime-reserved exception type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public string Get(string value)

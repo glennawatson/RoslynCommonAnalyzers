@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for built-in-type-alias analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("BuiltInTypeAliasProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class BuiltInTypeAliasProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class BuiltInTypeAliasProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean built-in-type-alias path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BuiltInTypeAlias_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating built-in-type-alias path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> BuiltInTypeAlias_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

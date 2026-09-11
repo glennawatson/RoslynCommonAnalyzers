@@ -59,13 +59,13 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an empty block carries a comment that documents its intentional emptiness.</summary>
     /// <param name="block">The empty block.</param>
     /// <returns><see langword="true"/> when a comment sits between the braces.</returns>
-    internal static bool ContainsComment(BlockSyntax block)
-        => HasCommentTrivia(block.OpenBraceToken.TrailingTrivia) || HasCommentTrivia(block.CloseBraceToken.LeadingTrivia);
+    internal static bool ContainsComment(BlockSyntax block) =>
+        HasCommentTrivia(block.OpenBraceToken.TrailingTrivia) || HasCommentTrivia(block.CloseBraceToken.LeadingTrivia);
 
     /// <summary>Returns whether a trivia list contains a single-line or multi-line comment.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
     /// <returns><see langword="true"/> when a comment is present.</returns>
-    private static bool HasCommentTrivia(SyntaxTriviaList trivia)
+    private static bool HasCommentTrivia(in SyntaxTriviaList trivia)
     {
         for (var i = 0; i < trivia.Count; i++)
         {
@@ -286,8 +286,8 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a statement holds expressions alone, with no scope of its own to put them in.</summary>
     /// <param name="statement">The statement to classify.</param>
     /// <returns><see langword="true"/> for a statement that neither loops, holds a resource, nor nests a scope.</returns>
-    private static bool CarriesOnlyExpressions(StatementSyntax statement)
-        => statement is ExpressionStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax or YieldStatementSyntax;
+    private static bool CarriesOnlyExpressions(StatementSyntax statement) =>
+        statement is ExpressionStatementSyntax or ReturnStatementSyntax or ThrowStatementSyntax or YieldStatementSyntax;
 
     /// <summary>Returns whether a syntax subtree declares a named variable at the scope it is evaluated in.</summary>
     /// <param name="node">The subtree to scan.</param>
@@ -344,13 +344,7 @@ public sealed class EmptyCodeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the block is a loop or guard body whose emptiness is suspect.</returns>
     private static bool IsLoopOrGuardBody(BlockSyntax block) => block.Parent switch
     {
-        ForStatementSyntax => true,
-        ForEachStatementSyntax => true,
-        WhileStatementSyntax => true,
-        DoStatementSyntax => true,
-        LockStatementSyntax => true,
-        FixedStatementSyntax => true,
-        UsingStatementSyntax => true,
+        ForStatementSyntax or ForEachStatementSyntax or WhileStatementSyntax or DoStatementSyntax or LockStatementSyntax or FixedStatementSyntax or UsingStatementSyntax => true,
 
         // The 'then' branch only; an empty 'else' is the dedicated SST1180 rule.
         IfStatementSyntax ifStatement => ifStatement.Statement == block,

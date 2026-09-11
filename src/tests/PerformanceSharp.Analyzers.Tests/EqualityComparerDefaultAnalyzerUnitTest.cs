@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -63,9 +64,10 @@ public class EqualityComparerDefaultAnalyzerUnitTest
 
     /// <summary>Verifies an equatable-constrained type parameter stays clean; its Equals never boxes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EquatableConstrainedTypeParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task EquatableConstrainedTypeParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -79,9 +81,10 @@ public class EqualityComparerDefaultAnalyzerUnitTest
 
     /// <summary>Verifies a reference-constrained type parameter stays clean; nothing boxes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassConstrainedTypeParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task ClassConstrainedTypeParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -93,9 +96,10 @@ public class EqualityComparerDefaultAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary object comparison stays clean; only type parameters are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectComparisonIsCleanAsync()
-        => await VerifyAsync(
+    public Task ObjectComparisonIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -109,11 +113,7 @@ public class EqualityComparerDefaultAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

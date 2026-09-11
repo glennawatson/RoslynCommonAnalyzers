@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -123,9 +124,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies the predicate overload stays clean; it is asking a different question.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PredicateOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PredicateOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -138,9 +140,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies FirstOrDefault stays clean; the property cannot reproduce its empty-list answer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FirstOrDefaultIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task FirstOrDefaultIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -153,9 +156,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies LastOrDefault stays clean; the property cannot reproduce its empty-list answer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LastOrDefaultIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LastOrDefaultIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -168,9 +172,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies a list receiver stays clean; it has no end properties to read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ListReceiverIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ListReceiverIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -183,9 +188,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies a linked list exposed through an interface stays clean; the properties are not on the interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceReceiverIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InterfaceReceiverIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -198,9 +204,10 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
 
     /// <summary>Verifies a Queryable source stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QueryableSourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task QueryableSourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -216,11 +223,7 @@ public class UseLinkedListEndPropertyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

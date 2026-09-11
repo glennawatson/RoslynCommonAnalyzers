@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 {
     /// <summary>Verifies an expression-bodied hash that xors in the base object hash is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodyXorOverObjectBaseIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExpressionBodyXorOverObjectBaseIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -28,9 +30,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies a block-bodied hash that returns the base hash mixed with a field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodyReturnMixOverObjectBaseIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BlockBodyReturnMixOverObjectBaseIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -45,9 +48,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash stored in a local and then mixed into the returned hash is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseHashStoredInLocalThenMixedIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseHashStoredInLocalThenMixedIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -63,9 +67,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash combined through <c>HashCode.Combine</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashCodeCombineOverObjectBaseIsReportedAsync()
-        => await VerifyNetAsync(
+    public Task HashCodeCombineOverObjectBaseIsReportedAsync() =>
+        VerifyNetAsync(
             """
             public class C
             {
@@ -78,9 +83,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies a base call that binds to a base class's own value hash is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueHashBaseChainIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValueHashBaseChainIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -103,9 +109,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies a hash that returns the base object hash outright (delegation) is not reported here.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WholeResultDelegationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task WholeResultDelegationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -123,9 +130,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies a value hash that never calls the base hash is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueHashWithoutBaseCallIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ValueHashWithoutBaseCallIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -138,9 +146,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash folded inside a method that is not the hash override is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseHashInNonHashMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseHashInNonHashMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -152,9 +161,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash folded inside a parameterized <c>GetHashCode</c> overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseHashInParameterizedOverloadIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseHashInParameterizedOverloadIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -164,9 +174,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash folded inside a shadowing (non-override) <c>GetHashCode</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseHashInShadowingGetHashCodeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseHashInShadowingGetHashCodeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -178,9 +189,10 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
 
     /// <summary>Verifies the base hash folded inside a lambda within the hash override is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseHashInsideLambdaIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseHashInsideLambdaIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -201,11 +213,7 @@ public class Sst2481IdentityHashInValueHashAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNetAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

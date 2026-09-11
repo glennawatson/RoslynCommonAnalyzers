@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -67,9 +68,10 @@ public class Utf8SequenceEqualAnalyzerUnitTest
 
     /// <summary>Verifies comparing two decoded strings stays clean; only constants qualify.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantComparisonIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantComparisonIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -81,9 +83,10 @@ public class Utf8SequenceEqualAnalyzerUnitTest
 
     /// <summary>Verifies a constant containing the replacement character stays clean; invalid decodes could alias it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReplacementCharacterConstantIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReplacementCharacterConstantIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -99,11 +102,7 @@ public class Utf8SequenceEqualAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

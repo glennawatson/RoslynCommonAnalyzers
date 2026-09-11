@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -29,16 +30,17 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Return an empty collection",
             nameof(Sst2306ReturnEmptyCollectionNotNullCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces one reported null with the analyzer's empty-collection expression.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -46,8 +48,9 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
     /// <param name="nullLiteral">The reported null literal.</param>
     /// <param name="replacementText">The empty-collection expression the analyzer suggested.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax nullLiteral, string replacementText)
-        => document.WithSyntaxRoot(root.ReplaceNode(nullLiteral, CreateReplacement(nullLiteral, SyntaxFactory.ParseExpression(replacementText))));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax nullLiteral, string replacementText) =>
+        document.WithSyntaxRoot(root.ReplaceNode(nullLiteral, CreateReplacement(nullLiteral, SyntaxFactory.ParseExpression(replacementText))));
 
     /// <summary>Resolves the reported null literal, proves the replacement compiles there, and builds the swap.</summary>
     /// <param name="root">The syntax root.</param>
@@ -65,12 +68,7 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
         }
 
         var replacement = SyntaxFactory.ParseExpression(replacementText);
-        if (!Compiles(model, nullLiteral, replacement))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(nullLiteral, CreateReplacement(nullLiteral, replacement));
+        return !Compiles(model, nullLiteral, replacement) ? null : new NodeReplacement(nullLiteral, CreateReplacement(nullLiteral, replacement));
     }
 
     /// <summary>Returns whether the replacement expression really compiles where the null is being removed.</summary>
@@ -100,8 +98,9 @@ public sealed class Sst2306ReturnEmptyCollectionNotNullCodeFixProvider : CodeFix
     /// <param name="nullLiteral">The reported null literal.</param>
     /// <param name="replacement">The parsed replacement expression.</param>
     /// <returns>The replacement expression, annotated for formatting.</returns>
-    private static ExpressionSyntax CreateReplacement(ExpressionSyntax nullLiteral, ExpressionSyntax replacement)
-        => replacement
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax CreateReplacement(ExpressionSyntax nullLiteral, ExpressionSyntax replacement) =>
+        replacement
             .WithTriviaFrom(nullLiteral)
             .WithAdditionalAnnotations(Formatter.Annotation);
 }

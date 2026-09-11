@@ -69,7 +69,7 @@ public sealed class Sst1316TupleElementNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The element's identifier (default token when unnamed).</param>
     /// <param name="convention">The configured casing convention.</param>
-    private static void CheckElement(SyntaxNodeAnalysisContext context, SyntaxToken identifier, NamingConvention convention)
+    private static void CheckElement(in SyntaxNodeAnalysisContext context, SyntaxToken identifier, NamingConvention convention)
     {
         var name = identifier.ValueText;
         if (name.Length == 0 || NamingHelper.IsAllUnderscores(name) || NamingConventions.Conforms(name, convention))

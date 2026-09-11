@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNested = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1147NestedTernaryAnalyzer>;
 
@@ -12,9 +13,10 @@ public class NestedTernaryAnalyzerUnitTest
 {
     /// <summary>Verifies the inner conditional expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedConditionalIsReportedAsync()
-        => await VerifyNested.VerifyAnalyzerAsync(
+    public Task NestedConditionalIsReportedAsync() =>
+        VerifyNested.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -24,9 +26,10 @@ public class NestedTernaryAnalyzerUnitTest
 
     /// <summary>Verifies independent conditionals and conditionals in switch arms are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNestedConditionalsAreCleanAsync()
-        => await VerifyNested.VerifyAnalyzerAsync(
+    public Task NonNestedConditionalsAreCleanAsync() =>
+        VerifyNested.VerifyAnalyzerAsync(
             """
             public class C
             {

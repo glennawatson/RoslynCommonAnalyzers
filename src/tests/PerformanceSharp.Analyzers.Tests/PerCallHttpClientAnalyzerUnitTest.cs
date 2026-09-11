@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -78,9 +79,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration over the construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UsingDeclarationIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -97,9 +99,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a using statement over the construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStatementIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UsingStatementIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -116,9 +119,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a using statement with a declarator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStatementWithDeclaratorIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UsingStatementWithDeclaratorIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -137,9 +141,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies an inline receiver construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineReceiverIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task InlineReceiverIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -153,9 +158,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a parenthesized inline receiver construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedInlineReceiverIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ParenthesizedInlineReceiverIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -169,9 +175,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies the target-typed using declaration form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TargetTypedUsingDeclarationIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task TargetTypedUsingDeclarationIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -188,9 +195,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a service client used directly as a call receiver is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlobServiceClientInlineReceiverIsFlaggedAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task BlobServiceClientInlineReceiverIsFlaggedAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Azure.Storage.Blobs;
             using System.Threading.Tasks;
@@ -204,9 +212,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration over a disposable service client is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CosmosClientUsingDeclarationIsFlaggedAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task CosmosClientUsingDeclarationIsFlaggedAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Microsoft.Azure.Cosmos;
 
@@ -221,9 +230,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies an await using declaration over an async-disposable service client is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ServiceBusClientAwaitUsingDeclarationIsFlaggedAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task ServiceBusClientAwaitUsingDeclarationIsFlaggedAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Azure.Messaging.ServiceBus;
             using System.Threading.Tasks;
@@ -239,9 +249,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a secret client used directly as a call receiver is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecretClientInlineReceiverIsFlaggedAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task SecretClientInlineReceiverIsFlaggedAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -256,9 +267,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a static readonly field is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task StaticFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -272,9 +284,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies an instance field is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task InstanceFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -288,9 +301,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a property initializer is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyInitializerIsCleanAsync()
-        => await VerifyAsync(
+    public Task PropertyInitializerIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -302,9 +316,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a factory return is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FactoryReturnIsCleanAsync()
-        => await VerifyAsync(
+    public Task FactoryReturnIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -321,9 +336,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a plain local that is neither a using nor a receiver is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainLocalIsCleanAsync()
-        => await VerifyAsync(
+    public Task PlainLocalIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -339,9 +355,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a construction passed as an argument is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task ArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Net.Http;
 
@@ -357,9 +374,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies another type's using construction is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task OtherTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.IO;
 
@@ -375,9 +393,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a service client cached in a static readonly field is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ServiceClientStaticFieldIsCleanAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task ServiceClientStaticFieldIsCleanAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Azure.Storage.Blobs;
             using System.Threading.Tasks;
@@ -392,9 +411,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a service client injected through the constructor is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InjectedServiceClientIsCleanAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task InjectedServiceClientIsCleanAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             using Microsoft.Azure.Cosmos;
 
@@ -410,9 +430,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a same-named type is never reported when the service client's package is absent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClientNameWithoutSdkIsCleanAsync()
-        => await VerifyAsync(
+    public Task ClientNameWithoutSdkIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace MyApp
             {
@@ -435,9 +456,10 @@ public class PerCallHttpClientAnalyzerUnitTest
 
     /// <summary>Verifies a user type sharing a service client's simple name is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserTypeSharingClientNameIsCleanAsync()
-        => await VerifyWithServiceClientsAsync(
+    public Task UserTypeSharingClientNameIsCleanAsync() =>
+        VerifyWithServiceClientsAsync(
             """
             namespace MyApp
             {
@@ -469,11 +491,7 @@ public class PerCallHttpClientAnalyzerUnitTest
                               System.Console.WriteLine(client);
                               """;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
 
         await test.RunAsync(CancellationToken.None);
@@ -484,11 +502,7 @@ public class PerCallHttpClientAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -498,11 +512,7 @@ public class PerCallHttpClientAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithServiceClientsAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.Sources.Add(ServiceClientStubsSource);
 
         await test.RunAsync(CancellationToken.None);

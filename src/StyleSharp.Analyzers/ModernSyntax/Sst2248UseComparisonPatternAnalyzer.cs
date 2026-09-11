@@ -82,7 +82,7 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        merge = new ComparisonPatternMerge(subjectLeft, operatorLeft, constantLeft, operatorRight, constantRight, isConjunction);
+        merge = new(subjectLeft, operatorLeft, constantLeft, operatorRight, constantRight, isConjunction);
         return true;
     }
 
@@ -147,8 +147,8 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="subjectCandidate">The operand that would be the subject.</param>
     /// <param name="constantCandidate">The operand that would be the constant.</param>
     /// <returns><see langword="true"/> when the pair reads as subject-and-constant.</returns>
-    private static bool IsSubjectAndConstant(SemanticModel model, ExpressionSyntax subjectCandidate, ExpressionSyntax constantCandidate)
-        => subjectCandidate is IdentifierNameSyntax
+    private static bool IsSubjectAndConstant(SemanticModel model, ExpressionSyntax subjectCandidate, ExpressionSyntax constantCandidate) =>
+        subjectCandidate is IdentifierNameSyntax
             && !model.GetConstantValue(subjectCandidate).HasValue
             && model.GetConstantValue(constantCandidate).HasValue;
 
@@ -173,16 +173,16 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is one of the six relational or equality comparisons.</summary>
     /// <param name="kind">The operand's syntax kind.</param>
     /// <returns><see langword="true"/> for <c>&lt; &lt;= &gt; &gt;= == !=</c>.</returns>
-    private static bool IsComparisonKind(SyntaxKind kind)
-        => kind is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
+    private static bool IsComparisonKind(SyntaxKind kind) =>
+        kind is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression
             or SyntaxKind.EqualsExpression or SyntaxKind.NotEqualsExpression;
 
     /// <summary>Mirrors a comparison so its constant can move from the left of the operator to the right.</summary>
     /// <param name="kind">The comparison kind with the constant on the left.</param>
     /// <returns>The equivalent comparison kind with the subject on the left.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind)
-        => kind switch
+    private static SyntaxKind Flip(SyntaxKind kind) =>
+        kind switch
         {
             SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
             SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
@@ -210,8 +210,8 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type supports both relational and equality patterns without surprise.</summary>
     /// <param name="type">The subject type.</param>
     /// <returns><see langword="true"/> for the integral primitives, <c>char</c>, and enums.</returns>
-    private static bool IsSupportedType(ITypeSymbol type)
-        => type.TypeKind == TypeKind.Enum
+    private static bool IsSupportedType(ITypeSymbol type) =>
+        type.TypeKind == TypeKind.Enum
             || type.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte
                 or SpecialType.System_Int16 or SpecialType.System_UInt16
                 or SpecialType.System_Int32 or SpecialType.System_UInt32
@@ -252,12 +252,9 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
             return IsNonEmptyRange(operatorLeft, valueLeft, operatorRight, valueRight);
         }
 
-        if (IsUpperBound(operatorLeft) && IsLowerBound(operatorRight))
-        {
-            return IsNonEmptyRange(operatorRight, valueRight, operatorLeft, valueLeft);
-        }
-
-        return IsInequality(operatorLeft) && IsInequality(operatorRight);
+        return IsUpperBound(operatorLeft) && IsLowerBound(operatorRight)
+            ? IsNonEmptyRange(operatorRight, valueRight, operatorLeft, valueLeft)
+            : IsInequality(operatorLeft) && IsInequality(operatorRight);
     }
 
     /// <summary>Returns whether a <c>||</c> of two comparisons folds into a pattern with no dead or trivial result.</summary>
@@ -273,12 +270,9 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (IsUpperBound(operatorLeft) && IsLowerBound(operatorRight))
-        {
-            return IsNonEmptyGap(operatorLeft, valueLeft, operatorRight, valueRight);
-        }
-
-        return IsLowerBound(operatorLeft) && IsUpperBound(operatorRight)
+        return IsUpperBound(operatorLeft) && IsLowerBound(operatorRight)
+            ? IsNonEmptyGap(operatorLeft, valueLeft, operatorRight, valueRight)
+            : IsLowerBound(operatorLeft) && IsUpperBound(operatorRight)
             && IsNonEmptyGap(operatorRight, valueRight, operatorLeft, valueLeft);
     }
 
@@ -311,24 +305,24 @@ public sealed class Sst2248UseComparisonPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a comparison bounds the subject from below.</summary>
     /// <param name="kind">The subject-on-left comparison kind.</param>
     /// <returns><see langword="true"/> for <c>&gt;</c> and <c>&gt;=</c>.</returns>
-    private static bool IsLowerBound(SyntaxKind kind)
-        => kind is SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression;
+    private static bool IsLowerBound(SyntaxKind kind) =>
+        kind is SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression;
 
     /// <summary>Returns whether a comparison bounds the subject from above.</summary>
     /// <param name="kind">The subject-on-left comparison kind.</param>
     /// <returns><see langword="true"/> for <c>&lt;</c> and <c>&lt;=</c>.</returns>
-    private static bool IsUpperBound(SyntaxKind kind)
-        => kind is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression;
+    private static bool IsUpperBound(SyntaxKind kind) =>
+        kind is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression;
 
     /// <summary>Returns whether a comparison is an equality test.</summary>
     /// <param name="kind">The subject-on-left comparison kind.</param>
     /// <returns><see langword="true"/> for <c>==</c>.</returns>
-    private static bool IsEquality(SyntaxKind kind)
-        => kind == SyntaxKind.EqualsExpression;
+    private static bool IsEquality(SyntaxKind kind) =>
+        kind == SyntaxKind.EqualsExpression;
 
     /// <summary>Returns whether a comparison is an inequality test.</summary>
     /// <param name="kind">The subject-on-left comparison kind.</param>
     /// <returns><see langword="true"/> for <c>!=</c>.</returns>
-    private static bool IsInequality(SyntaxKind kind)
-        => kind == SyntaxKind.NotEqualsExpression;
+    private static bool IsInequality(SyntaxKind kind) =>
+        kind == SyntaxKind.NotEqualsExpression;
 }

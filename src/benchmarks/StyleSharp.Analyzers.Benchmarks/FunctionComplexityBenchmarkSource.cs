@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for SST1442/SST1443 function-complexity benchmarks.</summary>
@@ -17,8 +19,8 @@ internal static class FunctionComplexityBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit threshold violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -28,14 +30,14 @@ internal static class FunctionComplexityBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit threshold violations.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds a type with wide switch dispatch and shallow guards that stay under thresholds.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class ComplexityClean{{index}}
            {
                public int Dispatch(int value) =>
@@ -65,8 +67,8 @@ internal static class FunctionComplexityBenchmarkSource
     /// <summary>Builds a type whose branch count and nested-flow count exceed the defaults.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class ComplexityViolation{{index}}
            {
                public int ManyBranches(int value)
@@ -107,12 +109,14 @@ internal static class FunctionComplexityBenchmarkSource
     /// <summary>Builds switch-expression arms.</summary>
     /// <param name="count">The number of arms to emit.</param>
     /// <returns>The generated arm text.</returns>
-    private static string GenerateSwitchArms(int count)
-        => BenchmarkSourceText.JoinLines(count, i => $"                    {i} => {i},");
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GenerateSwitchArms(int count) =>
+        BenchmarkSourceText.JoinLines(count, static i => $"                    {i} => {i},");
 
     /// <summary>Builds sequential <c>if</c> statements.</summary>
     /// <param name="count">The number of branches to emit.</param>
     /// <returns>The generated branch text.</returns>
-    private static string GenerateSequentialBranches(int count)
-        => BenchmarkSourceText.JoinLines(count, i => $"        if (value == {i}) result++;");
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string GenerateSequentialBranches(int count) =>
+        BenchmarkSourceText.JoinLines(count, static i => $"        if (value == {i}) result++;");
 }

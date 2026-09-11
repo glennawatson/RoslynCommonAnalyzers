@@ -70,7 +70,7 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="transformType">The gated <c>XslCompiledTransform</c> type resolved for the compilation.</param>
     /// <param name="settingsType">The gated <c>XsltSettings</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol transformType, INamedTypeSymbol settingsType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol transformType, INamedTypeSymbol settingsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -123,8 +123,8 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
     /// <param name="settingsValue">The settings argument value operation.</param>
     /// <param name="settingsType">The gated <c>XsltSettings</c> type.</param>
     /// <returns><see langword="true"/> when the expression is a script-enabling settings shape.</returns>
-    private static bool EnablesScript(IOperation settingsValue, INamedTypeSymbol settingsType)
-        => settingsValue switch
+    private static bool EnablesScript(IOperation settingsValue, INamedTypeSymbol settingsType) =>
+        settingsValue switch
         {
             // 'new XsltSettings(...)' or 'new XsltSettings { ... }': script is on when the constructor's
             // 'enableScript' argument is true or the initializer sets 'EnableScript = true'.
@@ -182,6 +182,6 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an operation is a compile-time-constant <see langword="true"/>.</summary>
     /// <param name="operation">The operation to inspect.</param>
     /// <returns><see langword="true"/> when the operation folds to the boolean constant <see langword="true"/>.</returns>
-    private static bool IsConstantTrue(IOperation operation)
-        => operation.ConstantValue is { HasValue: true, Value: bool value } && value;
+    private static bool IsConstantTrue(IOperation operation) =>
+        operation.ConstantValue is { HasValue: true, Value: bool value } && value;
 }

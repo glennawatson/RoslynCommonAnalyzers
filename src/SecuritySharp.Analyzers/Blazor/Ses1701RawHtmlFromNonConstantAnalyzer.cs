@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -76,7 +78,7 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1701 for <c>new MarkupString(x)</c> whose value argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -100,7 +102,7 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1701 for <c>(MarkupString)x</c> whose cast operand is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeCast(SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    private static void AnalyzeCast(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
     {
         var cast = (CastExpressionSyntax)context.Node;
 
@@ -122,7 +124,7 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1701 for <c>AddMarkupContent(seq, x)</c> whose markup argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="renderTreeBuilder">The gated <c>RenderTreeBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -152,8 +154,9 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="value">The value expression written to the raw-HTML sink.</param>
     /// <param name="sink">The sink name used in the diagnostic message.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, ExpressionSyntax value, string sink)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, ExpressionSyntax value, string sink) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             SecurityRules.RawHtmlFromNonConstant,
             value.SyntaxTree,
             value.Span,
@@ -163,15 +166,15 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="value">The value expression written to a raw-HTML sink.</param>
     /// <returns><see langword="true"/> when the value is constant or sanitizer-wrapped and must not be reported.</returns>
-    private static bool IsSafeValue(SyntaxNodeAnalysisContext context, ExpressionSyntax value)
-        => context.SemanticModel.GetConstantValue(value, context.CancellationToken).HasValue
+    private static bool IsSafeValue(in SyntaxNodeAnalysisContext context, ExpressionSyntax value) =>
+        context.SemanticModel.GetConstantValue(value, context.CancellationToken).HasValue
             || IsSanitizerCall(context, value);
 
     /// <summary>Returns whether a value is a call to a method named in the sanitizer allow-list.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="value">The value expression written to a raw-HTML sink.</param>
     /// <returns><see langword="true"/> when the value is an invocation whose simple name is allow-listed.</returns>
-    private static bool IsSanitizerCall(SyntaxNodeAnalysisContext context, ExpressionSyntax value)
+    private static bool IsSanitizerCall(in SyntaxNodeAnalysisContext context, ExpressionSyntax value)
     {
         if (value is not InvocationExpressionSyntax invocation)
         {
@@ -198,8 +201,8 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the invoked member's simple name for an <c>Identifier(...)</c> or <c>x.Identifier(...)</c> call.</summary>
     /// <param name="expression">The invocation's callee expression.</param>
     /// <returns>The simple name, or <see langword="null"/> when the callee is not a plain member reference.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetInvokedName(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
@@ -209,8 +212,8 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the rightmost identifier of a plain or (possibly <c>global::</c>-) qualified type name.</summary>
     /// <param name="type">The type syntax to inspect.</param>
     /// <returns>The simple name, or <see langword="null"/> when the type is not a plain named type.</returns>
-    private static string? GetRightmostIdentifier(TypeSyntax type)
-        => type switch
+    private static string? GetRightmostIdentifier(TypeSyntax type) =>
+        type switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,

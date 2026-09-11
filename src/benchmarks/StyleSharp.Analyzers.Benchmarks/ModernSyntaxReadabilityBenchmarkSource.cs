@@ -26,8 +26,8 @@ internal static class ModernSyntaxReadabilityBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -49,14 +49,14 @@ internal static class ModernSyntaxReadabilityBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
+    private static string GenerateMember(int index, bool violating) =>
+        violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
     /// <summary>Builds one synthetic violating member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => (index % ModernReadabilityShapeCount) switch
+    private static string GenerateViolatingMember(int index) =>
+        (index % ModernReadabilityShapeCount) switch
         {
             0 => $$"""
                    public ReadOnlySpan<byte> Header{{index}}() => System.Text.Encoding.UTF8.GetBytes("GET");
@@ -103,8 +103,8 @@ internal static class ModernSyntaxReadabilityBenchmarkSource
     /// <summary>Builds one synthetic clean member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => (index % ModernReadabilityShapeCount) switch
+    private static string GenerateCleanMember(int index) =>
+        (index % ModernReadabilityShapeCount) switch
         {
             0 => $$"""
                    public ReadOnlySpan<byte> Header{{index}}() => "GET"u8;

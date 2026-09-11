@@ -62,7 +62,7 @@ public sealed class Sst1480ExceptionNeverThrownAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one exception whose value nothing consumes.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="exceptionType">The lazily resolved <see cref="Exception"/> symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> exceptionType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> exceptionType)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.Parent is not ExpressionStatementSyntax)

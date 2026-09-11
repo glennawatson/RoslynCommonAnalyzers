@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -22,20 +23,21 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies one SST1465 collapse for the reported else clause.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => TryRewrite(root, diagnostic) is { } edit
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
 
@@ -43,8 +45,8 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>() is { } elseClause && IsCollapsible(elseClause)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>() is { } elseClause && IsCollapsible(elseClause)
             ? new NodeReplacement(
                 elseClause,
                 Collapse(elseClause),
@@ -54,8 +56,8 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <summary>Returns whether an else clause still wraps exactly one if statement that is safe to hoist.</summary>
     /// <param name="elseClause">The else clause to inspect.</param>
     /// <returns><see langword="true"/> when the collapse can be applied mechanically.</returns>
-    private static bool IsCollapsible(ElseClauseSyntax elseClause)
-        => elseClause.Statement is BlockSyntax block
+    private static bool IsCollapsible(ElseClauseSyntax elseClause) =>
+        elseClause.Statement is BlockSyntax block
             && block.Statements.Count == 1
             && block.Statements[0] is IfStatementSyntax innerIf
             && !HasDirective(elseClause.ElseKeyword.TrailingTrivia)
@@ -113,7 +115,7 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <summary>Appends the comments in a trivia list, each terminated the way it was in source.</summary>
     /// <param name="pieces">The destination trivia buffer.</param>
     /// <param name="trivia">The trivia list to scan.</param>
-    private static void AppendComments(List<SyntaxTrivia> pieces, SyntaxTriviaList trivia)
+    private static void AppendComments(List<SyntaxTrivia> pieces, in SyntaxTriviaList trivia)
     {
         var index = 0;
         while (index < trivia.Count)
@@ -147,7 +149,7 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <summary>Appends every trivia in a list to the buffer.</summary>
     /// <param name="pieces">The destination trivia buffer.</param>
     /// <param name="trivia">The trivia list to copy.</param>
-    private static void AppendAll(List<SyntaxTrivia> pieces, SyntaxTriviaList trivia)
+    private static void AppendAll(List<SyntaxTrivia> pieces, in SyntaxTriviaList trivia)
     {
         for (var i = 0; i < trivia.Count; i++)
         {
@@ -197,8 +199,8 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <summary>Returns whether a trivia is a comment worth carrying through the collapse.</summary>
     /// <param name="trivia">The trivia to inspect.</param>
     /// <returns><see langword="true"/> for comment trivia.</returns>
-    private static bool IsComment(SyntaxTrivia trivia)
-        => trivia.Kind() is
+    private static bool IsComment(in SyntaxTrivia trivia) =>
+        trivia.Kind() is
             SyntaxKind.SingleLineCommentTrivia or
             SyntaxKind.MultiLineCommentTrivia or
             SyntaxKind.SingleLineDocumentationCommentTrivia or
@@ -207,7 +209,7 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <summary>Returns whether a trivia list carries a preprocessor directive the collapse would disturb.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
     /// <returns><see langword="true"/> when a directive is present.</returns>
-    private static bool HasDirective(SyntaxTriviaList trivia)
+    private static bool HasDirective(in SyntaxTriviaList trivia)
     {
         for (var i = 0; i < trivia.Count; i++)
         {

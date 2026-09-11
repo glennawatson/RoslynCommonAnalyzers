@@ -82,7 +82,7 @@ public sealed class Sst2019NullCheckOverTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <param name="operand">The tested expression.</param>
     /// <param name="location">The location to report.</param>
     /// <param name="suggestion">The replacement spelling to name in the message.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, ExpressionSyntax operand, Location location, string suggestion)
+    private static void Report(in SyntaxNodeAnalysisContext context, ExpressionSyntax operand, Location location, string suggestion)
     {
         var type = context.SemanticModel.GetTypeInfo(operand, context.CancellationToken).Type;
         if (type is null || IsNonNullableValueType(type))
@@ -100,18 +100,18 @@ public sealed class Sst2019NullCheckOverTypeCheckAnalyzer : DiagnosticAnalyzer
     /// Only the keyword spelling counts. <c>System.Object</c> written out, or an alias for it, is rare
     /// enough that resolving every right-hand side to catch it would cost more than it saves.
     /// </remarks>
-    private static bool IsObjectType(ExpressionSyntax type)
-        => type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword);
+    private static bool IsObjectType(ExpressionSyntax type) =>
+        type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword);
 
     /// <summary>Returns whether the operand is a value type that has no null to test for.</summary>
     /// <param name="type">The operand's type.</param>
     /// <returns><see langword="true"/> when the type is a non-nullable value type.</returns>
-    private static bool IsNonNullableValueType(ITypeSymbol type)
-        => type.IsValueType && type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T;
+    private static bool IsNonNullableValueType(ITypeSymbol type) =>
+        type.IsValueType && type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T;
 
     /// <summary>Returns whether the tree is parsed at a language version that has the <c>not</c> pattern.</summary>
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 9 or later.</returns>
-    private static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp9;
+    private static bool IsLanguageSupported(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp9;
 }

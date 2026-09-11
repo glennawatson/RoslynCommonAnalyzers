@@ -40,13 +40,13 @@ internal readonly record struct LogLevelFloorOptions(int Floor)
     /// <summary>Reads the level floor for one tree, falling back to error.</summary>
     /// <param name="options">The analyzer config options for the call's tree.</param>
     /// <returns>The resolved floor.</returns>
-    public static LogLevelFloorOptions Read(AnalyzerConfigOptions options)
-        => new(options.TryGetValue(MinimumLevelRuleKey, out var value) && TryParseLevel(value, out var level) ? level : Error);
+    internal static LogLevelFloorOptions Read(AnalyzerConfigOptions options) =>
+        new(options.TryGetValue(MinimumLevelRuleKey, out var value) && TryParseLevel(value, out var level) ? level : Error);
 
     /// <summary>Returns whether a call's level is at or above the floor and within the reportable range.</summary>
     /// <param name="level">The call's level ordinal.</param>
     /// <returns><see langword="true"/> when the level is reportable.</returns>
-    public bool Includes(int level) => level >= Floor && level <= Critical;
+    internal bool Includes(int level) => level >= Floor && level <= Critical;
 
     /// <summary>Parses a level name to its ordinal.</summary>
     /// <param name="value">The configured level name.</param>

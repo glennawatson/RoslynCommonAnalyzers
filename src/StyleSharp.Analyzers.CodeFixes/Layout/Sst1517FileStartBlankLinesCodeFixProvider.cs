@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.Text;
 
@@ -36,8 +37,9 @@ public sealed class Sst1517FileStartBlankLinesCodeFixProvider : CodeFixProvider,
     }
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => changes.Add(new TextChange(diagnostic.Location.SourceSpan, string.Empty));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.Add(new(diagnostic.Location.SourceSpan, string.Empty));
 
     /// <summary>Deletes the reported leading blank-line span.</summary>
     /// <param name="document">The document to fix.</param>

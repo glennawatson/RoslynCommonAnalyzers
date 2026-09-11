@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -94,16 +96,17 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether an element access is a plain <c>x[a..b]</c>, before any binding.</summary>
     /// <param name="access">The element access to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsRangeIndexerShape(ElementAccessExpressionSyntax access)
-        => access.ArgumentList.Arguments.Count == 1
+    internal static bool IsRangeIndexerShape(ElementAccessExpressionSyntax access) =>
+        access.ArgumentList.Arguments.Count == 1
             && access.ArgumentList.Arguments[0] is { NameColon: null, RefOrOutKeyword.RawKind: (int)SyntaxKind.None, Expression: RangeExpressionSyntax };
 
     /// <summary>Builds the <c>receiver.AsSpan(range)</c> rewrite for a reported range indexer.</summary>
     /// <param name="access">The reported element access.</param>
     /// <param name="sliceMethod">The slice method name to emit.</param>
     /// <returns>The rewritten invocation.</returns>
-    internal static InvocationExpressionSyntax BuildSlice(ElementAccessExpressionSyntax access, string sliceMethod)
-        => SyntaxFactory.InvocationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static InvocationExpressionSyntax BuildSlice(ElementAccessExpressionSyntax access, string sliceMethod) =>
+        SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 access.Expression.WithoutTrivia(),
@@ -193,21 +196,15 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
     /// would let the consumer write through to the original array, which the copy it replaces never
     /// allowed — that is a change in behavior and no rule of ours makes it silently.
     /// </remarks>
-    private static string? GetSliceMethod(ITypeSymbol? convertedType)
-    {
-        if (convertedType is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named
-            || named.ContainingNamespace is not { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true })
-        {
-            return null;
-        }
-
-        return named.Name switch
+    private static string? GetSliceMethod(ITypeSymbol? convertedType) => convertedType is not INamedTypeSymbol { IsGenericType: true, TypeArguments.Length: 1 } named
+            || named.ContainingNamespace is not { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true }
+        ? null
+        : named.Name switch
         {
             ReadOnlySpanTypeName => AsSpanMethodName,
             ReadOnlyMemoryTypeName => AsMemoryMethodName,
             _ => null,
         };
-    }
 
     /// <summary>Confirms the slice rewrite binds to the extension and still converts to what the use site wants.</summary>
     /// <param name="model">The semantic model.</param>

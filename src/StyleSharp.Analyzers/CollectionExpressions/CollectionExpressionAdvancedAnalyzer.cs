@@ -40,7 +40,7 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports stackalloc initializers that can be target-typed as collection expressions.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="hasCollectionBuilderAttribute">Whether the referenced framework supports C# 12 collection builders.</param>
-    private static void AnalyzeStackalloc(SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
+    private static void AnalyzeStackalloc(in SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
     {
         if (!hasCollectionBuilderAttribute
             || context.Node is not ExpressionSyntax expression
@@ -79,7 +79,7 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports short builder sequences that can be returned as collection expressions.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="hasCollectionBuilderAttribute">Whether the referenced framework supports C# 12 collection builders.</param>
-    private static void AnalyzeBuilderLocal(SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
+    private static void AnalyzeBuilderLocal(in SyntaxNodeAnalysisContext context, bool hasCollectionBuilderAttribute)
     {
         var local = (LocalDeclarationStatementSyntax)context.Node;
         if (!hasCollectionBuilderAttribute
@@ -107,7 +107,7 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The invocation.</param>
     /// <param name="access">The member access expression.</param>
     private static void TryReportFluent(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         MemberAccessExpressionSyntax access)
     {
@@ -127,7 +127,7 @@ public sealed class CollectionExpressionAdvancedAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports collection-builder factory calls that can be expressed inline.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="invocation">The invocation.</param>
-    private static void TryReportCreate(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+    private static void TryReportCreate(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
     {
         if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, invocation, out var target)
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method

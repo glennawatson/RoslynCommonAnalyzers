@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -62,7 +64,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="type">The declared type syntax, when present.</param>
     /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeType(SyntaxNodeAnalysisContext context, TypeSyntax? type, INamedTypeSymbol genericLogger)
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, TypeSyntax? type, INamedTypeSymbol genericLogger)
     {
         if (type is not GenericNameSyntax { Identifier.ValueText: LoggerIdentifier } generic
             || generic.TypeArgumentList.Arguments.Count != 1)
@@ -82,7 +84,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes a <c>CreateLogger&lt;T&gt;()</c> or <c>CreateLogger(typeof(T))</c> call for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeCreateLogger(SyntaxNodeAnalysisContext context, INamedTypeSymbol genericLogger)
+    private static void AnalyzeCreateLogger(in SyntaxNodeAnalysisContext context, INamedTypeSymbol genericLogger)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: CreateLoggerIdentifier } name })
@@ -104,7 +106,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The factory call.</param>
     /// <param name="typeArgument">The category type argument, which the fix rewrites.</param>
     /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeGenericCreateLogger(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, TypeSyntax typeArgument, INamedTypeSymbol genericLogger)
+    private static void AnalyzeGenericCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, TypeSyntax typeArgument, INamedTypeSymbol genericLogger)
     {
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { TypeArguments: [{ } category] } method
             || !ReturnsLogger(method.ReturnType, genericLogger))
@@ -119,7 +121,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="invocation">The factory call.</param>
     /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeTypeofCreateLogger(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol genericLogger)
+    private static void AnalyzeTypeofCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol genericLogger)
     {
         if (invocation.ArgumentList.Arguments is not [{ Expression: TypeOfExpressionSyntax typeOf }]
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol createLogger
@@ -150,7 +152,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="categorySyntax">The syntax naming the category, which the fix rewrites.</param>
     /// <param name="category">The category type.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxNode categorySyntax, ITypeSymbol category)
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxNode categorySyntax, ITypeSymbol category)
     {
         if (category is not INamedTypeSymbol namedCategory
             || FindEnclosingType(context.Node) is not { } enclosingSyntax
@@ -178,8 +180,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <param name="category">The category type.</param>
     /// <param name="enclosing">The enclosing type.</param>
     /// <returns><see langword="true"/> when the category should not be reported.</returns>
-    private static bool IsCorrectCategory(INamedTypeSymbol category, INamedTypeSymbol enclosing)
-        => SymbolEqualityComparer.Default.Equals(category.OriginalDefinition, enclosing.OriginalDefinition)
+    private static bool IsCorrectCategory(INamedTypeSymbol category, INamedTypeSymbol enclosing) =>
+        SymbolEqualityComparer.Default.Equals(category.OriginalDefinition, enclosing.OriginalDefinition)
             || IsBaseType(category, enclosing)
             || ImplementsInterface(category, enclosing)
             || IsNestedInside(category, enclosing)
@@ -245,8 +247,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a category is a dedicated marker type rather than a real logging type.</summary>
     /// <param name="category">The category type.</param>
     /// <returns><see langword="true"/> when the category is a marker.</returns>
-    private static bool IsCategoryMarker(INamedTypeSymbol category)
-        => category.Name.EndsWith("Category", System.StringComparison.Ordinal)
+    private static bool IsCategoryMarker(INamedTypeSymbol category) =>
+        category.Name.EndsWith("Category", System.StringComparison.Ordinal)
             || category.Name.EndsWith("Logs", System.StringComparison.Ordinal)
             || IsEmptyType(category);
 
@@ -270,6 +272,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the declared type of a field.</summary>
     /// <param name="node">The field declaration.</param>
     /// <returns>The field's type syntax.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static TypeSyntax GetFieldType(SyntaxNode node) => ((FieldDeclarationSyntax)node).Declaration.Type;
 
     /// <summary>Finds the type declaration a node sits inside.</summary>

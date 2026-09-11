@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the restricted-property-summary code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("RestrictedPropertySummaryCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RestrictedPropertySummaryCodeFixBenchmarks
@@ -22,13 +24,14 @@ public class RestrictedPropertySummaryCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative restricted-setter summary.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             DocumentationCodeFixBenchmarkSource.GenerateRestrictedPropertySummary,
             static (_, root, index) => Task.FromResult(FindSummary(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -45,6 +48,7 @@ public class RestrictedPropertySummaryCodeFixBenchmarks
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based property index to select.</param>
     /// <returns>The selected summary element.</returns>
-    private static XmlElementSyntax FindSummary(CompilationUnitSyntax root, int index)
-        => DocumentationCodeFixBenchmarkHelper.GetSummary(CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<PropertyDeclarationSyntax>(root, index));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static XmlElementSyntax FindSummary(CompilationUnitSyntax root, int index) =>
+        DocumentationCodeFixBenchmarkHelper.GetSummary(CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<PropertyDeclarationSyntax>(root, index));
 }

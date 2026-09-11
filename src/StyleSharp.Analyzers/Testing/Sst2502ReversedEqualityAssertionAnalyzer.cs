@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -47,7 +49,7 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
     /// <summary>The metadata name of NUnit's assertion host type.</summary>
     private const string NUnitAssertMetadataName = "NUnit.Framework.Assert";
 
-    /// <summary>xUnit's equality assertion method name.</summary>
+    /// <summary>XUnit's equality assertion method name.</summary>
     private const string XunitEqualName = "Equal";
 
     /// <summary>The classic equality assertion method name shared by the other two frameworks.</summary>
@@ -97,7 +99,7 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
     /// <param name="msTest">The resolved MSTest assertion type, or <see langword="null"/>.</param>
     /// <param name="nunit">The resolved NUnit assertion type, or <see langword="null"/>.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol? xunit,
         INamedTypeSymbol? msTest,
         INamedTypeSymbol? nunit)
@@ -149,8 +151,9 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
     /// <param name="expression">The expression to inspect.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression folds to a constant value.</returns>
-    private static bool IsConstant(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => model.GetConstantValue(expression, cancellationToken).HasValue;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsConstant(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        model.GetConstantValue(expression, cancellationToken).HasValue;
 
     /// <summary>Returns whether a bound method is one of the targeted expected-first equality assertions.</summary>
     /// <param name="method">The bound method.</param>
@@ -170,12 +173,9 @@ public sealed class Sst2502ReversedEqualityAssertionAnalyzer : DiagnosticAnalyze
             return false;
         }
 
-        if (SymbolEqualityComparer.Default.Equals(containingType, xunit))
-        {
-            return method.Name == XunitEqualName;
-        }
-
-        return method.Name == ClassicAreEqualName
+        return SymbolEqualityComparer.Default.Equals(containingType, xunit)
+            ? method.Name == XunitEqualName
+            : method.Name == ClassicAreEqualName
             && (SymbolEqualityComparer.Default.Equals(containingType, msTest) || SymbolEqualityComparer.Default.Equals(containingType, nunit));
     }
 

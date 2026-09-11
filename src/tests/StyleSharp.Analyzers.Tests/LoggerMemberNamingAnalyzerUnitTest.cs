@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2601LoggerMemberNamingAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2601 (logger field/property naming convention).</summary>
 public class LoggerMemberNamingAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the accepted field names are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a private instance logger field with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateInstanceFieldWithWrongNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task PrivateInstanceFieldWithWrongNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -26,9 +25,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a private instance logger field named <c>_logger</c> is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateInstanceFieldNamedUnderscoreLoggerIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task PrivateInstanceFieldNamedUnderscoreLoggerIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -38,9 +38,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a private instance logger field named <c>_log</c> is clean under the default set.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateInstanceFieldNamedUnderscoreLogIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task PrivateInstanceFieldNamedUnderscoreLogIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -50,9 +51,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a generic <c>ILogger&lt;T&gt;</c> field with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericLoggerFieldWithWrongNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task GenericLoggerFieldWithWrongNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -62,9 +64,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a fully-qualified logger field with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedLoggerFieldWithWrongNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task FullyQualifiedLoggerFieldWithWrongNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -74,9 +77,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a nullable logger field with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableLoggerFieldWithWrongNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task NullableLoggerFieldWithWrongNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             #nullable enable
             public sealed class C
@@ -87,9 +91,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a non-private logger property with a non-conventional name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicPropertyWithWrongNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task PublicPropertyWithWrongNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -99,9 +104,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a non-private logger property named <c>Logger</c> is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicPropertyNamedLoggerIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task PublicPropertyNamedLoggerIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -111,9 +117,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a non-private logger field named <c>_logger</c> is reported, since it should be <c>Logger</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPrivateFieldNamedUnderscoreLoggerIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task NonPrivateFieldNamedUnderscoreLoggerIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public class C
             {
@@ -123,9 +130,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a private static logger field named <c>_logger</c> is reported, since it should be <c>Logger</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPrivateFieldNamedUnderscoreLoggerIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task StaticPrivateFieldNamedUnderscoreLoggerIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -135,9 +143,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies only the mis-named declarator of a multi-declarator field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclaratorsReportOnlyMisnamedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task MultipleDeclaratorsReportOnlyMisnamedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -147,9 +156,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies the interface logger property is reported but its explicit implementation is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceLoggerPropertyIsReportedButExplicitImplementationIsNotAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task InterfaceLoggerPropertyIsReportedButExplicitImplementationIsNotAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public interface IHasLogger
             {
@@ -164,9 +174,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a same-named type that is not the logger abstraction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedSameNamedNonLoggerTypeIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task QualifiedSameNamedNonLoggerTypeIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -183,9 +194,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when no logger abstraction is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoLoggerAbstractionAvailableIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(
+    public Task NoLoggerAbstractionAvailableIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(
             """
             public interface ILogger
             {
@@ -199,9 +211,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a type parameter named <c>ILogger</c> is not treated as the logger abstraction.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterNamedLoggerIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task TypeParameterNamedLoggerIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C<ILogger>
             {
@@ -211,9 +224,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a generic same-named type that does not derive from the logger abstraction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericNonLoggerTypeIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task GenericNonLoggerTypeIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -230,9 +244,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies members whose type is not a logger are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLoggerMembersAreCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task NonLoggerMembersAreCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -246,9 +261,10 @@ public class LoggerMemberNamingAnalyzerUnitTest
 
     /// <summary>Verifies a globally-aliased type that is not the logger abstraction is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GlobalAliasedNonLoggerTypeIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task GlobalAliasedNonLoggerTypeIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public interface ILogger
             {
@@ -274,11 +290,11 @@ public class LoggerMemberNamingAnalyzerUnitTest
                     private readonly ILogger logger = default!;
                     private readonly ILogger {|SST2601:_logger|} = default!;
                 }
-                """)
+                """),
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname = logger
@@ -302,11 +318,11 @@ public class LoggerMemberNamingAnalyzerUnitTest
                     private readonly ILogger _logger = default!;
                     private readonly ILogger {|SST2601:badName|} = default!;
                 }
-                """)
+                """),
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname =
@@ -329,11 +345,11 @@ public class LoggerMemberNamingAnalyzerUnitTest
                 {
                     private readonly ILogger {|SST2601:badName|} = default!;
                 }
-                """)
+                """),
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2601.fieldname = ,

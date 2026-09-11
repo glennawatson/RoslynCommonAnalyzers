@@ -14,8 +14,8 @@ internal static class InlineSingleUseLocalBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit locals the rule would inline.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class InlineSingleUseLocalBench
@@ -50,8 +50,8 @@ internal static class InlineSingleUseLocalBenchmarkSource
     /// <summary>Builds one member whose locals are read more than once, so none is a candidate.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUnrelatedMember(int index)
-        => $$"""
+    private static string GenerateUnrelatedMember(int index) =>
+        $$"""
            internal int M{{index}}(int[] values)
            {
                var total = _value;
@@ -70,8 +70,8 @@ internal static class InlineSingleUseLocalBenchmarkSource
     /// the clean one an early exit. A leaf initializer would not do: re-reading one costs nothing, so the
     /// rule still inlines it into a loop and the corpus would not be clean.
     /// </remarks>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            internal int M{{index}}(int[] values)
            {
                var total = 0;
@@ -88,8 +88,8 @@ internal static class InlineSingleUseLocalBenchmarkSource
     /// <summary>Builds one member with a single-use local the rule would inline.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            internal int M{{index}}()
            {
                var local = _value;

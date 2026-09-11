@@ -83,8 +83,8 @@ public sealed class Sst1532ConsistentLineEndingsAnalyzer : DiagnosticAnalyzer
     /// <param name="breakEnd">The end of the line break.</param>
     /// <param name="target">The required newline sequence.</param>
     /// <returns><see langword="true"/> when the break matches the target exactly.</returns>
-    private static bool BreakMatches(SourceText text, int breakStart, int breakEnd, string target)
-        => target == LayoutStyleOptions.LineFeed
+    private static bool BreakMatches(SourceText text, int breakStart, int breakEnd, string target) =>
+        target == LayoutStyleOptions.LineFeed
             ? breakEnd == breakStart + 1 && text[breakStart] == '\n'
             : breakEnd - breakStart == CarriageReturnLineFeedLength && text[breakStart] == '\r' && text[breakStart + 1] == '\n';
 }

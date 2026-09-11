@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -30,7 +31,7 @@ internal static class BuiltInTypeAliases
         [SpecialType.System_Int64] = "long",
         [SpecialType.System_UInt64] = "ulong",
         [SpecialType.System_Object] = "object",
-        [SpecialType.System_String] = "string"
+        [SpecialType.System_String] = "string",
     };
 
     /// <summary>The predefined-type token kind for each keyword alias.</summary>
@@ -50,7 +51,7 @@ internal static class BuiltInTypeAliases
         ["long"] = SyntaxKind.LongKeyword,
         ["ulong"] = SyntaxKind.ULongKeyword,
         ["object"] = SyntaxKind.ObjectKeyword,
-        ["string"] = SyntaxKind.StringKeyword
+        ["string"] = SyntaxKind.StringKeyword,
     };
 
     /// <summary>The simple framework type names that have a keyword alias, used as a cheap pre-filter.</summary>
@@ -76,16 +77,18 @@ internal static class BuiltInTypeAliases
     /// <summary>Returns whether the simple type name has a keyword alias (a cheap pre-filter before semantic checks).</summary>
     /// <param name="name">The simple type name.</param>
     /// <returns><see langword="true"/> when the name is an aliased framework primitive.</returns>
-    public static bool IsAliasedName(string name) => Names.Contains(name);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsAliasedName(string name) => Names.Contains(name);
 
     /// <summary>Returns the keyword alias for a special type, or <see langword="null"/> when none applies.</summary>
     /// <param name="specialType">The special type.</param>
     /// <returns>The keyword alias (for example <c>int</c>), or <see langword="null"/>.</returns>
-    public static string? Keyword(SpecialType specialType)
-        => KeywordBySpecialType.TryGetValue(specialType, out var keyword) ? keyword : null;
+    internal static string? Keyword(SpecialType specialType) =>
+        KeywordBySpecialType.TryGetValue(specialType, out var keyword) ? keyword : null;
 
     /// <summary>Returns the predefined-type token kind for a keyword alias.</summary>
     /// <param name="keyword">The keyword alias.</param>
     /// <returns>The matching predefined-type <see cref="SyntaxKind"/>.</returns>
-    public static SyntaxKind TokenKind(string keyword) => TokenKindByKeyword[keyword];
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static SyntaxKind TokenKind(string keyword) => TokenKindByKeyword[keyword];
 }

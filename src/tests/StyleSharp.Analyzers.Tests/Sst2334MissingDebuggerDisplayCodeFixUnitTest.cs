@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDisplay = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2334MissingDebuggerDisplayAnalyzer,
     StyleSharp.Analyzers.Sst2334MissingDebuggerDisplayCodeFixProvider>;
@@ -102,31 +103,36 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
 
     /// <summary>Verifies the fix names the type's first public property in the display string.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsAttributeNamingFirstPropertyAsync()
-        => await VerifyDisplay.VerifyCodeFixAsync(WithPropertySource, WithPropertyFixed);
+    public Task AddsAttributeNamingFirstPropertyAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(WithPropertySource, WithPropertyFixed);
 
     /// <summary>Verifies the fix names a private field rather than saying nothing about the instance.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsAttributeNamingPrivateFieldAsync()
-        => await VerifyDisplay.VerifyCodeFixAsync(NoPropertySource, NoPropertyFixed);
+    public Task AddsAttributeNamingPrivateFieldAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(NoPropertySource, NoPropertyFixed);
 
     /// <summary>Verifies the fix prefers a non-public property over the <c>ToString()</c> fallback.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsAttributeNamingNonPublicPropertyAsync()
-        => await VerifyDisplay.VerifyCodeFixAsync(NonPublicPropertySource, NonPublicPropertyFixed);
+    public Task AddsAttributeNamingNonPublicPropertyAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(NonPublicPropertySource, NonPublicPropertyFixed);
 
     /// <summary>Verifies the fix falls back to <c>ToString()</c> when the type has no member to name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsAttributeFallingBackToToStringAsync()
-        => await VerifyDisplay.VerifyCodeFixAsync(ToStringOnlySource, ToStringOnlyFixed);
+    public Task AddsAttributeFallingBackToToStringAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(ToStringOnlySource, ToStringOnlyFixed);
 
     /// <summary>Verifies a generic type is prefixed with its bare name, without the type parameter list.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsAttributePrefixedWithBareGenericNameAsync()
-        => await VerifyDisplay.VerifyCodeFixAsync(GenericSource, GenericFixed);
+    public Task AddsAttributePrefixedWithBareGenericNameAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(GenericSource, GenericFixed);
 }

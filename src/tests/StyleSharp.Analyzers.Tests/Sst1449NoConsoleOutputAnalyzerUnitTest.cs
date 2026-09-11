@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1449NoConsoleOutputAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst1449NoConsoleOutputAnalyzerUnitTest
 {
     /// <summary>Verifies Console.WriteLine is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsoleWriteLineIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConsoleWriteLineIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -26,9 +28,10 @@ public class Sst1449NoConsoleOutputAnalyzerUnitTest
 
     /// <summary>Verifies Console.Write and the fully qualified spelling are flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedConsoleWriteIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task QualifiedConsoleWriteIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -38,9 +41,10 @@ public class Sst1449NoConsoleOutputAnalyzerUnitTest
 
     /// <summary>Verifies write methods on other types are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherWritersAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OtherWritersAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.IO;
 
@@ -52,9 +56,10 @@ public class Sst1449NoConsoleOutputAnalyzerUnitTest
 
     /// <summary>Verifies non-write console members are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsoleReadIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConsoleReadIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -66,9 +71,10 @@ public class Sst1449NoConsoleOutputAnalyzerUnitTest
 
     /// <summary>Verifies a user type named Console is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserConsoleTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UserConsoleTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class Console
             {

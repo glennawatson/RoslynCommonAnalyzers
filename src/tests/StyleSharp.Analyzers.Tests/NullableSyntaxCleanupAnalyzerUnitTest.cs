@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyNullableSyntaxCleanup = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -42,12 +43,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -72,12 +68,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                    {
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -100,12 +91,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                    {
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -123,11 +109,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                   public string M(string? value) => value!;
                               }
                               """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -149,11 +131,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                   public string Name(Type type) => type.FullName!;
                               }
                               """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -181,11 +159,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                   private static int Length(string text) => text.Length;
                               }
                               """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -211,12 +185,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                        public object M() => new object();
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -242,12 +211,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                        public string M() => "text";
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -273,12 +237,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                        public object M() => this;
                                    }
                                    """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -300,11 +259,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -315,9 +270,10 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
     /// A tuple is a value type, so the operand is non-null by construction, but the suppression is what
     /// silences the CS8619 for the element annotations. Removing it uncovers that warning.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingOnTupleElementConversionIsCleanAsync()
-        => await VerifyLoadBearingAsync(
+    public Task NullForgivingOnTupleElementConversionIsCleanAsync() =>
+        VerifyLoadBearingAsync(
             """
             #nullable enable
 
@@ -329,9 +285,10 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
     /// <summary>Verifies a suppression covering a generic argument's nullability is kept.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingOnGenericArgumentConversionIsCleanAsync()
-        => await VerifyLoadBearingAsync(
+    public Task NullForgivingOnGenericArgumentConversionIsCleanAsync() =>
+        VerifyLoadBearingAsync(
             """
             #nullable enable
 
@@ -345,9 +302,10 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
     /// <summary>Verifies a suppression covering a struct's generic argument nullability is kept.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingOnStructGenericArgumentConversionIsCleanAsync()
-        => await VerifyLoadBearingAsync(
+    public Task NullForgivingOnStructGenericArgumentConversionIsCleanAsync() =>
+        VerifyLoadBearingAsync(
             """
             #nullable enable
 
@@ -361,9 +319,10 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
     /// <summary>Verifies a suppression covering a span's element nullability is kept.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingOnSpanElementConversionIsCleanAsync()
-        => await VerifyLoadBearingAsync(
+    public Task NullForgivingOnSpanElementConversionIsCleanAsync() =>
+        VerifyLoadBearingAsync(
             """
             #nullable enable
 
@@ -377,9 +336,10 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
 
     /// <summary>Verifies a suppression on an array, whose element nullability a conversion can differ on, is kept.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingOnArrayElementConversionIsCleanAsync()
-        => await VerifyLoadBearingAsync(
+    public Task NullForgivingOnArrayElementConversionIsCleanAsync() =>
+        VerifyLoadBearingAsync(
             """
             #nullable enable
 
@@ -394,11 +354,7 @@ public class NullableSyntaxCleanupAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task VerifyLoadBearingAsync(string source)
     {
-        var test = new VerifyNullableSyntaxCleanup.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyNullableSyntaxCleanup.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

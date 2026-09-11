@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -59,9 +60,10 @@ public class BoxingRoundTripCastAnalyzerUnitTest
 
     /// <summary>Verifies the generic specialization pattern stays clean; the JIT elides that box.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterRoundTripIsCleanAsync()
-        => await VerifyAsync(
+    public Task TypeParameterRoundTripIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -72,9 +74,10 @@ public class BoxingRoundTripCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast from a reference type through object stays clean; nothing boxes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceTypeCastIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReferenceTypeCastIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -88,11 +91,7 @@ public class BoxingRoundTripCastAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

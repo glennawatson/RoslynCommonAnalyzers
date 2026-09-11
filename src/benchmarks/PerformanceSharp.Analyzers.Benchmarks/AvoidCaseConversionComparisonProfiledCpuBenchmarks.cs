@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for avoid-case-conversion-comparison analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("AvoidCaseConversionComparisonProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class AvoidCaseConversionComparisonProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class AvoidCaseConversionComparisonProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean avoid-case-conversion-comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AvoidCaseConversionComparison_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating avoid-case-conversion-comparison path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AvoidCaseConversionComparison_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

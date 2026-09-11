@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for extreme-element-without-sorting analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("TakeExtremeWithoutSortingProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class TakeExtremeWithoutSortingProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class TakeExtremeWithoutSortingProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean sort-then-take-one path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TakeExtremeWithoutSorting_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating sort-then-take-one path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TakeExtremeWithoutSorting_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

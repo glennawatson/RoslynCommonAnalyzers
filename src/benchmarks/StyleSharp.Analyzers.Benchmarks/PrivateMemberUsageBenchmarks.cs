@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Analyzer benchmarks for private-member usage rules.</summary>
+[System.Diagnostics.DebuggerDisplay("PrivateMemberUsageBenchmarks: {Types}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PrivateMemberUsageBenchmarks
@@ -24,11 +26,13 @@ public class PrivateMemberUsageBenchmarks
 
     /// <summary>Runs the analyzer over clean private-member usage.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrivateMemberUsage_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Runs the analyzer over unused and unread private members.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrivateMemberUsage_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

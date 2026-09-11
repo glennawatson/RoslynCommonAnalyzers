@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -123,9 +124,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a class derived from through a constructed generic base is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericBaseIsCleanAsync()
-        => await VerifyAsync(
+    public Task GenericBaseIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class Widget<T>
             {
@@ -138,9 +140,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a class named by a generic constraint is not reported — a sealed class is not a valid constraint.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstraintTargetIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstraintTargetIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class Widget
             {
@@ -157,9 +160,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a class constrained by a local function's type parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionConstraintTargetIsCleanAsync()
-        => await VerifyAsync(
+    public Task LocalFunctionConstraintTargetIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class Widget
             {
@@ -181,9 +185,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies an internal class is not reported when the assembly exposes its internals to a friend.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalClassWithInternalsVisibleToIsCleanAsync()
-        => await VerifyAsync(
+    public Task InternalClassWithInternalsVisibleToIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -229,9 +234,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies an already sealed class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task SealedClassIsCleanAsync() =>
+        VerifyAsync(
             """
             internal sealed class Widget
             {
@@ -240,9 +246,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies an abstract class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task AbstractClassIsCleanAsync() =>
+        VerifyAsync(
             """
             internal abstract class Widget
             {
@@ -251,9 +258,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a static class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task StaticClassIsCleanAsync() =>
+        VerifyAsync(
             """
             internal static class Widget
             {
@@ -262,18 +270,20 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a record is not reported — SST1800 owns record sealing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordIsCleanAsync()
-        => await VerifyAsync(
+    public Task RecordIsCleanAsync() =>
+        VerifyAsync(
             """
             internal record Widget(int Value);
             """);
 
     /// <summary>Verifies a struct and an interface are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonClassTypesAreCleanAsync()
-        => await VerifyAsync(
+    public Task NonClassTypesAreCleanAsync() =>
+        VerifyAsync(
             """
             internal struct Point
             {
@@ -286,9 +296,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a class declaring a virtual member is not reported — a sealed class may not have one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithVirtualMemberIsCleanAsync()
-        => await VerifyAsync(
+    public Task ClassWithVirtualMemberIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class Widget
             {
@@ -300,9 +311,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a class declaring a new protected member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithProtectedMemberIsCleanAsync()
-        => await VerifyAsync(
+    public Task ClassWithProtectedMemberIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class Widget
             {
@@ -314,9 +326,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a public class is not reported by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicClassIsCleanByDefaultAsync()
-        => await VerifyAsync(
+    public Task PublicClassIsCleanByDefaultAsync() =>
+        VerifyAsync(
             """
             public class Widget
             {
@@ -349,9 +362,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a public class is reported once include_public is turned on.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicClassIsFlaggedWhenIncludePublicIsSetAsync()
-        => await VerifyWithConfigAsync(
+    public Task PublicClassIsFlaggedWhenIncludePublicIsSetAsync() =>
+        VerifyWithConfigAsync(
             """
             public class {|PSH1411:Widget|}
             {
@@ -361,9 +375,10 @@ public class SealNonDerivedTypeAnalyzerUnitTest
 
     /// <summary>Verifies a derived public class is still not reported with include_public on.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedPublicClassIsCleanWithIncludePublicAsync()
-        => await VerifyWithConfigAsync(
+    public Task DerivedPublicClassIsCleanWithIncludePublicAsync() =>
+        VerifyWithConfigAsync(
             """
             public class Widget
             {
@@ -403,11 +418,7 @@ public class SealNonDerivedTypeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;
@@ -422,11 +433,7 @@ public class SealNonDerivedTypeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithConfigAsync(string source, string setting)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         test.TestState.AnalyzerConfigFiles.Add(
             ("/.editorconfig", $"""

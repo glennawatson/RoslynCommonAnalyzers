@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -12,6 +13,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// Memory benchmarks for the method-returns-constant code-fix path. The fix rewrites every call site, so it
 /// resolves references across the solution — this measures that whole conversion, not just the declaration.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("MethodReturnsConstantCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class MethodReturnsConstantCodeFixBenchmarks : IDisposable
@@ -40,7 +42,7 @@ public class MethodReturnsConstantCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, MethodReturnsConstantBenchmarkSource.Generate(Nodes, violating: true));
         var root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _method = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(
@@ -50,6 +52,7 @@ public class MethodReturnsConstantCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

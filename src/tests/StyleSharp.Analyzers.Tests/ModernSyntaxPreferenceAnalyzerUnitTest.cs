@@ -204,12 +204,7 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyModernSyntaxPreference.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new VerifyModernSyntaxPreference.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -262,12 +257,12 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
     }
 
     /// <summary>Verifies explicit lambda parameter types reached through a conditional access are left alone.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// Detaching the invocation to rebind it without the explicit types speculatively orphans the
     /// conditional-access binding and crashes the binder, so the rule stays silent on the
     /// <c>receiver?.M(...)</c> form.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task ConditionalAccessExplicitLambdaParameterTypesAreLeftAloneAsync()
     {
@@ -292,11 +287,6 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
     /// <param name="source">The source.</param>
     /// <param name="fixedSource">The fixed source.</param>
     /// <returns>The configured test.</returns>
-    private static VerifyModernSyntaxPreference.Test CreateNet80Test(string source, string fixedSource)
-        => new()
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+    private static VerifyModernSyntaxPreference.Test CreateNet80Test(string source, string fixedSource) =>
+        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource };
 }

@@ -49,7 +49,7 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one <c>GetType()</c> call whose receiver is already a Type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="systemType">The resolved <see cref="System.Type"/> symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol systemType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol systemType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0

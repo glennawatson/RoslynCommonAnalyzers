@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -15,6 +16,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// production logic; the optimized one matches
 /// <c>ArgumentsOrParameterOnSameLineHelper.Analyze</c>.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("LineScanBenchmarks: {Scenario}")]
 [MemoryDiagnoser]
 public class LineScanBenchmarks
 {
@@ -28,13 +30,13 @@ public class LineScanBenchmarks
     public enum Layout
     {
         /// <summary>All items on a single line (valid).</summary>
-        OneLine,
+        OneLine = 0,
 
         /// <summary>Each item on its own line (valid).</summary>
-        EachOwnLine,
+        EachOwnLine = 1,
 
         /// <summary>A mix - some items share a line, others wrap (reported).</summary>
-        Jagged
+        Jagged = 2,
     }
 
     /// <summary>Gets or sets the parameter-list layout under test.</summary>
@@ -45,21 +47,23 @@ public class LineScanBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        const string Source = @"
-class C
-{
-    void OneLine(string a, int b, bool c, long d, double e, char f) { }
-    void EachOwnLine(
-        string a,
-        int b,
-        bool c,
-        long d,
-        double e,
-        char f) { }
-    void Jagged(string a, int b,
-        bool c, long d,
-        double e, char f) { }
-}";
+        const string Source = """
+
+        class C
+        {
+            void OneLine(string a, int b, bool c, long d, double e, char f) { }
+            void EachOwnLine(
+                string a,
+                int b,
+                bool c,
+                long d,
+                double e,
+                char f) { }
+            void Jagged(string a, int b,
+                bool c, long d,
+                double e, char f) { }
+        }
+        """;
         _tree = CSharpSyntaxTree.ParseText(Source);
         var members = ((ClassDeclarationSyntax)((CompilationUnitSyntax)_tree.GetRoot()).Members[0]).Members;
         const int JaggedLayoutMethodIndex = 2;
@@ -75,11 +79,13 @@ class C
 
     /// <summary>The original HashSet + LINQ + per-item Location approach.</summary>
     /// <returns>Whether the list would be reported as jagged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark(Baseline = true)]
     public bool Baseline_HashSetLinq() => BaselineReports(_list, _list.Parameters);
 
     /// <summary>The new allocation-free single-pass scan.</summary>
     /// <returns>Whether the list would be reported as jagged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public bool Optimized_ManualScan() => OptimizedReports(_tree, _list, _list.Parameters);
 
@@ -113,8 +119,7 @@ class C
     private static bool OptimizedReports<T>(SyntaxTree tree, SyntaxNode listNode, SeparatedSyntaxList<T> list)
         where T : SyntaxNode
     {
-        var count = list.Count;
-        if (count <= 1)
+        if (list.Count <= 1)
         {
             return false;
         }

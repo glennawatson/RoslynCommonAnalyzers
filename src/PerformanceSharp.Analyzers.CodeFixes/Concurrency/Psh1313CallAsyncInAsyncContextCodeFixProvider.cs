@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -27,12 +29,13 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces a reported synchronous call with its awaited async sibling.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -40,8 +43,8 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     /// <param name="model">The semantic model.</param>
     /// <param name="blocking">The synchronous call to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking)
-        => TryGetReplacement(model, blocking) is { } replacement
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking) =>
+        TryGetReplacement(model, blocking) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement))
             : document;
 
@@ -50,8 +53,8 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
             && TryGetReplacement(model, blocking) is { } replacement
             ? new NodeReplacement(blocking, replacement)
             : null;
@@ -60,17 +63,11 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     /// <param name="model">The semantic model.</param>
     /// <param name="blocking">The synchronous call to rewrite.</param>
     /// <returns>The replacement expression, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ExpressionSyntax? TryGetReplacement(SemanticModel model, ExpressionSyntax blocking)
-    {
-        if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(blocking)
+    private static ExpressionSyntax? TryGetReplacement(SemanticModel model, ExpressionSyntax blocking) => !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(blocking)
             || blocking is not InvocationExpressionSyntax invocation
-            || TryBuildSiblingCall(model, invocation) is not { } sibling)
-        {
-            return null;
-        }
-
-        return AwaitExpressionRewrite.WrapInAwait(sibling, blocking);
-    }
+            || TryBuildSiblingCall(model, invocation) is not { } sibling
+        ? null
+        : AwaitExpressionRewrite.WrapInAwait(sibling, blocking);
 
     /// <summary>Builds the async sibling call for a reported synchronous invocation, and proves it binds.</summary>
     /// <param name="model">The semantic model.</param>
@@ -94,7 +91,7 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
         }
 
         var name = SyntaxFactory.IdentifierName(sibling.Name);
-        ExpressionSyntax callee = invocation.Expression switch
+        var callee = invocation.Expression switch
         {
             MemberAccessExpressionSyntax access => access.WithName(name),
             IdentifierNameSyntax => name,
@@ -111,8 +108,8 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     /// <param name="candidate">The rewritten sibling invocation.</param>
     /// <param name="sibling">The sibling the analyzer resolved.</param>
     /// <returns><see langword="true"/> when the replacement binds to that sibling.</returns>
-    private static bool BindsToSibling(SemanticModel model, int position, InvocationExpressionSyntax candidate, IMethodSymbol sibling)
-        => model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol
+    private static bool BindsToSibling(SemanticModel model, int position, InvocationExpressionSyntax candidate, IMethodSymbol sibling) =>
+        model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol
                 is IMethodSymbol bound
             && SymbolEqualityComparer.Default.Equals(bound.OriginalDefinition, sibling.OriginalDefinition);
 }

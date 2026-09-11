@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for primary-constructor-parameter-mutation analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("PrimaryConstructorParameterMutationBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PrimaryConstructorParameterMutationBenchmarks
@@ -24,11 +26,13 @@ public class PrimaryConstructorParameterMutationBenchmarks
 
     /// <summary>Benchmarks the clean primary-constructor-parameter-mutation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrimaryConstructorParameterMutation_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating primary-constructor-parameter-mutation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PrimaryConstructorParameterMutation_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

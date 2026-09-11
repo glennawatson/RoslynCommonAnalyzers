@@ -71,7 +71,7 @@ public sealed class Sst2486PreferAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one path or partial-name assembly-load call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assemblyType">The resolved <see cref="System.Reflection.Assembly"/> symbol.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: var memberName } memberAccess

@@ -52,7 +52,7 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Interface
             || type.Interfaces.Length < MinimumBaseInterfaces
-            || type.Locations.Length == 0
+            || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource)
         {
             return;
@@ -64,7 +64,7 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
     /// <summary>Walks the interface's base members and reports each signature declared by two of them.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The interface under analysis.</param>
-    private static void ReportAmbiguousMembers(SymbolAnalysisContext context, INamedTypeSymbol type)
+    private static void ReportAmbiguousMembers(in SymbolAnalysisContext context, INamedTypeSymbol type)
     {
         var declaredNames = CollectDeclaredMemberNames(type);
         var firstByKey = new Dictionary<string, ISymbol>(StringComparer.Ordinal);
@@ -89,7 +89,7 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
     /// <param name="firstByKey">The first member seen for each signature key.</param>
     /// <param name="reportedKeys">The signature keys already reported, so each member reports once.</param>
     private static void TryReportMember(
-        SymbolAnalysisContext context,
+        in SymbolAnalysisContext context,
         INamedTypeSymbol type,
         ISymbol member,
         HashSet<string> declaredNames,
@@ -131,7 +131,7 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
         var names = new HashSet<string>(StringComparer.Ordinal);
         for (var i = 0; i < members.Length; i++)
         {
-            names.Add(members[i].Name);
+            _ = names.Add(members[i].Name);
         }
 
         return names;
@@ -141,12 +141,11 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
     /// <param name="member">The member to test.</param>
     /// <returns><see langword="true"/> for an ordinary method, a property, or an event.</returns>
     /// <remarks>Accessor methods are skipped so a property is reported once rather than three times.</remarks>
-    private static bool IsEligibleMember(ISymbol member)
-        => member switch
+    private static bool IsEligibleMember(ISymbol member) =>
+        member switch
         {
             IMethodSymbol method => method.MethodKind == MethodKind.Ordinary,
-            IPropertySymbol => true,
-            IEventSymbol => true,
+            IPropertySymbol or IEventSymbol => true,
             _ => false,
         };
 
@@ -160,22 +159,22 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
         {
             case IMethodSymbol method:
             {
-                builder.Append("M:").Append(method.Name).Append(':').Append(method.TypeParameters.Length).Append(':');
-                AppendParameters(builder, method.Parameters);
-                break;
+                    _ = builder.Append("M:").Append(method.Name).Append(':').Append(method.TypeParameters.Length).Append(':');
+                    AppendParameters(builder, method.Parameters);
+                    break;
             }
 
             case IPropertySymbol property:
             {
-                builder.Append("P:").Append(property.Name).Append(':').Append(property.Type.ToDisplayString()).Append(':');
-                AppendParameters(builder, property.Parameters);
-                break;
+                    _ = builder.Append("P:").Append(property.Name).Append(':').Append(property.Type.ToDisplayString()).Append(':');
+                    AppendParameters(builder, property.Parameters);
+                    break;
             }
 
             case IEventSymbol @event:
             {
-                builder.Append("E:").Append(@event.Name).Append(':').Append(@event.Type.ToDisplayString());
-                break;
+                    _ = builder.Append("E:").Append(@event.Name).Append(':').Append(@event.Type.ToDisplayString());
+                    break;
             }
         }
 
@@ -189,7 +188,7 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
     {
         for (var i = 0; i < parameters.Length; i++)
         {
-            builder.Append((int)parameters[i].RefKind).Append(' ').Append(parameters[i].Type.ToDisplayString()).Append(',');
+            _ = builder.Append((int)parameters[i].RefKind).Append(' ').Append(parameters[i].Type.ToDisplayString()).Append(',');
         }
     }
 }

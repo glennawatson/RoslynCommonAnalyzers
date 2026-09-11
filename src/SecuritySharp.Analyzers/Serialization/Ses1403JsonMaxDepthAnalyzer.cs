@@ -73,7 +73,7 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1403 for a <c>MaxDepth</c> assignment whose constant value exceeds the ceiling.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="jsonTypes">The gated JSON option types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] jsonTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] jsonTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -116,11 +116,10 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment target syntactically names the <c>MaxDepth</c> property.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns><see langword="true"/> for <c>x.MaxDepth</c> or a bare <c>MaxDepth</c> initializer member.</returns>
-    private static bool IsMaxDepthTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsMaxDepthTarget(ExpressionSyntax left) =>
+        left switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: MaxDepthPropertyName } => true,
-            IdentifierNameSyntax { Identifier.ValueText: MaxDepthPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: MaxDepthPropertyName } or IdentifierNameSyntax { Identifier.ValueText: MaxDepthPropertyName } => true,
             _ => false,
         };
 
@@ -168,11 +167,13 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < JsonOptionMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(JsonOptionMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(JsonOptionMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[JsonOptionMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[JsonOptionMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

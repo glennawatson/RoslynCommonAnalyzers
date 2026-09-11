@@ -61,8 +61,8 @@ public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
     /// <param name="syncInterface">The synchronous validation interface definition.</param>
     /// <param name="asyncInterface">The asynchronous validation interface definition.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
-        AsyncSiblingResolver.TaskTypes tasks,
+        in SyntaxNodeAnalysisContext context,
+        in AsyncSiblingResolver.TaskTypes tasks,
         INamedTypeSymbol syncInterface,
         INamedTypeSymbol asyncInterface)
     {
@@ -127,11 +127,11 @@ public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
     private static bool Blocks(
         MethodDeclarationSyntax declaration,
         SemanticModel model,
-        AsyncSiblingResolver.TaskTypes tasks,
+        in AsyncSiblingResolver.TaskTypes tasks,
         CancellationToken cancellationToken)
     {
         var scan = new BlockingScan(model, tasks, false, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, BlockingScan>(declaration, ref scan, Visit);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, BlockingScan>(declaration, ref scan, Visit);
         return scan.Found;
     }
 

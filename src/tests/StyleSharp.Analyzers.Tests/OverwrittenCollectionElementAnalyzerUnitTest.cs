@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOverwrittenElement = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1487OverwrittenCollectionElementAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 {
     /// <summary>Verifies the same dictionary key assigned twice in a row is reported on the lost write.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedKeyAssignmentIsReportedAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task RepeatedKeyAssignmentIsReportedAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -29,9 +31,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies an index that does not advance is reported even when both values are computed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedIndexAssignmentWithComputedValuesIsReportedAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task RepeatedIndexAssignmentWithComputedValuesIsReportedAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -49,9 +52,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a qualified receiver is matched just as a bare one is.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedReceiverIsReportedAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task QualifiedReceiverIsReportedAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -69,9 +73,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies three writes to one slot report the two that are lost.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeWritesReportTheTwoLostOnesAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task ThreeWritesReportTheTwoLostOnesAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -86,9 +91,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies statements written directly into a switch section are checked too.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementsInASwitchSectionAreReportedAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task StatementsInASwitchSectionAreReportedAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -107,9 +113,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies different indexes are different slots.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentIndexesAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task DifferentIndexesAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -123,9 +130,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies different receivers are different collections.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentReceiversAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task DifferentReceiversAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -139,9 +147,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies two writes separated by another statement are not an obvious repeat.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentWritesAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task NonAdjacentWritesAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -158,9 +167,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a compound assignment reads before it writes, so nothing is lost.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentsAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentsAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -186,9 +196,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a null-coalescing assignment only writes when the element is empty.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullCoalescingAssignmentsAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task NullCoalescingAssignmentsAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -210,9 +221,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a right-hand side that reads the element is a read-modify-write, not a lost write.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RightHandSideReadingTheElementIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task RightHandSideReadingTheElementIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -226,9 +238,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a right-hand side that reads the collection at all leaves the first write alive.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RightHandSideReadingTheCollectionIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task RightHandSideReadingTheCollectionIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -250,9 +263,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies an index that can answer differently on a second call is never matched.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingIndexIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task SideEffectingIndexIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -278,9 +292,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a receiver that can answer differently on a second call is never matched.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingReceiverIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task SideEffectingReceiverIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -297,9 +312,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
     /// <summary>Verifies a nested element access is not provably the same slot twice.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>An inner indexer is a call this rule cannot see through, so it stays quiet rather than guess.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedElementAccessIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task NestedElementAccessIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -313,9 +329,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a repeated property assignment is out of scope; only indexers are matched.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedPropertyAssignmentIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task RepeatedPropertyAssignmentIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -332,9 +349,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
     /// <summary>Verifies two writes that are only adjacent in this build configuration are left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The skipped region could read the element, so the first write is not provably dead.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WritesSeparatedByAnInactiveRegionAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task WritesSeparatedByAnInactiveRegionAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -353,9 +371,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a lone write in a block is never reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleWriteIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task SingleWriteIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -368,9 +387,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies writes in separate blocks are not adjacent statements.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WritesInSeparateBlocksAreCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task WritesInSeparateBlocksAreCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -388,9 +408,10 @@ public class OverwrittenCollectionElementAnalyzerUnitTest
 
     /// <summary>Verifies a loop that writes one slot per iteration is never reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopBodyWritingOneSlotIsCleanAsync()
-        => await VerifyOverwrittenElement.VerifyAnalyzerAsync(
+    public Task LoopBodyWritingOneSlotIsCleanAsync() =>
+        VerifyOverwrittenElement.VerifyAnalyzerAsync(
             """
             public class C
             {

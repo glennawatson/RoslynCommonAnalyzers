@@ -11,8 +11,8 @@ internal static class RecursiveGenericInheritanceBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? Violating(i) : Clean(i))}}
@@ -21,8 +21,8 @@ internal static class RecursiveGenericInheritanceBenchmarkSource
     /// <summary>Builds one type whose generic base is the legitimate self-referential shape.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public class Base{{index}}<T>
            {
            }
@@ -35,8 +35,8 @@ internal static class RecursiveGenericInheritanceBenchmarkSource
     /// <summary>Builds one type nested inside its own base's type arguments.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public class Root{{index}}<T>
            {
            }

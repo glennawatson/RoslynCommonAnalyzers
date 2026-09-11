@@ -8,11 +8,11 @@ namespace PerformanceSharp.Analyzers.Benchmarks;
 public enum CollectionNativeMethodBenchmarkShape
 {
     /// <summary>List FirstOrDefault predicate replaced by Find (PSH1110).</summary>
-    ListPredicate,
+    ListPredicate = 0,
 
     /// <summary>Array Any predicate replaced by the static Array.Exists helper (PSH1110).</summary>
-    ArrayPredicate,
+    ArrayPredicate = 1,
 
     /// <summary>Any equality predicate replaced by Contains (PSH1111).</summary>
-    Membership
+    Membership = 2,
 }

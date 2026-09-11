@@ -98,8 +98,8 @@ public sealed class Sst1464UnwrapElseAfterJumpAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a statement is a direct jump out of its enclosing flow.</summary>
     /// <param name="statement">The statement to inspect.</param>
     /// <returns><see langword="true"/> for return, throw, continue, and break statements.</returns>
-    private static bool IsJumpStatement(StatementSyntax statement)
-        => statement.Kind() is SyntaxKind.ReturnStatement
+    private static bool IsJumpStatement(StatementSyntax statement) =>
+        statement.Kind() is SyntaxKind.ReturnStatement
             or SyntaxKind.ThrowStatement
             or SyntaxKind.ContinueStatement
             or SyntaxKind.BreakStatement;

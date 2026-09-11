@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeHashData = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -85,9 +86,10 @@ public class PreferStaticHashDataAnalyzerUnitTest
 
     /// <summary>Verifies a using-scoped algorithm local used only to hash is reported on the declarator (no automated fix).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingScopedHashOnlyLocalReportedAsync()
-        => await VerifyAnalyzerNet90Async(
+    public Task UsingScopedHashOnlyLocalReportedAsync() =>
+        VerifyAnalyzerNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -103,9 +105,10 @@ public class PreferStaticHashDataAnalyzerUnitTest
 
     /// <summary>Verifies a using-scoped instance also passed to another method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingScopedLocalPassedElsewhereIsCleanAsync()
-        => await VerifyAnalyzerNet90Async(
+    public Task UsingScopedLocalPassedElsewhereIsCleanAsync() =>
+        VerifyAnalyzerNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -126,9 +129,10 @@ public class PreferStaticHashDataAnalyzerUnitTest
 
     /// <summary>Verifies a using-scoped instance with two ComputeHash calls is still reported (hash-only usage).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingScopedLocalWithTwoComputeHashCallsReportedAsync()
-        => await VerifyAnalyzerNet90Async(
+    public Task UsingScopedLocalWithTwoComputeHashCallsReportedAsync() =>
+        VerifyAnalyzerNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -145,9 +149,10 @@ public class PreferStaticHashDataAnalyzerUnitTest
 
     /// <summary>Verifies the three-argument ComputeHash overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeArgumentComputeHashIsCleanAsync()
-        => await VerifyAnalyzerNet90Async(
+    public Task ThreeArgumentComputeHashIsCleanAsync() =>
+        VerifyAnalyzerNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -163,9 +168,10 @@ public class PreferStaticHashDataAnalyzerUnitTest
 
     /// <summary>Verifies a custom HashAlgorithm subclass with its own Create factory is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomAlgorithmCreateIsCleanAsync()
-        => await VerifyAnalyzerNet90Async(
+    public Task CustomAlgorithmCreateIsCleanAsync() =>
+        VerifyAnalyzerNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -204,11 +210,7 @@ public class PreferStaticHashDataAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeHashData.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeHashData.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -219,12 +221,7 @@ public class PreferStaticHashDataAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyHashData.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyHashData.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -234,11 +231,7 @@ public class PreferStaticHashDataAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerNet90Async(string source)
     {
-        var test = new AnalyzeHashData.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeHashData.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

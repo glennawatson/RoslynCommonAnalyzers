@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyExplicitCollection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -30,12 +31,7 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
                                        public int[] Values = [ 1, 2, 3 ];
                                    }
                                    """;
-        var test = new VerifyExplicitCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyExplicitCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -64,12 +60,7 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
                                   public void Call() => Take(new object[] { "a", "b" });
                               }
                               """;
-        var test = new VerifyExplicitCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new VerifyExplicitCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -99,12 +90,7 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
                                        public void Call() => Take([ 1, 2 ]);
                                    }
                                    """;
-        var test = new VerifyExplicitCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyExplicitCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -134,12 +120,7 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
                                        ];
                                    }
                                    """;
-        var test = new VerifyExplicitCollection.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyExplicitCollection.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -150,9 +131,10 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
     /// A collection expression takes its type from the target, so replacing the creation leaves inference
     /// with nothing to work from and the call stops compiling with CS0411 or CS0311.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentSupplyingAnInferredTypeArgumentIsCleanAsync()
-        => await VerifyExplicitCollection.VerifyAnalyzerAsync(
+    public Task ArgumentSupplyingAnInferredTypeArgumentIsCleanAsync() =>
+        VerifyExplicitCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -184,9 +166,10 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
 
     /// <summary>Verifies an argument whose parameter type is concrete is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentWithAConcreteParameterTypeIsStillReportedAsync()
-        => await VerifyExplicitCollection.VerifyAnalyzerAsync(
+    public Task ArgumentWithAConcreteParameterTypeIsStillReportedAsync() =>
+        VerifyExplicitCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -213,9 +196,10 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
 
     /// <summary>Verifies a type parameter the receiver already fixed does not block the report.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterFixedByTheReceiverIsStillReportedAsync()
-        => await VerifyExplicitCollection.VerifyAnalyzerAsync(
+    public Task TypeParameterFixedByTheReceiverIsStillReportedAsync() =>
+        VerifyExplicitCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -230,9 +214,10 @@ public class ExplicitCollectionExpressionAnalyzerUnitTest
 
     /// <summary>Verifies dictionary-style and var initializers are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AmbiguousInitializersAreCleanAsync()
-        => await VerifyExplicitCollection.VerifyAnalyzerAsync(
+    public Task AmbiguousInitializersAreCleanAsync() =>
+        VerifyExplicitCollection.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

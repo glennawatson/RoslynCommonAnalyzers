@@ -11,8 +11,8 @@ internal static class RedeclaredFieldLikeEventBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -29,8 +29,8 @@ internal static class RedeclaredFieldLikeEventBenchmarkSource
     /// (never visited — it is not a field-like declaration), and a <c>new</c> that hides nothing (rejected
     /// after the base-type walk finds no inherited event).
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public abstract class C{{index}}
            {
                private EventHandler _completed;
@@ -62,8 +62,8 @@ internal static class RedeclaredFieldLikeEventBenchmarkSource
     /// <summary>Builds one type family whose derived event redeclarations split the subscriber list.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class B{{index}}
            {
                public virtual event EventHandler Changed;

@@ -58,7 +58,7 @@ public sealed class Psh1009UnboundedStackallocAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="size">The length expression.</param>
     /// <returns><see langword="true"/> for constants, const or static readonly fields, and Min/Clamp results.</returns>
-    private static bool IsBoundedSize(SyntaxNodeAnalysisContext context, ExpressionSyntax size)
+    private static bool IsBoundedSize(in SyntaxNodeAnalysisContext context, ExpressionSyntax size)
     {
         if (context.SemanticModel.GetConstantValue(size, context.CancellationToken).HasValue)
         {
@@ -79,7 +79,7 @@ public sealed class Psh1009UnboundedStackallocAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="stackallocExpression">The stackalloc expression.</param>
     /// <returns><see langword="true"/> when a constant guard encloses the stackalloc.</returns>
-    private static bool IsGuarded(SyntaxNodeAnalysisContext context, StackAllocArrayCreationExpressionSyntax stackallocExpression)
+    private static bool IsGuarded(in SyntaxNodeAnalysisContext context, StackAllocArrayCreationExpressionSyntax stackallocExpression)
     {
         for (SyntaxNode? current = stackallocExpression; current is not null; current = current.Parent)
         {
@@ -105,8 +105,8 @@ public sealed class Psh1009UnboundedStackallocAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="condition">The condition to inspect.</param>
     /// <returns><see langword="true"/> when a constant relational comparison or relational pattern is found.</returns>
-    private static bool ConditionComparesConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax condition)
-        => condition switch
+    private static bool ConditionComparesConstant(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition) =>
+        condition switch
         {
             BinaryExpressionSyntax binary when binary.Kind() is SyntaxKind.LogicalAndExpression or SyntaxKind.LogicalOrExpression
                 => ConditionComparesConstant(context, binary.Left) || ConditionComparesConstant(context, binary.Right),
@@ -123,8 +123,8 @@ public sealed class Psh1009UnboundedStackallocAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is a relational or equality comparison.</summary>
     /// <param name="kind">The syntax kind to classify.</param>
     /// <returns><see langword="true"/> for the comparison operators a guard can use.</returns>
-    private static bool IsComparisonKind(SyntaxKind kind)
-        => kind is SyntaxKind.LessThanExpression
+    private static bool IsComparisonKind(SyntaxKind kind) =>
+        kind is SyntaxKind.LessThanExpression
             or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression
@@ -133,11 +133,10 @@ public sealed class Psh1009UnboundedStackallocAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a pattern contains a relational or constant sub-pattern.</summary>
     /// <param name="pattern">The pattern to inspect.</param>
     /// <returns><see langword="true"/> when a bounding pattern is found.</returns>
-    private static bool PatternHasRelationalConstant(PatternSyntax pattern)
-        => pattern switch
+    private static bool PatternHasRelationalConstant(PatternSyntax pattern) =>
+        pattern switch
         {
-            RelationalPatternSyntax => true,
-            ConstantPatternSyntax => true,
+            RelationalPatternSyntax or ConstantPatternSyntax => true,
             BinaryPatternSyntax binary => PatternHasRelationalConstant(binary.Left) || PatternHasRelationalConstant(binary.Right),
             UnaryPatternSyntax unary => PatternHasRelationalConstant(unary.Pattern),
             ParenthesizedPatternSyntax parenthesized => PatternHasRelationalConstant(parenthesized.Pattern),

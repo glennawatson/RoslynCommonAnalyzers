@@ -11,14 +11,14 @@ internal static class LayoutHotspotBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit violating patterns.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => violating ? GenerateViolatingSource(members) : GenerateCleanSource(members);
+    internal static string Generate(int members, bool violating) =>
+        violating ? GenerateViolatingSource(members) : GenerateCleanSource(members);
 
     /// <summary>Builds the clean benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCleanSource(int members)
-        => $$"""
+    private static string GenerateCleanSource(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class LayoutBench
@@ -31,8 +31,8 @@ internal static class LayoutHotspotBenchmarkSource
     /// <summary>Builds the violating benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateViolatingSource(int members)
-        => $$"""
+    private static string GenerateViolatingSource(int members) =>
+        $$"""
            namespace Bench;
 
            sealed class LayoutBench{
@@ -43,8 +43,8 @@ internal static class LayoutHotspotBenchmarkSource
     /// <summary>Builds one clean member block.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            private int _value{{index}};
 
            internal int M{{index}}(int value)
@@ -61,8 +61,8 @@ internal static class LayoutHotspotBenchmarkSource
     /// <summary>Builds one violating member block.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            int _value{{index}};
            int M{{index}}(int value){if (value > 0) { return value; } return -value;}
            """;

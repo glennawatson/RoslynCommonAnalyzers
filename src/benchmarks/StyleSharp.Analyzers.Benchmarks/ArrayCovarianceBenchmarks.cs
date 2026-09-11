@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for array-covariance analysis (SST2434).</summary>
+[System.Diagnostics.DebuggerDisplay("ArrayCovarianceBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ArrayCovarianceBenchmarks
@@ -24,11 +26,13 @@ public class ArrayCovarianceBenchmarks
 
     /// <summary>Benchmarks the clean array-covariance path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ArrayCovariance_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating array-covariance path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ArrayCovariance_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

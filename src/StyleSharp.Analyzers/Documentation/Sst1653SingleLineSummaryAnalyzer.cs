@@ -85,7 +85,7 @@ public sealed class Sst1653SingleLineSummaryAnalyzer : DiagnosticAnalyzer
     /// both rules, so the summary keeps its wrapped form. The length is measured through the same routine
     /// the code fix builds with, so the prediction and the rewrite cannot disagree.
     /// </remarks>
-    private static bool CollapsedLineFits(SyntaxNodeAnalysisContext context, XmlElementSyntax summary, int indentation)
+    private static bool CollapsedLineFits(in SyntaxNodeAnalysisContext context, XmlElementSyntax summary, int indentation)
     {
         var tree = summary.SyntaxTree;
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);

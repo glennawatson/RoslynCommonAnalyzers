@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 using VerifyBitArray = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
 {
     /// <summary>Verifies an implicitly typed temporary array is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitTemporaryArrayReportedAsync()
-        => await RunAsync(
+    public Task ImplicitTemporaryArrayReportedAsync() =>
+        RunAsync(
             """
             using System.Collections;
 
@@ -28,9 +30,10 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an explicitly typed temporary array is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitTemporaryArrayReportedAsync()
-        => await RunAsync(
+    public Task ExplicitTemporaryArrayReportedAsync() =>
+        RunAsync(
             """
             using System.Collections;
 
@@ -42,9 +45,10 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an array the caller already holds is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExistingArrayIsCleanAsync()
-        => await RunAsync(
+    public Task ExistingArrayIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections;
 
@@ -56,9 +60,10 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the length constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LengthConstructorIsCleanAsync()
-        => await RunAsync(
+    public Task LengthConstructorIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections;
 
@@ -70,9 +75,10 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported on a framework without a span constructor.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WithoutSpanConstructorIsCleanAsync()
-        => await RunAsync(
+    public Task WithoutSpanConstructorIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections;
 
@@ -89,11 +95,7 @@ public class Psh1024BitArraySpanConstructorAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, ReferenceAssemblies? referenceAssemblies = null)
     {
-        var test = new VerifyBitArray.Test
-        {
-            ReferenceAssemblies = referenceAssemblies ?? DotNet11ReferenceAssemblies.Net110,
-            TestCode = source,
-        };
+        var test = new VerifyBitArray.Test { ReferenceAssemblies = referenceAssemblies ?? DotNet11ReferenceAssemblies.Net110, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

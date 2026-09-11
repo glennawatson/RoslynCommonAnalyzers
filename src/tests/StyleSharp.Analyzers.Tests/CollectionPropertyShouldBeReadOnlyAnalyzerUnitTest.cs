@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyCollectionProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -80,9 +81,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies every mutable collection shape the rule recognizes is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryMutableCollectionShapeIsReportedAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task EveryMutableCollectionShapeIsReportedAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Collections.ObjectModel;
@@ -106,9 +108,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
     /// <summary>Verifies a property whose type cannot be mutated through the reference is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A read-only view, a read-only interface, a scalar, and a string are all silent.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonMutableTypesAreCleanAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task NonMutableTypesAreCleanAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Collections.ObjectModel;
@@ -142,11 +145,7 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
                                   public ImmutableList<int> Items { get; set; }
                               }
                               """;
-        var test = new VerifyCollectionProperty.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyCollectionProperty.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -154,9 +153,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
     /// <summary>Verifies the accessors the rule already asks for are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A get-only property is the fix; an <c>init</c> setter builds the object once; a private setter keeps the collection under the type's control.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SettledAccessorsAreCleanAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task SettledAccessorsAreCleanAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             $$"""
             using System.Collections.Generic;
 
@@ -185,20 +185,17 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
                                   public required List<int> Items { get; set; }
                               }
                               """;
-        var test = new VerifyCollectionProperty.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyCollectionProperty.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies an attribute on the property, or on its type, is read as a contract that needs the setter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributedDeclarationsAreCleanAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task AttributedDeclarationsAreCleanAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -232,9 +229,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a property whose shape an interface or a base type dictates is reported at that declaration instead.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedShapesAreReportedAtTheirSourceAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task InheritedShapesAreReportedAtTheirSourceAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -263,9 +261,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a positional record's members are the constructor's, not a settable property.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordIsCleanAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task PositionalRecordIsCleanAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             $$"""
             using System.Collections.Generic;
 
@@ -274,9 +273,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a property declared in a record body is measured like any other.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclaredRecordPropertyIsReportedAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task DeclaredRecordPropertyIsReportedAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             $$"""
             using System.Collections.Generic;
 
@@ -288,9 +288,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a static settable collection is reported like an instance one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPropertyIsReportedAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task StaticPropertyIsReportedAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -302,9 +303,10 @@ public class CollectionPropertyShouldBeReadOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a property only its own type can reach keeps a setter that type uses.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyAssignedInsideItsOwnTypeIsCleanAsync()
-        => await VerifyCollectionProperty.VerifyAnalyzerAsync(
+    public Task PropertyAssignedInsideItsOwnTypeIsCleanAsync() =>
+        VerifyCollectionProperty.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

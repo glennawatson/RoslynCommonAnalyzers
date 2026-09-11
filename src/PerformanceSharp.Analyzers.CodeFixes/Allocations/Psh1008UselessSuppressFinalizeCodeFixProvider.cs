@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -59,8 +61,9 @@ public sealed class Psh1008UselessSuppressFinalizeCodeFixProvider : CodeFixProvi
     /// <param name="root">The syntax root.</param>
     /// <param name="statement">The statement to remove.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement)
-        => document.WithSyntaxRoot(root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement) =>
+        document.WithSyntaxRoot(root.RemoveNode(statement, SyntaxRemoveOptions.KeepUnbalancedDirectives) ?? root);
 
     /// <summary>Resolves the diagnostic to a standalone SuppressFinalize statement.</summary>
     /// <param name="root">The syntax root.</param>

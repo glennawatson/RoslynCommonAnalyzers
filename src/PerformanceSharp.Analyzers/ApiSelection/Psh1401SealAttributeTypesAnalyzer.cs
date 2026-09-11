@@ -43,7 +43,7 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1401 for an unsealed, non-abstract class deriving from <c>System.Attribute</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="attributeType">The resolved <c>System.Attribute</c> symbol.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
     {
         var symbol = (INamedTypeSymbol)context.Symbol;
         if (symbol.TypeKind != TypeKind.Class

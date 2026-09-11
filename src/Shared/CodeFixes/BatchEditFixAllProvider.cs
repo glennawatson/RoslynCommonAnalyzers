@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace RoslynCommon.Analyzers.CodeFixes;
@@ -81,11 +82,13 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
                 ? editSpan
                 : diagnostic.Location.SourceSpan;
             var key = new DiagnosticEditKey(diagnostic.Id, span);
-            if (!seen.ContainsKey(key))
+            if (seen.ContainsKey(key))
             {
-                seen.Add(key, true);
-                result.Add(diagnostic);
+                continue;
             }
+
+            seen.Add(key, true);
+            result.Add(diagnostic);
         }
 
         return result;
@@ -208,7 +211,8 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
                 continue;
             }
 
-            ordered[write++] = ordered[read];
+            ordered[write] = ordered[read];
+            write++;
         }
 
         ordered.RemoveRange(write, ordered.Count - write);
@@ -235,11 +239,14 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
                 ? editSpan
                 : diagnostic.Location.SourceSpan;
             var key = new DiagnosticEditKey(diagnostic.Id, span);
-            if (!seen.ContainsKey(key))
+            if (seen.ContainsKey(key))
             {
-                seen.Add(key, true);
-                ordered[write++] = diagnostic;
+                continue;
             }
+
+            seen.Add(key, true);
+            ordered[write] = diagnostic;
+            write++;
         }
 
         ordered.RemoveRange(write, ordered.Count - write);
@@ -263,8 +270,9 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
     /// <summary>Returns whether an exception represents a duplicate syntax edit target already consumed by <see cref="SyntaxEditor"/>.</summary>
     /// <param name="exception">The exception thrown while registering a batch edit.</param>
     /// <returns><see langword="true"/> when the edit can be skipped because the target was already replaced or removed.</returns>
-    private static bool IsDuplicateEditTarget(InvalidOperationException exception)
-        => exception.Message.StartsWith("GetCurrentNode returned null", StringComparison.Ordinal);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsDuplicateEditTarget(InvalidOperationException exception) =>
+        exception.Message.StartsWith("GetCurrentNode returned null", StringComparison.Ordinal);
 
     /// <summary>A unique document edit target for diagnostics already grouped by document.</summary>
     /// <param name="Id">The diagnostic id.</param>

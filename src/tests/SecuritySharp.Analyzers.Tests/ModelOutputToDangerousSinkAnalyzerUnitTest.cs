@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeModelSink = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -52,63 +53,73 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies inline model text into <c>Process.Start</c> filename is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineModelTextToProcessStartFileNameReportedAsync()
-        => await VerifyAsync("Process.Start({|SES1602:resp.Text|});");
+    public Task InlineModelTextToProcessStartFileNameReportedAsync() =>
+        VerifyAsync("Process.Start({|SES1602:resp.Text|});");
 
     /// <summary>Verifies inline model text into the <c>Process.Start</c> arguments string is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineModelTextToProcessStartArgumentsReportedAsync()
-        => await VerifyAsync("""Process.Start("cmd", {|SES1602:resp.Text|});""");
+    public Task InlineModelTextToProcessStartArgumentsReportedAsync() =>
+        VerifyAsync("""Process.Start("cmd", {|SES1602:resp.Text|});""");
 
     /// <summary>Verifies a named <c>fileName:</c> argument carrying model text is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedProcessStartArgumentReportedAsync()
-        => await VerifyAsync("Process.Start(fileName: {|SES1602:resp.Text|});");
+    public Task NamedProcessStartArgumentReportedAsync() =>
+        VerifyAsync("Process.Start(fileName: {|SES1602:resp.Text|});");
 
     /// <summary>Verifies a <c>ProcessStartInfo.FileName</c> object-initializer set to model text is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProcessStartInfoInitializerFileNameReportedAsync()
-        => await VerifyAsync("var info = new ProcessStartInfo { FileName = {|SES1602:resp.Text|} };");
+    public Task ProcessStartInfoInitializerFileNameReportedAsync() =>
+        VerifyAsync("var info = new ProcessStartInfo { FileName = {|SES1602:resp.Text|} };");
 
     /// <summary>Verifies a <c>ProcessStartInfo.Arguments</c> assignment set to model text is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProcessStartInfoArgumentsAssignmentReportedAsync()
-        => await VerifyAsync("psi.Arguments = {|SES1602:resp.Text|};");
+    public Task ProcessStartInfoArgumentsAssignmentReportedAsync() =>
+        VerifyAsync("psi.Arguments = {|SES1602:resp.Text|};");
 
     /// <summary>Verifies inline model text into a <c>System.IO.File</c> path is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineModelTextToFilePathReportedAsync()
-        => await VerifyAsync("File.ReadAllText({|SES1602:resp.Text|});");
+    public Task InlineModelTextToFilePathReportedAsync() =>
+        VerifyAsync("File.ReadAllText({|SES1602:resp.Text|});");
 
     /// <summary>Verifies model text into an EF Core <c>ExecuteSqlRaw</c> command is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModelTextToExecuteSqlRawReportedAsync()
-        => await VerifyAsync("db.ExecuteSqlRaw({|SES1602:resp.Text|});");
+    public Task ModelTextToExecuteSqlRawReportedAsync() =>
+        VerifyAsync("db.ExecuteSqlRaw({|SES1602:resp.Text|});");
 
     /// <summary>Verifies model text into an EF Core <c>FromSqlRaw</c> command is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModelTextToFromSqlRawReportedAsync()
-        => await VerifyAsync("set.FromSqlRaw({|SES1602:resp.Text|});");
+    public Task ModelTextToFromSqlRawReportedAsync() =>
+        VerifyAsync("set.FromSqlRaw({|SES1602:resp.Text|});");
 
     /// <summary>Verifies model text read from a <c>ChatMessage</c> into a sink is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChatMessageTextToSinkReportedAsync()
-        => await VerifyAsync("Process.Start({|SES1602:msg.Text|});");
+    public Task ChatMessageTextToSinkReportedAsync() =>
+        VerifyAsync("Process.Start({|SES1602:msg.Text|});");
 
     /// <summary>Verifies model text held in the immediately-preceding local is reported at the sink.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImmediatelyPrecedingLocalReportedAsync()
-        => await VerifyAsync(
+    public Task ImmediatelyPrecedingLocalReportedAsync() =>
+        VerifyAsync(
             """
             var command = resp.Text;
             Process.Start({|SES1602:command|});
@@ -116,9 +127,10 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies a local reused after an intervening statement is not reported (no data-flow tracking).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalWithInterveningStatementIsCleanAsync()
-        => await VerifyAsync(
+    public Task LocalWithInterveningStatementIsCleanAsync() =>
+        VerifyAsync(
             """
             var command = resp.Text;
             System.Console.WriteLine("audit");
@@ -127,27 +139,31 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies a non-model string flowing into a sink is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonModelStringIsCleanAsync()
-        => await VerifyAsync("Process.Start(plain);");
+    public Task NonModelStringIsCleanAsync() =>
+        VerifyAsync("Process.Start(plain);");
 
     /// <summary>Verifies model text into a non-sink method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModelTextToNonSinkIsCleanAsync()
-        => await VerifyAsync("System.Console.WriteLine(resp.Text);");
+    public Task ModelTextToNonSinkIsCleanAsync() =>
+        VerifyAsync("System.Console.WriteLine(resp.Text);");
 
     /// <summary>Verifies model text into a non-path <c>File.WriteAllText</c> content argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModelTextInFileContentArgumentIsCleanAsync()
-        => await VerifyAsync("""File.WriteAllText("out.txt", resp.Text);""");
+    public Task ModelTextInFileContentArgumentIsCleanAsync() =>
+        VerifyAsync("""File.WriteAllText("out.txt", resp.Text);""");
 
     /// <summary>Verifies a look-alike <c>Text</c> property on an unrelated type is not treated as model output.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookAlikeTextPropertyIsCleanAsync()
-        => await VerifyAsync(
+    public Task LookAlikeTextPropertyIsCleanAsync() =>
+        VerifyAsync(
             """
             var other = new NotAModel();
             Process.Start(other.Text);
@@ -155,39 +171,45 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies a named <c>path:</c> argument carrying model text into a file member is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedFilePathArgumentReportedAsync()
-        => await VerifyAsync("File.ReadAllText(path: {|SES1602:resp.Text|});");
+    public Task NamedFilePathArgumentReportedAsync() =>
+        VerifyAsync("File.ReadAllText(path: {|SES1602:resp.Text|});");
 
     /// <summary>Verifies a same-named <c>Start</c> method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedStartMethodIsCleanAsync()
-        => await VerifyAsync("unrelated.Start(resp.Text);");
+    public Task UnrelatedStartMethodIsCleanAsync() =>
+        VerifyAsync("unrelated.Start(resp.Text);");
 
     /// <summary>Verifies a same-named file method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedFileMethodIsCleanAsync()
-        => await VerifyAsync("unrelated.Delete(resp.Text);");
+    public Task UnrelatedFileMethodIsCleanAsync() =>
+        VerifyAsync("unrelated.Delete(resp.Text);");
 
     /// <summary>Verifies a same-named raw-SQL method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedRawSqlMethodIsCleanAsync()
-        => await VerifyAsync("unrelated.ExecuteSqlRaw(resp.Text);");
+    public Task UnrelatedRawSqlMethodIsCleanAsync() =>
+        VerifyAsync("unrelated.ExecuteSqlRaw(resp.Text);");
 
     /// <summary>Verifies a same-named <c>FileName</c> property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedFileNamePropertyIsCleanAsync()
-        => await VerifyAsync("unrelated.FileName = resp.Text;");
+    public Task UnrelatedFileNamePropertyIsCleanAsync() =>
+        VerifyAsync("unrelated.FileName = resp.Text;");
 
     /// <summary>Verifies invocations that are not member calls or carry no arguments are ignored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonSinkInvocationShapesAreCleanAsync()
-        => await VerifyAsync(
+    public Task NonSinkInvocationShapesAreCleanAsync() =>
+        VerifyAsync(
             """
             void Noop()
             {
@@ -199,9 +221,10 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies assignments to non-sink targets, and non-model values into sink targets, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonSinkAssignmentShapesAreCleanAsync()
-        => await VerifyAsync(
+    public Task NonSinkAssignmentShapesAreCleanAsync() =>
+        VerifyAsync(
             """
             psi.Arguments = plain;
             var buffer = new string[1];
@@ -210,9 +233,10 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
 
     /// <summary>Verifies a local declared in an outer block but used in a nested block is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalUsedInNestedBlockIsCleanAsync()
-        => await VerifyAsync(
+    public Task LocalUsedInNestedBlockIsCleanAsync() =>
+        VerifyAsync(
             """
             var command = resp.Text;
             if (plain.Length > 0)
@@ -291,11 +315,7 @@ public class ModelOutputToDangerousSinkAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source)
     {
-        var test = new AnalyzeModelSink.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeModelSink.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

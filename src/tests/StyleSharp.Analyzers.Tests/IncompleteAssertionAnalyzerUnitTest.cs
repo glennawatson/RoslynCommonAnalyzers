@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTest = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2508IncompleteAssertionAnalyzer>;
@@ -46,12 +47,6 @@ public class IncompleteAssertionAnalyzerUnitTest
         }
         """;
 
-    /// <summary>The using directive that brings the FluentAssertions <c>Should()</c> extensions into scope.</summary>
-    private const string FluentAssertionsUsing = """
-        using FluentAssertions;
-
-        """;
-
     /// <summary>Minimal AwesomeAssertions stubs mirroring the FluentAssertions shape under its own namespace.</summary>
     private const string AwesomeAssertionsStubs = """
         namespace AwesomeAssertions
@@ -72,9 +67,13 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>Should()</c> on a subject whose assertions type is nested under the library namespace is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FluentBareShouldOnNestedSubjectIsReportedAsync()
-        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
+    public Task FluentBareShouldOnNestedSubjectIsReportedAsync() =>
+        VerifyAsync("""
+            using FluentAssertions;
+
+            """ + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -87,9 +86,13 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>Should()</c> whose assertions type sits directly in the library namespace is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FluentBareShouldOnRootNamespaceSubjectIsReportedAsync()
-        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
+    public Task FluentBareShouldOnRootNamespaceSubjectIsReportedAsync() =>
+        VerifyAsync("""
+            using FluentAssertions;
+
+            """ + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -102,9 +105,13 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a completed fluent assertion that chains a check is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompletedFluentAssertionIsCleanAsync()
-        => await VerifyAsync(FluentAssertionsUsing + FluentAssertionsStubs + """
+    public Task CompletedFluentAssertionIsCleanAsync() =>
+        VerifyAsync("""
+            using FluentAssertions;
+
+            """ + FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -117,9 +124,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>Should()</c> from the AwesomeAssertions namespace is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwesomeAssertionsBareShouldIsReportedAsync()
-        => await VerifyAsync("""
+    public Task AwesomeAssertionsBareShouldIsReportedAsync() =>
+        VerifyAsync("""
             using AwesomeAssertions;
 
             """ + AwesomeAssertionsStubs + """
@@ -135,9 +143,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated <c>Should()</c> whose result type is in the global namespace is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedShouldReturningGlobalTypeIsCleanAsync()
-        => await VerifyAsync(FluentAssertionsStubs + """
+    public Task UnrelatedShouldReturningGlobalTypeIsCleanAsync() =>
+        VerifyAsync(FluentAssertionsStubs + """
 
             public class Marker { }
 
@@ -157,9 +166,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated <c>Should()</c> whose result type is in a non-library namespace is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedShouldReturningOtherNamespaceTypeIsCleanAsync()
-        => await VerifyAsync("""
+    public Task UnrelatedShouldReturningOtherNamespaceTypeIsCleanAsync() =>
+        VerifyAsync("""
             using Contoso;
 
             """ + FluentAssertionsStubs + """
@@ -185,9 +195,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Should()</c> on a dynamic subject, which binds to no method symbol, is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DynamicShouldIsCleanAsync()
-        => await VerifyAsync(FluentAssertionsStubs + """
+    public Task DynamicShouldIsCleanAsync() =>
+        VerifyAsync(FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -200,9 +211,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an expression statement that is not an invocation is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonInvocationStatementIsCleanAsync()
-        => await VerifyAsync(FluentAssertionsStubs + """
+    public Task NonInvocationStatementIsCleanAsync() =>
+        VerifyAsync(FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -215,9 +227,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies an invocation with no receiver (a plain method call) is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReceiverlessInvocationStatementIsCleanAsync()
-        => await VerifyAsync(FluentAssertionsStubs + """
+    public Task ReceiverlessInvocationStatementIsCleanAsync() =>
+        VerifyAsync(FluentAssertionsStubs + """
 
             public class Tests
             {
@@ -232,9 +245,10 @@ public class IncompleteAssertionAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>Should()</c> is never reported when no fluent-assertion library is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoFluentLibraryReferencedIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoFluentLibraryReferencedIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Subject { }
 
@@ -257,11 +271,7 @@ public class IncompleteAssertionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyTest.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyTest.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

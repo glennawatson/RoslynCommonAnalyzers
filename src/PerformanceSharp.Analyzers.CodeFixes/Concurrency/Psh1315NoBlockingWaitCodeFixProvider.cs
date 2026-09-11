@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -48,12 +50,13 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Await instead of blocking", nameof(Psh1315NoBlockingWaitCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Await instead of blocking", nameof(Psh1315NoBlockingWaitCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces a reported blocking wait with its awaited form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -61,8 +64,8 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
     /// <param name="model">The semantic model.</param>
     /// <param name="blocking">The blocking expression to rewrite.</param>
     /// <returns>The updated document, or the original when the wait cannot be awaited here.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking)
-        => TryGetReplacement(model, blocking) is { } replacement
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, ExpressionSyntax blocking) =>
+        TryGetReplacement(model, blocking) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(blocking, replacement))
             : document;
 
@@ -71,8 +74,8 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when no fix can be offered.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax blocking
             && TryGetReplacement(model, blocking) is { } replacement
             ? new NodeReplacement(blocking, replacement)
             : null;
@@ -91,12 +94,9 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
             return null;
         }
 
-        if (site.Kind == BlockingWait.Kind.SingleTask)
-        {
-            return AwaitExpressionRewrite.WrapInAwait(site.Awaited, blocking);
-        }
-
-        return TryGetCombinatorReplacement(model, (InvocationExpressionSyntax)blocking, site.Kind);
+        return site.Kind == BlockingWait.Kind.SingleTask
+            ? AwaitExpressionRewrite.WrapInAwait(site.Awaited, blocking)
+            : TryGetCombinatorReplacement(model, (InvocationExpressionSyntax)blocking, site.Kind);
     }
 
     /// <summary>Builds <c>await Task.WhenAll(…)</c> or <c>await Task.WhenAny(…)</c> for a reported combinator.</summary>
@@ -118,11 +118,6 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
             access.WithName(SyntaxFactory.IdentifierName(whenName).WithTriviaFrom(access.Name)));
 
         var speculative = model.GetSpeculativeSymbolInfo(blocking.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
-        if (speculative.Symbol is not IMethodSymbol)
-        {
-            return null;
-        }
-
-        return AwaitExpressionRewrite.WrapInAwait(candidate, blocking);
+        return speculative.Symbol is not IMethodSymbol ? null : AwaitExpressionRewrite.WrapInAwait(candidate, blocking);
     }
 }

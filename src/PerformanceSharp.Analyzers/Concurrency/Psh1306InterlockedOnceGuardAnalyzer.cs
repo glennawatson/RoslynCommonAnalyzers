@@ -46,8 +46,8 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the flag's simple name from a bare or this-qualified reference.</summary>
     /// <param name="expression">The candidate flag expression.</param>
     /// <returns>The name node, or <see langword="null"/>.</returns>
-    internal static SimpleNameSyntax? TryGetFlagName(ExpressionSyntax expression)
-        => expression switch
+    internal static SimpleNameSyntax? TryGetFlagName(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax identifier => identifier,
             MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax name } => name,
@@ -57,8 +57,8 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a guarded statement is a return, alone or as a single-statement block.</summary>
     /// <param name="statement">The guarded statement.</param>
     /// <returns><see langword="true"/> for the early-return shape.</returns>
-    private static bool IsReturnStatement(StatementSyntax statement)
-        => statement is ReturnStatementSyntax or BlockSyntax { Statements: [ReturnStatementSyntax] };
+    private static bool IsReturnStatement(StatementSyntax statement) =>
+        statement is ReturnStatementSyntax or BlockSyntax { Statements: [ReturnStatementSyntax] };
 
     /// <summary>Returns whether a node sits inside a lock statement below a limit node.</summary>
     /// <param name="node">The node to test.</param>
@@ -112,7 +112,7 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new LatchScan(TryGetFlagName(flag)!.Identifier.ValueText, ifStatement.Span.End, owner);
-        DescendantTraversalHelper.VisitDescendantTokens(owner, ref scan, static (in SyntaxToken token, ref LatchScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(owner, ref scan, static (in SyntaxToken token, ref LatchScan state) => state.Visit(in token));
         if (scan.Assignment is not { } assignment || !BindsToSameBoolField(context, flag, assignment))
         {
             return;
@@ -130,35 +130,27 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="flag">The guard's flag expression.</param>
     /// <param name="assignment">The later true-assignment.</param>
     /// <returns><see langword="true"/> when both ends are the same bool field.</returns>
-    private static bool BindsToSameBoolField(SyntaxNodeAnalysisContext context, ExpressionSyntax flag, AssignmentExpressionSyntax assignment)
-        => context.SemanticModel.GetSymbolInfo(flag, context.CancellationToken).Symbol
+    private static bool BindsToSameBoolField(in SyntaxNodeAnalysisContext context, ExpressionSyntax flag, AssignmentExpressionSyntax assignment) =>
+        context.SemanticModel.GetSymbolInfo(flag, context.CancellationToken).Symbol
             is IFieldSymbol { Type.SpecialType: SpecialType.System_Boolean } field
             && SymbolEqualityComparer.Default.Equals(
                 context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol,
                 field);
 
     /// <summary>Token-visitor state that finds a later unlocked <c>flag = true</c> assignment.</summary>
-    private sealed class LatchScan
+    /// <param name="name">The flag name to track.</param>
+    /// <param name="minimumPosition">The guard's end position.</param>
+    /// <param name="owner">The enclosing function.</param>
+    private sealed class LatchScan(string name, int minimumPosition, SyntaxNode owner)
     {
         /// <summary>The flag name being tracked.</summary>
-        private readonly string _name;
+        private readonly string _name = name;
 
         /// <summary>The guard's end position; only later writes count.</summary>
-        private readonly int _minimumPosition;
+        private readonly int _minimumPosition = minimumPosition;
 
         /// <summary>The enclosing function bounding lock checks.</summary>
-        private readonly SyntaxNode _owner;
-
-        /// <summary>Initializes a new instance of the <see cref="LatchScan"/> class.</summary>
-        /// <param name="name">The flag name to track.</param>
-        /// <param name="minimumPosition">The guard's end position.</param>
-        /// <param name="owner">The enclosing function.</param>
-        public LatchScan(string name, int minimumPosition, SyntaxNode owner)
-        {
-            _name = name;
-            _minimumPosition = minimumPosition;
-            _owner = owner;
-        }
+        private readonly SyntaxNode _owner = owner;
 
         /// <summary>Gets the matched true-assignment, when found.</summary>
         public AssignmentExpressionSyntax? Assignment { get; private set; }

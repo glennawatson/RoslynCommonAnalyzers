@@ -108,13 +108,6 @@ public sealed class Sst1446InheritanceDepthAnalyzer : DiagnosticAnalyzer
     /// <param name="ruleKey">The rule-specific key.</param>
     /// <param name="generalKey">The general key.</param>
     /// <returns>The configured value, or <see langword="false"/>.</returns>
-    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey)
-    {
-        if (options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed))
-        {
-            return parsed;
-        }
-
-        return options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
-    }
+    private static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
+        options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed) ? parsed : options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
 }

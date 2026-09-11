@@ -11,8 +11,8 @@ internal static class OperatorOverloadsBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit operator-set rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class OperatorOverloadsBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose operator set is complete, plus one that declares no operators at all.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -36,8 +36,8 @@ internal static class OperatorOverloadsBenchmarkSource
     /// overrides, both relational pairs, the ordering contract, and an arithmetic operator whose value
     /// equality is already present — and is still not reported.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class Plain{{index}}
            {
                public int Value { get; set; }
@@ -78,8 +78,8 @@ internal static class OperatorOverloadsBenchmarkSource
     /// without them, and they are silent — which is the point of the rule. <c>Vector</c> adds the arithmetic
     /// gap: a public class with <c>+</c> and <c>*</c> and no value equality, reported once on <c>+</c>.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class Money{{index}}
            {
                public int Cents { get; set; }

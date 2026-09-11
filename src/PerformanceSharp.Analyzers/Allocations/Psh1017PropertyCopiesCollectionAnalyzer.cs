@@ -74,9 +74,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } =>
             IsCopyMethodName(access.Name.Identifier.ValueText),
-        BaseObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } => true,
-        ArrayCreationExpressionSyntax { Initializer: not null } => true,
-        ImplicitArrayCreationExpressionSyntax => true,
+        BaseObjectCreationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } or ArrayCreationExpressionSyntax { Initializer: not null } or ImplicitArrayCreationExpressionSyntax => true,
         _ => false,
     };
 
@@ -92,7 +90,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeProperty(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, PropertyCopyOptions> optionsByTree)
     {
         var property = (PropertyDeclarationSyntax)context.Node;
@@ -125,7 +123,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static PropertyCopyOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, PropertyCopyOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -135,7 +133,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         options = PropertyCopyOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -226,8 +224,8 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node is one of the statement shapes the scan descends into.</summary>
     /// <param name="node">The child node.</param>
     /// <returns><see langword="true"/> when the node can hold further statements.</returns>
-    private static bool HoldsStatements(SyntaxNode node)
-        => node is StatementSyntax or ElseClauseSyntax or CatchClauseSyntax or FinallyClauseSyntax or SwitchSectionSyntax;
+    private static bool HoldsStatements(SyntaxNode node) =>
+        node is StatementSyntax or ElseClauseSyntax or CatchClauseSyntax or FinallyClauseSyntax or SwitchSectionSyntax;
 
     /// <summary>Returns an expression when, once unwrapped, it has the shape of a fresh allocation.</summary>
     /// <param name="expression">The expression the getter hands back.</param>
@@ -272,14 +270,14 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name is one of the copying calls the rule recognizes.</summary>
     /// <param name="name">The invoked member name.</param>
     /// <returns><see langword="true"/> for the materialization and clone names.</returns>
-    private static bool IsCopyMethodName(string name)
-        => name is ToArrayMethodName or ToListMethodName or ToHashSetMethodName or ToDictionaryMethodName or CloneMethodName;
+    private static bool IsCopyMethodName(string name) =>
+        name is ToArrayMethodName or ToListMethodName or ToHashSetMethodName or ToDictionaryMethodName or CloneMethodName;
 
     /// <summary>Returns whether a syntactically matched expression really allocates a collection copy.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="copy">The unwrapped allocating expression.</param>
     /// <returns><see langword="true"/> when the expression copies a collection on every evaluation.</returns>
-    private static bool IsCollectionAllocation(SyntaxNodeAnalysisContext context, ExpressionSyntax copy) => copy switch
+    private static bool IsCollectionAllocation(in SyntaxNodeAnalysisContext context, ExpressionSyntax copy) => copy switch
     {
         InvocationExpressionSyntax invocation => IsCopyingCall(context, invocation),
         BaseObjectCreationExpressionSyntax creation => IsSeedingConstructor(context, creation),
@@ -291,7 +289,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="invocation">The matched invocation.</param>
     /// <returns><see langword="true"/> when the call allocates a collection.</returns>
-    private static bool IsCopyingCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+    private static bool IsCopyingCall(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
     {
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
         {
@@ -313,8 +311,8 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The matched object creation.</param>
     /// <returns><see langword="true"/> when the constructor copies a source collection into a new one.</returns>
-    private static bool IsSeedingConstructor(SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation)
-        => context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
+    private static bool IsSeedingConstructor(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation) =>
+        context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
             && IsCollectionType(constructor.Parameters[0].Type)
             && constructor.ContainingType is { } created
             && IsCopyingCollectionType(created);
@@ -327,8 +325,8 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// and <c>Collection&lt;T&gt;</c> wrap the list they are handed instead of copying it, and a cached
     /// read-only view is the fix this rule suggests.
     /// </remarks>
-    private static bool IsCopyingCollectionType(INamedTypeSymbol type)
-        => type.ContainingNamespace is
+    private static bool IsCopyingCollectionType(INamedTypeSymbol type) =>
+        type.ContainingNamespace is
         {
             Name: "Generic" or "Concurrent",
             ContainingNamespace:

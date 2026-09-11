@@ -59,7 +59,7 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1008 for a no-key <c>SignedXml.CheckSignature</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="signedXmlType">The gated <c>SignedXml</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol signedXmlType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol signedXmlType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -106,8 +106,8 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the simple name an invocation targets, or <see langword="null"/> when it is not a simple call.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The invoked member's simple-name text, or <see langword="null"/>.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked)
-        => invoked switch
+    private static string? GetInvokedName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,

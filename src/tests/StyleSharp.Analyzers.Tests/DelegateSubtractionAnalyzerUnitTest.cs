@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDelegateSubtraction = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2448DelegateSubtractionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 {
     /// <summary>Verifies a binary subtraction of two delegate values is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BinaryDelegateSubtractionIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task BinaryDelegateSubtractionIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -27,9 +29,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a remove accessor spelled as a binary subtraction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BinarySubtractionInRemoveAccessorIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task BinarySubtractionInRemoveAccessorIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -45,9 +48,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting an inline delegate combination is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineCombinationRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task InlineCombinationRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -63,9 +67,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a parenthesized inline combination is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedCombinationRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task ParenthesizedCombinationRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -79,9 +84,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a local that was built as a combination is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedLocalRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CombinedLocalRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -96,9 +102,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a local that was grown with '+=' is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AugmentedLocalRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task AugmentedLocalRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -114,9 +121,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a field that the same member combined is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedFieldRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CombinedFieldRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -135,9 +143,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a combined local subtracted from inside a lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedLocalRemovalInsideLambdaIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CombinedLocalRemovalInsideLambdaIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -151,9 +160,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a delegate returned by a call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvocationResultRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task InvocationResultRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -171,9 +181,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a conditionally selected delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task ConditionalRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -187,9 +198,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a coalesced delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CoalesceRemovalIsReportedAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CoalesceRemovalIsReportedAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -203,9 +215,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies ordinary method-group unsubscription is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task MethodGroupUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -226,9 +239,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a generic method-group unsubscription is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericMethodGroupUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task GenericMethodGroupUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -248,9 +262,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies lambda and anonymous-method unsubscription is clean; that no-op removal is a different defect.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task LambdaUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -267,9 +282,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing a stored handler that was never combined is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StoredHandlerUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task StoredHandlerUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -289,9 +305,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing an explicitly created delegate is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateCreationUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task DelegateCreationUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -311,9 +328,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing a cast method group is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastMethodGroupUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CastMethodGroupUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -333,9 +351,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing a delegate read from a collection is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElementAccessUnsubscriptionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task ElementAccessUnsubscriptionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -351,9 +370,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies the mirror-shaped custom remove accessor is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomRemoveAccessorMirrorIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task CustomRemoveAccessorMirrorIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -369,9 +389,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies numeric subtraction shapes are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericSubtractionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task NumericSubtractionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -389,9 +410,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a numeric local built by addition and then subtracted is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericCombinedLocalIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task NumericCombinedLocalIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -407,9 +429,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies subtraction through a user-defined struct operator is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TimeSpanSubtractionIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task TimeSpanSubtractionIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -424,9 +447,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a name-only match against a different symbol's combination is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShadowedCombinationNameIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task ShadowedCombinationNameIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -448,9 +472,10 @@ public class DelegateSubtractionAnalyzerUnitTest
 
     /// <summary>Verifies a field combined only in another member is clean at this site.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldCombinedElsewhereIsCleanAsync()
-        => await VerifyDelegateSubtraction.VerifyAnalyzerAsync(
+    public Task FieldCombinedElsewhereIsCleanAsync() =>
+        VerifyDelegateSubtraction.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -475,10 +500,7 @@ public class DelegateSubtractionAnalyzerUnitTest
     {
         var test = new VerifyDelegateSubtraction.Test
         {
-            TestState =
-            {
-                OutputKind = Microsoft.CodeAnalysis.OutputKind.ConsoleApplication,
-            },
+            TestState = { OutputKind = Microsoft.CodeAnalysis.OutputKind.ConsoleApplication, },
             TestCode = """
                 System.Action a = () => { };
                 System.Action b = () => { };

@@ -70,13 +70,13 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
     /// An initializer or an argument is state the shared instance does not carry, so the shape is not
     /// one the fix can rewrite.
     /// </remarks>
-    internal static bool IsParameterlessCreationShape(BaseObjectCreationExpressionSyntax creation)
-        => creation is { Initializer: null, ArgumentList.Arguments.Count: 0 };
+    internal static bool IsParameterlessCreationShape(BaseObjectCreationExpressionSyntax creation) =>
+        creation is { Initializer: null, ArgumentList.Arguments.Count: 0 };
 
     /// <summary>Reports PSH1022 for a construction of the base <c>EventArgs</c> the singleton could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    private static void AnalyzeCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsParameterlessCreationShape(creation) || !IsNamedEventArgsOrImplicit(creation))
@@ -105,8 +105,8 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
     /// A target-typed <c>new()</c> names nothing, so it has to be bound to be judged; every other
     /// <c>new Foo()</c> in the file is settled by a string comparison instead.
     /// </remarks>
-    private static bool IsNamedEventArgsOrImplicit(BaseObjectCreationExpressionSyntax creation)
-        => creation is not ObjectCreationExpressionSyntax explicitCreation
+    private static bool IsNamedEventArgsOrImplicit(BaseObjectCreationExpressionSyntax creation) =>
+        creation is not ObjectCreationExpressionSyntax explicitCreation
             || GetSimpleName(explicitCreation.Type) == EventArgsTypeName;
 
     /// <summary>Returns whether the fix can name <c>EventArgs</c> at the allocation's position.</summary>

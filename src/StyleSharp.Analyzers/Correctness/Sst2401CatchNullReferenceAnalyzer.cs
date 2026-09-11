@@ -64,10 +64,10 @@ public sealed class Sst2401CatchNullReferenceAnalyzer : DiagnosticAnalyzer
     /// way round, so the rule follows the name into the filter — through a pattern, a <c>typeof</c>, or
     /// whatever else names the type.
     /// </remarks>
-    private static void AnalyzeFilter(SyntaxNodeAnalysisContext context, CatchFilterClauseSyntax filter)
+    private static void AnalyzeFilter(in SyntaxNodeAnalysisContext context, CatchFilterClauseSyntax filter)
     {
         var state = new FilterScan(context.SemanticModel, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, FilterScan>(filter, ref state, VisitFilterName);
+        _ = DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, FilterScan>(filter, ref state, VisitFilterName);
         if (state.Match is not { } match)
         {
             return;
@@ -99,7 +99,7 @@ public sealed class Sst2401CatchNullReferenceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a caught type once it binds to <see cref="NullReferenceException"/>.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="type">The caught type as written.</param>
-    private static void ReportWhenNullReference(SyntaxNodeAnalysisContext context, TypeSyntax type)
+    private static void ReportWhenNullReference(in SyntaxNodeAnalysisContext context, TypeSyntax type)
     {
         if (!IsSystemNullReferenceException(context.SemanticModel.GetSymbolInfo(type, context.CancellationToken).Symbol))
         {
@@ -128,8 +128,8 @@ public sealed class Sst2401CatchNullReferenceAnalyzer : DiagnosticAnalyzer
     /// declares its own <c>NullReferenceException</c> elsewhere is left alone and no compilation pays for a
     /// metadata lookup it never needed.
     /// </remarks>
-    private static bool IsSystemNullReferenceException(ISymbol? symbol)
-        => symbol is INamedTypeSymbol { Name: NullReferenceExceptionName, ContainingNamespace: { Name: SystemNamespace } ns }
+    private static bool IsSystemNullReferenceException(ISymbol? symbol) =>
+        symbol is INamedTypeSymbol { Name: NullReferenceExceptionName, ContainingNamespace: { Name: SystemNamespace } ns }
             && ns.ContainingNamespace is { IsGlobalNamespace: true };
 
     /// <summary>The state threaded through an exception filter's name scan.</summary>

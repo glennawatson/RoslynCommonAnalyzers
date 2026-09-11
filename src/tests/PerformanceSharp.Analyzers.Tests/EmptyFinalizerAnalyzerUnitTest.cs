@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyFinalizer = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1002EmptyFinalizerAnalyzer,
     PerformanceSharp.Analyzers.Psh1002EmptyFinalizerCodeFixProvider>;
@@ -75,9 +76,10 @@ public class EmptyFinalizerAnalyzerUnitTest
 
     /// <summary>Verifies a finalizer that does work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyFinalizerIsCleanAsync()
-        => await VerifyEmptyFinalizer.VerifyAnalyzerAsync(
+    public Task NonEmptyFinalizerIsCleanAsync() =>
+        VerifyEmptyFinalizer.VerifyAnalyzerAsync(
             """
             public class C
             {

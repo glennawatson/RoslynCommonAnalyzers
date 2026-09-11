@@ -31,8 +31,8 @@ public sealed class Sst2468UnimplementedPartialMethodAnalyzer : DiagnosticAnalyz
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.UnimplementedPartialMethod);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -114,7 +114,7 @@ public sealed class Sst2468UnimplementedPartialMethodAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a modifier list carries <c>partial</c> and no accessibility modifier.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns><see langword="true"/> for a partial declaration with no accessibility modifier.</returns>
-    private static bool IsUnqualifiedPartial(SyntaxTokenList modifiers)
+    private static bool IsUnqualifiedPartial(in SyntaxTokenList modifiers)
     {
         var hasPartial = false;
         for (var i = 0; i < modifiers.Count; i++)
@@ -136,8 +136,8 @@ public sealed class Sst2468UnimplementedPartialMethodAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a modifier kind is one of the four accessibility modifiers.</summary>
     /// <param name="rawKind">The modifier token's raw syntax kind.</param>
     /// <returns><see langword="true"/> for <c>public</c>, <c>private</c>, <c>protected</c>, or <c>internal</c>.</returns>
-    private static bool IsAccessibilityModifier(int rawKind)
-        => rawKind is (int)SyntaxKind.PublicKeyword
+    private static bool IsAccessibilityModifier(int rawKind) =>
+        rawKind is (int)SyntaxKind.PublicKeyword
             or (int)SyntaxKind.PrivateKeyword
             or (int)SyntaxKind.ProtectedKeyword
             or (int)SyntaxKind.InternalKeyword;

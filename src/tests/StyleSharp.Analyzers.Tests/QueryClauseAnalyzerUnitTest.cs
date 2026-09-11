@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyQueryClause = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.QueryClauseAnalyzer>;
 
@@ -12,9 +13,10 @@ public class QueryClauseAnalyzerUnitTest
 {
     /// <summary>Verifies a blank line between clauses is reported (SST1102).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineBetweenClausesReportedAsync()
-        => await VerifyQueryClause.VerifyAnalyzerAsync(
+    public Task BlankLineBetweenClausesReportedAsync() =>
+        VerifyQueryClause.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -31,9 +33,10 @@ public class QueryClauseAnalyzerUnitTest
 
     /// <summary>Verifies clauses mixing single-line and multi-line layout are reported (SST1103).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedClauseLayoutReportedAsync()
-        => await VerifyQueryClause.VerifyAnalyzerAsync(
+    public Task MixedClauseLayoutReportedAsync() =>
+        VerifyQueryClause.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -48,9 +51,10 @@ public class QueryClauseAnalyzerUnitTest
 
     /// <summary>Verifies a clause sharing a multi-line clause's last line is reported (SST1104).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClauseAfterMultiLineClauseReportedAsync()
-        => await VerifyQueryClause.VerifyAnalyzerAsync(
+    public Task ClauseAfterMultiLineClauseReportedAsync() =>
+        VerifyQueryClause.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -66,9 +70,10 @@ public class QueryClauseAnalyzerUnitTest
 
     /// <summary>Verifies a multi-line clause that does not begin on its own line is reported (SST1105).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiLineClauseNotOnOwnLineReportedAsync()
-        => await VerifyQueryClause.VerifyAnalyzerAsync(
+    public Task MultiLineClauseNotOnOwnLineReportedAsync() =>
+        VerifyQueryClause.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -84,9 +89,10 @@ public class QueryClauseAnalyzerUnitTest
 
     /// <summary>Verifies clauses each on their own line are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClausesOnSeparateLinesAreCleanAsync()
-        => await VerifyQueryClause.VerifyAnalyzerAsync(
+    public Task ClausesOnSeparateLinesAreCleanAsync() =>
+        VerifyQueryClause.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Linq;

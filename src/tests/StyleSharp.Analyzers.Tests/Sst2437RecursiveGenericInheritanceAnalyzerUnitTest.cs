@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2437RecursiveGenericInheritanceAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2437RecursiveGenericInheritanceAnalyzerUnitTest
 {
     /// <summary>Verifies a type nested inside its own base's arguments is reported and does not crash the walk.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecursiveGenericBaseIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task RecursiveGenericBaseIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base<T>
             {
@@ -27,9 +29,10 @@ public class Sst2437RecursiveGenericInheritanceAnalyzerUnitTest
 
     /// <summary>Verifies the curiously-recurring self-reference (depth one) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CuriouslyRecurringBaseIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CuriouslyRecurringBaseIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base<T>
             {
@@ -42,9 +45,10 @@ public class Sst2437RecursiveGenericInheritanceAnalyzerUnitTest
 
     /// <summary>Verifies a non-generic self-referential base is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonGenericSelfReferenceIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonGenericSelfReferenceIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class BaseNode<T>
             {
@@ -57,9 +61,10 @@ public class Sst2437RecursiveGenericInheritanceAnalyzerUnitTest
 
     /// <summary>Verifies the type appearing deep in another generic, but not inside its own arguments, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeNotNestedInsideOwnArgumentsIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TypeNotNestedInsideOwnArgumentsIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base<T>
             {
@@ -76,9 +81,10 @@ public class Sst2437RecursiveGenericInheritanceAnalyzerUnitTest
 
     /// <summary>Verifies a plain generic type with no base list is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainGenericTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PlainGenericTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Container<T>
             {

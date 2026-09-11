@@ -41,8 +41,7 @@ public sealed class Sst2265FoldFluentCallChainAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for an identifier, <c>this</c>, or a member-access chain of those.</returns>
     internal static bool IsPureReceiver(ExpressionSyntax expression) => expression switch
     {
-        IdentifierNameSyntax => true,
-        ThisExpressionSyntax => true,
+        IdentifierNameSyntax or ThisExpressionSyntax => true,
         MemberAccessExpressionSyntax member => member.IsKind(SyntaxKind.SimpleMemberAccessExpression) && IsPureReceiver(member.Expression),
         _ => false,
     };

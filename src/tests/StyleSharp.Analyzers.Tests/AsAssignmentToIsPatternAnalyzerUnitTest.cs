@@ -2,16 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAsPattern = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2274AsAssignmentToIsPatternAnalyzer,
     StyleSharp.Analyzers.Sst2274AsAssignmentToIsPatternCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>
-/// Unit tests for SST2274 (convert an <c>as</c> assignment plus null check into an <c>is</c> declaration
-/// pattern) and its code fix.
-/// </summary>
+/// <summary>Unit tests for SST2274 (convert an <c>as</c> assignment plus null check into an <c>is</c> declaration pattern) and its code fix.</summary>
 public class AsAssignmentToIsPatternAnalyzerUnitTest
 {
     /// <summary>Verifies a declaration separated from its guard by a region is not folded.</summary>
@@ -336,9 +334,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies an <c>as</c> to a nullable value type is left alone (the pattern would change the type).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableValueTypeTargetIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task NullableValueTypeTargetIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -357,9 +356,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a local reassigned inside the guarded branch is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReassignedLocalIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task ReassignedLocalIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -379,9 +379,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a null check that is not the immediately following statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentNullCheckIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task NonAdjacentNullCheckIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -401,9 +402,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies an immediately following <c>if</c> that does not null-check the local is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedConditionIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task UnrelatedConditionIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -422,9 +424,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a null pattern that tests a different value than the local is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullPatternOnOtherValueIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task NullPatternOnOtherValueIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -443,9 +446,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies passing the local by reference in the guarded branch leaves it alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ByReferenceArgumentIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task ByReferenceArgumentIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -467,9 +471,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies aliasing the local with a <c>ref</c> local in the guarded branch leaves it alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefLocalAliasIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task RefLocalAliasIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -490,9 +495,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies the guarded-use shape is left alone when the local is read after the if.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedUseWithReadAfterIfIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task GuardedUseWithReadAfterIfIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -511,9 +517,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a side-effecting <c>as</c> operand is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingOperandIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task SideEffectingOperandIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -534,9 +541,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a multi-declarator declaration is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclaratorsIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task MultipleDeclaratorsIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -556,9 +564,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies the early-exit shape is left alone when the guard body reads the local.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EarlyExitGuardReadingLocalIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task EarlyExitGuardReadingLocalIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -578,9 +587,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a null guard whose body can fall through is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExitingNullGuardIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task NonExitingNullGuardIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -599,9 +609,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a compound null-check condition is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundConditionIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task CompoundConditionIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -620,9 +631,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a local declared as a base type of the <c>as</c> target is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseTypedLocalIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task BaseTypedLocalIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -674,9 +686,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a <c>using</c> declaration is left alone so its disposal is not dropped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task UsingDeclarationIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -695,9 +708,10 @@ public class AsAssignmentToIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies a local declared directly in a switch section (not a block) is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchSectionLocalIsCleanAsync()
-        => await VerifyAsPattern.VerifyAnalyzerAsync(
+    public Task SwitchSectionLocalIsCleanAsync() =>
+        VerifyAsPattern.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

@@ -50,8 +50,7 @@ public sealed class Sst1454CompositeFormatStringAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var suppliedCount = arguments.Count - formatIndex - 1;
-        if (maximumIndex < suppliedCount)
+        if (maximumIndex < (arguments.Count - formatIndex - 1))
         {
             return;
         }
@@ -95,8 +94,8 @@ public sealed class Sst1454CompositeFormatStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an argument is positional and does not use ref-like syntax.</summary>
     /// <param name="argument">The argument.</param>
     /// <returns><see langword="true"/> for normal positional value arguments.</returns>
-    private static bool IsPositionalValueArgument(ArgumentSyntax argument)
-        => argument.NameColon is null && argument.RefKindKeyword.RawKind == 0;
+    private static bool IsPositionalValueArgument(ArgumentSyntax argument) =>
+        argument.NameColon is null && argument.RefKindKeyword.RawKind == 0;
 
     /// <summary>Advances past an escaped brace pair.</summary>
     /// <param name="format">The format string.</param>

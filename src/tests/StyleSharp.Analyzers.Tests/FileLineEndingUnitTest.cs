@@ -4,6 +4,7 @@
 
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -20,38 +21,38 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class FileLineEndingUnitTest
 {
-    /// <summary>The sample file written with line-feed endings throughout.</summary>
-    private const string LineFeedSource = "internal class C\n{\n}\n";
-
     /// <summary>Verifies carriage-return/line-feed endings are reported and normalised to line feed by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CarriageReturnLineFeedNormalisedToLineFeedByDefaultAsync()
-        => await AssertAsync(
+    public Task CarriageReturnLineFeedNormalisedToLineFeedByDefaultAsync() =>
+        AssertAsync(
             "internal class C\r\n{\r\n}\r\n",
             "dotnet_diagnostic.SST1532.severity = warning",
             expectedDiagnostics: 1,
-            LineFeedSource);
+            "internal class C\n{\n}\n");
 
     /// <summary>Verifies line-feed endings are reported and normalised to CRLF when 'crlf' is configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LineFeedNormalisedToCarriageReturnLineFeedWhenConfiguredAsync()
-        => await AssertAsync(
-            LineFeedSource,
+    public Task LineFeedNormalisedToCarriageReturnLineFeedWhenConfiguredAsync() =>
+        AssertAsync(
+            "internal class C\n{\n}\n",
             "dotnet_diagnostic.SST1532.severity = warning\nstylesharp.line_ending = crlf",
             expectedDiagnostics: 1,
             "internal class C\r\n{\r\n}\r\n");
 
     /// <summary>Verifies a file whose endings already all match the configured style is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsistentLineFeedFileIsCleanAsync()
-        => await AssertAsync(
-            LineFeedSource,
+    public Task ConsistentLineFeedFileIsCleanAsync() =>
+        AssertAsync(
+            "internal class C\n{\n}\n",
             "dotnet_diagnostic.SST1532.severity = warning",
             expectedDiagnostics: 0,
-            LineFeedSource);
+            "internal class C\n{\n}\n");
 
     /// <summary>Runs the analyzer and, when a diagnostic is expected, applies the code fix and checks the result.</summary>
     /// <param name="source">The source whose exact line endings are preserved.</param>
@@ -62,9 +63,9 @@ public class FileLineEndingUnitTest
     private static async Task AssertAsync(string source, string configBody, int expectedDiagnostics, string expectedFixed)
     {
         using var workspace = new AdhocWorkspace();
-        var config = "root = true\n[*.cs]\n" + configBody + "\n";
+        var config = $"root = true\n[*.cs]\n{configBody}\n";
         var project = workspace.CurrentSolution
-            .AddProject("Test", "Test", LanguageNames.CSharp)
+            .AddProject(nameof(Test), nameof(Test), LanguageNames.CSharp)
             .AddMetadataReference(RuntimeMetadataReferences.CoreLibrary)
             .AddAnalyzerConfigDocument("/.editorconfig", SourceText.From(config), filePath: "/.editorconfig").Project;
         var document = project.AddDocument("Test0.cs", SourceText.From(source), filePath: "/Test0.cs");

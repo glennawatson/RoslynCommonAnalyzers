@@ -77,7 +77,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeIfChain(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
     {
         var head = (IfStatementSyntax)context.Node;
@@ -103,7 +103,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the first pair of <c>if</c> branches with the same body.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="head">The chain's first branch.</param>
-    private static void ReportDuplicateIfBranch(SyntaxNodeAnalysisContext context, IfStatementSyntax head)
+    private static void ReportDuplicateIfBranch(in SyntaxNodeAnalysisContext context, IfStatementSyntax head)
     {
         // Walk the conditioned branches (the head and each 'else if'), ignoring the terminal 'else', and
         // report the first branch whose body matches an earlier one.
@@ -117,11 +117,13 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
 
             for (var j = i + 1; j < branches.Count; j++)
             {
-                if (HaveSameBody(branches[i].Statement, branches[j].Statement))
+                if (!HaveSameBody(branches[i].Statement, branches[j].Statement))
                 {
-                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, branches[j].IfKeyword.GetLocation()));
-                    return;
+                    continue;
                 }
+
+                context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, branches[j].IfKeyword.GetLocation()));
+                return;
             }
         }
     }
@@ -201,7 +203,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeConditionalExpression(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
     {
         var conditional = (ConditionalExpressionSyntax)context.Node;
@@ -221,7 +223,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeSwitchStatement(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
     {
         var switchStatement = (SwitchStatementSyntax)context.Node;
@@ -245,7 +247,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="switchStatement">The switch statement.</param>
     /// <param name="sections">The switch's sections.</param>
-    private static void ReportDuplicateSection(SyntaxNodeAnalysisContext context, SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections)
+    private static void ReportDuplicateSection(in SyntaxNodeAnalysisContext context, SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections)
     {
         for (var i = 0; i < sections.Count; i++)
         {
@@ -271,7 +273,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void AnalyzeSwitchExpression(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
     {
         var switchExpression = (SwitchExpressionSyntax)context.Node;
@@ -294,7 +296,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the first pair of switch-expression arms that produce the same value.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="arms">The switch expression's arms.</param>
-    private static void ReportDuplicateArm(SyntaxNodeAnalysisContext context, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms)
+    private static void ReportDuplicateArm(in SyntaxNodeAnalysisContext context, SeparatedSyntaxList<SwitchExpressionArmSyntax> arms)
     {
         for (var i = 0; i < arms.Count; i++)
         {
@@ -305,13 +307,13 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
 
             for (var j = i + 1; j < arms.Count; j++)
             {
-                if (!IsDiscardArm(arms[j])
-                    && SyntaxFactory.AreEquivalent(arms[i].Expression, arms[j].Expression, topLevel: false)
-                    && CanCombine(arms[i], arms[j]))
+                if (IsDiscardArm(arms[j]) || !SyntaxFactory.AreEquivalent(arms[i].Expression, arms[j].Expression, topLevel: false) || !CanCombine(arms[i], arms[j]))
                 {
-                    context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, arms[j].Pattern.GetLocation()));
-                    return;
+                    continue;
                 }
+
+                context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.DuplicateBranchImplementation, arms[j].Pattern.GetLocation()));
+                return;
             }
         }
     }
@@ -319,8 +321,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a switch-expression arm matches the discard pattern with no guard.</summary>
     /// <param name="arm">The switch-expression arm.</param>
     /// <returns><see langword="true"/> for a <c>_</c> arm.</returns>
-    private static bool IsDiscardArm(SwitchExpressionArmSyntax arm)
-        => arm.Pattern is DiscardPatternSyntax && arm.WhenClause is null;
+    private static bool IsDiscardArm(SwitchExpressionArmSyntax arm) =>
+        arm.Pattern is DiscardPatternSyntax && arm.WhenClause is null;
 
     /// <summary>Returns whether two arms could be written as one arm with an <c>or</c> pattern.</summary>
     /// <param name="first">The earlier arm.</param>
@@ -331,8 +333,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// guard. Two arms that map different shapes onto the same value are then the only way to write it,
     /// so the repetition says nothing about a mistake.
     /// </remarks>
-    private static bool CanCombine(SwitchExpressionArmSyntax first, SwitchExpressionArmSyntax second)
-        => first.WhenClause is null
+    private static bool CanCombine(SwitchExpressionArmSyntax first, SwitchExpressionArmSyntax second) =>
+        first.WhenClause is null
            && second.WhenClause is null
            && !BindsAName(first.Pattern)
            && !BindsAName(second.Pattern);
@@ -359,8 +361,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The earlier section's position.</param>
     /// <param name="second">The later section's position.</param>
     /// <returns><see langword="true"/> when merging them is legal and changes nothing.</returns>
-    private static bool CanMergeSections(SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections, int first, int second)
-        => !HasDefaultOrGotoLabel(sections[second])
+    private static bool CanMergeSections(SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections, int first, int second) =>
+        !HasDefaultOrGotoLabel(sections[second])
             && !BindsANameOrGuards(sections[second])
             && !MergeWouldReorderPatterns(sections, first, second)
             && AreEquivalentStatements(sections[first].Statements, sections[second].Statements)
@@ -445,7 +447,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     private static bool ContainsGoto(SwitchStatementSyntax switchStatement)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<GotoStatementSyntax, bool>(switchStatement, ref found, VisitGoto);
+        _ = DescendantTraversalHelper.VisitDescendants<GotoStatementSyntax, bool>(switchStatement, ref found, VisitGoto);
         return found;
     }
 
@@ -518,8 +520,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="switchExpression">The switch expression.</param>
     /// <returns><see langword="true"/> when no input falls through to a thrown match failure.</returns>
-    private static bool IsExhaustive(SyntaxNodeAnalysisContext context, SwitchExpressionSyntax switchExpression)
-        => context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation { IsExhaustive: true };
+    private static bool IsExhaustive(in SyntaxNodeAnalysisContext context, SwitchExpressionSyntax switchExpression) =>
+        context.SemanticModel.GetOperation(switchExpression, context.CancellationToken) is ISwitchExpressionOperation { IsExhaustive: true };
 
     /// <summary>Returns whether a duplicated body is big enough to be worth reporting.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -527,17 +529,17 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="statements">The size of one branch's body, in statements.</param>
     /// <returns><see langword="true"/> when the body meets the configured minimum.</returns>
     private static bool IsBodyLargeEnough(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree,
-        int statements)
-        => statements >= GetOptions(context, optionsByTree).MinimumStatements;
+        int statements) =>
+        statements >= GetOptions(context, optionsByTree).MinimumStatements;
 
     /// <summary>Reads the settings for the construct's tree, parsing each tree's options at most once.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static IdenticalBranchesOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -547,7 +549,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         }
 
         options = IdenticalBranchesOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -599,26 +601,26 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the number of statements a branch body runs.</summary>
     /// <param name="body">The branch's body.</param>
     /// <returns>The block's statement count, or 1 for a bare embedded statement.</returns>
-    private static int GetStatementCount(StatementSyntax body)
-        => body is BlockSyntax block ? block.Statements.Count : 1;
+    private static int GetStatementCount(StatementSyntax body) =>
+        body is BlockSyntax block ? block.Statements.Count : 1;
 
     /// <summary>Gets one statement of a branch body by position.</summary>
     /// <param name="body">The branch's body.</param>
     /// <param name="index">The statement's position in the body.</param>
     /// <returns>The statement at that position.</returns>
-    private static StatementSyntax GetStatement(StatementSyntax body, int index)
-        => body is BlockSyntax block ? block.Statements[index] : body;
+    private static StatementSyntax GetStatement(StatementSyntax body, int index) =>
+        body is BlockSyntax block ? block.Statements[index] : body;
 
     /// <summary>Names what is duplicated in an <c>if</c> chain.</summary>
     /// <param name="branches">The number of branches, counting the trailing <c>else</c>.</param>
     /// <returns>The phrase the message opens with.</returns>
-    private static string DescribeIfChain(int branches)
-        => branches == PlainIfElseBranchCount ? IfElseBranchesPhrase : Describe(branches, " branches of this 'if' chain");
+    private static string DescribeIfChain(int branches) =>
+        branches == PlainIfElseBranchCount ? IfElseBranchesPhrase : Describe(branches, " branches of this 'if' chain");
 
     /// <summary>Names what is duplicated in a construct with a countable number of branches.</summary>
     /// <param name="count">The number of branches or arms.</param>
     /// <param name="suffix">The phrase naming the construct.</param>
     /// <returns>The phrase the message opens with.</returns>
-    private static string Describe(int count, string suffix)
-        => "All " + count.ToString(CultureInfo.InvariantCulture) + suffix;
+    private static string Describe(int count, string suffix) =>
+        $"All {count.ToString(CultureInfo.InvariantCulture)}{suffix}";
 }

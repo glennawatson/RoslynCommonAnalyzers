@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -76,9 +77,10 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
 
     /// <summary>Verifies the IANA-to-Windows id conversion is reported but left for a human to convert.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IanaToWindowsIsFlaggedWithoutFixAsync()
-        => await VerifyCleanAsync("""
+    public Task IanaToWindowsIsFlaggedWithoutFixAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public string M(string id) => {|PSH1419:TimeZoneConverter.TZConvert.IanaToWindows(id)|};
@@ -87,9 +89,10 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
 
     /// <summary>Verifies the Windows-to-IANA id conversion is reported but left for a human to convert.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WindowsToIanaIsFlaggedWithoutFixAsync()
-        => await VerifyCleanAsync("""
+    public Task WindowsToIanaIsFlaggedWithoutFixAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public string M(string id) => {|PSH1419:TimeZoneConverter.TZConvert.WindowsToIana(id)|};
@@ -110,21 +113,17 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
                               }
                               """ + TimeZoneConverterStub;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = Source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a same-named static method of the user's own is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserStaticGetTimeZoneInfoIsCleanAsync()
-        => await VerifyCleanAsync("""
+    public Task UserStaticGetTimeZoneInfoIsCleanAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public static System.TimeZoneInfo GetTimeZoneInfo(string id) => System.TimeZoneInfo.Utc;
@@ -135,9 +134,10 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
 
     /// <summary>Verifies a same-named instance method of the user's own is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserInstanceGetTimeZoneInfoIsCleanAsync()
-        => await VerifyCleanAsync("""
+    public Task UserInstanceGetTimeZoneInfoIsCleanAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public System.TimeZoneInfo GetTimeZoneInfo(string id) => System.TimeZoneInfo.Utc;
@@ -148,9 +148,10 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
 
     /// <summary>Verifies invocations that name no converter method are ignored on the clean path.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedInvocationsAreCleanAsync()
-        => await VerifyCleanAsync("""
+    public Task UnrelatedInvocationsAreCleanAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public void M(System.Func<int>[] fns)
@@ -165,9 +166,10 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent in a project that does not reference the converter package.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuleIsSilentWithoutPackageAsync()
-        => await VerifyCleanAsync("""
+    public Task RuleIsSilentWithoutPackageAsync() =>
+        VerifyCleanAsync("""
             public class C
             {
                 public static System.TimeZoneInfo GetTimeZoneInfo(string id) => System.TimeZoneInfo.Utc;
@@ -182,12 +184,7 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -195,5 +192,6 @@ public class PreferBuiltInTimeZoneAnalyzerUnitTest
     /// <summary>Runs a verification whose source is unchanged by any fix, against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source, which may carry report-only markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

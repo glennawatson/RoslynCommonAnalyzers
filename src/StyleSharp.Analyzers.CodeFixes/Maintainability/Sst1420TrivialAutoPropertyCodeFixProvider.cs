@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Converts an SST1420 property to an auto-property and removes its backing field.</summary>
@@ -68,8 +70,8 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         SyntaxNode root,
         SemanticModel model,
         PropertyDeclarationSyntax property,
-        CancellationToken cancellationToken)
-        => Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
+        CancellationToken cancellationToken) =>
+        Sst1420TrivialAutoPropertyAnalyzer.TryGetSingleBackingFieldName(property, out var fieldName)
             ? ApplyAsync(document, root, model, property, fieldName!, cancellationToken)
             : Task.FromResult(document);
 
@@ -87,22 +89,16 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
         SemanticModel model,
         PropertyDeclarationSyntax property,
         string fieldName,
-        CancellationToken cancellationToken)
-    {
-        if (!FieldReferenceAnalysis.TryFindSingleUseBackingField(
+        CancellationToken cancellationToken) => !FieldReferenceAnalysis.TryFindSingleUseBackingField(
             model,
             property,
             fieldName,
             cancellationToken,
             out var field,
             out var variable,
-            out _))
-        {
-            return Task.FromResult(document);
-        }
-
-        return Task.FromResult(Apply(document, root, property, field!, variable!));
-    }
+            out _)
+            ? Task.FromResult(document)
+            : Task.FromResult(Apply(document, root, property, field!, variable!));
 
     /// <summary>Rewrites the property and removes its backing-field declaration.</summary>
     /// <param name="document">The document.</param>
@@ -175,8 +171,9 @@ public sealed class Sst1420TrivialAutoPropertyCodeFixProvider : CodeFixProvider
     /// The braces and semicolon carry their spacing directly rather than relying on a formatting pass,
     /// so the fix stays a pure syntax rewrite.
     /// </remarks>
-    private static AccessorListSyntax CreateGetOnlyAccessorList()
-        => SyntaxFactory.AccessorList(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static AccessorListSyntax CreateGetOnlyAccessorList() =>
+        SyntaxFactory.AccessorList(
             SyntaxFactory.Token(default, SyntaxKind.OpenBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             SyntaxFactory.SingletonList(
                 SyntaxFactory.AccessorDeclaration(SyntaxKind.GetAccessorDeclaration)

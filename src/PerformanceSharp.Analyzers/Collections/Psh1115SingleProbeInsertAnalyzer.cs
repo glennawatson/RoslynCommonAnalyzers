@@ -75,20 +75,14 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     internal static (ExpressionSyntax Receiver, ExpressionSyntax Key)? TryGetNegatedGuard(
         IfStatementSyntax ifStatement,
         string methodName,
-        int argumentCount)
-    {
-        if (ifStatement.Else is not null
+        int argumentCount) => ifStatement.Else is not null
             || ifStatement.Condition is not PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } negation
             || negation.Operand is not InvocationExpressionSyntax guard
             || guard.ArgumentList.Arguments.Count != argumentCount
             || guard.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != methodName)
-        {
-            return null;
-        }
-
-        return (access.Expression, guard.ArgumentList.Arguments[0].Expression);
-    }
+            || access.Name.Identifier.ValueText != methodName
+            ? null
+            : (access.Expression, guard.ArgumentList.Arguments[0].Expression);
 
     /// <summary>Returns the indexer store assigned inside the TryAdd shape's guarded statement.</summary>
     /// <param name="ifStatement">The if statement to inspect.</param>
@@ -112,8 +106,8 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The guard receiver.</param>
     /// <param name="key">The guard key.</param>
     /// <returns><see langword="true"/> when receiver and key are structurally identical.</returns>
-    private static bool IsSameElementAccess(ExpressionSyntax expression, ExpressionSyntax receiver, ExpressionSyntax key)
-        => expression is ElementAccessExpressionSyntax { ArgumentList.Arguments: [var index] } element
+    private static bool IsSameElementAccess(ExpressionSyntax expression, ExpressionSyntax receiver, ExpressionSyntax key) =>
+        expression is ElementAccessExpressionSyntax { ArgumentList.Arguments: [var index] } element
             && SyntaxFactory.AreEquivalent(element.Expression, receiver)
             && SyntaxFactory.AreEquivalent(index.Expression, key);
 
@@ -121,7 +115,7 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dictionaryType">The dictionary type definition.</param>
     /// <param name="slotShapeEnabled">Whether the value-slot API exists in the compilation.</param>
-    private static void AnalyzeIf(SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, bool slotShapeEnabled)
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, bool slotShapeEnabled)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
         if (TryGetTryAddShape(context, ifStatement) || !slotShapeEnabled)
@@ -136,7 +130,7 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="ifStatement">The if statement.</param>
     /// <returns><see langword="true"/> when the shape matched and was handled.</returns>
-    private static bool TryGetTryAddShape(SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement)
+    private static bool TryGetTryAddShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement)
     {
         if (TryGetNegatedGuard(ifStatement, ContainsKeyMethodName, argumentCount: 1) is not { } guard
             || TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key) is null)
@@ -162,7 +156,7 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="ifStatement">The if statement.</param>
     /// <param name="dictionaryType">The dictionary type definition.</param>
-    private static void AnalyzeValueSlotShape(SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, INamedTypeSymbol dictionaryType)
+    private static void AnalyzeValueSlotShape(in SyntaxNodeAnalysisContext context, IfStatementSyntax ifStatement, INamedTypeSymbol dictionaryType)
     {
         if (TryGetNegatedGuard(ifStatement, TryGetValueMethodName, argumentCount: 2) is not { } guard
             || !EndsWithStore(ifStatement, guard.Receiver, guard.Key))
@@ -198,12 +192,9 @@ public sealed class Psh1115SingleProbeInsertAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment)
-        {
-            return IsSameElementAccess(assignment.Left, receiver, key);
-        }
-
-        return expression is InvocationExpressionSyntax { ArgumentList.Arguments: [var first, _] } invocation
+        return expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+            ? IsSameElementAccess(assignment.Left, receiver, key)
+            : expression is InvocationExpressionSyntax { ArgumentList.Arguments: [var first, _] } invocation
             && invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: AddMethodName } access
             && SyntaxFactory.AreEquivalent(access.Expression, receiver)
             && SyntaxFactory.AreEquivalent(first.Expression, key);

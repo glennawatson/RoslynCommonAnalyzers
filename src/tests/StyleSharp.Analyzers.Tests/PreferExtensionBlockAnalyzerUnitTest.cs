@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyPreferExtension = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1703PreferExtensionBlockAnalyzer>;
@@ -13,9 +14,10 @@ public class PreferExtensionBlockAnalyzerUnitTest
 {
     /// <summary>Verifies a classic this-parameter extension method is reported (SST1703) on C# 14.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassicExtensionMethodReportedAsync()
-        => await RunAsync(
+    public Task ClassicExtensionMethodReportedAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -25,9 +27,10 @@ public class PreferExtensionBlockAnalyzerUnitTest
 
     /// <summary>Verifies a non-extension static method is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExtensionMethodIsCleanAsync()
-        => await RunAsync(
+    public Task NonExtensionMethodIsCleanAsync() =>
+        RunAsync(
             """
             public static class Ext
             {
@@ -40,10 +43,7 @@ public class PreferExtensionBlockAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source)
     {
-        var test = new VerifyPreferExtension.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyPreferExtension.Test { TestCode = source };
 
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {

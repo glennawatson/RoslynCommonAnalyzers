@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,12 +23,13 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Make the struct readonly", nameof(Psh1014ReadonlyStructCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Make the struct readonly", nameof(Psh1014ReadonlyStructCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Builds the declaration with a readonly modifier in standard position.</summary>
     /// <param name="declaration">The struct declaration to rewrite.</param>
@@ -46,11 +49,13 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
         var insertIndex = modifiers.Count;
         for (var i = 0; i < modifiers.Count; i++)
         {
-            if (modifiers[i].IsKind(SyntaxKind.RefKeyword) || modifiers[i].IsKind(SyntaxKind.UnsafeKeyword))
+            if (!modifiers[i].IsKind(SyntaxKind.RefKeyword) && !modifiers[i].IsKind(SyntaxKind.UnsafeKeyword))
             {
-                insertIndex = i;
-                break;
+                continue;
             }
+
+            insertIndex = i;
+            break;
         }
 
         if (insertIndex == 0)
@@ -68,8 +73,8 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is TypeDeclarationSyntax { RawKind: (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration } declaration
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is TypeDeclarationSyntax { RawKind: (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration } declaration
             && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
             ? new NodeReplacement(declaration, AddReadonlyModifier(declaration))
             : null;

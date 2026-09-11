@@ -118,8 +118,8 @@ public sealed class Sst1523MethodTooLongAnalyzer : DiagnosticAnalyzer
     {
         MethodDeclarationSyntax method => method.Identifier.ValueText,
         ConstructorDeclarationSyntax constructor => constructor.Identifier.ValueText,
-        OperatorDeclarationSyntax @operator => "operator " + @operator.OperatorToken.ValueText,
-        ConversionOperatorDeclarationSyntax conversion => "operator " + conversion.Type,
+        OperatorDeclarationSyntax @operator => $"operator {@operator.OperatorToken.ValueText}",
+        ConversionOperatorDeclarationSyntax conversion => $"operator {conversion.Type}",
         LocalFunctionStatementSyntax local => local.Identifier.ValueText,
         AccessorDeclarationSyntax accessor => DescribeAccessor(accessor),
         _ => string.Empty,
@@ -131,16 +131,13 @@ public sealed class Sst1523MethodTooLongAnalyzer : DiagnosticAnalyzer
     private static string DescribeAccessor(AccessorDeclarationSyntax accessor)
     {
         var keyword = accessor.Keyword.ValueText;
-        if (accessor.Parent?.Parent is not BasePropertyDeclarationSyntax owner)
+        return accessor.Parent?.Parent is not BasePropertyDeclarationSyntax owner
+            ? keyword
+            : owner switch
         {
-            return keyword;
-        }
-
-        return owner switch
-        {
-            PropertyDeclarationSyntax property => property.Identifier.ValueText + "." + keyword,
-            EventDeclarationSyntax @event => @event.Identifier.ValueText + "." + keyword,
-            IndexerDeclarationSyntax => "this[]." + keyword,
+            PropertyDeclarationSyntax property => $"{property.Identifier.ValueText}.{keyword}",
+            EventDeclarationSyntax @event => $"{@event.Identifier.ValueText}.{keyword}",
+            IndexerDeclarationSyntax => $"this[].{keyword}",
             _ => keyword,
         };
     }

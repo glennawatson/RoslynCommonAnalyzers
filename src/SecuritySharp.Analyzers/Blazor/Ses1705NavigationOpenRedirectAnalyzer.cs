@@ -65,7 +65,7 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1705 for a <c>NavigateTo</c> call whose target is not a verified relative URL.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="navigationManager">The resolved <c>NavigationManager</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol navigationManager)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol navigationManager)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -162,20 +162,20 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a character may start a URI scheme (an ASCII letter).</summary>
     /// <param name="value">The character to test.</param>
     /// <returns><see langword="true"/> for <c>a</c>-<c>z</c> or <c>A</c>-<c>Z</c>.</returns>
-    private static bool IsSchemeFirstChar(char value)
-        => value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z');
+    private static bool IsSchemeFirstChar(char value) =>
+        value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z');
 
     /// <summary>Returns whether a character may appear inside a URI scheme (letter, digit, <c>+</c>, <c>-</c>, or <c>.</c>).</summary>
     /// <param name="value">The character to test.</param>
     /// <returns><see langword="true"/> for a valid scheme character.</returns>
-    private static bool IsSchemeChar(char value)
-        => IsSchemeFirstChar(value) || value is (>= '0' and <= '9') or '+' or '-' or '.';
+    private static bool IsSchemeChar(char value) =>
+        IsSchemeFirstChar(value) || value is (>= '0' and <= '9') or '+' or '-' or '.';
 
     /// <summary>Returns whether the target expression is a call to a validator named in the allow-list option.</summary>
     /// <param name="context">The syntax node analysis context, used to read the allow-list option.</param>
     /// <param name="uriArgument">The URL argument expression.</param>
     /// <returns><see langword="true"/> when the target is produced by an allow-listed validator and is therefore trusted.</returns>
-    private static bool IsProducedByAllowListedValidator(SyntaxNodeAnalysisContext context, ExpressionSyntax uriArgument)
+    private static bool IsProducedByAllowListedValidator(in SyntaxNodeAnalysisContext context, ExpressionSyntax uriArgument)
     {
         var expression = uriArgument;
         while (expression is ParenthesizedExpressionSyntax parenthesized)

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -71,7 +73,7 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one local declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
 
@@ -99,7 +101,7 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
     /// <param name="types">The disposal types resolved for this compilation.</param>
     /// <param name="variable">The declarator.</param>
     /// <param name="scope">The block the local lives in.</param>
-    private static void AnalyzeVariable(SyntaxNodeAnalysisContext context, in DisposableTypes types, VariableDeclaratorSyntax variable, SyntaxNode scope)
+    private static void AnalyzeVariable(in SyntaxNodeAnalysisContext context, in DisposableTypes types, VariableDeclaratorSyntax variable, SyntaxNode scope)
     {
         var creation = variable.Initializer!.Value;
         if (context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not { } created
@@ -110,7 +112,7 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         }
 
         var usage = new UsageScan(context, types, local, scope);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScan>(scope, ref usage, VisitReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScan>(scope, ref usage, VisitReference);
         if (usage.Disposed || usage.Escaped)
         {
             return;
@@ -182,15 +184,15 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a reference disposes the local.</summary>
     /// <param name="reference">The reference.</param>
     /// <returns><see langword="true"/> for <c>local.Dispose</c> or <c>local.DisposeAsync</c>.</returns>
-    private static bool IsDisposal(IdentifierNameSyntax reference)
-        => IsMemberAccessOnLocal(reference)
+    private static bool IsDisposal(IdentifierNameSyntax reference) =>
+        IsMemberAccessOnLocal(reference)
             && ((MemberAccessExpressionSyntax)reference.Parent!).Name.Identifier.ValueText is DisposeName or DisposeAsyncName;
 
     /// <summary>Returns whether the local is the receiver of a member access, which does not hand it anywhere.</summary>
     /// <param name="reference">The reference.</param>
     /// <returns><see langword="true"/> when the reference reads a member of the local.</returns>
-    private static bool IsMemberAccessOnLocal(IdentifierNameSyntax reference)
-        => reference.Parent is MemberAccessExpressionSyntax access
+    private static bool IsMemberAccessOnLocal(IdentifierNameSyntax reference) =>
+        reference.Parent is MemberAccessExpressionSyntax access
             && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && access.Expression == reference;
 
@@ -237,8 +239,9 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a reference really resolves to this local.</summary>
         /// <param name="reference">The reference with a matching name.</param>
         /// <returns><see langword="true"/> when the name is not another symbol's.</returns>
-        public readonly bool IsTheLocal(IdentifierNameSyntax reference)
-            => SymbolEqualityComparer.Default.Equals(
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public readonly bool IsTheLocal(IdentifierNameSyntax reference) =>
+            SymbolEqualityComparer.Default.Equals(
                 Context.SemanticModel.GetSymbolInfo(reference, Context.CancellationToken).Symbol,
                 Local);
     }

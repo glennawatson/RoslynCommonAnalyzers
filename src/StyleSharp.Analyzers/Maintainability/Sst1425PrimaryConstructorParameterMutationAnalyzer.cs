@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -16,8 +18,8 @@ public sealed class Sst1425PrimaryConstructorParameterMutationAnalyzer : Diagnos
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.NoReassignedPrimaryConstructorParameter);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -73,11 +75,8 @@ public sealed class Sst1425PrimaryConstructorParameterMutationAnalyzer : Diagnos
 
     /// <summary>Reports SST1425 for assignments whose target is a primary-constructor parameter.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context)
-    {
-        var assignment = (AssignmentExpressionSyntax)context.Node;
-        ReportIfPrimaryConstructorParameter(context, assignment.Left);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context) => ReportIfPrimaryConstructorParameter(context, ((AssignmentExpressionSyntax)context.Node).Left);
 
     /// <summary>Reports SST1425 for ++/-- operations whose operand is a primary-constructor parameter.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -109,7 +108,7 @@ public sealed class Sst1425PrimaryConstructorParameterMutationAnalyzer : Diagnos
     /// <summary>Reports SST1425 when an expression binds to a class/struct primary-constructor parameter.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The mutated expression.</param>
-    private static void ReportIfPrimaryConstructorParameter(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    private static void ReportIfPrimaryConstructorParameter(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         if (!CouldReferencePrimaryConstructorParameter(expression)
             || context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is not IParameterSymbol parameter

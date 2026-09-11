@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for SST1315 union-member naming analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1315UnionMemberNamingBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1315UnionMemberNamingBenchmarks
@@ -24,11 +26,13 @@ public class Sst1315UnionMemberNamingBenchmarks
 
     /// <summary>Benchmarks the clean union-member naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1315UnionMemberNaming_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating union-member naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1315UnionMemberNaming_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

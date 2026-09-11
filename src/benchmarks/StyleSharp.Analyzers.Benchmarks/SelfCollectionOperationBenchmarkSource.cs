@@ -11,8 +11,8 @@ internal static class SelfCollectionOperationBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Collections.Generic;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class SelfCollectionOperationBenchmarkSource
     /// <summary>Builds one type whose set operation names two different collections.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void M(HashSet<int> a, HashSet<int> b) => a.UnionWith(b);
@@ -34,8 +34,8 @@ internal static class SelfCollectionOperationBenchmarkSource
     /// <summary>Builds one type whose set operation is applied to itself.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void M(HashSet<int> set) => set.UnionWith(set);

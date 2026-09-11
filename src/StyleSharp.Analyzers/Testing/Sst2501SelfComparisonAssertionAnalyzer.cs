@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -60,16 +62,16 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     private enum AssertionShape
     {
         /// <summary>Not an equality or identity assertion.</summary>
-        None,
+        None = 0,
 
         /// <summary>A positive equality/identity assertion (<c>Equal</c>, <c>StrictEqual</c>, <c>AreEqual</c>, <c>Same</c>, <c>AreSame</c>), which always passes when self-comparing.</summary>
-        PositiveEquality,
+        PositiveEquality = 1,
 
         /// <summary>A negated equality/identity assertion (<c>NotEqual</c>, <c>NotSame</c>, <c>AreNotEqual</c>, <c>AreNotSame</c>), which always fails when self-comparing.</summary>
-        NegativeEquality,
+        NegativeEquality = 2,
 
         /// <summary>An <c>Assert.That</c> constraint-model assertion whose <c>EqualTo</c>/<c>SameAs</c> operand may be the actual value.</summary>
-        Constraint,
+        Constraint = 3,
     }
 
     /// <inheritdoc/>
@@ -92,10 +94,13 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < names.Length; i++)
         {
-            if (context.Compilation.GetTypeByMetadataName(names[i]) is { } type)
+            if (context.Compilation.GetTypeByMetadataName(names[i]) is not { } type)
             {
-                resolved[count++] = type;
+                continue;
             }
+
+            resolved[count] = type;
+            count++;
         }
 
         if (count == 0)
@@ -115,7 +120,7 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one invocation for a self-comparing assertion.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="hosts">The resolved framework <c>Assert</c> types.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] hosts)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] hosts)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var shape = Classify(GetInvokedSimpleName(invocation.Expression));
@@ -178,14 +183,14 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a name is a positive equality/identity assertion that always passes when self-comparing.</summary>
     /// <param name="name">The invoked method's simple name.</param>
     /// <returns><see langword="true"/> for <c>Equal</c>, <c>StrictEqual</c>, <c>AreEqual</c>, <c>Same</c>, or <c>AreSame</c>.</returns>
-    private static bool IsPositiveEqualityName(string name)
-        => name is "Equal" or "StrictEqual" or "AreEqual" or "Same" or "AreSame";
+    private static bool IsPositiveEqualityName(string name) =>
+        name is "Equal" or "StrictEqual" or "AreEqual" or "Same" or "AreSame";
 
     /// <summary>Returns whether a name is a negated equality/identity assertion that always fails when self-comparing.</summary>
     /// <param name="name">The invoked method's simple name.</param>
     /// <returns><see langword="true"/> for <c>NotEqual</c>, <c>NotSame</c>, <c>AreNotEqual</c>, or <c>AreNotSame</c>.</returns>
-    private static bool IsNegativeEqualityName(string name)
-        => name is "NotEqual" or "NotSame" or "AreNotEqual" or "AreNotSame";
+    private static bool IsNegativeEqualityName(string name) =>
+        name is "NotEqual" or "NotSame" or "AreNotEqual" or "AreNotSame";
 
     /// <summary>Returns the shared operand of a self-comparing assertion, or <see langword="null"/> when the call does not compare a value with itself.</summary>
     /// <param name="shape">The recognized assertion shape.</param>
@@ -247,8 +252,9 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <param name="left">The first expression.</param>
     /// <param name="right">The second expression.</param>
     /// <returns><see langword="true"/> when the two are syntactically equivalent.</returns>
-    private static bool AreSameExpression(ExpressionSyntax left, ExpressionSyntax right)
-        => SyntaxFactory.AreEquivalent(left, right, topLevel: false);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool AreSameExpression(ExpressionSyntax left, ExpressionSyntax right) =>
+        SyntaxFactory.AreEquivalent(left, right, topLevel: false);
 
     /// <summary>Returns whether an operand is provably value-stable, so comparing it with itself is guaranteed regardless of value.</summary>
     /// <param name="operand">The operand to classify.</param>
@@ -261,7 +267,7 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
         }
 
         StabilityScan scan = default;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, StabilityScan>(operand, ref scan, VisitForVolatility);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, StabilityScan>(operand, ref scan, VisitForVolatility);
         return !scan.FoundVolatile;
     }
 
@@ -283,20 +289,20 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node can have a side effect or evaluate to a different value on a second read.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for a call, an object/array creation, a mutation, a lambda, or a query.</returns>
-    private static bool IsVolatileNode(SyntaxNode node)
-        => IsCallOrAwait(node) || IsCreation(node) || IsMutation(node) || IsClosureOrQuery(node);
+    private static bool IsVolatileNode(SyntaxNode node) =>
+        IsCallOrAwait(node) || IsCreation(node) || IsMutation(node) || IsClosureOrQuery(node);
 
     /// <summary>Returns whether a node is a method/delegate call or an await.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for an invocation or an await expression.</returns>
-    private static bool IsCallOrAwait(SyntaxNode node)
-        => node is InvocationExpressionSyntax or AwaitExpressionSyntax;
+    private static bool IsCallOrAwait(SyntaxNode node) =>
+        node is InvocationExpressionSyntax or AwaitExpressionSyntax;
 
     /// <summary>Returns whether a node allocates a fresh object, array, or anonymous instance.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for any object, array, or stackalloc creation.</returns>
-    private static bool IsCreation(SyntaxNode node)
-        => node is ObjectCreationExpressionSyntax
+    private static bool IsCreation(SyntaxNode node) =>
+        node is ObjectCreationExpressionSyntax
             or ImplicitObjectCreationExpressionSyntax
             or AnonymousObjectCreationExpressionSyntax
             or ArrayCreationExpressionSyntax
@@ -318,8 +324,8 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node introduces a closure, a query, or a ref alias.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for a lambda, an anonymous method, a query, or a ref expression.</returns>
-    private static bool IsClosureOrQuery(SyntaxNode node)
-        => node is SimpleLambdaExpressionSyntax
+    private static bool IsClosureOrQuery(SyntaxNode node) =>
+        node is SimpleLambdaExpressionSyntax
             or ParenthesizedLambdaExpressionSyntax
             or AnonymousMethodExpressionSyntax
             or QueryExpressionSyntax
@@ -328,8 +334,8 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the message tail describing the consequence of the self-comparison for the recognized shape.</summary>
     /// <param name="shape">The recognized assertion shape.</param>
     /// <returns>The negated tail for a negated assertion; otherwise the positive tail.</returns>
-    private static string Consequence(AssertionShape shape)
-        => shape == AssertionShape.NegativeEquality ? NegativeConsequence : PositiveConsequence;
+    private static string Consequence(AssertionShape shape) =>
+        shape == AssertionShape.NegativeEquality ? NegativeConsequence : PositiveConsequence;
 
     /// <summary>Returns whether a bound method's containing type is one of the resolved framework <c>Assert</c> types.</summary>
     /// <param name="containingType">The bound method's containing type.</param>

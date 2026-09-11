@@ -27,7 +27,7 @@ internal static class TextChangeCodeFix
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="changes">The list the edits are appended to.</param>
     /// <returns><see langword="true"/> when the reported shape still matches and edits were appended.</returns>
-    public delegate bool ChangeBuilder(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes);
+    internal delegate bool ChangeBuilder(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes);
 
     /// <summary>Registers one text-editing code action per fixable diagnostic.</summary>
     /// <param name="context">The code fix context.</param>
@@ -35,7 +35,7 @@ internal static class TextChangeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryAppendChanges">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, ChangeBuilder tryAppendChanges)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, ChangeBuilder tryAppendChanges)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var text = await context.Document.GetTextAsync(context.CancellationToken).ConfigureAwait(false);

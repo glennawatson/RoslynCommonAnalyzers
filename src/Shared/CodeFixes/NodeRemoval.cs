@@ -42,7 +42,7 @@ internal readonly record struct NodeRemoval
     /// Deleting a using directive or a case label should not take the licence header or the <c>#if</c> that
     /// happens to sit above it, so leading trivia is kept only when it carries something other than layout.
     /// </remarks>
-    public static NodeRemoval PreservingLeadingContent(SyntaxNode node)
+    internal static NodeRemoval PreservingLeadingContent(SyntaxNode node)
     {
         var options = SyntaxRemoveOptions.KeepUnbalancedDirectives;
         if (HasSignificantLeadingTrivia(node))
@@ -50,7 +50,7 @@ internal readonly record struct NodeRemoval
             options |= SyntaxRemoveOptions.KeepLeadingTrivia;
         }
 
-        return new NodeRemoval(node, options);
+        return new(node, options);
     }
 
     /// <summary>Returns whether a node's leading trivia carries content worth keeping.</summary>

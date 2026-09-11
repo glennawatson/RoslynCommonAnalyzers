@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEnumStorage = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2313EnumStorageAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2313 (enums should use an allowed storage type).</summary>
 public class EnumStorageAnalyzerUnitTest
 {
-    /// <summary>The path the verifier's analyzer-config document is added at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies every storage type outside the default allowed list is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StorageOutsideTheAllowedListIsReportedAsync()
-        => await VerifyEnumStorage.VerifyAnalyzerAsync(
+    public Task StorageOutsideTheAllowedListIsReportedAsync() =>
+        VerifyEnumStorage.VerifyAnalyzerAsync(
             """
             public enum {|SST2313:Tiny|} : byte
             {
@@ -56,9 +55,10 @@ public class EnumStorageAnalyzerUnitTest
 
     /// <summary>Verifies an enum stored as an int is clean, whether or not it says so.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntStorageIsCleanAsync()
-        => await VerifyEnumStorage.VerifyAnalyzerAsync(
+    public Task IntStorageIsCleanAsync() =>
+        VerifyEnumStorage.VerifyAnalyzerAsync(
             """
             public enum Implicit
             {
@@ -73,9 +73,10 @@ public class EnumStorageAnalyzerUnitTest
 
     /// <summary>Verifies an enum is reported wherever it is declared, and whatever it is marked with.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StorageIsCheckedRegardlessOfDeclarationSiteAsync()
-        => await VerifyEnumStorage.VerifyAnalyzerAsync(
+    public Task StorageIsCheckedRegardlessOfDeclarationSiteAsync() =>
+        VerifyEnumStorage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -123,7 +124,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage = int, byte
@@ -149,7 +150,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allowed_enum_storage = int, byte
@@ -175,7 +176,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allowed_enum_storage = int, byte
@@ -202,7 +203,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage = Int32, Int64
@@ -233,7 +234,7 @@ public class EnumStorageAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST2313.allowed_enum_storage =

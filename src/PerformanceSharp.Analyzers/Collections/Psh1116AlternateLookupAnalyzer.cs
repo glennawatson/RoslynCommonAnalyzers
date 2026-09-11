@@ -46,7 +46,7 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(DictionaryMetadataName) is not { } dictionaryType
                 || dictionaryType.GetMembers(GetAlternateLookupMethodName).IsEmpty)
@@ -108,8 +108,8 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The span source expression.</param>
     /// <returns><see langword="true"/> for <c>Span&lt;char&gt;</c> and <c>ReadOnlySpan&lt;char&gt;</c>.</returns>
-    private static bool IsCharSpan(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
-        => context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is INamedTypeSymbol
+    private static bool IsCharSpan(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is INamedTypeSymbol
         {
             Name: "Span" or "ReadOnlySpan",
             IsGenericType: true,
@@ -121,7 +121,7 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="receiver">The receiver expression.</param>
     /// <returns><see langword="true"/> when the alternate lookup applies.</returns>
-    private static bool ReceiverSupportsAlternateLookup(SyntaxNodeAnalysisContext context, ExpressionSyntax receiver)
+    private static bool ReceiverSupportsAlternateLookup(in SyntaxNodeAnalysisContext context, ExpressionSyntax receiver)
     {
         if (context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type
             is not INamedTypeSymbol { IsGenericType: true } receiverType

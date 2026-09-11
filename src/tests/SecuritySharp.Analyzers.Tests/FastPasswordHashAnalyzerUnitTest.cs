@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeFastPasswordHash = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class FastPasswordHashAnalyzerUnitTest
 {
     /// <summary>Verifies a <c>SHA256.HashData</c> over an <c>Encoding.GetBytes(password)</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashDataOverEncodedPasswordReportedAsync()
-        => await VerifyNet90Async(
+    public Task HashDataOverEncodedPasswordReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
             using System.Text;
@@ -29,9 +31,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies an instance <c>ComputeHash</c> on a <c>SHA256</c> receiver over password bytes is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputeHashOnSha256InstanceReportedAsync()
-        => await VerifyNet90Async(
+    public Task ComputeHashOnSha256InstanceReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -47,9 +50,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SHA256.HashData</c> over a member named like a password (<c>user.Password</c>) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashDataOverPasswordMemberReportedAsync()
-        => await VerifyNet90Async(
+    public Task HashDataOverPasswordMemberReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -66,9 +70,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SHA512</c> <c>ComputeHash</c> over a password-named method call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputeHashOverPasswordReturningCallReportedAsync()
-        => await VerifyNet90Async(
+    public Task ComputeHashOverPasswordReturningCallReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -86,9 +91,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>MD5.HashData</c> over a <c>passwd</c>-named buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task Md5HashDataOverPasswdReportedAsync()
-        => await VerifyNet90Async(
+    public Task Md5HashDataOverPasswdReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -100,9 +106,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SHA1.HashData</c> over a <c>pwd</c>-named buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task Sha1HashDataOverPwdReportedAsync()
-        => await VerifyNet90Async(
+    public Task Sha1HashDataOverPwdReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -114,9 +121,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SHA384.HashData</c> over a <c>passphrase</c>-named buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task Sha384HashDataOverPassphraseReportedAsync()
-        => await VerifyNet90Async(
+    public Task Sha384HashDataOverPassphraseReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -128,9 +136,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SHA256.HashData</c> over a <c>credential</c>-named buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashDataOverCredentialReportedAsync()
-        => await VerifyNet90Async(
+    public Task HashDataOverCredentialReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -142,9 +151,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies hashing a non-password buffer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPasswordDataNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonPasswordDataNotReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -156,9 +166,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a non-member-access call whose name resembles a hash method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonMemberInvocationNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonMemberInvocationNotReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -170,9 +181,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a non-hash member call (<c>Encoding.GetBytes</c>) over a password is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonHashMemberCallNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonHashMemberCallNotReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text;
 
@@ -184,9 +196,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a custom instance <c>ComputeHash</c> on an unrelated type over a password is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomComputeHashOnUnrelatedTypeNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task CustomComputeHashOnUnrelatedTypeNotReportedAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Widget
             {
@@ -201,9 +214,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a custom static <c>HashData</c> on an unrelated type over a password is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomStaticHashDataOnUnrelatedTypeNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task CustomStaticHashDataOnUnrelatedTypeNotReportedAsync() =>
+        VerifyNet90Async(
             """
             public static class Util
             {
@@ -218,9 +232,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a zero-argument <c>GetBytes()</c> wrapper (nothing to inspect inside) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroArgumentGetBytesInputNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task ZeroArgumentGetBytesInputNotReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -237,9 +252,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies an indexed element input (no traceable name) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexedElementInputNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task IndexedElementInputNotReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -251,9 +267,10 @@ public class FastPasswordHashAnalyzerUnitTest
 
     /// <summary>Verifies a keyed-hash <c>ComputeHash</c> (<c>HMACSHA256</c>) over a password is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputeHashOnKeyedHashNotReportedAsync()
-        => await VerifyNet90Async(
+    public Task ComputeHashOnKeyedHashNotReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -279,12 +296,7 @@ public class FastPasswordHashAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeFastPasswordHash.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-            CompilerDiagnostics = CompilerDiagnostics.None
-        };
+        var test = new AnalyzeFastPasswordHash.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, CompilerDiagnostics = CompilerDiagnostics.None };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -302,12 +314,7 @@ public class FastPasswordHashAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeFastPasswordHash.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12,
-            TestCode = Source,
-            CompilerDiagnostics = CompilerDiagnostics.None
-        };
+        var test = new AnalyzeFastPasswordHash.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12, TestCode = Source, CompilerDiagnostics = CompilerDiagnostics.None };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -317,11 +324,7 @@ public class FastPasswordHashAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeFastPasswordHash.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeFastPasswordHash.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

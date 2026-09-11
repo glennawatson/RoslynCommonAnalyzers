@@ -19,18 +19,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the caller-member-name attribute.</summary>
-    private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
-
-    /// <summary>The metadata name of the caller-file-path attribute.</summary>
-    private const string CallerFilePathMetadataName = "System.Runtime.CompilerServices.CallerFilePathAttribute";
-
-    /// <summary>The metadata name of the caller-line-number attribute.</summary>
-    private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
-
-    /// <summary>The metadata name of the caller-argument-expression attribute (.NET 6+).</summary>
-    private const string CallerArgumentExpressionMetadataName = "System.Runtime.CompilerServices.CallerArgumentExpressionAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.CallerInfoParameterOrder);
 
@@ -58,11 +46,10 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one method's parameter list for misplaced caller-info parameters.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
-    private static void Analyze(SymbolAnalysisContext context, CallerInfoAttributeSet attributes)
+    private static void Analyze(in SymbolAnalysisContext context, CallerInfoAttributeSet attributes)
     {
-        var method = (IMethodSymbol)context.Symbol;
-        var parameters = method.Parameters;
-        if (parameters.Length == 0 || !AnyParameterHasAttributes(parameters))
+        var parameters = ((IMethodSymbol)context.Symbol).Parameters;
+        if (parameters.IsEmpty || !AnyParameterHasAttributes(parameters))
         {
             return;
         }
@@ -77,7 +64,7 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
 
             if (FindFollowingOrdinaryParameter(parameters, attributes, i) is { } follower)
             {
-                Report(context, parameter, "must come last, but is followed by '" + follower.Name + "'");
+                Report(context, parameter, $"must come last, but is followed by '{follower.Name}'");
                 continue;
             }
 
@@ -92,10 +79,10 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="parameter">The offending parameter.</param>
     /// <param name="clause">The message clause describing the defect.</param>
-    private static void Report(SymbolAnalysisContext context, IParameterSymbol parameter, string clause)
+    private static void Report(in SymbolAnalysisContext context, IParameterSymbol parameter, string clause)
     {
         var locations = parameter.Locations;
-        if (locations.Length == 0)
+        if (locations.IsEmpty)
         {
             return;
         }
@@ -131,7 +118,7 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (parameters[i].GetAttributes().Length != 0)
+            if (!parameters[i].GetAttributes().IsEmpty)
             {
                 return true;
             }
@@ -143,6 +130,18 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The compilation's resolved caller-info attribute symbols.</summary>
     private sealed class CallerInfoAttributeSet
     {
+        /// <summary>The metadata name of the caller-member-name attribute.</summary>
+        private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
+
+        /// <summary>The metadata name of the caller-file-path attribute.</summary>
+        private const string CallerFilePathMetadataName = "System.Runtime.CompilerServices.CallerFilePathAttribute";
+
+        /// <summary>The metadata name of the caller-line-number attribute.</summary>
+        private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
+
+        /// <summary>The metadata name of the caller-argument-expression attribute (.NET 6+).</summary>
+        private const string CallerArgumentExpressionMetadataName = "System.Runtime.CompilerServices.CallerArgumentExpressionAttribute";
+
         /// <summary>The resolved caller-info attribute symbols; the array is never empty.</summary>
         private readonly INamedTypeSymbol[] _attributes;
 
@@ -168,7 +167,7 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
 
             var resolved = new INamedTypeSymbol[count];
             Array.Copy(buffer, resolved, count);
-            return new CallerInfoAttributeSet(resolved);
+            return new(resolved);
         }
 
         /// <summary>Returns whether a parameter carries one of the resolved caller-info attributes.</summary>
@@ -200,7 +199,8 @@ public sealed class Sst2433CallerInfoParameterOrderAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            buffer[count++] = symbol;
+            buffer[count] = symbol;
+            count++;
         }
 
         /// <summary>Returns whether an attribute class is one of the resolved caller-info attributes.</summary>

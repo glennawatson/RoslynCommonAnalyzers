@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Editing;
@@ -24,14 +25,14 @@ internal static class RemoveNodeCodeFix
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    public delegate NodeRemoval? NodeSelector(SyntaxNode root, Diagnostic diagnostic);
+    internal delegate NodeRemoval? NodeSelector(SyntaxNode root, Diagnostic diagnostic);
 
     /// <summary>Resolves the node a diagnostic asks to delete, with semantic model access.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
-    public delegate NodeRemoval? SemanticNodeSelector(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
+    internal delegate NodeRemoval? SemanticNodeSelector(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
 
     /// <summary>Selects the reported node itself when it is of the expected kind.</summary>
     /// <typeparam name="T">The node type the diagnostic reports.</typeparam>
@@ -39,9 +40,9 @@ internal static class RemoveNodeCodeFix
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The node to remove, or <see langword="null"/> when the shape no longer matches.</returns>
     /// <remarks>Pass this as the selector when the diagnostic is reported on the node being deleted.</remarks>
-    public static NodeRemoval? Node<T>(SyntaxNode root, Diagnostic diagnostic)
-        where T : SyntaxNode
-        => root.FindNode(diagnostic.Location.SourceSpan) is T node ? new NodeRemoval(node) : null;
+    internal static NodeRemoval? Node<T>(SyntaxNode root, Diagnostic diagnostic)
+        where T : SyntaxNode =>
+        root.FindNode(diagnostic.Location.SourceSpan) is T node ? new NodeRemoval(node) : null;
 
     /// <summary>Selects the nearest enclosing node of the expected kind, starting at the reported node.</summary>
     /// <typeparam name="T">The declaration or statement type being deleted.</typeparam>
@@ -52,9 +53,9 @@ internal static class RemoveNodeCodeFix
     /// Pass this as the selector when the diagnostic lands on a name or modifier inside the declaration
     /// that is actually being deleted.
     /// </remarks>
-    public static NodeRemoval? Ancestor<T>(SyntaxNode root, Diagnostic diagnostic)
-        where T : SyntaxNode
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<T>() is { } node
+    internal static NodeRemoval? Ancestor<T>(SyntaxNode root, Diagnostic diagnostic)
+        where T : SyntaxNode =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<T>() is { } node
             ? new NodeRemoval(node)
             : null;
 
@@ -64,7 +65,7 @@ internal static class RemoveNodeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="trySelect">The provider's node resolution.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, NodeSelector trySelect)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, NodeSelector trySelect)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
@@ -89,7 +90,7 @@ internal static class RemoveNodeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="trySelect">The provider's node resolution.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    public static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticNodeSelector trySelect)
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticNodeSelector trySelect)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
@@ -113,7 +114,7 @@ internal static class RemoveNodeCodeFix
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="trySelect">The provider's node resolution.</param>
-    public static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, NodeSelector trySelect)
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, NodeSelector trySelect)
     {
         if (trySelect(editor.OriginalRoot, diagnostic) is not { } removal)
         {
@@ -127,7 +128,7 @@ internal static class RemoveNodeCodeFix
     /// <param name="editor">The document editor.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="trySelect">The provider's node resolution.</param>
-    public static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SemanticNodeSelector trySelect)
+    internal static void ApplyBatchEdit(DocumentEditor editor, Diagnostic diagnostic, SemanticNodeSelector trySelect)
     {
         if (trySelect(editor.OriginalRoot, editor.SemanticModel, diagnostic) is not { } removal)
         {
@@ -148,14 +149,15 @@ internal static class RemoveNodeCodeFix
     /// Removing every node from a root is not something a fix does, but the API allows it, so an empty
     /// result leaves the document untouched rather than throwing at the user.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void RegisterRemoval(
         CodeFixContext context,
         SyntaxNode root,
         NodeRemoval removal,
         string title,
         string equivalenceKey,
-        Diagnostic diagnostic)
-        => context.RegisterCodeFix(
+        Diagnostic diagnostic) =>
+        context.RegisterCodeFix(
             CodeAction.Create(
                 title,
                 cancellationToken => Task.FromResult(

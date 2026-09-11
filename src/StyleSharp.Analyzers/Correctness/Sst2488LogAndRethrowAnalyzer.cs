@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -108,8 +110,8 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
         return expression is InvocationExpressionSyntax invocation
             && GetInvokedName(invocation) is { } name
             && IsLoggingName(name)
-                ? invocation
-                : null;
+            ? invocation
+            : null;
     }
 
     /// <summary>Confirms a logging-named call is a real logging call, not a coincidental name match.</summary>
@@ -117,7 +119,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The logging-named invocation.</param>
     /// <param name="caught">The caught exception local, or <see langword="null"/> when the catch names none.</param>
     /// <returns><see langword="true"/> when the call logs on a logger-typed receiver or is handed the caught exception.</returns>
-    private static bool IsConfirmedLoggingCall(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, ISymbol? caught)
+    private static bool IsConfirmedLoggingCall(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, ISymbol? caught)
     {
         if (GetReceiver(invocation) is { } receiver
             && IsLoggerType(context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type))
@@ -134,8 +136,8 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the value a call is made on, following a null-conditional access.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <returns>The receiver expression, or <see langword="null"/> when the call has no simple receiver.</returns>
-    private static ExpressionSyntax? GetReceiver(InvocationExpressionSyntax invocation)
-        => invocation.Expression switch
+    private static ExpressionSyntax? GetReceiver(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Expression,
             MemberBindingExpressionSyntax when invocation.Parent is ConditionalAccessExpressionSyntax conditional => conditional.Expression,
@@ -147,7 +149,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The invocation.</param>
     /// <param name="caught">The caught exception local.</param>
     /// <returns><see langword="true"/> when the caught local is passed, whole or as a member of it.</returns>
-    private static bool ArgumentsReferenceCaught(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, ISymbol caught)
+    private static bool ArgumentsReferenceCaught(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, ISymbol caught)
     {
         var arguments = invocation.ArgumentList.Arguments;
         for (var i = 0; i < arguments.Count; i++)
@@ -166,7 +168,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to scan.</param>
     /// <param name="caught">The caught exception local.</param>
     /// <returns><see langword="true"/> when the local is referenced anywhere in the expression.</returns>
-    private static bool ExpressionReferencesCaught(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol caught)
+    private static bool ExpressionReferencesCaught(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, ISymbol caught)
     {
         if (expression is IdentifierNameSyntax identifier)
         {
@@ -174,7 +176,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new CaughtScan(context.SemanticModel, caught, caught.Name, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, CaughtScan>(expression, ref scan, VisitCaughtReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, CaughtScan>(expression, ref scan, VisitCaughtReference);
         return scan.Found;
     }
 
@@ -199,24 +201,24 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The identifier.</param>
     /// <param name="caught">The caught exception local.</param>
     /// <returns><see langword="true"/> when the identifier is the caught local.</returns>
-    private static bool BindsToCaught(SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifier, ISymbol caught)
-        => identifier.Identifier.ValueText == caught.Name
+    private static bool BindsToCaught(in SyntaxNodeAnalysisContext context, IdentifierNameSyntax identifier, ISymbol caught) =>
+        identifier.Identifier.ValueText == caught.Name
             && SymbolEqualityComparer.Default.Equals(context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol, caught);
 
     /// <summary>Reads the caught exception local a catch declares, when it names one.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="catchClause">The catch clause.</param>
     /// <returns>The caught local symbol, or <see langword="null"/>.</returns>
-    private static ISymbol? GetCaughtLocal(SyntaxNodeAnalysisContext context, CatchClauseSyntax catchClause)
-        => catchClause.Declaration is { Identifier.ValueText.Length: > 0 } declaration
+    private static ISymbol? GetCaughtLocal(in SyntaxNodeAnalysisContext context, CatchClauseSyntax catchClause) =>
+        catchClause.Declaration is { Identifier.ValueText.Length: > 0 } declaration
             ? context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)
             : null;
 
     /// <summary>Returns the invoked member's simple name.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <returns>The name text, or <see langword="null"/> when the callee is not a named member.</returns>
-    private static string? GetInvokedName(InvocationExpressionSyntax invocation)
-        => invocation.Expression switch
+    private static string? GetInvokedName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
         {
             MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax binding => binding.Name.Identifier.ValueText,
@@ -227,6 +229,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name is one a logging call uses.</summary>
     /// <param name="name">The invoked member's name.</param>
     /// <returns><see langword="true"/> for a logging method name.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsLoggingName(string name) => LoggingNames.Contains(name);
 
     /// <summary>Returns whether a member name is an unambiguous <c>Log…</c> logging name.</summary>
@@ -237,6 +240,7 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// on a logger-typed receiver. On any other receiver they are too common to treat as logging on the
     /// strength of the caught exception being passed, so the caught-exception route is limited to these.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsStrongLoggingName(string name) => StrongLoggingNames.Contains(name);
 
     /// <summary>Returns whether a type is a logger — itself, a base type, or an interface named as one.</summary>
@@ -267,8 +271,8 @@ public sealed class Sst2488LogAndRethrowAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type name reads as a logger's.</summary>
     /// <param name="name">The type's simple name.</param>
     /// <returns><see langword="true"/> for a name a logging abstraction uses.</returns>
-    private static bool IsLoggerName(string name)
-        => name == "ILog" || name.EndsWith("Logger", System.StringComparison.Ordinal);
+    private static bool IsLoggerName(string name) =>
+        name == "ILog" || name.EndsWith("Logger", System.StringComparison.Ordinal);
 
     /// <summary>The state threaded through a caught-local reference scan.</summary>
     /// <param name="Model">The semantic model.</param>

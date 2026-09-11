@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySelf = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2450DebugAssertSideEffectAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 {
     /// <summary>Verifies a collection mutation used as the whole condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RemoveFromListInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task RemoveFromListInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -26,9 +28,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a set addition used as the whole condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetAddInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task SetAddInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -41,9 +44,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies an enumerator advance used as the condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MoveNextInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task MoveNextInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -56,9 +60,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a postfix increment nested in the condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PostfixIncrementInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task PostfixIncrementInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -70,9 +75,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a prefix decrement nested in the condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrefixDecrementInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task PrefixDecrementInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -84,9 +90,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a simple assignment nested in the condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task AssignmentInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -100,9 +107,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a compound assignment nested in the condition is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentInConditionIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentInConditionIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -114,9 +122,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified Debug.Assert is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedDebugAssertIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task FullyQualifiedDebugAssertIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -128,9 +137,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a using-static Debug.Assert is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticDebugAssertIsReportedAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task UsingStaticDebugAssertIsReportedAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using static System.Diagnostics.Debug;
@@ -143,9 +153,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a plain comparison condition is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task ComparisonConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -157,9 +168,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies null and property-read boolean operators are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullAndPropertyReadConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task NullAndPropertyReadConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -172,9 +184,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary predicate call is not flagged as a side effect.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PredicateCallConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task PredicateCallConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -188,9 +201,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a query call such as Contains is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ContainsCallConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task ContainsCallConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -203,9 +217,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies the idiomatic TryGetValue-in-assert shape is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TryGetValueConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task TryGetValueConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -218,9 +233,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a pattern check that declares a variable is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PatternConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task PatternConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -232,9 +248,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a nameof expression in the condition is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameofConditionIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task NameofConditionIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -246,9 +263,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on another type is not treated as Debug.Assert.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TraceAssertWithMutationIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task TraceAssertWithMutationIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -261,9 +279,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined Assert method is not treated as Debug.Assert.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedAssertWithMutationIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task UserDefinedAssertWithMutationIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -282,9 +301,10 @@ public class DebugAssertSideEffectAnalyzerUnitTest
 
     /// <summary>Verifies a collection mutation outside any assert is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutationOutsideAssertIsCleanAsync()
-        => await VerifySelf.VerifyAnalyzerAsync(
+    public Task MutationOutsideAssertIsCleanAsync() =>
+        VerifySelf.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

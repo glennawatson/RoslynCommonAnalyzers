@@ -66,7 +66,7 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1601 when an interop call on a JavaScript-runtime receiver sits directly inside a loop.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gate">The resolved JavaScript-interop types gating the rule.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, InteropGate gate)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, InteropGate gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access)
@@ -74,8 +74,7 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var name = access.Name.Identifier.ValueText;
-        if (name is not (InvokeAsyncMethodName or InvokeVoidAsyncMethodName))
+        if (access.Name.Identifier.ValueText is not (InvokeAsyncMethodName or InvokeVoidAsyncMethodName))
         {
             return;
         }
@@ -109,12 +108,10 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
         {
             switch (current)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
                     return false;
 
-                case ForStatementSyntax:
-                case CommonForEachStatementSyntax:
+                case ForStatementSyntax or CommonForEachStatementSyntax:
                     return true;
 
                 case MemberDeclarationSyntax:

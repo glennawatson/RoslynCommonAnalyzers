@@ -25,8 +25,8 @@ public sealed class Sst2336MissingAttributeUsageAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingAttributeUsage);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -50,7 +50,7 @@ public sealed class Sst2336MissingAttributeUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="attribute">The resolved attribute base type.</param>
     /// <param name="usage">The resolved usage attribute type.</param>
-    private static void Analyze(SymbolAnalysisContext context, INamedTypeSymbol attribute, INamedTypeSymbol usage)
+    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol attribute, INamedTypeSymbol usage)
     {
         if (context.Symbol is not INamedTypeSymbol { TypeKind: TypeKind.Class, IsAbstract: false } type
             || !DerivesFrom(type, attribute))
@@ -73,7 +73,7 @@ public sealed class Sst2336MissingAttributeUsageAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        var location = type.Locations.Length > 0 ? type.Locations[0] : Location.None;
+        var location = !type.Locations.IsEmpty ? type.Locations[0] : Location.None;
         context.ReportDiagnostic(DiagnosticHelper.Create(DesignRules.MissingAttributeUsage, location, type.Name));
     }
 

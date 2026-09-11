@@ -82,7 +82,7 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1606 for a cleartext-http model-weights string literal.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="httpClientType">The resolved <c>HttpClient</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeLiteral(SyntaxNodeAnalysisContext context, INamedTypeSymbol? httpClientType)
+    private static void AnalyzeLiteral(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? httpClientType)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
@@ -165,11 +165,13 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
         var pathEnd = text.Length;
         for (var i = pathStart; i < text.Length; i++)
         {
-            if (text[i] is '?' or '#')
+            if (text[i] is not ('?' or '#'))
             {
-                pathEnd = i;
-                break;
+                continue;
             }
+
+            pathEnd = i;
+            break;
         }
 
         var pathLength = pathEnd - pathStart;
@@ -219,8 +221,8 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the created URI is already owned by the transport rule.</returns>
-    private static bool UriCreationIsHttpClientSink(ObjectCreationExpressionSyntax uriCreation, INamedTypeSymbol httpClientType, SemanticModel model, CancellationToken cancellationToken)
-        => uriCreation.Parent switch
+    private static bool UriCreationIsHttpClientSink(ObjectCreationExpressionSyntax uriCreation, INamedTypeSymbol httpClientType, SemanticModel model, CancellationToken cancellationToken) =>
+        uriCreation.Parent switch
         {
             ArgumentSyntax { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } } uriArgument =>
                 IsHttpClientRequestUrl(invocation, uriArgument, httpClientType, model, cancellationToken),
@@ -299,11 +301,10 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment target names the <c>BaseAddress</c> member.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns><see langword="true"/> for a <c>.BaseAddress</c> or bare <c>BaseAddress</c> target.</returns>
-    private static bool IsBaseAddressTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsBaseAddressTarget(ExpressionSyntax left) =>
+        left switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: BaseAddressPropertyName } => true,
-            IdentifierNameSyntax { Identifier.ValueText: BaseAddressPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: BaseAddressPropertyName } or IdentifierNameSyntax { Identifier.ValueText: BaseAddressPropertyName } => true,
             _ => false,
         };
 }

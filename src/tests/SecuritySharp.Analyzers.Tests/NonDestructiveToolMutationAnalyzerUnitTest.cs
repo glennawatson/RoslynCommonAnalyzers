@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeTool = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -52,9 +53,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that deletes a file is reported at the delete call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolDeletingFileReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolDeletingFileReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -68,9 +70,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a non-destructive tool that deletes a directory is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDestructiveToolDeletingDirectoryReportedAsync()
-        => await VerifyToolAsync(
+    public Task NonDestructiveToolDeletingDirectoryReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -87,9 +90,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that overwrites a file is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolOverwritingFileReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolOverwritingFileReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -103,9 +107,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that starts a process is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolStartingProcessReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolStartingProcessReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.Diagnostics;
             using ModelContextProtocol.Server;
@@ -119,9 +124,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that runs a non-query database command is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolExecutingNonQueryReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolExecutingNonQueryReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.Data.Common;
             using ModelContextProtocol.Server;
@@ -135,9 +141,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that persists Entity Framework changes is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolSavingChangesReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolSavingChangesReportedAsync() =>
+        VerifyToolAsync(
             """
             using Microsoft.EntityFrameworkCore;
             using ModelContextProtocol.Server;
@@ -151,9 +158,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a non-destructive tool that runs raw SQL is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDestructiveToolExecutingRawSqlReportedAsync()
-        => await VerifyToolAsync(
+    public Task NonDestructiveToolExecutingRawSqlReportedAsync() =>
+        VerifyToolAsync(
             """
             using Microsoft.EntityFrameworkCore;
             using ModelContextProtocol.Server;
@@ -167,9 +175,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a save on a custom <c>DbContext</c> subclass that overrides <c>SaveChanges</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolSavingChangesOnDerivedContextReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolSavingChangesOnDerivedContextReportedAsync() =>
+        VerifyToolAsync(
             """
             using Microsoft.EntityFrameworkCore;
             using ModelContextProtocol.Server;
@@ -188,9 +197,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a tool with no read-only/non-destructive hint is not reported (unset defaults to destructive).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToolWithoutHintIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task ToolWithoutHintIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -204,9 +214,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>ReadOnly = false</c> tool is not reported (it makes no safety promise).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitReadOnlyFalseToolIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task ExplicitReadOnlyFalseToolIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -220,9 +231,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>Destructive = true</c> tool is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitDestructiveTrueToolIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task ExplicitDestructiveTrueToolIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -236,9 +248,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that only reads a file is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolReadingFileIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolReadingFileIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -252,9 +265,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a plain method that is not a tool is not reported even when it deletes a file.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonToolMethodIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task NonToolMethodIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
 
@@ -266,9 +280,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only hint alongside an unrelated named argument is still honoured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolWithNameArgumentReportedAsync()
-        => await VerifyToolAsync(
+    public Task ReadOnlyToolWithNameArgumentReportedAsync() =>
+        VerifyToolAsync(
             """
             using System.IO;
             using ModelContextProtocol.Server;
@@ -282,9 +297,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies an abstract tool declaration with no body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractToolMethodIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task AbstractToolMethodIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using ModelContextProtocol.Server;
 
@@ -297,9 +313,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a read-only tool that only reads via a command is clean when Entity Framework is absent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyToolReadingViaCommandWithoutEntityFrameworkIsCleanAsync()
-        => await VerifyToolWithoutEntityFrameworkAsync(
+    public Task ReadOnlyToolReadingViaCommandWithoutEntityFrameworkIsCleanAsync() =>
+        VerifyToolWithoutEntityFrameworkAsync(
             """
             using System.Data.Common;
             using ModelContextProtocol.Server;
@@ -313,9 +330,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies a Semantic Kernel <c>[KernelFunction]</c> method is not covered (it carries no safety hint).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KernelFunctionMethodIsCleanAsync()
-        => await VerifyToolAsync(
+    public Task KernelFunctionMethodIsCleanAsync() =>
+        VerifyToolAsync(
             """
             using System;
             using System.IO;
@@ -337,9 +355,10 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the model-tool attribute type is not present.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenToolAttributeUnavailableAsync()
-        => await VerifyRawAsync(
+    public Task SilentWhenToolAttributeUnavailableAsync() =>
+        VerifyRawAsync(
             """
             using System;
             using System.IO;
@@ -360,23 +379,21 @@ public class NonDestructiveToolMutationAnalyzerUnitTest
     /// <summary>Runs an analyzer-only verification of a tool sample against the .NET 9 reference assemblies.</summary>
     /// <param name="toolSource">The tool source with diagnostic markup; the model-tool and EF stubs are appended.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyToolAsync(string toolSource) => await VerifyRawAsync(toolSource + McpStub + EntityFrameworkStub);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyToolAsync(string toolSource) => VerifyRawAsync(toolSource + McpStub + EntityFrameworkStub);
 
     /// <summary>Runs an analyzer-only verification of a tool sample compiled without the Entity Framework stub.</summary>
     /// <param name="toolSource">The tool source with diagnostic markup; only the model-tool stub is appended.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyToolWithoutEntityFrameworkAsync(string toolSource) => await VerifyRawAsync(toolSource + McpStub);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyToolWithoutEntityFrameworkAsync(string toolSource) => VerifyRawAsync(toolSource + McpStub);
 
     /// <summary>Runs an analyzer-only verification of a complete source against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The complete source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyRawAsync(string source)
     {
-        var test = new AnalyzeTool.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeTool.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

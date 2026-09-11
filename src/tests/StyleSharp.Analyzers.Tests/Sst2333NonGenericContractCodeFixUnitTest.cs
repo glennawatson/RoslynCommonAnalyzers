@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyContract = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2333NonGenericContractAnalyzer,
     StyleSharp.Analyzers.Sst2333NonGenericContractCodeFixProvider>;
@@ -110,25 +111,29 @@ public class Sst2333NonGenericContractCodeFixUnitTest
 
     /// <summary>Verifies the fix adds <c>IComparable</c> forwarding to <c>IComparable&lt;T&gt;</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsNonGenericComparableAsync()
-        => await VerifyContract.VerifyCodeFixAsync(ComparableSource, ComparableFixed);
+    public Task AddsNonGenericComparableAsync() =>
+        VerifyContract.VerifyCodeFixAsync(ComparableSource, ComparableFixed);
 
     /// <summary>Verifies the fix adds <c>IComparer</c> forwarding to <c>IComparer&lt;T&gt;</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsNonGenericComparerAsync()
-        => await VerifyContract.VerifyCodeFixAsync(ComparerSource, ComparerFixed);
+    public Task AddsNonGenericComparerAsync() =>
+        VerifyContract.VerifyCodeFixAsync(ComparerSource, ComparerFixed);
 
     /// <summary>Verifies the fix adds <c>IEqualityComparer</c> forwarding to <c>IEqualityComparer&lt;T&gt;</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsNonGenericEqualityComparerAsync()
-        => await VerifyContract.VerifyCodeFixAsync(EqualityComparerSource, EqualityComparerFixed);
+    public Task AddsNonGenericEqualityComparerAsync() =>
+        VerifyContract.VerifyCodeFixAsync(EqualityComparerSource, EqualityComparerFixed);
 
     /// <summary>Verifies the fix adds an <c>object.Equals</c> override forwarding to <c>IEquatable&lt;T&gt;</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsObjectEqualsOverrideAsync()
-        => await VerifyContract.VerifyCodeFixAsync(EquatableSource, EquatableFixed);
+    public Task AddsObjectEqualsOverrideAsync() =>
+        VerifyContract.VerifyCodeFixAsync(EquatableSource, EquatableFixed);
 }

@@ -93,11 +93,13 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]) is { } marker)
+            if (compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]) is not { } marker)
             {
-                markers[count] = marker;
-                count++;
+                continue;
             }
+
+            markers[count] = marker;
+            count++;
         }
 
         Array.Resize(ref markers, count);
@@ -108,7 +110,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="threadType">The resolved <c>System.Threading.Thread</c> type.</param>
     /// <param name="markers">The resolved test-marker attribute types.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, INamedTypeSymbol[] markers)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, INamedTypeSymbol[] markers)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists))
@@ -123,7 +125,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new SleepScan(context, threadType, method, markers);
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, SleepScan>(body, ref scan, VisitInvocation);
+        _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, SleepScan>(body, ref scan, VisitInvocation);
     }
 
     /// <summary>Reports one <c>Thread.Sleep</c> call, confirming the enclosing method is a test on first hit.</summary>
@@ -241,20 +243,20 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an attribute's simple name matches a supported test marker, with or without the suffix.</summary>
     /// <param name="name">The attribute's rightmost identifier.</param>
     /// <returns><see langword="true"/> for a known test-attribute spelling.</returns>
-    private static bool IsKnownTestAttributeName(string name)
-        => IsTestAttributeShortName(name) || IsTestAttributeSuffixedName(name);
+    private static bool IsKnownTestAttributeName(string name) =>
+        IsTestAttributeShortName(name) || IsTestAttributeSuffixedName(name);
 
     /// <summary>Returns whether a name is a supported test attribute written without the <c>Attribute</c> suffix.</summary>
     /// <param name="name">The attribute's rightmost identifier.</param>
     /// <returns><see langword="true"/> for the short spelling.</returns>
-    private static bool IsTestAttributeShortName(string name)
-        => name is "Fact" or "Theory" or "Test" or "TestCase" or "TestCaseSource" or "TestMethod" or "DataTestMethod";
+    private static bool IsTestAttributeShortName(string name) =>
+        name is "Fact" or "Theory" or "Test" or "TestCase" or "TestCaseSource" or "TestMethod" or "DataTestMethod";
 
     /// <summary>Returns whether a name is a supported test attribute written with the <c>Attribute</c> suffix.</summary>
     /// <param name="name">The attribute's rightmost identifier.</param>
     /// <returns><see langword="true"/> for the suffixed spelling.</returns>
-    private static bool IsTestAttributeSuffixedName(string name)
-        => name is "FactAttribute" or "TheoryAttribute" or "TestAttribute" or "TestCaseAttribute" or "TestCaseSourceAttribute" or "TestMethodAttribute" or "DataTestMethodAttribute";
+    private static bool IsTestAttributeSuffixedName(string name) =>
+        name is "FactAttribute" or "TheoryAttribute" or "TestAttribute" or "TestCaseAttribute" or "TestCaseSourceAttribute" or "TestMethodAttribute" or "DataTestMethodAttribute";
 
     /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
     /// <param name="name">The attribute name.</param>
@@ -275,7 +277,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         /// <param name="threadType">The resolved <c>System.Threading.Thread</c> type.</param>
         /// <param name="method">The method being analyzed.</param>
         /// <param name="markers">The resolved test-marker attribute types.</param>
-        public SleepScan(SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, MethodDeclarationSyntax method, INamedTypeSymbol[] markers)
+        public SleepScan(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, MethodDeclarationSyntax method, INamedTypeSymbol[] markers)
         {
             Context = context;
             ThreadType = threadType;

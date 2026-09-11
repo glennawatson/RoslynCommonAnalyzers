@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2335PartialStaticMismatchAnalyzer,
     StyleSharp.Analyzers.Sst2335PartialStaticMismatchCodeFixProvider>;
@@ -65,13 +66,15 @@ public class Sst2335PartialStaticMismatchCodeFixUnitTest
 
     /// <summary>Verifies the fix adds <c>static</c> to the part that omits it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddsStaticToOmittingPartAsync()
-        => await VerifyPartial.VerifyCodeFixAsync(TwoPartSource, TwoPartFixed);
+    public Task AddsStaticToOmittingPartAsync() =>
+        VerifyPartial.VerifyCodeFixAsync(TwoPartSource, TwoPartFixed);
 
     /// <summary>Verifies Fix All makes every omitting part static.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllMakesEveryPartStaticAsync()
-        => await VerifyPartial.VerifyCodeFixAsync(ThreePartSource, ThreePartFixed);
+    public Task FixAllMakesEveryPartStaticAsync() =>
+        VerifyPartial.VerifyCodeFixAsync(ThreePartSource, ThreePartFixed);
 }

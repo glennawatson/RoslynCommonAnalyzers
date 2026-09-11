@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -82,16 +84,18 @@ public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reads the namespace form this tree is configured to use.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <returns>The configured style.</returns>
-    private static NamespaceDeclarationStyle ReadStyle(SyntaxNodeAnalysisContext context)
-        => ModernSyntaxStyleOptions.ReadNamespaceDeclarationStyle(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static NamespaceDeclarationStyle ReadStyle(in SyntaxNodeAnalysisContext context) =>
+        ModernSyntaxStyleOptions.ReadNamespaceDeclarationStyle(
             context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree));
 
     /// <summary>Reports one namespace declaration in the wrong form.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="name">The declared namespace name.</param>
     /// <param name="wanted">The form the project wants.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, NameSyntax name, string wanted)
-        => context.ReportDiagnostic(Diagnostic.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, NameSyntax name, string wanted) =>
+        context.ReportDiagnostic(Diagnostic.Create(
             ModernSyntaxRules.UseFileScopedNamespace,
             name.GetLocation(),
             name.ToString(),
@@ -101,6 +105,6 @@ public sealed class Sst2237FileScopedNamespaceAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeAntiforgery = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -29,9 +30,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the named <c>required: false</c> form on a component class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedRequiredFalseOnClassReportedAsync()
-        => await VerifyAsync(
+    public Task NamedRequiredFalseOnClassReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Antiforgery;
 
@@ -43,9 +45,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the positional <c>false</c> form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalFalseReportedAsync()
-        => await VerifyAsync(
+    public Task PositionalFalseReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Antiforgery;
 
@@ -57,9 +60,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the attribute on a method with <c>required: false</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequiredFalseOnMethodReportedAsync()
-        => await VerifyAsync(
+    public Task RequiredFalseOnMethodReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Antiforgery;
 
@@ -74,9 +78,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies <c>required: true</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequiredTrueIsCleanAsync()
-        => await VerifyAsync(
+    public Task RequiredTrueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Antiforgery;
 
@@ -88,9 +93,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the attribute with no arguments keeps its protective default and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoArgumentsIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoArgumentsIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Antiforgery;
 
@@ -102,9 +108,10 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedAttributeOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedAttributeOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             [RequireAntiforgeryToken(required: false)]
             public class Form
@@ -140,11 +147,7 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeAntiforgery.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeAntiforgery.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -154,11 +157,7 @@ public class AntiforgeryValidationDisabledAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeAntiforgery.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AttributeStub
-        };
+        var test = new AnalyzeAntiforgery.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AttributeStub };
 
         await test.RunAsync(CancellationToken.None);
     }

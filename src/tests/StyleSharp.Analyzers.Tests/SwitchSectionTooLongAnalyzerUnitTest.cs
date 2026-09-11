@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySectionLength = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1524SwitchSectionTooLongAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,9 +10,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1524 (switch sections should not be too long).</summary>
 public class SwitchSectionTooLongAnalyzerUnitTest
 {
-    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a section over the default maximum of 20 code lines is reported and a short one is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -88,7 +86,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -121,7 +119,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 5")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 5")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -145,7 +143,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1524.max_switch_section_lines = 1")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1524.max_switch_section_lines = 1")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -177,7 +175,7 @@ public class SwitchSectionTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath,
+            ("/.editorconfig",
             BuildConfig("stylesharp.max_switch_section_lines = 40", "stylesharp.SST1524.max_switch_section_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
@@ -209,19 +207,20 @@ public class SwitchSectionTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_switch_section_lines = 3")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_switch_section_lines = 3")));
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Builds the requested number of accumulator statements at switch-section indentation.</summary>
     /// <param name="count">The number of statements to emit.</param>
     /// <returns>The generated statements, one per line.</returns>
-    private static string BuildStatements(int count)
-        => string.Join("\n", Enumerable.Range(0, count).Select(static i => $"                total += {i};"));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string BuildStatements(int count) =>
+        string.Join("\n", Enumerable.Range(0, count).Select(static i => $"                total += {i};"));
 
     /// <summary>Builds an editor config file body from the supplied keys.</summary>
     /// <param name="entries">The keys to write under the C# section.</param>
     /// <returns>The editor config text.</returns>
-    private static string BuildConfig(params string[] entries)
-        => "root = true\n[*.cs]\n" + string.Join("\n", entries) + "\n";
+    private static string BuildConfig(params string[] entries) =>
+        $"root = true\n[*.cs]\n{string.Join("\n", entries)}\n";
 }

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -24,8 +25,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -109,8 +110,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Returns whether a node introduces a deferred or nested execution scope whose throws are not the member's.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> for a lambda, anonymous method, or local function.</returns>
-    private static bool IsDeferredScope(SyntaxNode node)
-        => node is SimpleLambdaExpressionSyntax
+    private static bool IsDeferredScope(SyntaxNode node) =>
+        node is SimpleLambdaExpressionSyntax
             or ParenthesizedLambdaExpressionSyntax
             or AnonymousMethodExpressionSyntax
             or LocalFunctionStatementSyntax;
@@ -140,7 +141,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (CrefSimpleName(node) is { } simpleName)
             {
-                names.Add(simpleName);
+                _ = names.Add(simpleName);
             }
         }
 
@@ -166,10 +167,10 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
             builder ??= new StringBuilder();
             if (builder.Length > 0)
             {
-                builder.Append('\n');
+                _ = builder.Append('\n');
             }
 
-            builder.Append(CrefForm(type));
+            _ = builder.Append(CrefForm(type));
         }
 
         return builder?.ToString();
@@ -190,8 +191,9 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Returns a cref-attribute form of a thrown type, converting generic angle brackets to braces.</summary>
     /// <param name="type">The type syntax as written.</param>
     /// <returns>The cref-safe type text.</returns>
-    private static string CrefForm(TypeSyntax type)
-        => type.ToString().Replace('<', '{').Replace('>', '}');
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string CrefForm(TypeSyntax type) =>
+        type.ToString().Replace('<', '{').Replace('>', '}');
 
     /// <summary>Returns the simple name an <c>&lt;exception&gt;</c> element's cref refers to, or <see langword="null"/>.</summary>
     /// <param name="node">The <c>&lt;exception&gt;</c> element.</param>
@@ -224,21 +226,25 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         var end = cref.Length;
         for (var i = 0; i < cref.Length; i++)
         {
-            if (cref[i] is '{' or '(' or '<')
+            if (cref[i] is not ('{' or '(' or '<'))
             {
-                end = i;
-                break;
+                continue;
             }
+
+            end = i;
+            break;
         }
 
         var start = 0;
         for (var i = end - 1; i >= 0; i--)
         {
-            if (cref[i] is '.' or ':')
+            if (cref[i] is not ('.' or ':'))
             {
-                start = i + 1;
-                break;
+                continue;
             }
+
+            start = i + 1;
+            break;
         }
 
         return cref.Substring(start, end - start);
@@ -251,8 +257,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     {
         MethodDeclarationSyntax method => (method.Identifier, method.Identifier.ValueText),
         ConstructorDeclarationSyntax constructor => (constructor.Identifier, constructor.Identifier.ValueText),
-        OperatorDeclarationSyntax @operator => (@operator.OperatorToken, "operator " + @operator.OperatorToken.ValueText),
-        ConversionOperatorDeclarationSyntax conversion => (conversion.OperatorKeyword, "operator " + conversion.Type),
+        OperatorDeclarationSyntax @operator => (@operator.OperatorToken, $"operator {@operator.OperatorToken.ValueText}"),
+        ConversionOperatorDeclarationSyntax conversion => (conversion.OperatorKeyword, $"operator {conversion.Type}"),
         _ => null,
     };
 }

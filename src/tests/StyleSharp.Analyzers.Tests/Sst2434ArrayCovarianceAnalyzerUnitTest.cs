@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyArrayCovariance = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2434ArrayCovarianceAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 {
     /// <summary>Verifies widening <c>string[]</c> to <c>object[]</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringArrayToObjectArrayIsReportedAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task StringArrayToObjectArrayIsReportedAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -23,9 +25,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 
     /// <summary>Verifies widening at an assignment inside a method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentInMethodIsReportedAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task AssignmentInMethodIsReportedAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -38,9 +41,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 
     /// <summary>Verifies keeping the concrete array type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameElementTypeIsCleanAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task SameElementTypeIsCleanAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -50,9 +54,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 
     /// <summary>Verifies a read-only-list destination is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyListDestinationIsCleanAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task ReadOnlyListDestinationIsCleanAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -64,9 +69,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 
     /// <summary>Verifies a value-type element array is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueTypeElementIsCleanAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task ValueTypeElementIsCleanAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -76,9 +82,10 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
 
     /// <summary>Verifies an object array assigned an object array is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectArrayToObjectArrayIsCleanAsync()
-        => await VerifyArrayCovariance.VerifyAnalyzerAsync(
+    public Task ObjectArrayToObjectArrayIsCleanAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

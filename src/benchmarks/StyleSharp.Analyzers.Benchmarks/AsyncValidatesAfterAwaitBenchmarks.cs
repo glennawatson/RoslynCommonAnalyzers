@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for async-validates-after-await analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("AsyncValidatesAfterAwaitBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class AsyncValidatesAfterAwaitBenchmarks
@@ -24,11 +26,13 @@ public class AsyncValidatesAfterAwaitBenchmarks
 
     /// <summary>Benchmarks the clean path, where every guard precedes the first await.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AsyncValidatesAfterAwait_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating path, where a guard follows the first await.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AsyncValidatesAfterAwait_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

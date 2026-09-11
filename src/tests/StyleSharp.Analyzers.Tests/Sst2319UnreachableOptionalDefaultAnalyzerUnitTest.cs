@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2319UnreachableOptionalDefaultAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2319UnreachableOptionalDefaultAnalyzerUnitTest
 {
     /// <summary>Verifies the optional default is reported when a shorter overload takes the required prefix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShadowedOptionalDefaultReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ShadowedOptionalDefaultReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -29,9 +31,10 @@ public class Sst2319UnreachableOptionalDefaultAnalyzerUnitTest
 
     /// <summary>Verifies an optional parameter with no matching shorter overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoneOptionalParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task LoneOptionalParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -43,9 +46,10 @@ public class Sst2319UnreachableOptionalDefaultAnalyzerUnitTest
 
     /// <summary>Verifies overloads that differ in the required prefix type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentPrefixTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentPrefixTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

@@ -67,7 +67,7 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
         }
 
         var state = new ScanState(parameters, typeParameterList.Span);
-        DescendantTraversalHelper.VisitDescendantTokens(context.Node, ref state, static (in SyntaxToken token, ref ScanState scan) => scan.Observe(token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(context.Node, ref state, static (in SyntaxToken token, ref ScanState scan) => scan.Observe(token));
 
         for (var i = 0; i < parameters.Count; i++)
         {
@@ -126,8 +126,8 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the declaration's arity is fixed by polymorphism or partials.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns><see langword="true"/> when the declaration should be skipped.</returns>
-    private static bool HasArityLockingModifier(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.PartialKeyword)
+    private static bool HasArityLockingModifier(in SyntaxTokenList modifiers) =>
+        modifiers.Any(SyntaxKind.PartialKeyword)
             || modifiers.Any(SyntaxKind.OverrideKeyword)
             || modifiers.Any(SyntaxKind.VirtualKeyword)
             || modifiers.Any(SyntaxKind.AbstractKeyword);
@@ -135,8 +135,8 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method explicitly implements an interface member.</summary>
     /// <param name="node">The declaration node.</param>
     /// <returns><see langword="true"/> when the declaration is an explicit implementation.</returns>
-    private static bool IsExplicitInterfaceImplementation(SyntaxNode node)
-        => node is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null };
+    private static bool IsExplicitInterfaceImplementation(SyntaxNode node) =>
+        node is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null };
 
     /// <summary>Tracks which type parameter names have been seen outside the parameter list.</summary>
     private sealed class ScanState
@@ -182,11 +182,13 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
             var text = token.ValueText;
             for (var i = 0; i < _parameters.Count; i++)
             {
-                if (!IsSeen(i) && _parameters[i].Identifier.ValueText == text)
+                if (IsSeen(i) || _parameters[i].Identifier.ValueText != text)
                 {
-                    _seenMask |= 1UL << i;
-                    _remaining--;
+                    continue;
                 }
+
+                _seenMask |= 1UL << i;
+                _remaining--;
             }
 
             return _remaining > 0;
@@ -195,7 +197,7 @@ public sealed class Sst1452UnusedTypeParameterAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a token is the declared name of a constraint clause.</summary>
         /// <param name="token">The identifier token.</param>
         /// <returns><see langword="true"/> when the token only restates the parameter in <c>where</c>.</returns>
-        private static bool IsConstraintClauseName(SyntaxToken token)
-            => token.Parent is IdentifierNameSyntax { Parent: TypeParameterConstraintClauseSyntax clause } name && clause.Name == name;
+        private static bool IsConstraintClauseName(SyntaxToken token) =>
+            token.Parent is IdentifierNameSyntax { Parent: TypeParameterConstraintClauseSyntax clause } name && clause.Name == name;
     }
 }

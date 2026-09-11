@@ -75,7 +75,7 @@ public sealed class Psh1308CompletedTaskAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1308 for a FromResult call that is consumed as the non-generic task.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The non-generic task type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsTaskFromResultShape(invocation))

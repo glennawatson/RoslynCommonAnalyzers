@@ -105,9 +105,7 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
 
         return literal.Kind() switch
         {
-            SyntaxKind.DefaultLiteralExpression => true,
-            SyntaxKind.NullLiteralExpression => true,
-            SyntaxKind.FalseLiteralExpression => true,
+            SyntaxKind.DefaultLiteralExpression or SyntaxKind.NullLiteralExpression or SyntaxKind.FalseLiteralExpression => true,
             SyntaxKind.NumericLiteralExpression => literal.Token.ValueText == "0",
             _ => false,
         };
@@ -158,7 +156,7 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="arrayType">The <c>System.Array</c> type in the current compilation.</param>
     /// <param name="hasWholeArrayClear">Whether the whole-array Clear overload exists.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol arrayType, bool hasWholeArrayClear)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol arrayType, bool hasWholeArrayClear)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsFillDefaultShape(invocation))
@@ -222,8 +220,8 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation's callee names <c>Fill</c> on an <c>Array</c> receiver.</summary>
     /// <param name="callee">The invoked expression.</param>
     /// <returns><see langword="true"/> when the syntax names Array.Fill or a using-static Fill.</returns>
-    private static bool IsFillName(ExpressionSyntax callee)
-        => callee switch
+    private static bool IsFillName(ExpressionSyntax callee) =>
+        callee switch
         {
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: FillMethodName } access => IsArrayReceiver(access.Expression),
             IdentifierNameSyntax { Identifier.ValueText: FillMethodName } => true,

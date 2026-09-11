@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,35 +24,37 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported chain with its extreme-scan form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The reported terminal invocation.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
 
     /// <summary>Resolves the reported chain and builds its extreme-scan replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => TryGetTerminalInvocation(root, diagnostic) is { } invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetTerminalInvocation(root, diagnostic) is { } invocation
             ? new NodeReplacement(invocation, Rewrite(invocation), RewriteCurrent)
             : null;
 
     /// <summary>Rewrites the current chain during batch FixAll composition.</summary>
     /// <param name="current">The current chain node, possibly carrying nested edits.</param>
     /// <returns>The rewritten chain, or the node unchanged when the shape no longer matches.</returns>
-    private static SyntaxNode RewriteCurrent(SyntaxNode current)
-        => current is InvocationExpressionSyntax invocation && Psh1118TakeExtremeWithoutSortingAnalyzer.IsExtremeChainShape(invocation)
+    private static SyntaxNode RewriteCurrent(SyntaxNode current) =>
+        current is InvocationExpressionSyntax invocation && Psh1118TakeExtremeWithoutSortingAnalyzer.IsExtremeChainShape(invocation)
             ? Rewrite(invocation)
             : current;
 

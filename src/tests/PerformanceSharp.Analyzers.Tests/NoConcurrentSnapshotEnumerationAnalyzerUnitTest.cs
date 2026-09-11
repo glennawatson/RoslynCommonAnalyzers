@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1305NoConcurrentSnapshotEnumerationAnalyzer,
     PerformanceSharp.Analyzers.Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider>;
@@ -97,9 +98,10 @@ public class NoConcurrentSnapshotEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a regular dictionary's Keys view stays clean; it is not a locking snapshot.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegularDictionaryKeysAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task RegularDictionaryKeysAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -120,9 +122,10 @@ public class NoConcurrentSnapshotEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a non-foreach Keys use stays clean; the rule only targets enumeration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEnumerationKeysUseIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonEnumerationKeysUseIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Concurrent;
 
@@ -134,9 +137,10 @@ public class NoConcurrentSnapshotEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies enumerating the dictionary itself is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectEnumerationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DirectEnumerationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Concurrent;
 

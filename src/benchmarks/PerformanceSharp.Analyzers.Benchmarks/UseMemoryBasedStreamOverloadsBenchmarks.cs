@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for use-memory-based-stream-overloads analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseMemoryBasedStreamOverloadsBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseMemoryBasedStreamOverloadsBenchmarks
@@ -24,11 +26,13 @@ public class UseMemoryBasedStreamOverloadsBenchmarks
 
     /// <summary>Benchmarks the clean use-memory-based-stream-overloads path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseMemoryBasedStreamOverloads_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating use-memory-based-stream-overloads path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseMemoryBasedStreamOverloads_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

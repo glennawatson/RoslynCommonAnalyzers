@@ -17,8 +17,8 @@ public sealed class Sst1663SummaryCommentAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.SummaryComment);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -88,20 +88,17 @@ public sealed class Sst1663SummaryCommentAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        if (!ImmediatelyPrecedesMember(leading, commentIndex)
+        return !ImmediatelyPrecedesMember(leading, commentIndex)
             || !StartsItsOwnLine(leading, commentIndex)
-            || HasContiguousCommentAbove(leading, commentIndex))
-        {
-            return null;
-        }
-
-        return comment;
+            || HasContiguousCommentAbove(leading, commentIndex)
+            ? null
+            : comment;
     }
 
     /// <summary>Returns the index of the last single-line comment in a trivia list, or <c>-1</c>.</summary>
     /// <param name="leading">The leading trivia.</param>
     /// <returns>The index, or <c>-1</c>.</returns>
-    private static int LastSingleLineCommentIndex(SyntaxTriviaList leading)
+    private static int LastSingleLineCommentIndex(in SyntaxTriviaList leading)
     {
         var found = -1;
         for (var i = 0; i < leading.Count; i++)
@@ -119,7 +116,7 @@ public sealed class Sst1663SummaryCommentAnalyzer : DiagnosticAnalyzer
     /// <param name="leading">The leading trivia.</param>
     /// <param name="commentIndex">The comment's index.</param>
     /// <returns><see langword="true"/> when there is no blank line between the comment and the member.</returns>
-    private static bool ImmediatelyPrecedesMember(SyntaxTriviaList leading, int commentIndex)
+    private static bool ImmediatelyPrecedesMember(in SyntaxTriviaList leading, int commentIndex)
     {
         var lineBreaks = 0;
         for (var i = commentIndex + 1; i < leading.Count; i++)
@@ -142,7 +139,7 @@ public sealed class Sst1663SummaryCommentAnalyzer : DiagnosticAnalyzer
     /// <param name="leading">The leading trivia.</param>
     /// <param name="commentIndex">The comment's index.</param>
     /// <returns><see langword="true"/> when the comment owns its line.</returns>
-    private static bool StartsItsOwnLine(SyntaxTriviaList leading, int commentIndex)
+    private static bool StartsItsOwnLine(in SyntaxTriviaList leading, int commentIndex)
     {
         for (var i = commentIndex - 1; i >= 0; i--)
         {
@@ -162,7 +159,7 @@ public sealed class Sst1663SummaryCommentAnalyzer : DiagnosticAnalyzer
     /// <param name="leading">The leading trivia.</param>
     /// <param name="commentIndex">The comment's index.</param>
     /// <returns><see langword="true"/> when this comment is part of a multi-line <c>//</c> block.</returns>
-    private static bool HasContiguousCommentAbove(SyntaxTriviaList leading, int commentIndex)
+    private static bool HasContiguousCommentAbove(in SyntaxTriviaList leading, int commentIndex)
     {
         var lineBreaks = 0;
         for (var i = commentIndex - 1; i >= 0; i--)

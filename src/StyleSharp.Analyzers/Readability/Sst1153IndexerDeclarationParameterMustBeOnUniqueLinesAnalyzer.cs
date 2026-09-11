@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Analyzer that makes sure that Parameters are on unique lines.
-/// </summary>
+/// <summary>Analyzer that makes sure that Parameters are on unique lines.</summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesAnalyzer : DiagnosticAnalyzer
 {

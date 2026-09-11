@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyUsingDeclaration = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UsingDeclarationAnalyzerUnitTest
 {
     /// <summary>Verifies a tail-position using block is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TailUsingBlockIsReportedAsync()
-        => await RunAsync(
+    public Task TailUsingBlockIsReportedAsync() =>
+        RunAsync(
             """
             using System.IO;
 
@@ -34,9 +36,10 @@ public class UsingDeclarationAnalyzerUnitTest
 
     /// <summary>Verifies a using block with later statements is clean because conversion would extend lifetime.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTailUsingBlockIsCleanAsync()
-        => await RunAsync(
+    public Task NonTailUsingBlockIsCleanAsync() =>
+        RunAsync(
             """
             using System.IO;
 
@@ -57,10 +60,7 @@ public class UsingDeclarationAnalyzerUnitTest
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task RunAsync(string source)
-        => await new VerifyUsingDeclaration.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        }.RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task RunAsync(string source) =>
+        new VerifyUsingDeclaration.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source }.RunAsync(CancellationToken.None);
 }

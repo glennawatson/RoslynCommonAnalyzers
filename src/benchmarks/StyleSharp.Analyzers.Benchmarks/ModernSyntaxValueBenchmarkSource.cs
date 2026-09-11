@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for modern-syntax value analysis.</summary>
@@ -14,23 +16,25 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => GenerateCore(members, violating, shape: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating) =>
+        GenerateCore(members, violating, shape: null);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFix(int members, ModernSyntaxValueBenchmarkShape shape)
-        => GenerateCore(members, violating: true, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateCodeFix(int members, ModernSyntaxValueBenchmarkShape shape) =>
+        GenerateCore(members, violating: true, shape);
 
     /// <summary>Builds the benchmark source body.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The fixed shape, or <see langword="null"/> to cycle all shapes.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCore(int members, bool violating, ModernSyntaxValueBenchmarkShape? shape)
-        => $$"""
+    private static string GenerateCore(int members, bool violating, ModernSyntaxValueBenchmarkShape? shape) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -61,16 +65,16 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape)
-        => GenerateOriginalMember(index, violating, shape) ?? GenerateAdditionalMember(index, violating, shape);
+    private static string GenerateMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape) =>
+        GenerateOriginalMember(index, violating, shape) ?? GenerateAdditionalMember(index, violating, shape);
 
     /// <summary>Builds one synthetic member from the original value-shape batch.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block, or <see langword="null"/>.</returns>
-    private static string? GenerateOriginalMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape)
-        => shape switch
+    private static string? GenerateOriginalMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape) =>
+        shape switch
         {
             ModernSyntaxValueBenchmarkShape.Interpolation => GenerateInterpolation(index, violating),
             ModernSyntaxValueBenchmarkShape.IgnoredValue => GenerateIgnoredValue(index, violating),
@@ -88,8 +92,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateAdditionalMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape)
-        => shape switch
+    private static string GenerateAdditionalMember(int index, bool violating, ModernSyntaxValueBenchmarkShape shape) =>
+        shape switch
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => GenerateLocalFunction(index, violating),
             ModernSyntaxValueBenchmarkShape.NullPattern => GenerateNullPattern(index, violating),
@@ -102,8 +106,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateInterpolation(int index, bool violating)
-        => violating
+    private static string GenerateInterpolation(int index, bool violating) =>
+        violating
             ? $$"""
                 private string Interpolation{{index}}(int value) => $"Value: {value.ToString("X")}";
                 """
@@ -115,8 +119,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateIgnoredValue(int index, bool violating)
-        => violating
+    private static string GenerateIgnoredValue(int index, bool violating) =>
+        violating
             ? $$"""
                 private void IgnoredValue{{index}}()
                 {
@@ -134,8 +138,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateOverwrittenValue(int index, bool violating)
-        => violating
+    private static string GenerateOverwrittenValue(int index, bool violating) =>
+        violating
             ? $$"""
                 private int OverwrittenValue{{index}}()
                 {
@@ -157,8 +161,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCoalesceAssignment(int index, bool violating)
-        => violating
+    private static string GenerateCoalesceAssignment(int index, bool violating) =>
+        violating
             ? $$"""
                 private string CoalesceAssignment{{index}}()
                 {
@@ -184,8 +188,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateAnonymousTuple(int index, bool violating)
-        => violating
+    private static string GenerateAnonymousTuple(int index, bool violating) =>
+        violating
             ? $$"""
                 private object AnonymousTuple{{index}}(int id, string name) => new { id, Label = name };
                 """
@@ -197,8 +201,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateForeachCast(int index, bool violating)
-        => violating
+    private static string GenerateForeachCast(int index, bool violating) =>
+        violating
             ? $$"""
                 private void ForeachCast{{index}}(object[] values)
                 {
@@ -220,8 +224,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateHiddenCast(int index, bool violating)
-        => violating
+    private static string GenerateHiddenCast(int index, bool violating) =>
+        violating
             ? $$"""
                 private Derived HiddenCast{{index}}(Castable value) => (Derived)value;
                 """
@@ -233,8 +237,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateFoldNullCheck(int index, bool violating)
-        => violating
+    private static string GenerateFoldNullCheck(int index, bool violating) =>
+        violating
             ? $$"""
                 private string FoldNullCheck{{index}}(string input)
                 {
@@ -259,8 +263,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateLocalFunction(int index, bool violating)
-        => violating
+    private static string GenerateLocalFunction(int index, bool violating) =>
+        violating
             ? $$"""
                 private int LocalFunction{{index}}()
                 {
@@ -280,8 +284,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateNullPattern(int index, bool violating)
-        => violating
+    private static string GenerateNullPattern(int index, bool violating) =>
+        violating
             ? $$"""
                 private bool NullPattern{{index}}(object value) => value is object;
                 """
@@ -293,8 +297,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateReturnedIncrement(int index, bool violating)
-        => violating
+    private static string GenerateReturnedIncrement(int index, bool violating) =>
+        violating
             ? $$"""
                 private int ReturnedIncrement{{index}}()
                 {
@@ -314,8 +318,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateSelfAssignedIncrement(int index, bool violating)
-        => violating
+    private static string GenerateSelfAssignedIncrement(int index, bool violating) =>
+        violating
             ? $$"""
                 private int SelfAssignedIncrement{{index}}(int seed)
                 {
@@ -337,8 +341,8 @@ internal static class ModernSyntaxValueBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateUnboundGenericName(int index, bool violating)
-        => violating
+    private static string GenerateUnboundGenericName(int index, bool violating) =>
+        violating
             ? $$"""
                 private string UnboundGenericName{{index}}() => nameof(System.Collections.Generic.Dictionary<string, int>);
                 """

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2019NullCheckOverTypeCheckAnalyzer,
     StyleSharp.Analyzers.Sst2019NullCheckOverTypeCheckCodeFixProvider>;
@@ -73,9 +74,10 @@ public class NullCheckOverTypeCheckAnalyzerUnitTest
 
     /// <summary>Verifies a non-nullable value type is left alone, where the test is a constant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNullableValueTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonNullableValueTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -85,9 +87,10 @@ public class NullCheckOverTypeCheckAnalyzerUnitTest
 
     /// <summary>Verifies a test against some other type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherTypeTestIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OtherTypeTestIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -97,9 +100,10 @@ public class NullCheckOverTypeCheckAnalyzerUnitTest
 
     /// <summary>Verifies a declaration pattern that binds the value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationPatternIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DeclarationPatternIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

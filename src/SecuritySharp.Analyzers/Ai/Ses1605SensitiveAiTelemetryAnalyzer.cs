@@ -62,7 +62,7 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1605 for an <c>EnableSensitiveData = true</c> assignment on a gated instrumentation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="instrumentationTypes">The gated instrumentation types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] instrumentationTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] instrumentationTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -96,11 +96,10 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an assignment target syntactically names the <c>EnableSensitiveData</c> property.</summary>
     /// <param name="left">The assignment's left-hand side.</param>
     /// <returns><see langword="true"/> for <c>x.EnableSensitiveData</c> or a bare <c>EnableSensitiveData</c> initializer member.</returns>
-    private static bool IsEnableSensitiveDataTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsEnableSensitiveDataTarget(ExpressionSyntax left) =>
+        left switch
         {
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: EnableSensitiveDataPropertyName } => true,
-            IdentifierNameSyntax { Identifier.ValueText: EnableSensitiveDataPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: EnableSensitiveDataPropertyName } or IdentifierNameSyntax { Identifier.ValueText: EnableSensitiveDataPropertyName } => true,
             _ => false,
         };
 
@@ -131,11 +130,13 @@ public sealed class Ses1605SensitiveAiTelemetryAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < InstrumentationMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(InstrumentationMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(InstrumentationMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[InstrumentationMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[InstrumentationMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

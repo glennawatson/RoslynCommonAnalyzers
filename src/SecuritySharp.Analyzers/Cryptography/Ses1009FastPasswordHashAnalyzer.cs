@@ -78,7 +78,7 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1009 for a fast-hash <c>HashData</c>/<c>ComputeHash</c> call over a password-named input.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="fastHashTypes">The gated fast-hash types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] fastHashTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] fastHashTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -157,8 +157,8 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
     /// <summary>Unwraps a <c>*.GetBytes(x)</c> call to its first argument so the encoded value's name is inspected.</summary>
     /// <param name="input">The hashed-input expression.</param>
     /// <returns>The encoded value expression when the input is a <c>GetBytes(...)</c> call; otherwise the input.</returns>
-    private static ExpressionSyntax UnwrapEncodingGetBytes(ExpressionSyntax input)
-        => input is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetBytesMethodName } } getBytes
+    private static ExpressionSyntax UnwrapEncodingGetBytes(ExpressionSyntax input) =>
+        input is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetBytesMethodName } } getBytes
             && getBytes.ArgumentList.Arguments.Count >= 1
             ? getBytes.ArgumentList.Arguments[0].Expression
             : input;

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -22,12 +23,13 @@ public sealed class Sst2423DisposableReturnedFromUsingCodeFixProvider : CodeFixP
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Transfer ownership to the caller", nameof(Sst2423DisposableReturnedFromUsingCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Transfer ownership to the caller", nameof(Sst2423DisposableReturnedFromUsingCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the returned local's <c>using</c> declaration and builds its plain replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -47,7 +49,7 @@ public sealed class Sst2423DisposableReturnedFromUsingCodeFixProvider : CodeFixP
         }
 
         var replacement = Rewrite(statement);
-        return new NodeReplacement(statement, replacement, current => Rewrite((LocalDeclarationStatementSyntax)current));
+        return new NodeReplacement(statement, replacement, static current => Rewrite((LocalDeclarationStatementSyntax)current));
     }
 
     /// <summary>Rewrites a <c>using</c> (or <c>await using</c>) declaration as a plain declaration.</summary>

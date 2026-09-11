@@ -50,7 +50,7 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one discarded immutable-value result.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="spanTypes">The resolved span and memory type definitions.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] spanTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] spanTypes)
     {
         if (((ExpressionStatementSyntax)context.Node).Expression is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
         {
@@ -72,8 +72,8 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The resolved method.</param>
     /// <param name="container">The method's containing type.</param>
     /// <returns><see langword="true"/> when the shape is reported elsewhere.</returns>
-    private static bool IsAlreadyReported(IMethodSymbol method, INamedTypeSymbol container)
-        => container.SpecialType == SpecialType.System_String
+    private static bool IsAlreadyReported(IMethodSymbol method, INamedTypeSymbol container) =>
+        container.SpecialType == SpecialType.System_String
             || method.Name == "TryParse"
             || (container.Name == "Enumerable" && container.ContainingNamespace?.ToDisplayString() == "System.Linq")
             || HasPureAttribute(method);
@@ -100,8 +100,8 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <param name="container">The method's containing type.</param>
     /// <param name="spanTypes">The resolved span and memory type definitions.</param>
     /// <returns><see langword="true"/> when the discarded result makes the call pointless.</returns>
-    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, INamedTypeSymbol?[] spanTypes)
-        => IsStatelessHelper(method, container)
+    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, INamedTypeSymbol?[] spanTypes) =>
+        IsStatelessHelper(method, container)
             || IsSpanLike(method.ReturnType, spanTypes)
             || IsFallbackImmutableValueType(container)
             || IsReadonlyStructSelfReturn(method, container);
@@ -110,8 +110,8 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The method.</param>
     /// <param name="container">The containing type.</param>
     /// <returns><see langword="true"/> for <c>Math</c>, <c>MathF</c>, <c>Convert</c>, <c>HashCode</c>, <c>BitConverter</c>.</returns>
-    private static bool IsStatelessHelper(IMethodSymbol method, INamedTypeSymbol container)
-        => method.IsStatic
+    private static bool IsStatelessHelper(IMethodSymbol method, INamedTypeSymbol container) =>
+        method.IsStatic
             && container.ContainingNamespace?.Name == "System"
             && container.Name is "Math" or "MathF" or "Convert" or "HashCode" or "BitConverter";
 
@@ -136,16 +136,16 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is a BCL value type that is immutable but not always marked readonly.</summary>
     /// <param name="container">The containing type.</param>
     /// <returns><see langword="true"/> for <c>DateTime</c>, <c>TimeSpan</c>, <c>Guid</c>, or <c>decimal</c>.</returns>
-    private static bool IsFallbackImmutableValueType(INamedTypeSymbol container)
-        => container.SpecialType == SpecialType.System_Decimal
+    private static bool IsFallbackImmutableValueType(INamedTypeSymbol container) =>
+        container.SpecialType == SpecialType.System_Decimal
             || (container.ContainingNamespace?.Name == "System" && container.Name is "DateTime" or "TimeSpan" or "Guid");
 
     /// <summary>Returns whether a readonly struct method returns its own type and mutates no argument.</summary>
     /// <param name="method">The method.</param>
     /// <param name="container">The containing type.</param>
     /// <returns><see langword="true"/> for a fluent value-returning method on a readonly struct.</returns>
-    private static bool IsReadonlyStructSelfReturn(IMethodSymbol method, INamedTypeSymbol container)
-        => container is { IsReadOnly: true, IsValueType: true }
+    private static bool IsReadonlyStructSelfReturn(IMethodSymbol method, INamedTypeSymbol container) =>
+        container is { IsReadOnly: true, IsValueType: true }
             && SymbolEqualityComparer.Default.Equals(method.ReturnType, container)
             && !HasByReferenceParameter(method);
 

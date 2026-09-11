@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -25,12 +27,13 @@ public sealed class Sst2446DiscardedStreamReadCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Read the buffer fully with ReadExactlyAsync", nameof(Sst2446DiscardedStreamReadCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Read the buffer fully with ReadExactlyAsync", nameof(Sst2446DiscardedStreamReadCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported read and rewrites it to the read-exactly call.</summary>
     /// <param name="root">The syntax root.</param>
@@ -52,7 +55,7 @@ public sealed class Sst2446DiscardedStreamReadCodeFixProvider : CodeFixProvider,
         }
 
         var rewritten = ReplaceInvokedName(invocation);
-        return new NodeReplacement(invocation, rewritten, current => ReplaceInvokedName((InvocationExpressionSyntax)current));
+        return new NodeReplacement(invocation, rewritten, static current => ReplaceInvokedName((InvocationExpressionSyntax)current));
     }
 
     /// <summary>Returns whether the read sits directly under a discarded configured await.</summary>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -51,26 +53,30 @@ internal static class SizeLimitOptions
     /// <summary>Reads the SST1521 maximum line length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxLineLength"/>.</returns>
-    public static int ReadMaxLineLength(AnalyzerConfigOptions options)
-        => ReadPositiveInt(options, MaxLineLengthRuleKey, MaxLineLengthGeneralKey, DefaultMaxLineLength);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int ReadMaxLineLength(AnalyzerConfigOptions options) =>
+        ReadPositiveInt(options, MaxLineLengthRuleKey, MaxLineLengthGeneralKey, DefaultMaxLineLength);
 
     /// <summary>Reads the SST1522 maximum file length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxFileLines"/>.</returns>
-    public static int ReadMaxFileLines(AnalyzerConfigOptions options)
-        => ReadPositiveInt(options, MaxFileLinesRuleKey, MaxFileLinesGeneralKey, DefaultMaxFileLines);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int ReadMaxFileLines(AnalyzerConfigOptions options) =>
+        ReadPositiveInt(options, MaxFileLinesRuleKey, MaxFileLinesGeneralKey, DefaultMaxFileLines);
 
     /// <summary>Reads the SST1523 maximum member length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxMemberLines"/>.</returns>
-    public static int ReadMaxMemberLines(AnalyzerConfigOptions options)
-        => ReadPositiveInt(options, MaxMemberLinesRuleKey, MaxMemberLinesGeneralKey, DefaultMaxMemberLines);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int ReadMaxMemberLines(AnalyzerConfigOptions options) =>
+        ReadPositiveInt(options, MaxMemberLinesRuleKey, MaxMemberLinesGeneralKey, DefaultMaxMemberLines);
 
     /// <summary>Reads the SST1524 maximum switch-section length for one tree.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The configured maximum, or <see cref="DefaultMaxSwitchSectionLines"/>.</returns>
-    public static int ReadMaxSwitchSectionLines(AnalyzerConfigOptions options)
-        => ReadPositiveInt(options, MaxSwitchSectionLinesRuleKey, MaxSwitchSectionLinesGeneralKey, DefaultMaxSwitchSectionLines);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int ReadMaxSwitchSectionLines(AnalyzerConfigOptions options) =>
+        ReadPositiveInt(options, MaxSwitchSectionLinesRuleKey, MaxSwitchSectionLinesGeneralKey, DefaultMaxSwitchSectionLines);
 
     /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

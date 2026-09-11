@@ -22,8 +22,8 @@ internal readonly record struct UnreadParameterOptions(bool IncludePublicApi)
     /// caller outside the assembly, and the diagnostic would be asking for a change the author may not be
     /// free to make. Set the key to <c>true</c> in an application, or before a major version, to see them.
     /// </remarks>
-    public static UnreadParameterOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, IncludePublicApiRuleKey, IncludePublicApiGeneralKey, fallback: false));
+    internal static UnreadParameterOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadBool(options, IncludePublicApiRuleKey, IncludePublicApiGeneralKey, fallback: false));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

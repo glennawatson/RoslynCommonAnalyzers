@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeRegex = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class RegexInjectionAnalyzerUnitTest
 {
     /// <summary>Verifies a non-constant pattern passed to the Regex constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantConstructorPatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantConstructorPatternReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -28,9 +30,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a concatenated data-derived constructor pattern is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenatedConstructorPatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConcatenatedConstructorPatternReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -42,9 +45,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated data-derived constructor pattern is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedConstructorPatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task InterpolatedConstructorPatternReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -56,9 +60,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies the fully-qualified constructor form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedConstructorPatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task FullyQualifiedConstructorPatternReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -69,9 +74,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant pattern passed to static Regex.IsMatch is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantIsMatchPatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantIsMatchPatternReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -83,9 +89,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant pattern passed to static Regex.Replace is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantReplacePatternReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantReplacePatternReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -97,9 +104,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies non-constant patterns to static Match, Matches, and Split are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantMatchMatchesSplitPatternsReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantMatchMatchesSplitPatternsReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -116,9 +124,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies the pattern is reported when supplied by name in a reordered call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedPatternArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedPatternArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -130,9 +139,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal constructor pattern is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantConstructorPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantConstructorPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -144,9 +154,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a const-composed constructor pattern is not reported (its value is constant).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstComposedConstructorPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstComposedConstructorPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -160,9 +171,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal static pattern is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantStaticPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantStaticPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -174,9 +186,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant input with a constant pattern is not reported (input is out of scope).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantInputWithConstantPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantInputWithConstantPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -188,9 +201,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies an instance Regex.IsMatch (which carries no pattern argument) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceIsMatchWithNonConstantInputIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InstanceIsMatchWithNonConstantInputIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -202,9 +216,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTypeWithMatchingSignatureIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedTypeWithMatchingSignatureIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public static class Regex
             {
@@ -219,9 +234,10 @@ public class RegexInjectionAnalyzerUnitTest
 
     /// <summary>Verifies a same-named constructor on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedConstructorNamedRegexIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedConstructorNamedRegexIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Regex
             {
@@ -241,11 +257,7 @@ public class RegexInjectionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeRegex.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeRegex.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

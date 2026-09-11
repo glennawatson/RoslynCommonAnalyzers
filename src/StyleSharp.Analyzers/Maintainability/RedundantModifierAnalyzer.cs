@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -169,7 +171,7 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     private static bool ContainsOverflowCapableOperation(SyntaxNode root)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             root,
             ref found,
             static (SyntaxNode node, ref bool state) =>
@@ -189,14 +191,14 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node kind is an operation a <c>checked</c>/<c>unchecked</c> context can affect.</summary>
     /// <param name="kind">The node's syntax kind.</param>
     /// <returns><see langword="true"/> for integer arithmetic, increment/decrement, unary negation, and casts.</returns>
-    private static bool IsOverflowCapable(SyntaxKind kind)
-        => IsBinaryArithmetic(kind) || IsUnaryArithmetic(kind) || IsArithmeticAssignmentOrCast(kind);
+    private static bool IsOverflowCapable(SyntaxKind kind) =>
+        IsBinaryArithmetic(kind) || IsUnaryArithmetic(kind) || IsArithmeticAssignmentOrCast(kind);
 
     /// <summary>Returns whether a node kind is a binary arithmetic operator.</summary>
     /// <param name="kind">The node's syntax kind.</param>
     /// <returns><see langword="true"/> for <c>+ - * /</c> and <c>%</c>.</returns>
-    private static bool IsBinaryArithmetic(SyntaxKind kind)
-        => kind is SyntaxKind.AddExpression
+    private static bool IsBinaryArithmetic(SyntaxKind kind) =>
+        kind is SyntaxKind.AddExpression
             or SyntaxKind.SubtractExpression
             or SyntaxKind.MultiplyExpression
             or SyntaxKind.DivideExpression
@@ -205,8 +207,8 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node kind is a unary arithmetic operator.</summary>
     /// <param name="kind">The node's syntax kind.</param>
     /// <returns><see langword="true"/> for negation and increment/decrement.</returns>
-    private static bool IsUnaryArithmetic(SyntaxKind kind)
-        => kind is SyntaxKind.UnaryMinusExpression
+    private static bool IsUnaryArithmetic(SyntaxKind kind) =>
+        kind is SyntaxKind.UnaryMinusExpression
             or SyntaxKind.PreIncrementExpression
             or SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostIncrementExpression
@@ -215,8 +217,8 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node kind is an arithmetic compound assignment or a cast.</summary>
     /// <param name="kind">The node's syntax kind.</param>
     /// <returns><see langword="true"/> for <c>+= -= *= /= %=</c> and a cast expression.</returns>
-    private static bool IsArithmeticAssignmentOrCast(SyntaxKind kind)
-        => kind is SyntaxKind.AddAssignmentExpression
+    private static bool IsArithmeticAssignmentOrCast(SyntaxKind kind) =>
+        kind is SyntaxKind.AddAssignmentExpression
             or SyntaxKind.SubtractAssignmentExpression
             or SyntaxKind.MultiplyAssignmentExpression
             or SyntaxKind.DivideAssignmentExpression
@@ -227,7 +229,7 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="declaration">The member declaration.</param>
     /// <returns>The declared symbol, or <see langword="null"/> when none is available.</returns>
-    private static ISymbol? GetMemberSymbol(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration)
+    private static ISymbol? GetMemberSymbol(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration)
     {
         if (declaration is BaseFieldDeclarationSyntax field)
         {
@@ -251,13 +253,14 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="declaration">The declaration.</param>
     /// <returns><see langword="true"/> when only one declaration exists.</returns>
-    private static bool IsSinglePart(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration)
-        => context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)?.DeclaringSyntaxReferences.Length == 1;
+    private static bool IsSinglePart(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax declaration) =>
+        context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken)?.DeclaringSyntaxReferences.Length == 1;
 
     /// <summary>Reports a redundant modifier (SST1419).</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="modifier">The modifier token.</param>
-    private static void ReportModifier(SyntaxNodeAnalysisContext context, SyntaxToken modifier)
-        => context.ReportDiagnostic(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ReportModifier(in SyntaxNodeAnalysisContext context, SyntaxToken modifier) =>
+        context.ReportDiagnostic(
             Diagnostic.Create(MaintainabilityRules.NoRedundantModifier, modifier.GetLocation(), modifier.ValueText));
 }

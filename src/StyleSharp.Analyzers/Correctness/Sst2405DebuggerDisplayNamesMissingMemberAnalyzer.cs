@@ -44,8 +44,8 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DebuggerDisplayNamesMissingMember);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -74,7 +74,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="context">The syntax node context.</param>
     /// <param name="literal">The display string.</param>
     /// <param name="type">The type the attribute is on.</param>
-    private static void ReportMissingMembers(SyntaxNodeAnalysisContext context, LiteralExpressionSyntax literal, INamedTypeSymbol type)
+    private static void ReportMissingMembers(in SyntaxNodeAnalysisContext context, LiteralExpressionSyntax literal, INamedTypeSymbol type)
     {
         var text = literal.Token.Text;
         var start = literal.Token.SpanStart;
@@ -201,8 +201,8 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="start">The first position of the expression.</param>
     /// <param name="end">The position after the last.</param>
     /// <returns>The position after the member's name.</returns>
-    private static int StripCall(string text, int start, int end)
-        => end - start > CallParenthesesLength && text[end - 1] == ')' && text[end - CallParenthesesLength] == '('
+    private static int StripCall(string text, int start, int end) =>
+        end - start > CallParenthesesLength && text[end - 1] == ')' && text[end - CallParenthesesLength] == '('
             ? end - CallParenthesesLength
             : end;
 
@@ -237,7 +237,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     {
         for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
         {
-            if (current.GetMembers(name).Length > 0)
+            if (!current.GetMembers(name).IsEmpty)
             {
                 return true;
             }
@@ -250,34 +250,20 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="context">The syntax node context.</param>
     /// <param name="attribute">The attribute.</param>
     /// <returns>The type, or <see langword="null"/> when the attribute is not on a type declaration.</returns>
-    private static INamedTypeSymbol? GetTargetType(SyntaxNodeAnalysisContext context, AttributeSyntax attribute)
-    {
-        if (attribute.Parent?.Parent is not TypeDeclarationSyntax declaration)
-        {
-            return null;
-        }
-
-        return context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
-    }
+    private static INamedTypeSymbol? GetTargetType(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute) =>
+        attribute.Parent?.Parent is not TypeDeclarationSyntax declaration ? null : context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken);
 
     /// <summary>Gets the display string an attribute is constructed with.</summary>
     /// <param name="attribute">The attribute.</param>
     /// <returns>The literal, or <see langword="null"/> when the format is not a literal string.</returns>
-    private static LiteralExpressionSyntax? GetDisplayLiteral(AttributeSyntax attribute)
-    {
-        if (attribute.ArgumentList is not { Arguments.Count: > 0 } list || list.Arguments[0].NameEquals is not null)
-        {
-            return null;
-        }
-
-        return list.Arguments[0].Expression as LiteralExpressionSyntax;
-    }
+    private static LiteralExpressionSyntax? GetDisplayLiteral(AttributeSyntax attribute) =>
+        attribute.ArgumentList is not { Arguments.Count: > 0 } list || list.Arguments[0].NameEquals is not null ? null : list.Arguments[0].Expression as LiteralExpressionSyntax;
 
     /// <summary>Returns whether an attribute is written as the debugger-display one.</summary>
     /// <param name="name">The attribute's name.</param>
     /// <returns><see langword="true"/> when the rightmost name matches, with or without the suffix.</returns>
-    private static bool IsDebuggerDisplayName(NameSyntax name)
-        => GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
+    private static bool IsDebuggerDisplayName(NameSyntax name) =>
+        GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
 
     /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
     /// <param name="name">The attribute name.</param>

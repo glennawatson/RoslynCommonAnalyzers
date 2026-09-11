@@ -68,7 +68,7 @@ public sealed class DocumentationCommentStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a documentation comment that is not attached to a documentable element.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="comment">The documentation comment node.</param>
-    private static void CheckPlacement(SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax comment)
+    private static void CheckPlacement(in SyntaxNodeAnalysisContext context, DocumentationCommentTriviaSyntax comment)
     {
         if (DocumentsElement(comment.ParentTrivia.Token))
         {
@@ -97,7 +97,7 @@ public sealed class DocumentationCommentStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="name">The element name.</param>
     /// <param name="element">The element node.</param>
-    private static void CheckPlaceholder(SyntaxNodeAnalysisContext context, XmlNameSyntax name, SyntaxNode element)
+    private static void CheckPlaceholder(in SyntaxNodeAnalysisContext context, XmlNameSyntax name, SyntaxNode element)
     {
         if (!string.Equals(name.LocalName.ValueText, PlaceholderName, StringComparison.Ordinal))
         {

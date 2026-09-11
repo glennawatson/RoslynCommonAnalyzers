@@ -15,7 +15,7 @@ internal static class EditorConfigList
     /// <param name="token">The token to find.</param>
     /// <param name="comparison">The comparison used to match a token.</param>
     /// <returns><see langword="true"/> when the list contains the token.</returns>
-    public static bool Contains(string list, string token, StringComparison comparison)
+    internal static bool Contains(string list, string token, StringComparison comparison)
     {
         var start = 0;
         for (var i = 0; i <= list.Length; i++)
@@ -55,8 +55,8 @@ internal static class EditorConfigList
     /// <param name="token">The token to find.</param>
     /// <param name="comparison">The comparison used to match a token.</param>
     /// <returns><see langword="true"/> when the key is present and its list contains the token.</returns>
-    public static bool ContainsToken(AnalyzerConfigOptions options, string key, string token, StringComparison comparison)
-        => options.TryGetValue(key, out var list) && list.Length != 0 && Contains(list, token, comparison);
+    internal static bool ContainsToken(AnalyzerConfigOptions options, string key, string token, StringComparison comparison) =>
+        options.TryGetValue(key, out var list) && list.Length != 0 && Contains(list, token, comparison);
 
     /// <summary>Returns whether a character separates list entries.</summary>
     /// <param name="value">The character to test.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -165,9 +166,10 @@ public class UseSharedRandomAnalyzerUnitTest
 
     /// <summary>Verifies a seeded allocation is never reported: a seed asks for a reproducible sequence.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeededAllocationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task SeededAllocationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -179,9 +181,10 @@ public class UseSharedRandomAnalyzerUnitTest
 
     /// <summary>Verifies a derived Random is never reported: its overrides would be traded away.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedRandomIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task DerivedRandomIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -198,9 +201,10 @@ public class UseSharedRandomAnalyzerUnitTest
 
     /// <summary>Verifies another type's parameterless allocation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherTypeAllocationIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task OtherTypeAllocationIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -222,12 +226,7 @@ public class UseSharedRandomAnalyzerUnitTest
                               }
                               """;
 
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -238,12 +237,7 @@ public class UseSharedRandomAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -251,5 +245,6 @@ public class UseSharedRandomAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

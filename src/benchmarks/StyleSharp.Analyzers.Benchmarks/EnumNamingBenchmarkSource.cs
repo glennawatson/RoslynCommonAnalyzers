@@ -11,8 +11,8 @@ internal static class EnumNamingBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingType(i) : GenerateCleanType(i))}}
@@ -26,8 +26,8 @@ internal static class EnumNamingBenchmarkSource
     /// acronym that stays upper, a trailing two-letter acronym, and a digit — the longest clean path
     /// through the scan, since every character has to be read before the name is accepted.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public enum LogLevel{{index}} { Debug, Info, Warning }
 
            public enum IOMode{{index}} { Read, Write }
@@ -43,8 +43,8 @@ internal static class EnumNamingBenchmarkSource
     /// <summary>Builds one block of enums whose names are not PascalCase.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public enum Log_Level{{index}} { Debug, Info, Warning }
 
            public enum HTTPStatus{{index}} { Ok, NotFound }

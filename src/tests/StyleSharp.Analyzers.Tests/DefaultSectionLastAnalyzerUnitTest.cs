@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDefault = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1219DefaultSectionLastAnalyzer>;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1219DefaultSectionLastAnalyzer,
@@ -77,15 +78,17 @@ public class DefaultSectionLastAnalyzerUnitTest
 
     /// <summary>Verifies a default section before a case is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeadingDefaultIsReportedAsync()
-        => await VerifyDefault.VerifyAnalyzerAsync(LeadingDefaultSource);
+    public Task LeadingDefaultIsReportedAsync() =>
+        VerifyDefault.VerifyAnalyzerAsync(LeadingDefaultSource);
 
     /// <summary>Verifies a trailing default section is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingDefaultIsCleanAsync()
-        => await VerifyDefault.VerifyAnalyzerAsync(
+    public Task TrailingDefaultIsCleanAsync() =>
+        VerifyDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -104,9 +107,10 @@ public class DefaultSectionLastAnalyzerUnitTest
 
     /// <summary>Verifies a switch with no default section is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoDefaultIsCleanAsync()
-        => await VerifyDefault.VerifyAnalyzerAsync(
+    public Task NoDefaultIsCleanAsync() =>
+        VerifyDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -127,7 +131,8 @@ public class DefaultSectionLastAnalyzerUnitTest
 
     /// <summary>Verifies the fix moves the default section to the end.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixMovesDefaultToTheEndAsync()
-        => await VerifyFix.VerifyCodeFixAsync(LeadingDefaultSource, LeadingDefaultFixed);
+    public Task FixMovesDefaultToTheEndAsync() =>
+        VerifyFix.VerifyCodeFixAsync(LeadingDefaultSource, LeadingDefaultFixed);
 }

@@ -39,8 +39,8 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MissingDebuggerDisplay);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -62,13 +62,13 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a publicly visible type with no debugger-display attribute.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="attributeType">The resolved debugger-display attribute type.</param>
-    private static void Analyze(SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
             || type.IsStatic
             || !SymbolVisibility.IsExternallyVisible(type)
-            || type.Locations.Length == 0
+            || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource
             || HasDebuggerDisplay(type, attributeType)
             || !HasDisplayableState(type))

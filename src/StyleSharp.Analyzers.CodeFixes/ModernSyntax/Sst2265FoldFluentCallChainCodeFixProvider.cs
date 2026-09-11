@@ -124,7 +124,7 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
     {
         var first = (ExpressionStatementSyntax)block.Statements[index];
         var last = (ExpressionStatementSyntax)block.Statements[index + count - 1];
-        ExpressionSyntax accumulated = first.Expression.WithoutTrivia();
+        var accumulated = first.Expression.WithoutTrivia();
         for (var i = index + 1; i < index + count; i++)
         {
             var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)block.Statements[i]).Expression;

@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Single source of truth for the documentation (SST16xx) diagnostic descriptors.
-/// </summary>
+/// <summary>Single source of truth for the documentation (SST16xx) diagnostic descriptors.</summary>
 internal static class DocumentationRules
 {
     /// <summary>SST1600 — members in the documentation-coverage scope should be documented.</summary>
@@ -442,7 +442,7 @@ internal static class DocumentationRules
         + "coverage, so the gap never resurfaces. Name the condition: what the caller passed, or the state the member was in. "
         + "An element whose content is inherited, or that wraps a nested element rather than prose, is left alone.";
 
-    /// <summary>The diagnostic category every SST16xx descriptor is filed under.</summary>
+    /// <summary>The diagnostic category every descriptor in this range is filed under.</summary>
     private const string Category = "Documentation";
 
     /// <summary>Creates an enabled-by-default Info-severity Documentation descriptor — a documentation nudge that is
@@ -469,6 +469,7 @@ internal static class DocumentationRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
@@ -478,6 +479,7 @@ internal static class DocumentationRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

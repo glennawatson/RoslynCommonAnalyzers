@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUndefinedFlag = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2461UndefinedFlagInCompositeValueAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UndefinedFlagInCompositeValueAnalyzerUnitTest
 {
     /// <summary>Verifies a composite setting a bit no member declares is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndefinedBitIsFlaggedAsync()
-        => await VerifyUndefinedFlag.VerifyAnalyzerAsync(
+    public Task UndefinedBitIsFlaggedAsync() =>
+        VerifyUndefinedFlag.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -30,9 +32,10 @@ public class UndefinedFlagInCompositeValueAnalyzerUnitTest
 
     /// <summary>Verifies a composite made only of declared bits is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclaredBitsAreCleanAsync()
-        => await VerifyUndefinedFlag.VerifyAnalyzerAsync(
+    public Task DeclaredBitsAreCleanAsync() =>
+        VerifyUndefinedFlag.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -49,9 +52,10 @@ public class UndefinedFlagInCompositeValueAnalyzerUnitTest
 
     /// <summary>Verifies a composite written from the members themselves is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompositeFromMembersIsCleanAsync()
-        => await VerifyUndefinedFlag.VerifyAnalyzerAsync(
+    public Task CompositeFromMembersIsCleanAsync() =>
+        VerifyUndefinedFlag.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -67,9 +71,10 @@ public class UndefinedFlagInCompositeValueAnalyzerUnitTest
 
     /// <summary>Verifies an enum without the flags attribute is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonFlagsEnumIsCleanAsync()
-        => await VerifyUndefinedFlag.VerifyAnalyzerAsync(
+    public Task NonFlagsEnumIsCleanAsync() =>
+        VerifyUndefinedFlag.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -82,9 +87,10 @@ public class UndefinedFlagInCompositeValueAnalyzerUnitTest
 
     /// <summary>Verifies single-bit members are never reported, however sparse the enum is.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleBitMembersAreCleanAsync()
-        => await VerifyUndefinedFlag.VerifyAnalyzerAsync(
+    public Task SingleBitMembersAreCleanAsync() =>
+        VerifyUndefinedFlag.VerifyAnalyzerAsync(
             """
             using System;
 

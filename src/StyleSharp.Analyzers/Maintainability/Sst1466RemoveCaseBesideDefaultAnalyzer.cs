@@ -84,7 +84,7 @@ public sealed class Sst1466RemoveCaseBesideDefaultAnalyzer : DiagnosticAnalyzer
     private static bool ContainsCaseTargetingGoto(SwitchStatementSyntax switchStatement)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<GotoStatementSyntax, bool>(switchStatement, ref found, MatchCaseTargetingGoto);
+        _ = DescendantTraversalHelper.VisitDescendants<GotoStatementSyntax, bool>(switchStatement, ref found, MatchCaseTargetingGoto);
         return found;
     }
 

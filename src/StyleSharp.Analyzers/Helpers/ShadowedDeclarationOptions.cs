@@ -22,8 +22,8 @@ internal readonly record struct ShadowedDeclarationOptions(bool CheckBaseTypes)
     /// field of the same name is sometimes deliberate, so an unset or unparsable value leaves it off rather
     /// than letting a typo light up a whole hierarchy.
     /// </remarks>
-    public static ShadowedDeclarationOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, CheckBaseTypesRuleKey, CheckBaseTypesGeneralKey, fallback: false));
+    internal static ShadowedDeclarationOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadBool(options, CheckBaseTypesRuleKey, CheckBaseTypesGeneralKey, fallback: false));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

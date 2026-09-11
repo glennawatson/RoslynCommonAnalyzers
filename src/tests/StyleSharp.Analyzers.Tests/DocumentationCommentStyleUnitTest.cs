@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDocStyle = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.DocumentationCommentStyleAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DocumentationCommentStyleUnitTest
 {
     /// <summary>Verifies a placeholder documentation element is reported (SST1651).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlaceholderElementReportedAsync()
-        => await VerifyDocStyle.VerifyAnalyzerAsync(
+    public Task PlaceholderElementReportedAsync() =>
+        VerifyDocStyle.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -55,9 +57,10 @@ public class DocumentationCommentStyleUnitTest
 
     /// <summary>Verifies a documentation comment that documents a member is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DocumentationOnMemberIsCleanAsync()
-        => await VerifyDocStyle.VerifyAnalyzerAsync(
+    public Task DocumentationOnMemberIsCleanAsync() =>
+        VerifyDocStyle.VerifyAnalyzerAsync(
             """
             internal class C
             {

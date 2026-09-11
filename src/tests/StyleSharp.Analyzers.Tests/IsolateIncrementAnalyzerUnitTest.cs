@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyIncrement = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2015IsolateIncrementAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class IsolateIncrementAnalyzerUnitTest
 {
     /// <summary>Verifies an increment whose value a larger expression reads is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuriedIncrementIsReportedAsync()
-        => await VerifyIncrement.VerifyAnalyzerAsync(
+    public Task BuriedIncrementIsReportedAsync() =>
+        VerifyIncrement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -40,9 +42,10 @@ public class IsolateIncrementAnalyzerUnitTest
 
     /// <summary>Verifies an increment that is the whole expression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StandaloneIncrementIsCleanAsync()
-        => await VerifyIncrement.VerifyAnalyzerAsync(
+    public Task StandaloneIncrementIsCleanAsync() =>
+        VerifyIncrement.VerifyAnalyzerAsync(
             """
             public class C
             {

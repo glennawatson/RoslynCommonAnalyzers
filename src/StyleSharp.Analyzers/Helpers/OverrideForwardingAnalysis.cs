@@ -14,7 +14,7 @@ internal static class OverrideForwardingAnalysis
     /// <summary>Returns whether a method override only forwards to <c>base.Name(args)</c> with its parameters in order.</summary>
     /// <param name="method">The method declaration to inspect.</param>
     /// <returns><see langword="true"/> when the override adds nothing over the inherited member.</returns>
-    public static bool IsPlainForwardingMethod(MethodDeclarationSyntax method)
+    internal static bool IsPlainForwardingMethod(MethodDeclarationSyntax method)
     {
         if (!IsForwardingCandidate(method.Modifiers, method.AttributeLists)
             || method.TypeParameterList is not null)
@@ -31,7 +31,7 @@ internal static class OverrideForwardingAnalysis
     /// <summary>Returns whether a property override only forwards each accessor to the base property of the same name.</summary>
     /// <param name="property">The property declaration to inspect.</param>
     /// <returns><see langword="true"/> when the override adds nothing over the inherited member.</returns>
-    public static bool IsPlainForwardingProperty(PropertyDeclarationSyntax property)
+    internal static bool IsPlainForwardingProperty(PropertyDeclarationSyntax property)
     {
         if (!IsForwardingCandidate(property.Modifiers, property.AttributeLists))
         {
@@ -67,8 +67,8 @@ internal static class OverrideForwardingAnalysis
     /// <param name="modifiers">The member modifiers.</param>
     /// <param name="attributeLists">The member attribute lists.</param>
     /// <returns><see langword="true"/> when the member could be a pure forwarder.</returns>
-    private static bool IsForwardingCandidate(SyntaxTokenList modifiers, SyntaxList<AttributeListSyntax> attributeLists)
-        => attributeLists.Count == 0
+    private static bool IsForwardingCandidate(in SyntaxTokenList modifiers, SyntaxList<AttributeListSyntax> attributeLists) =>
+        attributeLists.Count == 0
             && ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword)
 
             // 'sealed override' intentionally stops further overriding, so it carries meaning.
@@ -85,12 +85,9 @@ internal static class OverrideForwardingAnalysis
             return expressionBody.Expression as InvocationExpressionSyntax;
         }
 
-        if (body is not { Statements.Count: 1 })
-        {
-            return null;
-        }
-
-        return body.Statements[0] switch
+        return body is not { Statements.Count: 1 }
+            ? null
+            : body.Statements[0] switch
         {
             ReturnStatementSyntax { Expression: InvocationExpressionSyntax returned } => returned,
             ExpressionStatementSyntax { Expression: InvocationExpressionSyntax called } => called,
@@ -121,27 +118,21 @@ internal static class OverrideForwardingAnalysis
     /// <summary>Returns the lone expression of a single-statement accessor body, or <see langword="null"/>.</summary>
     /// <param name="body">The accessor block body.</param>
     /// <returns>The single expression (returned or statement form), or <see langword="null"/>.</returns>
-    private static ExpressionSyntax? SingleBodyExpression(BlockSyntax? body)
-    {
-        if (body is not { Statements.Count: 1 })
-        {
-            return null;
-        }
-
-        return body.Statements[0] switch
+    private static ExpressionSyntax? SingleBodyExpression(BlockSyntax? body) => body is not { Statements.Count: 1 }
+        ? null
+        : body.Statements[0] switch
         {
             ReturnStatementSyntax { Expression: { } returned } => returned,
             ExpressionStatementSyntax { Expression: { } called } => called,
             _ => null
         };
-    }
 
     /// <summary>Returns whether a setter body is exactly <c>base.Name = value</c>.</summary>
     /// <param name="expression">The setter's single expression.</param>
     /// <param name="propertyName">The owning property's name.</param>
     /// <returns><see langword="true"/> when the setter only forwards the assigned value to the base.</returns>
-    private static bool IsBaseSetterForward(ExpressionSyntax expression, string propertyName)
-        => expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
+    private static bool IsBaseSetterForward(ExpressionSyntax expression, string propertyName) =>
+        expression is AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment
             && assignment.Right is IdentifierNameSyntax { Identifier.ValueText: "value" }
             && IsBaseAccessTo(assignment.Left, propertyName);
 
@@ -149,8 +140,8 @@ internal static class OverrideForwardingAnalysis
     /// <param name="expression">The candidate member access.</param>
     /// <param name="memberName">The expected member name.</param>
     /// <returns><see langword="true"/> for a <c>base.member</c> access to the named member.</returns>
-    private static bool IsBaseAccessTo(ExpressionSyntax expression, string memberName)
-        => expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax } access
+    private static bool IsBaseAccessTo(ExpressionSyntax expression, string memberName) =>
+        expression is MemberAccessExpressionSyntax { Expression: BaseExpressionSyntax } access
             && access.Name is IdentifierNameSyntax identifier
             && string.Equals(identifier.Identifier.ValueText, memberName, StringComparison.Ordinal);
 
@@ -208,7 +199,7 @@ internal static class OverrideForwardingAnalysis
     /// <summary>Maps a parameter's modifiers to the call-site ref kind it requires.</summary>
     /// <param name="modifiers">The parameter modifiers.</param>
     /// <returns>The required call-site token kind, or <see cref="SyntaxKind.None"/>.</returns>
-    private static SyntaxKind ParameterPassingKind(SyntaxTokenList modifiers)
+    private static SyntaxKind ParameterPassingKind(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

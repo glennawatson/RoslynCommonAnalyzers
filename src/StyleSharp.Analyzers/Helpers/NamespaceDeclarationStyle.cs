@@ -12,8 +12,8 @@ namespace StyleSharp.Analyzers;
 internal enum NamespaceDeclarationStyle
 {
     /// <summary><c>namespace N;</c>.</summary>
-    FileScoped,
+    FileScoped = 0,
 
     /// <summary><c>namespace N { ... }</c>.</summary>
-    BlockScoped
+    BlockScoped = 1,
 }

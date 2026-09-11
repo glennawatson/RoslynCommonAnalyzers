@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReferenceEquality = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer,
     StyleSharp.Analyzers.Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider>;
@@ -92,9 +93,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies an inherited Equals override is enough to make the operator disagree.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedEqualsOverrideIsReportedAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task InheritedEqualsOverrideIsReportedAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             $$"""
             public sealed class Cash : Money
             {
@@ -109,9 +111,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against null is a null check and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullComparisonIsCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task NullComparisonIsCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             $$"""
             public sealed class C
             {
@@ -122,9 +125,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies a type that overloads the operator means what it says.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeThatOverloadsTheOperatorIsCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task TypeThatOverloadsTheOperatorIsCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             """
             public class Weight
             {
@@ -147,9 +151,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies a type that never overrides Equals compares references on purpose.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithoutEqualsOverrideIsCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task TypeWithoutEqualsOverrideIsCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             """
             public class Session
             {
@@ -164,9 +169,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies the framework types that already overload the operator are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringsRecordsAndValueTypesAreCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task StringsRecordsAndValueTypesAreCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             """
             public record Point(int X, int Y);
 
@@ -191,9 +197,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies an operand typed as object is an explicit request for reference semantics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectTypedOperandIsCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task ObjectTypedOperandIsCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             $$"""
             public sealed class C
             {
@@ -204,9 +211,10 @@ public class ReferenceEqualityOnValueEqualTypeAnalyzerUnitTest
 
     /// <summary>Verifies an interface operand and an unconstrained type parameter are both left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceAndTypeParameterOperandsAreCleanAsync()
-        => await VerifyReferenceEquality.VerifyAnalyzerAsync(
+    public Task InterfaceAndTypeParameterOperandsAreCleanAsync() =>
+        VerifyReferenceEquality.VerifyAnalyzerAsync(
             """
             public interface IAmount
             {

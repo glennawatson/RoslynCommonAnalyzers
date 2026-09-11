@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyShortCircuit = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.NonShortCircuitOperatorAnalyzer,
     StyleSharp.Analyzers.Sst1468UseShortCircuitOperatorCodeFixProvider>;
@@ -101,9 +102,10 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
 
     /// <summary>Verifies enum-flag and integer masking stays clean because the operands are not boolean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumAndIntegerOperandsAreCleanAsync()
-        => await VerifyShortCircuit.VerifyAnalyzerAsync(
+    public Task EnumAndIntegerOperandsAreCleanAsync() =>
+        VerifyShortCircuit.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -125,9 +127,10 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
 
     /// <summary>Verifies an invocation right operand is the guard case (SST2415), not the tidy one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvocationRightOperandIsGuardCaseAsync()
-        => await VerifyShortCircuit.VerifyAnalyzerAsync(
+    public Task InvocationRightOperandIsGuardCaseAsync() =>
+        VerifyShortCircuit.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -139,9 +142,10 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a lambda converted to an expression tree is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeLambdaIsCleanAsync()
-        => await VerifyShortCircuit.VerifyAnalyzerAsync(
+    public Task ExpressionTreeLambdaIsCleanAsync() =>
+        VerifyShortCircuit.VerifyAnalyzerAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -178,9 +182,10 @@ public class UseShortCircuitOperatorAnalyzerUnitTest
 
     /// <summary>Verifies the compound assignment forms are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentsAreCleanAsync()
-        => await VerifyShortCircuit.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentsAreCleanAsync() =>
+        VerifyShortCircuit.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

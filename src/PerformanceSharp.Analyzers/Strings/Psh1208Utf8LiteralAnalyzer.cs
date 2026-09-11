@@ -108,7 +108,7 @@ public sealed class Psh1208Utf8LiteralAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1208 for a constant-string GetBytes call on the runtime's UTF-8 or ASCII encoding.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="encodingType">The encoding type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetEncodingPropertyName(invocation) is not { } encodingName

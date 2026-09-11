@@ -22,7 +22,7 @@ internal static class LayoutFixHelpers
     /// <summary>Returns the newline sequence used by the document (defaults to "\n" when none is found).</summary>
     /// <param name="text">The source text.</param>
     /// <returns>The detected newline string.</returns>
-    public static string DetectNewLine(SourceText text)
+    internal static string DetectNewLine(SourceText text)
     {
         if (text.Lines.Count == 0)
         {
@@ -37,7 +37,7 @@ internal static class LayoutFixHelpers
     /// <param name="text">The source text.</param>
     /// <param name="position">A position on the target line.</param>
     /// <returns>The indentation string.</returns>
-    public static string IndentOfLine(SourceText text, int position)
+    internal static string IndentOfLine(SourceText text, int position)
     {
         var line = text.Lines.GetLineFromPosition(position);
         var end = line.Start;
@@ -54,7 +54,7 @@ internal static class LayoutFixHelpers
     /// <param name="start">The inclusive start position.</param>
     /// <param name="end">The exclusive end position.</param>
     /// <returns><see langword="true"/> when no non-whitespace character lies between the bounds.</returns>
-    public static bool IsWhitespaceBetween(SourceText text, int start, int end)
+    internal static bool IsWhitespaceBetween(SourceText text, int start, int end)
     {
         for (var position = start; position < end; position++)
         {
@@ -73,7 +73,7 @@ internal static class LayoutFixHelpers
     /// <param name="newLine">The document newline sequence.</param>
     /// <param name="changes">The change set to append to.</param>
     /// <returns><see langword="true"/> when the rewrite is safe; <see langword="false"/> when a comment blocks it.</returns>
-    public static bool TryAppendBlockExpansion(SourceText text, BlockSyntax block, string newLine, List<TextChange> changes)
+    internal static bool TryAppendBlockExpansion(SourceText text, BlockSyntax block, string newLine, List<TextChange> changes)
     {
         var openBrace = block.OpenBraceToken;
         var ownerIndent = IndentOfLine(text, openBrace.SpanStart);
@@ -115,7 +115,7 @@ internal static class LayoutFixHelpers
     /// <param name="statement">The bare statement to wrap.</param>
     /// <param name="newLine">The document newline sequence.</param>
     /// <param name="changes">The change set to append to.</param>
-    public static void AppendBraceWrap(SourceText text, StatementSyntax statement, string newLine, List<TextChange> changes)
+    internal static void AppendBraceWrap(SourceText text, StatementSyntax statement, string newLine, List<TextChange> changes)
     {
         var ownerIndent = IndentOfLine(text, statement.Parent!.GetFirstToken().SpanStart);
         var childIndent = ownerIndent + IndentStep;
@@ -127,8 +127,8 @@ internal static class LayoutFixHelpers
 
         // Replace the gap before the child with an opening brace on its own line and the child
         // re-indented one level; this handles both single-line and already-multi-line children.
-        changes.Add(new(TextSpan.FromBounds(header.Span.End, statement.SpanStart), newLine + ownerIndent + "{" + newLine + childIndent));
-        changes.Add(new(new(statement.Span.End, 0), newLine + ownerIndent + "}"));
+        changes.Add(new(TextSpan.FromBounds(header.Span.End, statement.SpanStart), $"{newLine}{ownerIndent}{{{newLine}{childIndent}"));
+        changes.Add(new(new(statement.Span.End, 0), $"{newLine}{ownerIndent}}}"));
     }
 
     /// <summary>Appends the inserts that wrap a switch section's statements in braces on their own lines.</summary>
@@ -138,7 +138,7 @@ internal static class LayoutFixHelpers
     /// <param name="newLine">The document newline sequence.</param>
     /// <param name="changes">The change set to append to.</param>
     /// <returns><see langword="true"/> when the rewrite is safe; <see langword="false"/> when a comment blocks it.</returns>
-    public static bool TryAppendSwitchSectionBraceWrap(
+    internal static bool TryAppendSwitchSectionBraceWrap(
         SourceText text,
         StatementSyntax firstStatement,
         StatementSyntax lastStatement,
@@ -153,8 +153,8 @@ internal static class LayoutFixHelpers
             return false;
         }
 
-        changes.Add(new(TextSpan.FromBounds(label.Span.End, firstStatement.SpanStart), newLine + labelIndent + "{" + newLine + bodyIndent));
-        changes.Add(new(new(lastStatement.Span.End, 0), newLine + labelIndent + "}"));
+        changes.Add(new(TextSpan.FromBounds(label.Span.End, firstStatement.SpanStart), $"{newLine}{labelIndent}{{{newLine}{bodyIndent}"));
+        changes.Add(new(new(lastStatement.Span.End, 0), $"{newLine}{labelIndent}}}"));
         return true;
     }
 
@@ -166,7 +166,7 @@ internal static class LayoutFixHelpers
     /// <param name="newLine">The document newline sequence.</param>
     /// <param name="changes">The change set to append to.</param>
     /// <returns><see langword="true"/> when the two surrounding gaps are clean whitespace and were rewritten.</returns>
-    public static bool TryAppendTokenBreakMove(
+    internal static bool TryAppendTokenBreakMove(
         SourceText text,
         SyntaxToken token,
         bool breakBefore,
@@ -205,7 +205,7 @@ internal static class LayoutFixHelpers
     /// <param name="wantBreakBefore">Whether the break should precede the link.</param>
     /// <param name="changes">The change set to append to.</param>
     /// <returns><see langword="true"/> when the surrounding gaps are clean whitespace and were rewritten.</returns>
-    public static bool TryAppendChainLinkBreakMove(
+    internal static bool TryAppendChainLinkBreakMove(
         SourceText text,
         SyntaxToken leadToken,
         SyntaxToken afterToken,

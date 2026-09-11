@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyKey = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2475TemporalPrimaryKeyAnalyzer>;
@@ -26,9 +27,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a key-attributed <c>DateTime</c> key is reported without the framework present.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyAttributeDateTimeIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task KeyAttributeDateTimeIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.ComponentModel.DataAnnotations;
@@ -42,9 +44,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a key-attributed <c>DateTimeOffset</c> key is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyAttributeDateTimeOffsetIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task KeyAttributeDateTimeOffsetIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.ComponentModel.DataAnnotations;
@@ -58,9 +61,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a nullable temporal key attributed with the key attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyAttributeNullableDateTimeIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task KeyAttributeNullableDateTimeIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using System.ComponentModel.DataAnnotations;
@@ -74,9 +78,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies the <c>Id</c> convention on a <c>DbSet</c> entity flags a temporal key.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionIdOnDbSetEntityIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task ConventionIdOnDbSetEntityIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -94,9 +99,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies the <c>&lt;TypeName&gt;Id</c> convention flags a temporal key on an entity.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionTypeNameIdOnDbSetEntityIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task ConventionTypeNameIdOnDbSetEntityIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -114,9 +120,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a nested entity registered through a <c>DbSet</c> field is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedEntityWithDbSetFieldIsFlaggedAsync()
-        => await VerifyReportAsync(
+    public Task NestedEntityWithDbSetFieldIsFlaggedAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -137,9 +144,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies an integer key attributed with the key attribute is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntegerKeyAttributeIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task IntegerKeyAttributeIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using System.ComponentModel.DataAnnotations;
 
@@ -152,9 +160,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a non-temporal convention key on a <c>DbSet</c> entity is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTemporalConventionKeyIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task NonTemporalConventionKeyIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using Microsoft.EntityFrameworkCore;
 
@@ -171,9 +180,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a convention-named temporal key on a type not exposed by any <c>DbSet</c> is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionKeyWithoutDbSetMembershipIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task ConventionKeyWithoutDbSetMembershipIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -190,9 +200,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a static convention-named temporal property is never treated as a key.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionStaticKeyIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task ConventionStaticKeyIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -210,9 +221,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a read-only convention-named temporal property is never treated as a key.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionGetOnlyKeyIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task ConventionGetOnlyKeyIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -230,9 +242,10 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
 
     /// <summary>Verifies a non-public convention-named temporal property is never treated as a key.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConventionNonPublicKeyIsCleanAsync()
-        => await VerifyReportAsync(
+    public Task ConventionNonPublicKeyIsCleanAsync() =>
+        VerifyReportAsync(
             """
             using System;
             using Microsoft.EntityFrameworkCore;
@@ -263,11 +276,7 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new VerifyKey.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -277,11 +286,7 @@ public class TemporalPrimaryKeyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new VerifyKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyKey.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

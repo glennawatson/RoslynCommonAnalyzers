@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyForeach = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1467UseForeachOverManualEnumeratorAnalyzer,
     StyleSharp.Analyzers.Sst1467UseForeachOverManualEnumeratorCodeFixProvider>;
@@ -137,9 +138,10 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies an enumerator that is still used after the loop is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumeratorUsedAfterLoopIsCleanAsync()
-        => await VerifyForeach.VerifyAnalyzerAsync(
+    public Task EnumeratorUsedAfterLoopIsCleanAsync() =>
+        VerifyForeach.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -162,9 +164,10 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies a body that uses the enumerator for anything besides reading Current is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeInsideBodyIsCleanAsync()
-        => await VerifyForeach.VerifyAnalyzerAsync(
+    public Task DisposeInsideBodyIsCleanAsync() =>
+        VerifyForeach.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -187,9 +190,10 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies an enumerator held by a using declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationEnumeratorIsCleanAsync()
-        => await VerifyForeach.VerifyAnalyzerAsync(
+    public Task UsingDeclarationEnumeratorIsCleanAsync() =>
+        VerifyForeach.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -211,9 +215,10 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies a loop separated from the enumerator declaration by another statement is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopNotImmediatelyAfterDeclarationIsCleanAsync()
-        => await VerifyForeach.VerifyAnalyzerAsync(
+    public Task LoopNotImmediatelyAfterDeclarationIsCleanAsync() =>
+        VerifyForeach.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -235,9 +240,10 @@ public class UseForeachOverManualEnumeratorAnalyzerUnitTest
 
     /// <summary>Verifies the diagnostic is still reported when 'item' is already taken, even though no fix is offered.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ItemAlreadyInScopeReportsWithoutFixAsync()
-        => await VerifyForeach.VerifyAnalyzerAsync(
+    public Task ItemAlreadyInScopeReportsWithoutFixAsync() =>
+        VerifyForeach.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

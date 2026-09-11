@@ -47,7 +47,7 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
     /// <summary>Reports one collection creation whose arguments are pure configuration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="targets">The resolved collection and comparer symbols.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, CollectionExpressionArgumentTargets targets)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionExpressionArgumentTargets targets)
     {
         if (!LanguageVersions.SupportsCSharp15(context.Node))
         {
@@ -99,7 +99,7 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
     /// <param name="targets">The resolved collection and comparer symbols.</param>
     /// <returns>The constructed collection type, or <see langword="null"/> when the shape does not qualify.</returns>
     private static INamedTypeSymbol? ConfiguredCollection(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BaseObjectCreationExpressionSyntax creation,
         CollectionExpressionArgumentTargets targets)
     {

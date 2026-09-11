@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -233,9 +234,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a copy whose elements are written is not reported — a string cannot be mutated.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedCopyIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutatedCopyIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -245,9 +247,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a copy stored in a local and then mutated is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StoredAndMutatedCopyIsCleanAsync()
-        => await VerifyAsync(
+    public Task StoredAndMutatedCopyIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -262,9 +265,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a returned copy is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedCopyIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReturnedCopyIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -274,9 +278,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a copy handed to an API that only takes an array is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArrayOnlyConsumerIsCleanAsync()
-        => await VerifyAsync(
+    public Task ArrayOnlyConsumerIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -296,9 +301,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
     /// all. The rule confirms the rewritten binding rather than assuming a sibling overload exists to
     /// catch it.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverloadTheRewriteWouldNotReachIsCleanAsync()
-        => await VerifyAsync(
+    public Task OverloadTheRewriteWouldNotReachIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -316,9 +322,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a range slice of a copy is not reported — the sliced types differ.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RangeSliceOfCopyIsCleanAsync()
-        => await VerifyAsync(
+    public Task RangeSliceOfCopyIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -328,9 +335,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a span copy enumerated by foreach is not reported — a span cannot cross an await.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForEachOverSpanToArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task ForEachOverSpanToArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -351,9 +359,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a LINQ ToArray is not reported — only the span's own ToArray is a copy this rule owns.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LinqToArrayIsCleanAsync()
-        => await VerifyAsync(
+    public Task LinqToArrayIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -366,9 +375,10 @@ public class RedundantSequenceCopyAnalyzerUnitTest
 
     /// <summary>Verifies a sequence copy reached through a conditional access is not reported — rebinding the detached call would orphan its member binding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessSequenceCopyIsLeftAloneAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessSequenceCopyIsLeftAloneAsync() =>
+        VerifyAsync(
             """
             public sealed class C
             {
@@ -389,11 +399,7 @@ public class RedundantSequenceCopyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

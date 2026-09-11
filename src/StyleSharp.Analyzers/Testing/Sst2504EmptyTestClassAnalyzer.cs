@@ -65,8 +65,8 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.EmptyTestClass);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -91,7 +91,7 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="classMarkers">The resolved test-class attribute markers.</param>
     /// <param name="methodMarkers">The resolved test-method attribute markers.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] classMarkers, INamedTypeSymbol[] methodMarkers)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] classMarkers, INamedTypeSymbol[] methodMarkers)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         if (IsAbstract(declaration.Modifiers) || !CarriesTestClassAttributeName(declaration.AttributeLists))
@@ -123,10 +123,13 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < metadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(metadataNames[i]) is { } marker)
+            if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
             {
-                buffer[count++] = marker;
+                continue;
             }
+
+            buffer[count] = marker;
+            count++;
         }
 
         if (count == buffer.Length)
@@ -142,7 +145,7 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a modifier list contains <c>abstract</c>.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns><see langword="true"/> when the class is abstract.</returns>
-    private static bool IsAbstract(SyntaxTokenList modifiers)
+    private static bool IsAbstract(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

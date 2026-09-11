@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Removes the redundant explicit type arguments from a method call (SST2251).</summary>
@@ -56,21 +58,15 @@ public sealed class Sst2251InferableTypeArgumentsCodeFixProvider : CodeFixProvid
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (FindGenericName(root, diagnostic.Location.SourceSpan) is not { } genericName)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(genericName, CreateReplacement(genericName)));
-    }
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        FindGenericName(root, diagnostic.Location.SourceSpan) is not { } genericName ? document : document.WithSyntaxRoot(root.ReplaceNode(genericName, CreateReplacement(genericName)));
 
     /// <summary>Builds the plain identifier that replaces the generic name.</summary>
     /// <param name="genericName">The generic name being simplified.</param>
     /// <returns>The identifier name without the type-argument list.</returns>
-    private static IdentifierNameSyntax CreateReplacement(GenericNameSyntax genericName)
-        => SyntaxFactory.IdentifierName(genericName.Identifier).WithTriviaFrom(genericName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IdentifierNameSyntax CreateReplacement(GenericNameSyntax genericName) =>
+        SyntaxFactory.IdentifierName(genericName.Identifier).WithTriviaFrom(genericName);
 
     /// <summary>Finds the generic name whose type-argument list the diagnostic marks.</summary>
     /// <param name="root">The syntax root.</param>

@@ -11,8 +11,8 @@ internal static class MutableGetHashCodeBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit mutable-GetHashCode rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class MutableGetHashCodeBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose hash reads only state that construction fixes.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class MutableGetHashCodeBenchmarkSource
     /// The type also carries a mutable field and an ordinary method, so the syntactic prepass has real
     /// members to reject before it reaches the one hash override.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class Clean{{index}}
            {
                private const int Seed = 17;
@@ -75,8 +75,8 @@ internal static class MutableGetHashCodeBenchmarkSource
     /// <summary>Builds one type whose hash reads four members that can change afterwards.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class Dirty{{index}}
            {
                private int _id;

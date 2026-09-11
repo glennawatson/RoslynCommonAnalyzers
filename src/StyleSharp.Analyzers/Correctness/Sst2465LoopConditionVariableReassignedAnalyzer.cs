@@ -72,7 +72,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <param name="context">The syntax node context.</param>
     /// <param name="condition">The loop's condition.</param>
     /// <param name="body">The loop body.</param>
-    private static void InspectBody(SyntaxNodeAnalysisContext context, ExpressionSyntax condition, StatementSyntax? body)
+    private static void InspectBody(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition, StatementSyntax? body)
     {
         if (body is BlockSyntax block)
         {
@@ -88,7 +88,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <param name="context">The syntax node context.</param>
     /// <param name="condition">The loop's condition.</param>
     /// <param name="statements">The statements to inspect.</param>
-    private static void InspectStatements(SyntaxNodeAnalysisContext context, ExpressionSyntax condition, SyntaxList<StatementSyntax> statements)
+    private static void InspectStatements(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition, SyntaxList<StatementSyntax> statements)
     {
         for (var i = 0; i < statements.Count; i++)
         {
@@ -105,7 +105,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <c>switch</c>, a <c>try</c>, and every other guarded construct are skipped: a write nested inside one may be an
     /// intended early advance, which the rule leaves alone.
     /// </remarks>
-    private static void InspectStatement(SyntaxNodeAnalysisContext context, ExpressionSyntax condition, StatementSyntax statement)
+    private static void InspectStatement(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition, StatementSyntax statement)
     {
         if (statement is BlockSyntax nested)
         {
@@ -121,7 +121,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <param name="context">The syntax node context.</param>
     /// <param name="condition">The loop's condition.</param>
     /// <param name="expression">The expression-statement's expression.</param>
-    private static void TryReportWrite(SyntaxNodeAnalysisContext context, ExpressionSyntax condition, ExpressionSyntax expression)
+    private static void TryReportWrite(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition, ExpressionSyntax expression)
     {
         if (GetWrittenIdentifier(expression) is not { } written)
         {
@@ -208,7 +208,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
             return false;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(binary, ref scan, VisitConditionNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(binary, ref scan, VisitConditionNode);
         return !scan.Rejected && scan.Identifiers is > 0 and <= MaximumConditionVariables;
     }
 
@@ -246,7 +246,7 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
         }
 
         var scan = new NameScan(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
         return scan.Found;
     }
 
@@ -268,8 +268,8 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <summary>Returns whether a syntax kind is a relational or equality comparison.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c>, <c>&gt;=</c>, <c>==</c> and <c>!=</c>.</returns>
-    private static bool IsRelationalOrEquality(SyntaxKind kind)
-        => kind is SyntaxKind.LessThanExpression
+    private static bool IsRelationalOrEquality(SyntaxKind kind) =>
+        kind is SyntaxKind.LessThanExpression
             or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression
@@ -279,8 +279,8 @@ public sealed class Sst2465LoopConditionVariableReassignedAnalyzer : DiagnosticA
     /// <summary>Returns whether an operator kind increments or decrements its operand.</summary>
     /// <param name="kind">The operator kind.</param>
     /// <returns><see langword="true"/> for <c>++</c> and <c>--</c> in either position.</returns>
-    private static bool IsIncrementOrDecrement(SyntaxKind kind)
-        => kind is SyntaxKind.PreIncrementExpression
+    private static bool IsIncrementOrDecrement(SyntaxKind kind) =>
+        kind is SyntaxKind.PreIncrementExpression
             or SyntaxKind.PreDecrementExpression
             or SyntaxKind.PostIncrementExpression
             or SyntaxKind.PostDecrementExpression;

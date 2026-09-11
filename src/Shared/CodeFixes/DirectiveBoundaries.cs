@@ -6,9 +6,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace RoslynCommon.Analyzers.CodeFixes;
 
-/// <summary>
-/// Answers whether a preprocessor directive lies across the region a fix is about to rearrange.
-/// </summary>
+/// <summary>Answers whether a preprocessor directive lies across the region a fix is about to rearrange.</summary>
 /// <remarks>
 /// A directive belongs to a position in the file, not to the node it sits above. A fix that moves,
 /// merges or drops a node carries whichever half of a directive pair that node's trivia happens to
@@ -23,7 +21,7 @@ internal static class DirectiveBoundaries
     /// <param name="container">A node enclosing the span.</param>
     /// <param name="span">The region the fix rearranges.</param>
     /// <returns><see langword="true"/> when a directive lies in the span.</returns>
-    public static bool Cross(SyntaxNode container, TextSpan span)
+    internal static bool Cross(SyntaxNode container, TextSpan span)
     {
         if (!container.ContainsDirectives)
         {
@@ -53,8 +51,8 @@ internal static class DirectiveBoundaries
     /// The span is the braces rather than the whole declaration: a file-scoped <c>#nullable</c> above
     /// the declaration is part of its leading trivia, and so of its full span, but no member crosses it.
     /// </remarks>
-    public static bool SeparateMembers(BaseTypeDeclarationSyntax declaration)
-        => !declaration.OpenBraceToken.IsKind(SyntaxKind.None)
+    internal static bool SeparateMembers(BaseTypeDeclarationSyntax declaration) =>
+        !declaration.OpenBraceToken.IsKind(SyntaxKind.None)
             && Cross(declaration, TextSpan.FromBounds(declaration.OpenBraceToken.SpanStart, declaration.CloseBraceToken.Span.End));
 
     /// <summary>Returns whether a directive lies between two nodes a fix brings together.</summary>
@@ -65,20 +63,16 @@ internal static class DirectiveBoundaries
     /// Only the gap is weighed, so a directive above both — or below both — does not block a fix that
     /// never moves anything across it.
     /// </remarks>
-    public static bool Separate(SyntaxNode first, SyntaxNode second)
+    internal static bool Separate(SyntaxNode first, SyntaxNode second)
     {
         if (first.Parent is not { } container)
         {
             return false;
         }
 
-        if (first.Span.End <= second.Span.Start)
-        {
-            return Cross(container, TextSpan.FromBounds(first.Span.End, second.Span.Start));
-        }
-
-        // One node inside the other is not a pair a fix reorders, so there is no gap to weigh.
-        return second.Span.End <= first.Span.Start
+        return first.Span.End <= second.Span.Start
+            ? Cross(container, TextSpan.FromBounds(first.Span.End, second.Span.Start))
+            : second.Span.End <= first.Span.Start
             && Cross(container, TextSpan.FromBounds(second.Span.End, first.Span.Start));
     }
 
@@ -89,7 +83,7 @@ internal static class DirectiveBoundaries
     /// A conditional opened before a declaration and closed after it puts every member inside a region
     /// that only some compilations see, which no span inside the declaration reveals.
     /// </remarks>
-    public static bool AnyConditional(SyntaxNode root)
+    internal static bool AnyConditional(SyntaxNode root)
     {
         if (!root.ContainsDirectives)
         {

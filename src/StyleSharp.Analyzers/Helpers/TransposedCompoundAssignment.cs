@@ -19,8 +19,8 @@ internal static class TransposedCompoundAssignment
     /// with no space, and that unary operator is then followed by a space. <c>x =+ 1</c> and <c>x = +1</c>
     /// are the same tokens and differ only in where the space falls, so the asymmetry is the whole signal.
     /// </remarks>
-    public static bool Matches(AssignmentExpressionSyntax assignment)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+    internal static bool Matches(AssignmentExpressionSyntax assignment) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && !assignment.OperatorToken.HasTrailingTrivia
             && assignment.Right is PrefixUnaryExpressionSyntax prefix
             && IsTransposableOperator(prefix.Kind())
@@ -29,8 +29,8 @@ internal static class TransposedCompoundAssignment
     /// <summary>Returns whether a prefix operator is one that transposes into an operator.</summary>
     /// <param name="kind">The prefix expression's syntax kind.</param>
     /// <returns><see langword="true"/> for unary <c>+</c>, <c>-</c> and <c>!</c>.</returns>
-    private static bool IsTransposableOperator(SyntaxKind kind)
-        => kind is SyntaxKind.UnaryPlusExpression
+    private static bool IsTransposableOperator(SyntaxKind kind) =>
+        kind is SyntaxKind.UnaryPlusExpression
             or SyntaxKind.UnaryMinusExpression
             or SyntaxKind.LogicalNotExpression;
 }

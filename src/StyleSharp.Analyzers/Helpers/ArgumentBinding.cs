@@ -14,7 +14,7 @@ internal static class ArgumentBinding
     /// <summary>Returns the argument list of an invocation, an object creation, or a constructor initializer.</summary>
     /// <param name="node">The analyzed node.</param>
     /// <returns>The argument list, or <see langword="null"/> when the node supplies none.</returns>
-    public static ArgumentListSyntax? GetArgumentList(SyntaxNode node) => node switch
+    internal static ArgumentListSyntax? GetArgumentList(SyntaxNode node) => node switch
     {
         InvocationExpressionSyntax invocation => invocation.ArgumentList,
         BaseObjectCreationExpressionSyntax creation => creation.ArgumentList,
@@ -25,7 +25,7 @@ internal static class ArgumentBinding
     /// <summary>Returns whether the called method declares any optional parameter.</summary>
     /// <param name="method">The bound method.</param>
     /// <returns><see langword="true"/> when an optional parameter exists.</returns>
-    public static bool HasOptionalParameter(IMethodSymbol method)
+    internal static bool HasOptionalParameter(IMethodSymbol method)
     {
         var parameters = method.Parameters;
         for (var i = 0; i < parameters.Length; i++)
@@ -48,7 +48,7 @@ internal static class ArgumentBinding
     /// A named argument is matched by name, so it binds even when it appears out of position; a positional
     /// argument binds to the parameter at the same index when one exists.
     /// </remarks>
-    public static IParameterSymbol? FindParameter(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments, int index)
+    internal static IParameterSymbol? FindParameter(IMethodSymbol method, SeparatedSyntaxList<ArgumentSyntax> arguments, int index)
     {
         var parameters = method.Parameters;
         if (arguments[index].NameColon is { Name.Identifier.ValueText: var argumentName })

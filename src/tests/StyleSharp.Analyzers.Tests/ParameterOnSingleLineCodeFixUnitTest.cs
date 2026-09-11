@@ -133,15 +133,12 @@ public class ParameterOnSingleLineCodeFixUnitTest
     /// <returns>The configured test.</returns>
     private static VerifySingleLine.Test CreateTest(string source, string? optionLine)
     {
-        var test = new VerifySingleLine.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifySingleLine.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST1118.severity = warning\n";
         if (optionLine is not null)
         {
-            config += optionLine + "\n";
+            config += $"{optionLine}\n";
         }
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));

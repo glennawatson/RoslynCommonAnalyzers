@@ -72,7 +72,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="forStatement">The for statement.</param>
     /// <returns><see langword="true"/> when a diagnostic was reported.</returns>
-    private static bool TryReportForDefect(SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
+    private static bool TryReportForDefect(in SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
     {
         if (forStatement.Condition is null)
         {
@@ -88,15 +88,14 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="forStatement">The for statement.</param>
     /// <returns><see langword="true"/> when the loop was reported.</returns>
-    private static bool TryReportNeverStepped(SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
+    private static bool TryReportNeverStepped(in SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
     {
         if (forStatement.Declaration is not { } declaration || forStatement.Condition is not { } condition)
         {
             return false;
         }
 
-        var variables = declaration.Variables;
-        if (GetFirstTestedName(variables, condition) is not { } firstTested || !IsSimpleCondition(condition))
+        if (GetFirstTestedName(declaration.Variables, condition) is not { } firstTested || !IsSimpleCondition(condition))
         {
             return false;
         }
@@ -124,7 +123,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="forStatement">The for statement.</param>
     /// <returns><see langword="true"/> when the loop was reported.</returns>
-    private static bool TryReportStepsAway(SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
+    private static bool TryReportStepsAway(in SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
     {
         if (!TryClassifyStep(forStatement, out var counter, out var ascending)
             || !TryReadRelation(forStatement.Condition!, counter, out var comparison, out var canonical)
@@ -145,7 +144,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="forStatement">The for statement.</param>
     /// <returns><see langword="true"/> when the loop was reported.</returns>
-    private static bool TryReportBodyNeverRuns(SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
+    private static bool TryReportBodyNeverRuns(in SyntaxNodeAnalysisContext context, ForStatementSyntax forStatement)
     {
         // A consistent direction is required here: an inconsistent one is SST2412's shape.
         if (!TryClassifyStep(forStatement, out var counter, out var ascending)
@@ -172,7 +171,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="canonical">The comparison kind, counter on the left.</param>
     /// <returns><see langword="true"/> when the body cannot run once.</returns>
     private static bool StartsFalse(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ForStatementSyntax forStatement,
         string counter,
         BinaryExpressionSyntax comparison,
@@ -192,14 +191,14 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="ascending">Whether the step increases the counter.</param>
     /// <param name="canonical">The comparison kind, counter on the left.</param>
     /// <returns><see langword="true"/> when the counter moves toward the bound.</returns>
-    private static bool StepsToward(bool ascending, SyntaxKind canonical)
-        => ascending
+    private static bool StepsToward(bool ascending, SyntaxKind canonical) =>
+        ascending
             ? canonical is SyntaxKind.LessThanExpression or SyntaxKind.LessThanOrEqualExpression
             : canonical is SyntaxKind.GreaterThanExpression or SyntaxKind.GreaterThanOrEqualExpression;
 
     /// <summary>Reports SST2406 for a loop whose condition can never change.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void ReportInvariantCondition(SyntaxNodeAnalysisContext context)
+    private static void ReportInvariantCondition(in SyntaxNodeAnalysisContext context)
     {
         var loop = context.Node;
         if (GetCondition(loop) is not { } condition || !IsSimpleCondition(condition))
@@ -270,7 +269,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, StepScan>(node, ref scan, VisitStepNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, StepScan>(node, ref scan, VisitStepNode);
     }
 
     /// <summary>Records whether a node steps a tested counter or hides writes from the scan.</summary>
@@ -359,8 +358,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a compound assignment steps by a positive integer literal.</summary>
     /// <param name="assignment">The compound assignment.</param>
     /// <returns><see langword="true"/> for <c>+=</c>/<c>-=</c> by a positive literal.</returns>
-    private static bool IsConstantCompoundStep(AssignmentExpressionSyntax assignment)
-        => (assignment.IsKind(SyntaxKind.AddAssignmentExpression) || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression))
+    private static bool IsConstantCompoundStep(AssignmentExpressionSyntax assignment) =>
+        (assignment.IsKind(SyntaxKind.AddAssignmentExpression) || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression))
             && assignment.Right is LiteralExpressionSyntax { Token.Value: int step } && step > 0;
 
     /// <summary>Reads a relational condition, isolating the comparison against the counter.</summary>
@@ -385,8 +384,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var boundSide = counterLeft ? binary.Right : binary.Left;
-        if (Mentions(boundSide, counter))
+        if (Mentions(counterLeft ? binary.Right : binary.Left, counter))
         {
             return false;
         }
@@ -400,8 +398,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="comparison">The comparison expression.</param>
     /// <param name="counter">The counter's name.</param>
     /// <returns>The bound expression.</returns>
-    private static ExpressionSyntax GetBound(BinaryExpressionSyntax comparison, string counter)
-        => comparison.Left is IdentifierNameSyntax left && left.Identifier.ValueText == counter ? comparison.Right : comparison.Left;
+    private static ExpressionSyntax GetBound(BinaryExpressionSyntax comparison, string counter) =>
+        comparison.Left is IdentifierNameSyntax left && left.Identifier.ValueText == counter ? comparison.Right : comparison.Left;
 
     /// <summary>Gets the expression a for loop initializes the counter to.</summary>
     /// <param name="forStatement">The for statement.</param>
@@ -442,7 +440,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to evaluate.</param>
     /// <param name="value">The constant value.</param>
     /// <returns><see langword="true"/> for an integral compile-time constant.</returns>
-    private static bool TryGetInt64(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, out long value)
+    private static bool TryGetInt64(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, out long value)
     {
         value = 0;
         var constant = context.SemanticModel.GetConstantValue(expression, context.CancellationToken);
@@ -496,7 +494,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, CounterWriteScan>(node, ref scan, VisitCounterWrite);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, CounterWriteScan>(node, ref scan, VisitCounterWrite);
     }
 
     /// <summary>Records whether a node writes the counter.</summary>
@@ -517,8 +515,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is a relational comparison.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for <c>&lt;</c>, <c>&lt;=</c>, <c>&gt;</c> and <c>&gt;=</c>.</returns>
-    private static bool IsRelational(SyntaxKind kind)
-        => kind is SyntaxKind.LessThanExpression
+    private static bool IsRelational(SyntaxKind kind) =>
+        kind is SyntaxKind.LessThanExpression
             or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression;
@@ -570,7 +568,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, BodyScan>(node, ref scan, VisitLoopNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, BodyScan>(node, ref scan, VisitLoopNode);
     }
 
     /// <summary>Records whether one node ends the loop or writes what the condition reads.</summary>
@@ -594,8 +592,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node is a way out of the loop other than the condition.</summary>
     /// <param name="node">The node.</param>
     /// <returns><see langword="true"/> for a jump or a throw.</returns>
-    private static bool IsEarlyExit(SyntaxNode node)
-        => node is BreakStatementSyntax
+    private static bool IsEarlyExit(SyntaxNode node) =>
+        node is BreakStatementSyntax
             or ReturnStatementSyntax
             or ThrowStatementSyntax
             or ThrowExpressionSyntax
@@ -629,8 +627,8 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets an expression's identifier, when it is one.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns>The identifier, or <see langword="null"/>.</returns>
-    private static string? NameOf(ExpressionSyntax expression)
-        => expression is IdentifierNameSyntax identifier ? identifier.Identifier.ValueText : null;
+    private static string? NameOf(ExpressionSyntax expression) =>
+        expression is IdentifierNameSyntax identifier ? identifier.Identifier.ValueText : null;
 
     /// <summary>Returns whether every variable the condition reads is a local or a parameter.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -640,7 +638,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
     /// A field — even a private one — may be written by something the loop calls, or by another thread, and a
     /// property read is a call. Only a local or a parameter is provably still whatever the loop last made it.
     /// </remarks>
-    private static bool ReadsOnlyLocals(SyntaxNodeAnalysisContext context, ExpressionSyntax condition)
+    private static bool ReadsOnlyLocals(in SyntaxNodeAnalysisContext context, ExpressionSyntax condition)
     {
         var scan = new LocalScan(context);
         if (condition is IdentifierNameSyntax self && !VisitConditionName(self, ref scan))
@@ -648,7 +646,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalScan>(condition, ref scan, VisitConditionName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LocalScan>(condition, ref scan, VisitConditionName);
         return !scan.Rejected && scan.Count > 0;
     }
 
@@ -680,7 +678,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(condition, ref scan, VisitConditionNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, ShapeScan>(condition, ref scan, VisitConditionNode);
         return !scan.Rejected && scan.Identifiers is > 0 and <= MaximumConditionVariables;
     }
 
@@ -718,7 +716,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new NameScan(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameScan>(expression, ref scan, VisitName);
         return scan.Found;
     }
 
@@ -748,7 +746,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = default(FirstNameScan);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FirstNameScan>(condition, ref scan, VisitFirstName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FirstNameScan>(condition, ref scan, VisitFirstName);
         return scan.First;
     }
 

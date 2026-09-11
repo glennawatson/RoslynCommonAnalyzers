@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeMode = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 {
     /// <summary>Verifies a single <c>OtherWrite</c> member passed to <c>File.SetUnixFileMode</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleOtherWriteMemberToSetUnixFileModeReportedAsync()
-        => await VerifyNet90Async(
+    public Task SingleOtherWriteMemberToSetUnixFileModeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -31,9 +33,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an OR-combination that folds in <c>GroupWrite</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GroupWriteComboToSetUnixFileModeReportedAsync()
-        => await VerifyNet90Async(
+    public Task GroupWriteComboToSetUnixFileModeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -48,9 +51,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies a broad 0o777-style combo constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BroadAllPermissionsComboReportedAsync()
-        => await VerifyNet90Async(
+    public Task BroadAllPermissionsComboReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -70,9 +74,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an over-permissive create mode on <c>Directory.CreateDirectory</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherWriteToCreateDirectoryReportedAsync()
-        => await VerifyNet90Async(
+    public Task OtherWriteToCreateDirectoryReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -87,9 +92,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies a named mode argument is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedModeArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedModeArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -104,9 +110,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an over-permissive <c>FileStreamOptions.UnixCreateMode</c> initializer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileStreamOptionsUnixCreateModeReportedAsync()
-        => await VerifyNet90Async(
+    public Task FileStreamOptionsUnixCreateModeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -127,9 +134,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an over-permissive assignment to <c>FileInfo.UnixFileMode</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileInfoUnixFileModeAssignmentReportedAsync()
-        => await VerifyNet90Async(
+    public Task FileInfoUnixFileModeAssignmentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -144,9 +152,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an owner-only mode is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnerOnlyModeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task OwnerOnlyModeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -161,9 +170,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies a group/other read-only mode (no write bit) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GroupOtherReadOnlyModeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task GroupOtherReadOnlyModeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -178,9 +188,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant mode held in a variable is not reported (local shape only).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantModeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantModeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -195,9 +206,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies a single-argument <c>Directory.CreateDirectory</c> (no mode) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CreateDirectoryWithoutModeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task CreateDirectoryWithoutModeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -212,9 +224,10 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated method named <c>SetUnixFileMode</c> on another type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedSetUnixFileModeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedSetUnixFileModeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
 
@@ -264,11 +277,7 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeMode.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeMode.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -278,11 +287,7 @@ public class OverPermissiveUnixFileModeAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeMode.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeMode.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

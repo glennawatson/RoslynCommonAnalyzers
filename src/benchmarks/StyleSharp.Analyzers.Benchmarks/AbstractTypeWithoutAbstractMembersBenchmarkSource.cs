@@ -11,8 +11,8 @@ internal static class AbstractTypeWithoutAbstractMembersBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit abstract types with nothing abstract in them.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class AbstractTypeWithoutAbstractMembersBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating group.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one group of types that are all rejected.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -33,8 +33,8 @@ internal static class AbstractTypeWithoutAbstractMembersBenchmarkSource
     /// (abstract and sealed in metadata), an abstract class that declares its own abstract member, and an
     /// abstract class that inherits one it leaves unimplemented — the only route that walks the base chain.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class Concrete{{index}}
            {
                public int Value { get; set; }
@@ -62,8 +62,8 @@ internal static class AbstractTypeWithoutAbstractMembersBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Emits two reported types: one deriving from object, one whose base chain is fully implemented.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public abstract class Helper{{index}}
            {
                public int Add(int left, int right) => left + right;

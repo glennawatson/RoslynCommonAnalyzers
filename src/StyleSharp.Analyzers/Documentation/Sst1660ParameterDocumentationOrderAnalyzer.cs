@@ -19,8 +19,8 @@ public sealed class Sst1660ParameterDocumentationOrderAnalyzer : DiagnosticAnaly
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.ParameterDocumentationOrder);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -122,7 +122,7 @@ public sealed class Sst1660ParameterDocumentationOrderAnalyzer : DiagnosticAnaly
         var parameterNames = new HashSet<string>(StringComparer.Ordinal);
         foreach (var parameter in parameters)
         {
-            parameterNames.Add(parameter.Identifier.ValueText);
+            _ = parameterNames.Add(parameter.Identifier.ValueText);
         }
 
         if (parameterNames.Count != parameters.Count)

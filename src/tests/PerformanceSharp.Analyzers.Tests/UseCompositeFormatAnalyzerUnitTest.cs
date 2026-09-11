@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -154,9 +155,10 @@ public class UseCompositeFormatAnalyzerUnitTest
 
     /// <summary>Verifies a format built at run time is not reported — there is nothing constant to hoist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantFormatIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantFormatIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Text;
@@ -175,9 +177,10 @@ public class UseCompositeFormatAnalyzerUnitTest
     /// <c>TypeInitializationException</c>. The rule refuses to move an exception, so it leaves this
     /// alone.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MalformedFormatIsCleanAsync()
-        => await VerifyAsync(
+    public Task MalformedFormatIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Text;
@@ -190,9 +193,10 @@ public class UseCompositeFormatAnalyzerUnitTest
 
     /// <summary>Verifies a constant with no placeholder at all is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormatWithoutPlaceholdersIsCleanAsync()
-        => await VerifyAsync(
+    public Task FormatWithoutPlaceholdersIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Text;
@@ -235,9 +239,10 @@ public class UseCompositeFormatAnalyzerUnitTest
 
     /// <summary>Verifies a format call inside an expression tree is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormatInsideExpressionTreeIsCleanAsync()
-        => await VerifyAsync(
+    public Task FormatInsideExpressionTreeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -249,10 +254,7 @@ public class UseCompositeFormatAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the rule registers nothing against netstandard2.0, where <c>CompositeFormat</c> does
-    /// not exist.
-    /// </summary>
+    /// <summary>Verifies the rule registers nothing against netstandard2.0, where <c>CompositeFormat</c> does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// <c>CompositeFormat</c> and the <c>string.Format</c> overloads that take one arrived in .NET 8.
@@ -282,11 +284,7 @@ public class UseCompositeFormatAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -29,13 +31,14 @@ internal static class LoggerMemberNamingOptions
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <param name="name">The member's name.</param>
     /// <returns><see langword="true"/> when the name is in the configured (or default) accepted list.</returns>
-    public static bool IsAcceptedInstanceName(AnalyzerConfigOptions options, string name)
-        => EditorConfigList.Contains(ReadConfigured(options) ?? DefaultInstanceFieldNames, name, StringComparison.Ordinal);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsAcceptedInstanceName(AnalyzerConfigOptions options, string name) =>
+        EditorConfigList.Contains(ReadConfigured(options) ?? DefaultInstanceFieldNames, name, StringComparison.Ordinal);
 
     /// <summary>Returns the private-instance logger name to suggest in a diagnostic.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The first configured accepted name, or <c>_logger</c> when none is usable.</returns>
-    public static string PreferredInstanceName(AnalyzerConfigOptions options)
+    internal static string PreferredInstanceName(AnalyzerConfigOptions options)
     {
         if (ReadConfigured(options) is not { } configured)
         {
@@ -49,8 +52,8 @@ internal static class LoggerMemberNamingOptions
     /// <summary>Returns the configured field-name list, or <see langword="null"/> when unset or empty.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The raw configured value, or <see langword="null"/>.</returns>
-    private static string? ReadConfigured(AnalyzerConfigOptions options)
-        => options.TryGetValue(InstanceFieldNameKey, out var value) && value.Length != 0 ? value : null;
+    private static string? ReadConfigured(AnalyzerConfigOptions options) =>
+        options.TryGetValue(InstanceFieldNameKey, out var value) && value.Length != 0 ? value : null;
 
     /// <summary>Returns the first token of a separated list, trimmed of surrounding whitespace.</summary>
     /// <param name="list">The raw list value.</param>

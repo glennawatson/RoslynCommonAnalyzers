@@ -62,8 +62,8 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax positiveLeft,
         ExpressionSyntax negatedLeft,
         ExpressionSyntax positiveRight,
-        ExpressionSyntax negatedRight)
-        => SyntaxFactory.AreEquivalent(positiveLeft, negatedRight)
+        ExpressionSyntax negatedRight) =>
+        SyntaxFactory.AreEquivalent(positiveLeft, negatedRight)
             && SyntaxFactory.AreEquivalent(negatedLeft, positiveRight)
             && SideEffectFreeExpression.IsSideEffectFree(positiveLeft)
             && SideEffectFreeExpression.IsSideEffectFree(negatedLeft);
@@ -137,8 +137,8 @@ public sealed class Sst2261UseExclusiveOrAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to inspect.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> for <see langword="bool"/>.</returns>
-    private static bool IsBoolean(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => model.GetTypeInfo(expression, cancellationToken).Type?.SpecialType == SpecialType.System_Boolean;
+    private static bool IsBoolean(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        model.GetTypeInfo(expression, cancellationToken).Type?.SpecialType == SpecialType.System_Boolean;
 
     /// <summary>Strips redundant parentheses from an operand.</summary>
     /// <param name="expression">The operand.</param>

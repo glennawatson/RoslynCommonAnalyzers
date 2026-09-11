@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -15,18 +16,20 @@ internal static class CodeFixBenchmarkSyntaxLookup
     /// <param name="root">The compilation-unit root.</param>
     /// <param name="index">The zero-based match index.</param>
     /// <returns>The matching member.</returns>
-    public static T GetNthNamespaceMember<T>(CompilationUnitSyntax root, int index)
-        where T : MemberDeclarationSyntax
-        => GetNthMember<T>(((BaseNamespaceDeclarationSyntax)root.Members[0]).Members, index);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static T GetNthNamespaceMember<T>(CompilationUnitSyntax root, int index)
+        where T : MemberDeclarationSyntax =>
+        GetNthMember<T>(((BaseNamespaceDeclarationSyntax)root.Members[0]).Members, index);
 
     /// <summary>Returns the Nth member of the first type declared in the first namespace.</summary>
     /// <typeparam name="T">The member type to locate.</typeparam>
     /// <param name="root">The compilation-unit root.</param>
     /// <param name="index">The zero-based match index.</param>
     /// <returns>The matching member.</returns>
-    public static T GetNthTypeMember<T>(CompilationUnitSyntax root, int index)
-        where T : MemberDeclarationSyntax
-        => GetNthMember<T>(((TypeDeclarationSyntax)((BaseNamespaceDeclarationSyntax)root.Members[0]).Members[0]).Members, index);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static T GetNthTypeMember<T>(CompilationUnitSyntax root, int index)
+        where T : MemberDeclarationSyntax =>
+        GetNthMember<T>(((TypeDeclarationSyntax)((BaseNamespaceDeclarationSyntax)root.Members[0]).Members[0]).Members, index);
 
     /// <summary>Returns the Nth descendant node matching a predicate.</summary>
     /// <typeparam name="T">The node type to locate.</typeparam>
@@ -34,7 +37,8 @@ internal static class CodeFixBenchmarkSyntaxLookup
     /// <param name="index">The zero-based match index.</param>
     /// <param name="predicate">The filter applied to candidate nodes.</param>
     /// <returns>The matching descendant node.</returns>
-    public static T GetNthDescendant<T>(SyntaxNode root, int index, Func<T, bool> predicate)
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> has no <typeparamref name="T"/> descendant satisfying <paramref name="predicate"/> at <paramref name="index"/>.</exception>
+    internal static T GetNthDescendant<T>(SyntaxNode root, int index, Func<T, bool> predicate)
         where T : SyntaxNode
     {
         var current = 0;
@@ -61,6 +65,7 @@ internal static class CodeFixBenchmarkSyntaxLookup
     /// <param name="members">The candidate members.</param>
     /// <param name="index">The zero-based match index.</param>
     /// <returns>The matching member.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="members"/> holds no <typeparamref name="T"/> at <paramref name="index"/>.</exception>
     private static T GetNthMember<T>(SyntaxList<MemberDeclarationSyntax> members, int index)
         where T : MemberDeclarationSyntax
     {

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for accessor-ignores-value analysis (SST2429).</summary>
+[System.Diagnostics.DebuggerDisplay("AccessorIgnoresValueBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class AccessorIgnoresValueBenchmarks
@@ -27,11 +29,13 @@ public class AccessorIgnoresValueBenchmarks
 
     /// <summary>Benchmarks the clean write-accessor path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AccessorIgnoresValue_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating write-accessor path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AccessorIgnoresValue_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

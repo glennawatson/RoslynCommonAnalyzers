@@ -166,10 +166,7 @@ public class EnumFlagValueStyleAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyEnumFlagValueStyle.Test CreateTest(string source, string? style)
     {
-        var test = new VerifyEnumFlagValueStyle.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyEnumFlagValueStyle.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST2272.severity = warning\n";
         if (style is not null)

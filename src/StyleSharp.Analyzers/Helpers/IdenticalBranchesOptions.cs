@@ -28,8 +28,8 @@ internal readonly record struct IdenticalBranchesOptions(int MinimumStatements)
     /// a switch expression's arm — counts as one statement, so raising the minimum above one excludes those
     /// shapes along with the one-line <c>if</c>.
     /// </remarks>
-    public static IdenticalBranchesOptions Read(AnalyzerConfigOptions options)
-        => new(ReadPositiveInt(options, MinimumStatementsRuleKey, MinimumStatementsGeneralKey, DefaultMinimumStatements));
+    internal static IdenticalBranchesOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadPositiveInt(options, MinimumStatementsRuleKey, MinimumStatementsGeneralKey, DefaultMinimumStatements));
 
     /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

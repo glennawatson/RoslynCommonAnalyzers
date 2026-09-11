@@ -115,8 +115,8 @@ public sealed class Sst2431ToStringReturnsNullAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression unconditionally evaluates to null.</summary>
     /// <param name="expression">The expression to test.</param>
     /// <returns><see langword="true"/> for null, <c>null!</c>, and a parenthesised or cast null.</returns>
-    private static bool IsAlwaysNull(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression }
+    private static bool IsAlwaysNull(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NullLiteralExpression }
             || (Unwrap(expression) is { } inner && IsAlwaysNull(inner));
 
     /// <summary>Removes a null-preserving wrapper — parentheses, a cast, or a <c>null!</c> suppression.</summary>

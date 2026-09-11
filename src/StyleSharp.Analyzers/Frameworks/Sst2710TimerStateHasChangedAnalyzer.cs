@@ -92,7 +92,7 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The component model resolved for this compilation.</param>
     /// <param name="threadingTimer">The resolved <c>System.Threading.Timer</c> type.</param>
-    private static void AnalyzeThreadingTimerCreation(SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol threadingTimer)
+    private static void AnalyzeThreadingTimerCreation(in SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol threadingTimer)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: > 0 } argumentList
@@ -114,7 +114,7 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The component model resolved for this compilation.</param>
     /// <param name="timersTimer">The resolved <c>System.Timers.Timer</c> type.</param>
-    private static void AnalyzeTimersElapsedSubscription(SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol timersTimer)
+    private static void AnalyzeTimersElapsedSubscription(in SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol timersTimer)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
         if (assignment.Left is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ElapsedEventName } memberAccess
@@ -131,7 +131,7 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The component model resolved for this compilation.</param>
     /// <param name="callback">The callback delegate expression.</param>
-    private static void AnalyzeCallback(SyntaxNodeAnalysisContext context, BlazorComponentModel model, ExpressionSyntax callback)
+    private static void AnalyzeCallback(in SyntaxNodeAnalysisContext context, BlazorComponentModel model, ExpressionSyntax callback)
     {
         if (GetCallbackScanRoot(context, callback) is not { } root)
         {
@@ -139,7 +139,7 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new RenderRequestScan(context, model, root);
-        DescendantTraversalHelper.VisitDescendants(root, ref scan, RenderRequestVisitor);
+        _ = DescendantTraversalHelper.VisitDescendants(root, ref scan, RenderRequestVisitor);
     }
 
     /// <summary>Flags one invocation when it is a render request the callback does not marshal onto the dispatcher.</summary>
@@ -163,7 +163,7 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="callback">The callback delegate expression.</param>
     /// <returns>The scan root, or <see langword="null"/> when it cannot be reached from here.</returns>
-    private static SyntaxNode? GetCallbackScanRoot(SyntaxNodeAnalysisContext context, ExpressionSyntax callback) => callback switch
+    private static SyntaxNode? GetCallbackScanRoot(in SyntaxNodeAnalysisContext context, ExpressionSyntax callback) => callback switch
     {
         SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax or AnonymousMethodExpressionSyntax => callback,
         IdentifierNameSyntax or MemberAccessExpressionSyntax => GetMethodGroupDeclaration(context, callback),
@@ -174,26 +174,20 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="callback">The method-group callback expression.</param>
     /// <returns>The target method's declaration, or <see langword="null"/> when it is unresolved or declared elsewhere.</returns>
-    private static MethodDeclarationSyntax? GetMethodGroupDeclaration(SyntaxNodeAnalysisContext context, ExpressionSyntax callback)
-    {
-        if (context.SemanticModel.GetSymbolInfo(callback, context.CancellationToken).Symbol is not IMethodSymbol method
+    private static MethodDeclarationSyntax? GetMethodGroupDeclaration(in SyntaxNodeAnalysisContext context, ExpressionSyntax callback) =>
+        context.SemanticModel.GetSymbolInfo(callback, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.DeclaringSyntaxReferences is not [var reference]
             || reference.GetSyntax(context.CancellationToken) is not MethodDeclarationSyntax declaration
-            || declaration.SyntaxTree != context.Node.SyntaxTree)
-        {
-            return null;
-        }
-
-        return declaration;
-    }
+            || declaration.SyntaxTree != context.Node.SyntaxTree
+            ? null
+            : declaration;
 
     /// <summary>Returns whether a written type name's rightmost segment is <c>Timer</c>.</summary>
     /// <param name="type">The created type's syntax.</param>
     /// <returns><see langword="true"/> for <c>Timer</c> or a qualified name ending in <c>Timer</c>.</returns>
     private static bool IsTimerNamed(TypeSyntax type) => type switch
     {
-        IdentifierNameSyntax { Identifier.ValueText: TimerTypeName } => true,
-        QualifiedNameSyntax { Right.Identifier.ValueText: TimerTypeName } => true,
+        IdentifierNameSyntax { Identifier.ValueText: TimerTypeName } or QualifiedNameSyntax { Right.Identifier.ValueText: TimerTypeName } => true,
         _ => false,
     };
 

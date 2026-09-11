@@ -22,7 +22,7 @@ internal static class MagicNumberOptions
     public const string AllowCapacityGeneralKey = "stylesharp.allow_capacity_arguments";
 
     /// <summary>The values a literal may take without naming it: not-found, empty and first.</summary>
-    private static readonly decimal[] DefaultAllowed = [-1m, 0m, 1m];
+    private static readonly decimal[] DefaultAllowed = [-1M, 0M, 1M];
 
     /// <summary>Reads the configured allow-list, falling back to <c>-1</c>, <c>0</c> and <c>1</c>.</summary>
     /// <param name="options">The analyzer config options for the literal's tree.</param>
@@ -31,15 +31,8 @@ internal static class MagicNumberOptions
     /// An unset, empty or wholly unparsable option yields the default set rather than an empty one, so a
     /// typo relaxes nothing and never silently turns every literal into a diagnostic.
     /// </remarks>
-    public static decimal[] Read(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(RuleKey, out var value) && !options.TryGetValue(GeneralKey, out value))
-        {
-            return DefaultAllowed;
-        }
-
-        return Parse(value) ?? DefaultAllowed;
-    }
+    internal static decimal[] Read(AnalyzerConfigOptions options) =>
+        !options.TryGetValue(RuleKey, out var value) && !options.TryGetValue(GeneralKey, out value) ? DefaultAllowed : Parse(value) ?? DefaultAllowed;
 
     /// <summary>Reads whether a positional capacity argument is accepted without a name.</summary>
     /// <param name="options">The analyzer config options for the literal's tree.</param>
@@ -48,7 +41,7 @@ internal static class MagicNumberOptions
     /// Off by default: the documented way to say what a capacity means is to label it, as in
     /// <c>new List&lt;int&gt;(capacity: 4)</c>, and that stays the answer unless a project asks otherwise.
     /// </remarks>
-    public static bool ReadAllowCapacityArguments(AnalyzerConfigOptions options)
+    internal static bool ReadAllowCapacityArguments(AnalyzerConfigOptions options)
     {
         if (!options.TryGetValue(AllowCapacityRuleKey, out var value) && !options.TryGetValue(AllowCapacityGeneralKey, out value))
         {
@@ -62,7 +55,7 @@ internal static class MagicNumberOptions
     /// <param name="allowed">The allowed values.</param>
     /// <param name="value">The literal's value.</param>
     /// <returns><see langword="true"/> when the value needs no name.</returns>
-    public static bool Contains(decimal[] allowed, decimal value)
+    internal static bool Contains(decimal[] allowed, decimal value)
     {
         for (var i = 0; i < allowed.Length; i++)
         {
@@ -85,10 +78,13 @@ internal static class MagicNumberOptions
         var count = 0;
         for (var i = 0; i < parts.Length; i++)
         {
-            if (decimal.TryParse(parts[i].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+            if (!decimal.TryParse(parts[i].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
             {
-                parsed[count++] = number;
+                continue;
             }
+
+            parsed[count] = number;
+            count++;
         }
 
         if (count == 0)

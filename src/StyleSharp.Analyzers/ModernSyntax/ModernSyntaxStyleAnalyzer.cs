@@ -231,7 +231,7 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     private static bool FillsAParameterArray(IMethodSymbol called, InvocationExpressionSyntax invocation, ArgumentSyntax argument)
     {
         var parameters = called.Parameters;
-        if (parameters.Length == 0 || !parameters[parameters.Length - 1].IsParams)
+        if (parameters.IsEmpty || !parameters[parameters.Length - 1].IsParams)
         {
             return false;
         }
@@ -312,14 +312,14 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a return-type node is the <c>void</c> keyword.</summary>
     /// <param name="returnType">The return-type syntax.</param>
     /// <returns><see langword="true"/> when the return type is <c>void</c>.</returns>
-    private static bool IsVoidReturn(TypeSyntax returnType)
-        => returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
+    private static bool IsVoidReturn(TypeSyntax returnType) =>
+        returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword };
 
     /// <summary>Returns whether an assignment target is a discard.</summary>
     /// <param name="target">The assignment target.</param>
     /// <returns><see langword="true"/> when the target is the discard identifier.</returns>
-    private static bool IsDiscardAssignmentTarget(ExpressionSyntax target)
-        => target is IdentifierNameSyntax { Identifier.ValueText: "_" };
+    private static bool IsDiscardAssignmentTarget(ExpressionSyntax target) =>
+        target is IdentifierNameSyntax { Identifier.ValueText: "_" };
 
     /// <summary>Extracts the expression after <c>Length -</c> from an index-from-end candidate.</summary>
     /// <param name="elementAccess">The element access expression.</param>
@@ -424,8 +424,8 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the <c>Substring</c> overload has a range equivalent.</summary>
     /// <param name="argumentCount">The argument count.</param>
     /// <returns><see langword="true"/> for supported overload shapes.</returns>
-    private static bool IsSupportedSubstringArgumentCount(int argumentCount)
-        => argumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount;
+    private static bool IsSupportedSubstringArgumentCount(int argumentCount) =>
+        argumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount;
 
     /// <summary>Returns whether the substring arguments can be moved into a range without side effects.</summary>
     /// <param name="arguments">The invocation arguments.</param>
@@ -435,8 +435,8 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     private static bool AreStableSubstringArguments(
         in SeparatedSyntaxList<ArgumentSyntax> arguments,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => IsStableBound(arguments[0].Expression, model, cancellationToken)
+        CancellationToken cancellationToken) =>
+        IsStableBound(arguments[0].Expression, model, cancellationToken)
         && (arguments.Count == SubstringStartOnlyArgumentCount
             || IsStableBound(arguments[1].Expression, model, cancellationToken));
 
@@ -461,14 +461,14 @@ public sealed class ModernSyntaxStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Returns whether the supplied type supports intrinsic array/string index-from-end semantics.</summary>
     /// <param name="type">The type symbol.</param>
     /// <returns><see langword="true"/> for arrays and strings.</returns>
-    private static bool IsArrayOrString(ITypeSymbol? type)
-        => type is IArrayTypeSymbol
+    private static bool IsArrayOrString(ITypeSymbol? type) =>
+        type is IArrayTypeSymbol
         || type?.SpecialType == SpecialType.System_String;
 
     /// <summary>Gets the type for a receiver that can be read repeatedly without invoking user code.</summary>

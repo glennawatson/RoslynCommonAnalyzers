@@ -31,7 +31,7 @@ internal static class FileHeaderHelper
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <param name="template">The configured template when the method returns <see langword="true"/>.</param>
     /// <returns><see langword="true"/> when a non-empty template is configured.</returns>
-    public static bool TryGetTemplate(AnalyzerConfigOptions options, out string template)
+    internal static bool TryGetTemplate(AnalyzerConfigOptions options, out string template)
     {
         template = string.Empty;
         if (!options.TryGetValue(TemplateKey, out var value)
@@ -49,7 +49,7 @@ internal static class FileHeaderHelper
     /// <param name="template">The configured template.</param>
     /// <param name="filePath">The source file path (for <c>{fileName}</c> substitution).</param>
     /// <returns>The rendered <c>//</c> comment block.</returns>
-    public static string Render(string template, string? filePath)
+    internal static string Render(string template, string? filePath)
     {
         var lines = template.Replace("{fileName}", FileName(filePath)).Split(LineSeparators, StringSplitOptions.None);
 
@@ -58,13 +58,13 @@ internal static class FileHeaderHelper
         {
             if (i > 0)
             {
-                builder.Append('\n');
+                _ = builder.Append('\n');
             }
 
-            builder.Append("//");
+            _ = builder.Append("//");
             if (lines[i].Length > 0)
             {
-                builder.Append(' ').Append(lines[i]);
+                _ = builder.Append(' ').Append(lines[i]);
             }
         }
 

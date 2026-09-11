@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2018RedundantNullCheckBesidePatternAnalyzer,
     StyleSharp.Analyzers.Sst2018RedundantNullCheckBesidePatternCodeFixProvider>;
@@ -62,9 +63,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies the classic <c>!= null &amp;&amp; is T</c> form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NotNullAndTypeTestIsReportedAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task NotNullAndTypeTestIsReportedAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -74,9 +76,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies the <c>is not null &amp;&amp; is T</c> form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IsNotNullAndTypeTestIsReportedAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task IsNotNullAndTypeTestIsReportedAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -86,9 +89,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies the <c>== null || is not T</c> form is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullOrNegatedTypeTestIsReportedAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task NullOrNegatedTypeTestIsReportedAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -98,9 +102,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies the combinator form <c>is not null and T</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinatorFormIsReportedAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task CombinatorFormIsReportedAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -110,9 +115,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies a genuine "non-null but not a T" check is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNullButNotTypeIsCleanAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task NonNullButNotTypeIsCleanAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -122,9 +128,10 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies "null or a T" is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullOrTypeIsCleanAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task NullOrTypeIsCleanAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -134,21 +141,24 @@ public class RedundantNullCheckBesidePatternAnalyzerUnitTest
 
     /// <summary>Verifies the fix collapses <c>!= null &amp;&amp; is T</c> to the pattern test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixCollapsesAndFormAsync()
-        => await VerifyFix.VerifyCodeFixAsync(
+    public Task FixCollapsesAndFormAsync() =>
+        VerifyFix.VerifyCodeFixAsync(
             AndSource,
             AndFixed);
 
     /// <summary>Verifies the fix collapses <c>== null || is not T</c> to the negated pattern test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixCollapsesOrFormAsync()
-        => await VerifyFix.VerifyCodeFixAsync(OrSource, OrFixed);
+    public Task FixCollapsesOrFormAsync() =>
+        VerifyFix.VerifyCodeFixAsync(OrSource, OrFixed);
 
     /// <summary>Verifies the fix collapses the combinator form to the pattern test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixCollapsesCombinatorFormAsync()
-        => await VerifyFix.VerifyCodeFixAsync(CombinatorSource, CombinatorFixed);
+    public Task FixCollapsesCombinatorFormAsync() =>
+        VerifyFix.VerifyCodeFixAsync(CombinatorSource, CombinatorFixed);
 }

@@ -72,7 +72,7 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsType">The gated <c>OpenIdConnectOptions</c> type resolved for the compilation.</param>
     /// <param name="validatorType">The gated <c>OpenIdConnectProtocolValidator</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType, INamedTypeSymbol? validatorType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType, INamedTypeSymbol? validatorType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -107,8 +107,8 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <summary>Returns whether an assignment target syntactically names one of the four protection flags.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns><see langword="true"/> for a member access or bare initializer member naming a guarded flag.</returns>
-    private static bool IsProtectionFlagTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsProtectionFlagTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'options.UsePkce = false' / 'options.ProtocolValidator.RequireState = false'.
             MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } => IsProtectionFlag(name),
@@ -122,6 +122,6 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <summary>Returns whether a member name is one of the four guarded protocol-protection flags.</summary>
     /// <param name="name">The member name to test.</param>
     /// <returns><see langword="true"/> for <c>UsePkce</c>, <c>RequireState</c>, <c>RequireStateValidation</c>, or <c>RequireNonce</c>.</returns>
-    private static bool IsProtectionFlag(string name)
-        => name is UsePkcePropertyName or RequireStatePropertyName or RequireStateValidationPropertyName or RequireNoncePropertyName;
+    private static bool IsProtectionFlag(string name) =>
+        name is UsePkcePropertyName or RequireStatePropertyName or RequireStateValidationPropertyName or RequireNoncePropertyName;
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -59,9 +60,10 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
 
     /// <summary>Verifies a ToString with a format argument stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormattedToStringIsCleanAsync()
-        => await VerifyAsync(
+    public Task FormattedToStringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -73,9 +75,10 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
 
     /// <summary>Verifies a ToString feeding a method without a direct overload stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoDirectOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoDirectOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -89,9 +92,10 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
 
     /// <summary>Verifies a single-hole interpolation wrapper stays clean; PSH1205 owns that shape.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleHoleInterpolationIsCleanAsync()
-        => await VerifyAsync(
+    public Task SingleHoleInterpolationIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -119,11 +123,7 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
                                   public string M(Slice slice) => $"[{slice.ToString()}]";
                               }
                               """;
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -166,11 +166,7 @@ public class RemoveIntermediateToStringAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

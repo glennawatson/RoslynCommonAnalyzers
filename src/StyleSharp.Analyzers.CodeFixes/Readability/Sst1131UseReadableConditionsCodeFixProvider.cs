@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 namespace StyleSharp.Analyzers;
@@ -61,8 +62,9 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
-        => document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildSwapped(comparison)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Swap(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
+        document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildSwapped(comparison)));
 
     /// <summary>Builds the comparison with its operands swapped and the operator flipped.</summary>
     /// <param name="comparison">The comparison to rewrite.</param>

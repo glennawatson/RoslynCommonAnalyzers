@@ -23,9 +23,6 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>The highest ASCII character for the specialized PascalCase fast path.</summary>
     private const char LastAsciiChar = '\u007F';
 
-    /// <summary>The default naming convention for record positional parameters.</summary>
-    private const NamingConvention DefaultParameterConvention = NamingConvention.PascalCase;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         RecordRules.SealRecordClass,
@@ -136,7 +133,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Applies the record-class rules to a single record declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordClass(SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
+    private static void AnalyzeRecordClass(in SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
     {
         var record = (RecordDeclarationSyntax)context.Node;
         CheckSealedClass(context, record);
@@ -148,7 +145,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Applies the record-struct rules to a single record-struct declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
-    private static void AnalyzeRecordStruct(SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
+    private static void AnalyzeRecordStruct(in SyntaxNodeAnalysisContext context, ParameterConventionCache parameterConventionCache)
     {
         var record = (RecordDeclarationSyntax)context.Node;
         CheckReadonlyStruct(context, record);
@@ -160,7 +157,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1804 when a positional record has an empty <c>{ }</c> body that a semicolon could replace.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="record">The record declaration.</param>
-    private static void CheckEmptyPositionalBody(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    private static void CheckEmptyPositionalBody(in SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
         if (record.ParameterList is null
             || record.Members.Count != 0
@@ -184,7 +181,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <c>init</c>, so one is only reported when it is sealed off inside the type that declares it and
     /// nothing there writes to it.
     /// </remarks>
-    private static void CheckReadonlyStruct(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    private static void CheckReadonlyStruct(in SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
         if (ModifierListHelper.Contains(record.Modifiers, SyntaxKind.ReadOnlyKeyword)
             || HasWritableInstanceMember(record)
@@ -204,7 +201,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// The search is the declaring type's own body, which is the whole world for a record the containing
     /// type seals off. A record anything else can reach is not searched and stays reported.
     /// </remarks>
-    private static bool IsMutatedPositionalRecord(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    private static bool IsMutatedPositionalRecord(in SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
         if (record.ParameterList is not { Parameters.Count: > 0 }
             || record.Parent is not TypeDeclarationSyntax container
@@ -256,7 +253,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1800 when a record class is neither sealed nor abstract.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="record">The record class declaration.</param>
-    private static void CheckSealedClass(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    private static void CheckSealedClass(in SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
         if (ModifierListHelper.ContainsEither(record.Modifiers, SyntaxKind.SealedKeyword, SyntaxKind.AbstractKeyword))
         {
@@ -271,7 +268,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="record">The record declaration.</param>
     /// <param name="parameterConventionCache">The per-tree positional-parameter convention cache.</param>
     private static void CheckPositionalParameters(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         RecordDeclarationSyntax record,
         ParameterConventionCache parameterConventionCache)
     {
@@ -299,7 +296,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1802 for instance properties on the record that expose a set accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="record">The record declaration.</param>
-    private static void CheckProperties(SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
+    private static void CheckProperties(in SyntaxNodeAnalysisContext context, RecordDeclarationSyntax record)
     {
         // A record struct that is not readonly is a mutable value, and callers write its properties
         // after construction; 'init' would stop every one of those writes compiling (CS8852).
@@ -332,7 +329,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <param name="accessor">The set accessor to flag.</param>
     [global::System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private static void ReportSetAccessor(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
         AccessorDeclarationSyntax accessor) =>
         context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
@@ -340,6 +337,9 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
     /// <summary>Caches the most recent per-tree parameter convention for one compilation.</summary>
     private sealed class ParameterConventionCache
     {
+        /// <summary>The default naming convention for record positional parameters.</summary>
+        private const NamingConvention DefaultParameterConvention = NamingConvention.PascalCase;
+
         /// <summary>The most recently resolved cache entry.</summary>
         private CacheEntry? _last;
 
@@ -347,7 +347,7 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         /// <param name="context">The syntax node analysis context.</param>
         /// <param name="tree">The syntax tree being analyzed.</param>
         /// <returns>The applicable naming convention.</returns>
-        public NamingConvention Get(SyntaxNodeAnalysisContext context, SyntaxTree tree)
+        public NamingConvention Get(in SyntaxNodeAnalysisContext context, SyntaxTree tree)
         {
             var entry = Volatile.Read(ref _last);
             if (ReferenceEquals(entry?.Tree, tree))

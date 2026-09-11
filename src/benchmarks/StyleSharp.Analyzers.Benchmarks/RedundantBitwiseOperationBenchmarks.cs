@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for redundant-bitwise-operation analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantBitwiseOperationBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RedundantBitwiseOperationBenchmarks
@@ -27,11 +29,13 @@ public class RedundantBitwiseOperationBenchmarks
 
     /// <summary>Benchmarks the clean redundant-bitwise path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantBitwiseOperation_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating redundant-bitwise path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantBitwiseOperation_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

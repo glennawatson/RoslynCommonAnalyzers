@@ -81,7 +81,7 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1305 for an <c>IFormFile.FileName</c> read that flows straight into a path sink.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="sinkTypes">The gated marker and path-sink types resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, SinkTypes sinkTypes)
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, SinkTypes sinkTypes)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -126,13 +126,10 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     private static SyntaxNode? GetSyntacticSinkCall(MemberAccessExpressionSyntax memberAccess)
     {
         // The access must be the direct expression of an argument: Sink(..., file.FileName, ...).
-        if (memberAccess.Parent is not ArgumentSyntax argument
-            || argument.Parent is not ArgumentListSyntax argumentList)
-        {
-            return null;
-        }
-
-        return argumentList.Parent switch
+        return memberAccess.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax argumentList
+            ? null
+            : argumentList.Parent switch
         {
             InvocationExpressionSyntax invocation when IsPathSinkMethodName(invocation.Expression) => invocation,
             ObjectCreationExpressionSyntax creation when GetTypeName(creation.Type) == FileStreamTypeName => creation,
@@ -143,14 +140,14 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation's callee is syntactically named like a path sink method.</summary>
     /// <param name="callee">The invocation's callee expression.</param>
     /// <returns><see langword="true"/> when the simple method name matches a path sink.</returns>
-    private static bool IsPathSinkMethodName(ExpressionSyntax callee)
-        => GetInvokedName(callee) is CombineMethodName or CreateMethodName or OpenWriteMethodName or WriteAllBytesMethodName or CopyMethodName;
+    private static bool IsPathSinkMethodName(ExpressionSyntax callee) =>
+        GetInvokedName(callee) is CombineMethodName or CreateMethodName or OpenWriteMethodName or WriteAllBytesMethodName or CopyMethodName;
 
     /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
     /// <param name="callee">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax callee)
-        => callee switch
+    private static string? GetInvokedName(ExpressionSyntax callee) =>
+        callee switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
@@ -161,8 +158,8 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the right-most simple identifier of a type name.</summary>
     /// <param name="type">The constructed type syntax.</param>
     /// <returns>The simple type name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetTypeName(TypeSyntax type)
-        => type switch
+    private static string? GetTypeName(TypeSyntax type) =>
+        type switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
@@ -240,8 +237,8 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an additive/parenthesized subtree contains a path-separator string literal.</summary>
     /// <param name="expression">The additive-chain node to scan.</param>
     /// <returns><see langword="true"/> when a string literal operand contains a directory separator.</returns>
-    private static bool AdditiveChainHasSeparatorLiteral(ExpressionSyntax expression)
-        => expression switch
+    private static bool AdditiveChainHasSeparatorLiteral(ExpressionSyntax expression) =>
+        expression switch
         {
             ParenthesizedExpressionSyntax parenthesized => AdditiveChainHasSeparatorLiteral(parenthesized.Expression),
             BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.AddExpression) =>
@@ -271,19 +268,13 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <summary>Resolves the upload marker and path-sink types present in the compilation.</summary>
     /// <param name="compilation">The compilation to probe.</param>
     /// <returns>The resolved sink types, or <see langword="null"/> when the <c>IFormFile</c> marker is absent.</returns>
-    private static SinkTypes? GetSinkTypes(Compilation compilation)
-    {
-        if (compilation.GetTypeByMetadataName(FormFileMetadataName) is not { } formFile)
-        {
-            return null;
-        }
-
-        return new SinkTypes(
+    private static SinkTypes? GetSinkTypes(Compilation compilation) => compilation.GetTypeByMetadataName(FormFileMetadataName) is not { } formFile
+        ? null
+        : new SinkTypes(
             formFile,
             compilation.GetTypeByMetadataName(PathMetadataName),
             compilation.GetTypeByMetadataName(FileMetadataName),
             compilation.GetTypeByMetadataName(FileStreamMetadataName));
-    }
 
     /// <summary>The marker and path-sink types resolved once per compilation.</summary>
     private sealed class SinkTypes

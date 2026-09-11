@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUncheckedSum = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2457UncheckedSequenceSumAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 {
     /// <summary>Verifies a Sum call wrapped in an unchecked expression is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UncheckedExpressionSumIsReportedAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task UncheckedExpressionSumIsReportedAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -25,9 +27,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies a Sum call inside an unchecked block is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UncheckedBlockSumIsReportedAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task UncheckedBlockSumIsReportedAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -45,9 +48,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies the nullable-int Sum overload is reported: it uses the same internal checked arithmetic.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableIntSumIsReportedAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task NullableIntSumIsReportedAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -59,9 +63,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies the selector overload is reported: the projected values are still summed with checked arithmetic.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelectorSumIsReportedAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task SelectorSumIsReportedAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -73,9 +78,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies a static (non-extension) call to the Sum operator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticInvocationSumIsReportedAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task StaticInvocationSumIsReportedAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -87,9 +93,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies a Sum call with no unchecked wrapper is clean: the wrapper is the problem, not the call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareSumIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task BareSumIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -101,9 +108,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies unchecked arithmetic without a Sum call is clean: there the wrapper really does wrap around.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UncheckedArithmeticIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task UncheckedArithmeticIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -113,9 +121,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies the double Sum overload is clean: floating-point addition never throws on overflow.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DoubleSumInUncheckedIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task DoubleSumInUncheckedIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -127,9 +136,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies the decimal Sum overload is clean: decimal overflow is not this rule's territory.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecimalSumInUncheckedIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task DecimalSumInUncheckedIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 
@@ -141,9 +151,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined Sum method is clean: only the sequence operator is known to check internally.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedSumInUncheckedIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task UserDefinedSumInUncheckedIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             public sealed class Accumulator
             {
@@ -155,9 +166,10 @@ public class UncheckedSequenceSumAnalyzerUnitTest
 
     /// <summary>Verifies a Sum whose nearest wrapper is checked is clean: that wrapper claims nothing about wraparound.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CheckedInsideUncheckedIsCleanAsync()
-        => await VerifyUncheckedSum.VerifyAnalyzerAsync(
+    public Task CheckedInsideUncheckedIsCleanAsync() =>
+        VerifyUncheckedSum.VerifyAnalyzerAsync(
             """
             using System.Linq;
 

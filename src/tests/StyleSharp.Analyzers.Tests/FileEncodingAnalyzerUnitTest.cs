@@ -29,7 +29,7 @@ public class FileEncodingAnalyzerUnitTest
                 """,
 
             // A file-start (position 0) diagnostic cannot be suppressed by a #pragma, so skip the suppression check.
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck
+            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
         };
         test.ExpectedDiagnostics.Add(VerifyEncoding.Diagnostic("SST1412").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
@@ -48,11 +48,7 @@ public class FileEncodingAnalyzerUnitTest
 
             """,
             new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
-        var test = new VerifyEncoding.Test
-        {
-            TestState = { Sources = { ("/0/Test0.cs", content) } },
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck
-        };
+        var test = new VerifyEncoding.Test { TestState = { Sources = { ("/0/Test0.cs", content) } }, TestBehaviors = TestBehaviors.SkipSuppressionCheck };
         test.ExpectedDiagnostics.Add(VerifyEncoding.Diagnostic("SST1450").WithSpan(1, 1, 1, 1));
         await test.RunAsync(CancellationToken.None);
     }

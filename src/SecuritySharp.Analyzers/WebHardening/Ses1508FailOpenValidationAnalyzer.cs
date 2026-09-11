@@ -21,9 +21,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The suffix that identifies a security-token exception type by its unqualified name.</summary>
-    private const string SecurityTokenExceptionSuffix = "SecurityTokenException";
-
     /// <summary>The name of the <c>Task.FromResult</c>/<c>ValueTask.FromResult</c> success factory.</summary>
     private const string FromResultMethodName = "FromResult";
 
@@ -62,7 +59,7 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1508 for a <c>catch</c> that swallows a broad or security-relevant exception and returns success.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="knownExceptions">The broad and security-relevant exception types resolved for the compilation.</param>
-    private static void AnalyzeCatchClause(SyntaxNodeAnalysisContext context, KnownSecurityExceptions knownExceptions)
+    private static void AnalyzeCatchClause(in SyntaxNodeAnalysisContext context, KnownSecurityExceptions knownExceptions)
     {
         var catchClause = (CatchClauseSyntax)context.Node;
 
@@ -119,8 +116,8 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
     /// <param name="methodName">The method name.</param>
     /// <param name="returnType">The method return type.</param>
     /// <returns><see langword="true"/> when the method is a bool-returning security check.</returns>
-    private static bool IsSecurityCheck(string methodName, TypeSyntax returnType)
-        => HasSecurityCheckPrefix(methodName) && ReturnsBool(returnType);
+    private static bool IsSecurityCheck(string methodName, TypeSyntax returnType) =>
+        HasSecurityCheckPrefix(methodName) && ReturnsBool(returnType);
 
     /// <summary>Returns whether a method name begins with one of the curated security-check prefixes.</summary>
     /// <param name="methodName">The method name.</param>
@@ -155,8 +152,8 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a generic name is <c>Task&lt;bool&gt;</c> or <c>ValueTask&lt;bool&gt;</c>.</summary>
     /// <param name="generic">The generic name syntax.</param>
     /// <returns><see langword="true"/> for a boolean task type.</returns>
-    private static bool IsTaskOfBool(GenericNameSyntax generic)
-        => generic.Identifier.ValueText is "Task" or "ValueTask"
+    private static bool IsTaskOfBool(GenericNameSyntax generic) =>
+        generic.Identifier.ValueText is "Task" or "ValueTask"
             && generic.TypeArgumentList.Arguments.Count == 1
             && generic.TypeArgumentList.Arguments[0] is PredefinedTypeSyntax argument
             && argument.Keyword.IsKind(SyntaxKind.BoolKeyword);
@@ -283,6 +280,9 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
     /// <summary>Holds the broad and security-relevant exception types resolved once per compilation.</summary>
     private sealed class KnownSecurityExceptions
     {
+        /// <summary>The suffix that identifies a security-token exception type by its unqualified name.</summary>
+        private const string SecurityTokenExceptionSuffix = "SecurityTokenException";
+
         /// <summary>The <c>System.Exception</c> base type, or <see langword="null"/> when unavailable.</summary>
         private readonly INamedTypeSymbol? _exception;
 
@@ -304,8 +304,8 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a caught type is <c>System.Exception</c> or a security-relevant exception.</summary>
         /// <param name="caughtType">The declared caught exception type.</param>
         /// <returns><see langword="true"/> for a broad or security-relevant exception.</returns>
-        public bool IsBroadOrSecurityRelevant(INamedTypeSymbol caughtType)
-            => SymbolEqualityComparer.Default.Equals(caughtType, _exception)
+        public bool IsBroadOrSecurityRelevant(INamedTypeSymbol caughtType) =>
+            SymbolEqualityComparer.Default.Equals(caughtType, _exception)
                 || SymbolEqualityComparer.Default.Equals(caughtType, _cryptographicException)
                 || SymbolEqualityComparer.Default.Equals(caughtType, _authenticationException)
                 || caughtType.Name.EndsWith(SecurityTokenExceptionSuffix, StringComparison.Ordinal);

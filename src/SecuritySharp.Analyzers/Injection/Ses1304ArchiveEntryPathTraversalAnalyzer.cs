@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -28,21 +30,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the zip archive entry whose <c>FullName</c> is a tainted archive source.</summary>
-    private const string ZipArchiveEntryMetadataName = "System.IO.Compression.ZipArchiveEntry";
-
-    /// <summary>The metadata name of the Tar entry whose <c>Name</c> is a tainted archive source.</summary>
-    private const string TarEntryMetadataName = "System.Formats.Tar.TarEntry";
-
-    /// <summary>The metadata name of the <c>System.IO.File</c> owner of the guarded file-writing sinks.</summary>
-    private const string FileMetadataName = "System.IO.File";
-
-    /// <summary>The metadata name of the <c>System.IO.FileStream</c> sink type.</summary>
-    private const string FileStreamMetadataName = "System.IO.FileStream";
-
-    /// <summary>The metadata name of <c>System.IO.Path</c>, whose <c>Combine</c> join is confirmed.</summary>
-    private const string PathMetadataName = "System.IO.Path";
-
     /// <summary>The name of the <c>Path.Combine</c> join method whose result is a candidate destination.</summary>
     private const string CombineMethodName = "Combine";
 
@@ -83,26 +70,26 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     private enum SinkKind
     {
         /// <summary>Not a recognised write sink.</summary>
-        None,
+        None = 0,
 
         /// <summary>A sink already covered for zip entries elsewhere; reported here for Tar entries only.</summary>
-        ZipCovered,
+        ZipCovered = 1,
 
         /// <summary>A file-writing sink reported for both zip and Tar entries.</summary>
-        AlwaysReport,
+        AlwaysReport = 2,
     }
 
     /// <summary>Which archive-entry type an entry-name access binds to.</summary>
     private enum EntryKind
     {
         /// <summary>Not an archive-entry name.</summary>
-        None,
+        None = 0,
 
         /// <summary>A <c>ZipArchiveEntry.FullName</c>.</summary>
-        Zip,
+        Zip = 1,
 
         /// <summary>A <c>System.Formats.Tar.TarEntry.Name</c>.</summary>
-        Tar,
+        Tar = 2,
     }
 
     /// <inheritdoc/>
@@ -131,7 +118,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <summary>Reports SES1304 for an extraction/file-writing method whose destination joins an archive entry name.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The archive/path types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, ArchivePathTypes types)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in ArchivePathTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -166,7 +153,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <summary>Reports SES1304 for a <c>new FileStream(...)</c> whose destination joins an archive entry name.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The archive/path types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, ArchivePathTypes types)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in ArchivePathTypes types)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -197,8 +184,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="types">The archive/path types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the creation binds to a <c>FileStream</c> constructor.</returns>
-    private static bool FileStreamSinkBinds(SemanticModel model, ObjectCreationExpressionSyntax creation, ArchivePathTypes types, CancellationToken cancellationToken)
-        => types.FileStream is { } fileStreamType
+    private static bool FileStreamSinkBinds(SemanticModel model, ObjectCreationExpressionSyntax creation, in ArchivePathTypes types, CancellationToken cancellationToken) =>
+        types.FileStream is { } fileStreamType
             && model.GetSymbolInfo(creation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
             && SymbolEqualityComparer.Default.Equals(constructor.ContainingType, fileStreamType);
 
@@ -206,8 +193,9 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="combined">The Path.Combine/concatenation expression that joins the entry name.</param>
     /// <param name="entryKind">The archive-entry kind driving the message argument.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, ExpressionSyntax combined, EntryKind entryKind)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, ExpressionSyntax combined, EntryKind entryKind) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             SecurityRules.ArchiveEntryPathTraversal,
             combined.SyntaxTree,
             combined.Span,
@@ -216,8 +204,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <summary>Classifies an invoked member name as an extraction/file-writing sink.</summary>
     /// <param name="methodName">The invoked member's identifier text.</param>
     /// <returns>The sink kind, or <see cref="SinkKind.None"/> when the name is not a guarded sink.</returns>
-    private static SinkKind ClassifySink(string methodName)
-        => methodName switch
+    private static SinkKind ClassifySink(string methodName) =>
+        methodName switch
         {
             ExtractToFileMethodName or OpenWriteMethodName => SinkKind.ZipCovered,
             CreateMethodName or WriteAllBytesMethodName or WriteAllTextMethodName => SinkKind.AlwaysReport,
@@ -228,8 +216,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="entryKind">The archive-entry kind.</param>
     /// <param name="sinkKind">The sink kind.</param>
     /// <returns><see langword="true"/> when the pair is in this rule's complement surface.</returns>
-    private static bool ShouldReport(EntryKind entryKind, SinkKind sinkKind)
-        => sinkKind == SinkKind.ZipCovered
+    private static bool ShouldReport(EntryKind entryKind, SinkKind sinkKind) =>
+        sinkKind == SinkKind.ZipCovered
             ? entryKind == EntryKind.Tar
             : entryKind is EntryKind.Zip or EntryKind.Tar;
 
@@ -302,7 +290,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="types">The archive/path types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The archive-entry kind, or <see cref="EntryKind.None"/> when it is not an archive-entry name.</returns>
-    private static EntryKind ClassifyEntry(SemanticModel model, MemberAccessExpressionSyntax entryAccess, ArchivePathTypes types, CancellationToken cancellationToken)
+    private static EntryKind ClassifyEntry(SemanticModel model, MemberAccessExpressionSyntax entryAccess, in ArchivePathTypes types, CancellationToken cancellationToken)
     {
         if (model.GetSymbolInfo(entryAccess, cancellationToken).Symbol is not IPropertySymbol property)
         {
@@ -317,13 +305,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
             return EntryKind.Zip;
         }
 
-        if (types.TarEntry is { } tar
-            && SymbolEqualityComparer.Default.Equals(container, tar))
-        {
-            return EntryKind.Tar;
-        }
-
-        return EntryKind.None;
+        return types.TarEntry is { } tar
+            && SymbolEqualityComparer.Default.Equals(container, tar) ? EntryKind.Tar : EntryKind.None;
     }
 
     /// <summary>Confirms a Path.Combine destination binds to <c>System.IO.Path.Combine</c> (a concatenation needs no binding).</summary>
@@ -332,7 +315,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="types">The archive/path types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the join is a bound Path.Combine or a string concatenation.</returns>
-    private static bool CombineBinds(SemanticModel model, ExpressionSyntax combined, ArchivePathTypes types, CancellationToken cancellationToken)
+    private static bool CombineBinds(SemanticModel model, ExpressionSyntax combined, in ArchivePathTypes types, CancellationToken cancellationToken)
     {
         if (combined is not InvocationExpressionSyntax combineInvocation)
         {
@@ -351,8 +334,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <param name="types">The archive/path types resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the sink binds to a recognised file-writing owner.</returns>
-    private static bool InvocationSinkBinds(SemanticModel model, InvocationExpressionSyntax invocation, string methodName, ArchivePathTypes types, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
+    private static bool InvocationSinkBinds(SemanticModel model, InvocationExpressionSyntax invocation, string methodName, in ArchivePathTypes types, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && (string.Equals(methodName, ExtractToFileMethodName, StringComparison.Ordinal)
 
                 // ExtractToFile only reaches here for a Tar entry (the zip surface is filtered by
@@ -363,8 +346,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
     /// <summary>Returns the simple (unqualified) type name of a type syntax used in an object creation.</summary>
     /// <param name="type">The object-creation type syntax.</param>
     /// <returns>The simple type name, or <see langword="null"/> when it cannot be read cheaply.</returns>
-    private static string? GetSimpleTypeName(TypeSyntax type)
-        => type switch
+    private static string? GetSimpleTypeName(TypeSyntax type) =>
+        type switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
@@ -372,6 +355,11 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
         };
 
     /// <summary>The archive/path types resolved once per compilation, gated on at least one archive-entry type.</summary>
+    /// <param name="ZipArchiveEntry">The zip entry type whose <c>FullName</c> is a tainted source, or <see langword="null"/> when the compilation does not reference it.</param>
+    /// <param name="TarEntry">The Tar entry type whose <c>Name</c> is a tainted source, or <see langword="null"/> when the compilation does not reference it.</param>
+    /// <param name="File">The <c>System.IO.File</c> owner an invocation sink must bind to, or <see langword="null"/> when it cannot be resolved.</param>
+    /// <param name="FileStream">The <c>System.IO.FileStream</c> type an object-creation sink must bind to, or <see langword="null"/> when it cannot be resolved.</param>
+    /// <param name="Path">The <c>System.IO.Path</c> owner whose <c>Combine</c> a joined destination must bind to, or <see langword="null"/> when it cannot be resolved.</param>
     private readonly record struct ArchivePathTypes(
         INamedTypeSymbol? ZipArchiveEntry,
         INamedTypeSymbol? TarEntry,
@@ -379,6 +367,21 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
         INamedTypeSymbol? FileStream,
         INamedTypeSymbol? Path)
     {
+        /// <summary>The metadata name of the zip archive entry whose <c>FullName</c> is a tainted archive source.</summary>
+        private const string ZipArchiveEntryMetadataName = "System.IO.Compression.ZipArchiveEntry";
+
+        /// <summary>The metadata name of the Tar entry whose <c>Name</c> is a tainted archive source.</summary>
+        private const string TarEntryMetadataName = "System.Formats.Tar.TarEntry";
+
+        /// <summary>The metadata name of the <c>System.IO.File</c> owner of the guarded file-writing sinks.</summary>
+        private const string FileMetadataName = "System.IO.File";
+
+        /// <summary>The metadata name of the <c>System.IO.FileStream</c> sink type.</summary>
+        private const string FileStreamMetadataName = "System.IO.FileStream";
+
+        /// <summary>The metadata name of <c>System.IO.Path</c>, whose <c>Combine</c> join is confirmed.</summary>
+        private const string PathMetadataName = "System.IO.Path";
+
         /// <summary>Resolves the archive/path types, returning <see langword="null"/> when neither entry type is present.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The resolved types, or <see langword="null"/> when the rule cannot apply.</returns>
@@ -386,12 +389,9 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
         {
             var zip = compilation.GetTypeByMetadataName(ZipArchiveEntryMetadataName);
             var tar = compilation.GetTypeByMetadataName(TarEntryMetadataName);
-            if (zip is null && tar is null)
-            {
-                return null;
-            }
-
-            return new ArchivePathTypes(
+            return zip is null && tar is null
+                ? null
+                : new ArchivePathTypes(
                 zip,
                 tar,
                 compilation.GetTypeByMetadataName(FileMetadataName),

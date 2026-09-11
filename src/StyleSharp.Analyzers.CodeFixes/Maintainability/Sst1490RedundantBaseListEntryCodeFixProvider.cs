@@ -75,8 +75,8 @@ public sealed class Sst1490RedundantBaseListEntryCodeFixProvider : CodeFixProvid
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The reported entry, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static BaseTypeSyntax? TryGetEntry(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is
+    private static BaseTypeSyntax? TryGetEntry(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>() is
             { Parent: BaseListSyntax { Types.Count: >= MinimumTrimmableEntryCount } } entry
             ? entry
             : null;

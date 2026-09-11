@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeShellExecute = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 {
     /// <summary>Verifies a non-constant initializer <c>FileName</c> under shell execution is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerNonConstantFileNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task InitializerNonConstantFileNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -35,9 +37,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies the report holds when <c>UseShellExecute</c> is written before <c>FileName</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UseShellExecuteBeforeFileNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task UseShellExecuteBeforeFileNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -56,9 +59,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant constructor <c>fileName</c> argument under shell execution is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorNonConstantFileNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConstructorNonConstantFileNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -76,9 +80,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant constructor <c>fileName</c> passed by name is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedConstructorFileNameArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedConstructorFileNameArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -96,9 +101,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified type name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedTypeNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task FullyQualifiedTypeNameReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -115,9 +121,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant initializer <c>FileName</c> overrides a constant constructor argument and is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerFileNameOverridesConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task InitializerFileNameOverridesConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -136,9 +143,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated (non-constant) filename under shell execution is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedFileNameReportedAsync()
-        => await VerifyNet90Async(
+    public Task InterpolatedFileNameReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -157,9 +165,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a constant string <c>FileName</c> under shell execution is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantFileNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantFileNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -178,9 +187,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a constant constructor <c>fileName</c> argument under shell execution is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantConstructorFileNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantConstructorFileNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -198,9 +208,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a constant initializer <c>FileName</c> overriding a non-constant constructor argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantInitializerFileNameOverridesConstructorIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantInitializerFileNameOverridesConstructorIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -219,9 +230,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant filename with <c>UseShellExecute = false</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UseShellExecuteFalseIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UseShellExecuteFalseIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -240,9 +252,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant filename without any <c>UseShellExecute</c> assignment is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoUseShellExecuteIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NoUseShellExecuteIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -261,9 +274,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies <c>UseShellExecute = true</c> set from a non-literal value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralUseShellExecuteIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonLiteralUseShellExecuteIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -282,9 +296,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies shell execution with no filename set locally is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShellExecuteWithoutFileNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ShellExecuteWithoutFileNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -303,9 +318,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies a shell-executed <c>ProcessStartInfo</c> with no initializer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoInitializerIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NoInitializerIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -321,9 +337,10 @@ public class ShellExecuteFileNameAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated type that merely shares the <c>ProcessStartInfo</c> name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedProcessStartInfoTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedProcessStartInfoTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class ProcessStartInfo
             {
@@ -377,11 +394,7 @@ public class ShellExecuteFileNameAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeShellExecute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12,
-            TestCode = Source
-        };
+        var test = new AnalyzeShellExecute.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard12, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -391,11 +404,7 @@ public class ShellExecuteFileNameAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeShellExecute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeShellExecute.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

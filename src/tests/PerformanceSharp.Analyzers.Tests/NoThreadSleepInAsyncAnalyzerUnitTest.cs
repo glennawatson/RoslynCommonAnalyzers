@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1303NoThreadSleepInAsyncAnalyzer,
     PerformanceSharp.Analyzers.Psh1303NoThreadSleepInAsyncCodeFixProvider>;
@@ -47,9 +48,10 @@ public class NoThreadSleepInAsyncAnalyzerUnitTest
 
     /// <summary>Verifies a sleep in a synchronous method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SleepInSynchronousMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SleepInSynchronousMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Threading;
 
@@ -64,9 +66,10 @@ public class NoThreadSleepInAsyncAnalyzerUnitTest
 
     /// <summary>Verifies a sleep in an async lambda is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SleepInAsyncLambdaIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SleepInAsyncLambdaIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading;
@@ -85,9 +88,10 @@ public class NoThreadSleepInAsyncAnalyzerUnitTest
 
     /// <summary>Verifies a sleep in a synchronous local function inside an async method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SleepInSynchronousLocalFunctionIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SleepInSynchronousLocalFunctionIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Threading;
             using System.Threading.Tasks;
@@ -142,9 +146,10 @@ public class NoThreadSleepInAsyncAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined Thread type is clean because the call never binds to the runtime's.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedThreadTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UserDefinedThreadTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 

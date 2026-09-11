@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDifferenceComparedToZero = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2447DifferenceComparedToZeroAnalyzer,
     StyleSharp.Analyzers.Sst2447DifferenceComparedToZeroCodeFixProvider>;
@@ -233,9 +234,10 @@ public class DifferenceComparedToZeroAnalyzerUnitTest
 
     /// <summary>Verifies a floating-point difference is left alone; it has no wrapping difference to misread.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FloatingPointDifferenceIsCleanAsync()
-        => await VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
+    public Task FloatingPointDifferenceIsCleanAsync() =>
+        VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -245,9 +247,10 @@ public class DifferenceComparedToZeroAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against something other than zero is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonAgainstNonZeroIsCleanAsync()
-        => await VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
+    public Task ComparisonAgainstNonZeroIsCleanAsync() =>
+        VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -257,9 +260,10 @@ public class DifferenceComparedToZeroAnalyzerUnitTest
 
     /// <summary>Verifies a comparison of something other than a difference is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonOfNonDifferenceIsCleanAsync()
-        => await VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
+    public Task ComparisonOfNonDifferenceIsCleanAsync() =>
+        VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -269,9 +273,10 @@ public class DifferenceComparedToZeroAnalyzerUnitTest
 
     /// <summary>Verifies a decimal difference is left alone; decimal arithmetic throws rather than wrapping.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecimalDifferenceIsCleanAsync()
-        => await VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
+    public Task DecimalDifferenceIsCleanAsync() =>
+        VerifyDifferenceComparedToZero.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPartial = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1205PartialElementAccessAnalyzer,
     StyleSharp.Analyzers.Sst1400AccessModifierCodeFixProvider>;
@@ -31,9 +32,10 @@ public class OrderingPartialUnitTest
 
     /// <summary>Verifies a partial type that declares its access is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeWithAccessIsCleanAsync()
-        => await VerifyPartial.VerifyAnalyzerAsync(
+    public Task PartialTypeWithAccessIsCleanAsync() =>
+        VerifyPartial.VerifyAnalyzerAsync(
             """
             internal partial class C
             {

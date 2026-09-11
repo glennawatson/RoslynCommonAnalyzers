@@ -11,8 +11,8 @@ internal static class BaseCallDropsOptionalArgumentBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? Violating(i) : Clean(i))}}
@@ -21,8 +21,8 @@ internal static class BaseCallDropsOptionalArgumentBenchmarkSource
     /// <summary>Builds one override that forwards its optional argument to the base call.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public class Base{{index}}
            {
                public virtual void Go(int a, string mode = "fast")
@@ -42,8 +42,8 @@ internal static class BaseCallDropsOptionalArgumentBenchmarkSource
     /// <summary>Builds one override that drops its optional argument on the base call.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public class VBase{{index}}
            {
                public virtual void Go(int a, string mode = "fast")

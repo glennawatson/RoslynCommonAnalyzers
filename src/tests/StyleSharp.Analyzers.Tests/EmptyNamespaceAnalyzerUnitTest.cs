@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyNamespace = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.EmptyCodeAnalyzer,
     StyleSharp.Analyzers.EmptyNamespaceCodeFixProvider>;
@@ -95,9 +96,10 @@ public class EmptyNamespaceAnalyzerUnitTest
 
     /// <summary>Verifies a namespace with members is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyNamespaceIsCleanAsync()
-        => await VerifyEmptyNamespace.VerifyAnalyzerAsync(
+    public Task NonEmptyNamespaceIsCleanAsync() =>
+        VerifyEmptyNamespace.VerifyAnalyzerAsync(
             """
             namespace Populated
             {

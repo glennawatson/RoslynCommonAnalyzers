@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBuiltInAlias = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1121BuiltInTypeAliasAnalyzer,
     StyleSharp.Analyzers.Sst1121BuiltInTypeAliasCodeFixProvider>;
@@ -57,9 +58,10 @@ public class BuiltInTypeAliasAnalyzerUnitTest
 
     /// <summary>Verifies the keyword alias is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeywordAliasIsCleanAsync()
-        => await VerifyBuiltInAlias.VerifyAnalyzerAsync(
+    public Task KeywordAliasIsCleanAsync() =>
+        VerifyBuiltInAlias.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -70,9 +72,10 @@ public class BuiltInTypeAliasAnalyzerUnitTest
     /// <summary>Verifies a framework name a <c>nameof</c> takes the name of is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks><c>nameof</c> takes a name and a keyword is not one, so <c>nameof(object)</c> does not compile.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameofOperandIsCleanAsync()
-        => await VerifyBuiltInAlias.VerifyAnalyzerAsync(
+    public Task NameofOperandIsCleanAsync() =>
+        VerifyBuiltInAlias.VerifyAnalyzerAsync(
             """
             using System;
 

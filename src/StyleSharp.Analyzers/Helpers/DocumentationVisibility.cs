@@ -28,7 +28,7 @@ internal static class DocumentationVisibility
     /// <param name="member">The member declaration.</param>
     /// <param name="coverage">The configured documentation-coverage scope.</param>
     /// <returns><see langword="true"/> when the member must be documented.</returns>
-    public static bool NeedsDocumentation(SyntaxNode member, in DocumentationCoverage coverage)
+    internal static bool NeedsDocumentation(SyntaxNode member, in DocumentationCoverage coverage)
     {
         var declared = DeclaredAccessibilityOf(member);
 
@@ -70,7 +70,7 @@ internal static class DocumentationVisibility
     /// <param name="node">The declaration whose containers decide its visibility.</param>
     /// <param name="coverage">The configured documentation-coverage scope.</param>
     /// <returns><see langword="true"/> when the declaration must be documented.</returns>
-    public static bool NeedsContainerDocumentation(SyntaxNode node, in DocumentationCoverage coverage) =>
+    internal static bool NeedsContainerDocumentation(SyntaxNode node, in DocumentationCoverage coverage) =>
         coverage.PrivateElements || NeedsByEffective(node, Accessibility.NotApplicable, coverage);
 
     /// <summary>
@@ -83,7 +83,7 @@ internal static class DocumentationVisibility
     /// <param name="field">The field (or event-field) declaration.</param>
     /// <param name="coverage">The configured documentation-coverage scope.</param>
     /// <returns><see langword="true"/> when the field must be documented.</returns>
-    public static bool FieldNeedsDocumentation(BaseFieldDeclarationSyntax field, in DocumentationCoverage coverage)
+    internal static bool FieldNeedsDocumentation(BaseFieldDeclarationSyntax field, in DocumentationCoverage coverage)
     {
         var bucket = FieldBucket(DeclaredAccessibilityOf(field));
         for (var parent = field.Parent; parent is not null; parent = parent.Parent)
@@ -101,8 +101,7 @@ internal static class DocumentationVisibility
                     break;
                 }
 
-                case BaseNamespaceDeclarationSyntax:
-                case CompilationUnitSyntax:
+                case BaseNamespaceDeclarationSyntax or CompilationUnitSyntax:
                     return FieldBucketInScope(bucket, coverage);
             }
         }
@@ -162,8 +161,7 @@ internal static class DocumentationVisibility
                     break;
                 }
 
-                case BaseNamespaceDeclarationSyntax:
-                case CompilationUnitSyntax:
+                case BaseNamespaceDeclarationSyntax or CompilationUnitSyntax:
                     return BucketInScope(bucket, coverage);
             }
         }
@@ -211,7 +209,7 @@ internal static class DocumentationVisibility
     /// <summary>Reads the accessibility stated by explicit modifiers, or <see langword="null"/> when none are present.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns>The explicit accessibility, or <see langword="null"/>.</returns>
-    private static Accessibility? ExplicitAccessibility(SyntaxTokenList modifiers)
+    private static Accessibility? ExplicitAccessibility(in SyntaxTokenList modifiers)
     {
         if (ModifierListHelper.Contains(modifiers, SyntaxKind.PublicKeyword))
         {

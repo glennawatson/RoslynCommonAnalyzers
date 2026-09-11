@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -30,16 +31,17 @@ public sealed class Sst1119IrregularDigitGroupingCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Group the digits evenly",
             nameof(Sst1119IrregularDigitGroupingCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported literal and rebuilds it with even grouping.</summary>
     /// <param name="root">The syntax root.</param>
@@ -76,9 +78,9 @@ public sealed class Sst1119IrregularDigitGroupingCodeFixProvider : CodeFixProvid
         var digits = Compact(text, start, suffixStart);
 
         var builder = new StringBuilder(text.Length);
-        builder.Append(text, 0, start);
+        _ = builder.Append(text, 0, start);
         AppendGrouped(builder, digits, width);
-        builder.Append(text, suffixStart, text.Length - suffixStart);
+        _ = builder.Append(text, suffixStart, text.Length - suffixStart);
         return builder.ToString();
     }
 
@@ -109,7 +111,7 @@ public sealed class Sst1119IrregularDigitGroupingCodeFixProvider : CodeFixProvid
         {
             if (text[i] != '_')
             {
-                builder.Append(text[i]);
+                _ = builder.Append(text[i]);
             }
         }
 
@@ -124,10 +126,10 @@ public sealed class Sst1119IrregularDigitGroupingCodeFixProvider : CodeFixProvid
     {
         var lead = digits.Length % width;
         lead = lead == 0 ? width : lead;
-        builder.Append(digits, 0, lead);
+        _ = builder.Append(digits, 0, lead);
         for (var i = lead; i < digits.Length; i += width)
         {
-            builder.Append('_').Append(digits, i, width);
+            _ = builder.Append('_').Append(digits, i, width);
         }
     }
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -15,9 +16,10 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
 {
     /// <summary>Verifies a null-checked delegate that is immediately invoked is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullCheckedDelegateInvocationIsReportedAsync()
-        => await RunAsync(
+    public Task NullCheckedDelegateInvocationIsReportedAsync() =>
+        RunAsync(
             """
             using System;
 
@@ -37,9 +39,10 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
 
     /// <summary>Verifies a null check that does not invoke the checked delegate is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonInvocationGuardIsCleanAsync()
-        => await RunAsync(
+    public Task NonInvocationGuardIsCleanAsync() =>
+        RunAsync(
             """
             using System;
 
@@ -74,11 +77,7 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyConditionalDelegateInvocation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyConditionalDelegateInvocation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -90,10 +89,7 @@ public class ConditionalDelegateInvocationAnalyzerUnitTest
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task RunAsync(string source)
-        => await new VerifyConditionalDelegateInvocation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        }.RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task RunAsync(string source) =>
+        new VerifyConditionalDelegateInvocation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source }.RunAsync(CancellationToken.None);
 }

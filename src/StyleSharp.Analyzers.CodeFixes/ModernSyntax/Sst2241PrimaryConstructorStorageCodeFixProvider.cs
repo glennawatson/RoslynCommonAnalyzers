@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -74,17 +76,11 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (!TryCreateReplacement(root, diagnostic, out var type, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) => !TryCreateReplacement(root, diagnostic, out var type, out var replacement)
             || type is null
-            || replacement is null)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(type, replacement));
-    }
+            || replacement is null
+        ? document
+        : document.WithSyntaxRoot(root.ReplaceNode(type, replacement));
 
     /// <summary>Creates the replacement type for one SST2241 diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
@@ -175,12 +171,13 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         var members = type.Members;
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i] is ConstructorDeclarationSyntax candidate
-                && string.Equals(candidate.Identifier.ValueText, constructorName, StringComparison.Ordinal))
+            if (members[i] is not ConstructorDeclarationSyntax candidate || !string.Equals(candidate.Identifier.ValueText, constructorName, StringComparison.Ordinal))
             {
-                constructor = candidate;
-                return true;
+                continue;
             }
+
+            constructor = candidate;
+            return true;
         }
 
         constructor = null;
@@ -191,8 +188,8 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="type">The type declaration.</param>
     /// <param name="parameterList">The primary-constructor parameter list.</param>
     /// <returns>The type with the primary-constructor parameter list.</returns>
-    private static TypeDeclarationSyntax WithParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList)
-        => type switch
+    private static TypeDeclarationSyntax WithParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList) =>
+        type switch
         {
             ClassDeclarationSyntax classDeclaration => classDeclaration.WithParameterList(parameterList),
             StructDeclarationSyntax structDeclaration => structDeclaration.WithParameterList(parameterList),
@@ -202,22 +199,17 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Clears trivia before the primary-constructor insertion point so the parameter list touches the type name.</summary>
     /// <param name="type">The type declaration.</param>
     /// <returns>The type declaration with insertion-point trailing trivia removed.</returns>
-    private static TypeDeclarationSyntax ClearPrimaryConstructorInsertionTrivia(TypeDeclarationSyntax type)
-    {
-        if (type.TypeParameterList is { } typeParameterList)
-        {
-            return type.WithTypeParameterList(typeParameterList.WithGreaterThanToken(typeParameterList.GreaterThanToken.WithTrailingTrivia(default(SyntaxTriviaList))));
-        }
-
-        return type.WithIdentifier(type.Identifier.WithTrailingTrivia(default(SyntaxTriviaList)));
-    }
+    private static TypeDeclarationSyntax ClearPrimaryConstructorInsertionTrivia(TypeDeclarationSyntax type) => type.TypeParameterList is { } typeParameterList
+        ? type.WithTypeParameterList(typeParameterList.WithGreaterThanToken(typeParameterList.GreaterThanToken.WithTrailingTrivia(default(SyntaxTriviaList))))
+        : type.WithIdentifier(type.Identifier.WithTrailingTrivia(default(SyntaxTriviaList)));
 
     /// <summary>Creates a primary-constructor parameter list with separator trivia moved from the type name.</summary>
     /// <param name="type">The type declaration.</param>
     /// <param name="parameterList">The constructor parameter list.</param>
     /// <returns>The parameter list to attach to the type declaration.</returns>
-    private static ParameterListSyntax CreatePrimaryConstructorParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList)
-        => parameterList
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ParameterListSyntax CreatePrimaryConstructorParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList) =>
+        parameterList
             .WithoutTrivia()
             .WithLeadingTrivia(default(SyntaxTriviaList))
             .WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type));
@@ -339,8 +331,8 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="node">The node to inspect.</param>
     /// <param name="parameters">The promoted constructor parameters.</param>
     /// <returns><see langword="true"/> when the node declares a matching name.</returns>
-    private static bool IsPromotedParameterDeclaration(SyntaxNode node, SeparatedSyntaxList<ParameterSyntax> parameters)
-        => node switch
+    private static bool IsPromotedParameterDeclaration(SyntaxNode node, SeparatedSyntaxList<ParameterSyntax> parameters) =>
+        node switch
         {
             ParameterSyntax parameter => IsPromotedParameterName(parameter.Identifier, parameters),
             VariableDeclaratorSyntax variable => IsPromotedParameterName(variable.Identifier, parameters),
@@ -397,7 +389,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 return false;
             }
 
-            collected[i] = new StorageAssignment(targetName, parameter.WithoutTrivia());
+            collected[i] = new(targetName, parameter.WithoutTrivia());
         }
 
         assignments = collected;
@@ -454,11 +446,13 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
 
         for (var i = 0; i < applied.Length; i++)
         {
-            if (!applied[i])
+            if (applied[i])
             {
-                members = default;
-                return false;
+                continue;
             }
+
+            members = default;
+            return false;
         }
 
         members = SyntaxFactory.List(rewritten);
@@ -591,12 +585,14 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     {
         for (var i = 0; i < assignments.Length; i++)
         {
-            if (!applied[i] && string.Equals(assignments[i].TargetName, targetName, StringComparison.Ordinal))
+            if (applied[i] || !string.Equals(assignments[i].TargetName, targetName, StringComparison.Ordinal))
             {
-                index = i;
-                value = assignments[i].Value;
-                return true;
+                continue;
             }
+
+            index = i;
+            value = assignments[i].Value;
+            return true;
         }
 
         index = -1;
@@ -607,8 +603,9 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Creates a spaced equals-value clause.</summary>
     /// <param name="value">The initializer value.</param>
     /// <returns>The initializer syntax.</returns>
-    private static EqualsValueClauseSyntax CreateInitializer(ExpressionSyntax value)
-        => SyntaxFactory.EqualsValueClause(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static EqualsValueClauseSyntax CreateInitializer(ExpressionSyntax value) =>
+        SyntaxFactory.EqualsValueClause(
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             value.WithoutTrivia());
 
@@ -699,7 +696,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return;
         }
 
-        var parsed = SyntaxFactory.ParseLeadingTrivia(indentation + line.Substring(markerIndex));
+        var parsed = SyntaxFactory.ParseLeadingTrivia(indentation + line[markerIndex..]);
         for (var i = 0; i < parsed.Count; i++)
         {
             collected.Add(parsed[i]);
@@ -709,14 +706,14 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Returns whether a documentation line is constructor parameter documentation.</summary>
     /// <param name="line">The line to inspect.</param>
     /// <returns><see langword="true"/> when the trivia contains a <c>param</c> element.</returns>
-    private static bool IsParameterDocumentationLine(string line)
-        => line.IndexOf("///", StringComparison.Ordinal) >= 0
+    private static bool IsParameterDocumentationLine(string line) =>
+        line.IndexOf("///", StringComparison.Ordinal) >= 0
             && line.IndexOf("<param ", StringComparison.Ordinal) >= 0;
 
     /// <summary>Finds where constructor parameter docs should be inserted in type leading trivia.</summary>
     /// <param name="leading">The type leading trivia.</param>
     /// <returns>The insertion index.</returns>
-    private static int FindTypeDocumentationEnd(SyntaxTriviaList leading)
+    private static int FindTypeDocumentationEnd(in SyntaxTriviaList leading)
     {
         var insertionIndex = 0;
         for (var i = 0; i < leading.Count; i++)
@@ -744,7 +741,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         }
 
         var lineStart = Math.Max(text.LastIndexOf('\n'), text.LastIndexOf('\r')) + 1;
-        return lineStart < text.Length ? text.Substring(lineStart) : text;
+        return lineStart < text.Length ? text[lineStart..] : text;
     }
 
     /// <summary>Gets the text before a target index on the same line.</summary>

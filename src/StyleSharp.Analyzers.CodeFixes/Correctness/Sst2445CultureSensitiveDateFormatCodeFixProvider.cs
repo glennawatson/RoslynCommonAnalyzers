@@ -51,7 +51,7 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
     /// <param name="context">The code fix context.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    private static void RegisterQuoteFix(CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
+    private static void RegisterQuoteFix(in CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
     {
         var shape = GetShape(diagnostic);
         var document = context.Document;
@@ -80,7 +80,7 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
     /// <param name="context">The code fix context.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    private static void RegisterInvariantFix(CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
+    private static void RegisterInvariantFix(in CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
     {
         if (GetShape(diagnostic) != Sst2445CultureSensitiveDateFormatAnalyzer.InvocationShape
             || !diagnostic.Properties.TryGetValue(Sst2445CultureSensitiveDateFormatAnalyzer.ProviderSpanKey, out var spanText)
@@ -140,8 +140,8 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
     /// <summary>Reads the shape property from a diagnostic.</summary>
     /// <param name="diagnostic">The diagnostic to read.</param>
     /// <returns>The shape value, or an empty string when absent.</returns>
-    private static string GetShape(Diagnostic diagnostic)
-        => diagnostic.Properties.TryGetValue(Sst2445CultureSensitiveDateFormatAnalyzer.ShapeKey, out var shape) && shape is not null
+    private static string GetShape(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Sst2445CultureSensitiveDateFormatAnalyzer.ShapeKey, out var shape) && shape is not null
             ? shape
             : string.Empty;
 
@@ -154,13 +154,13 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
         span = default;
         var separator = text.IndexOf(':');
         if (separator < 0
-            || !int.TryParse(text.Substring(0, separator), out var start)
+            || !int.TryParse(text[0..(0 + separator)], out var start)
             || !int.TryParse(text.Substring(separator + 1), out var length))
         {
             return false;
         }
 
-        span = new TextSpan(start, length);
+        span = new(start, length);
         return true;
     }
 }

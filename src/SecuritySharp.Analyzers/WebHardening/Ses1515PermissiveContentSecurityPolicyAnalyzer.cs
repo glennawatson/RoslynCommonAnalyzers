@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -163,14 +165,14 @@ public sealed class Ses1515PermissiveContentSecurityPolicyAnalyzer : DiagnosticA
     /// <param name="text">The literal's decoded text.</param>
     /// <param name="index">The index to test; a negative or past-end index counts as a boundary.</param>
     /// <returns><see langword="true"/> when the position bounds a source.</returns>
-    private static bool IsSourceBoundary(string text, int index)
-        => (uint)index >= (uint)text.Length || char.IsWhiteSpace(text[index]) || text[index] == ';';
+    private static bool IsSourceBoundary(string text, int index) =>
+        (uint)index >= (uint)text.Length || char.IsWhiteSpace(text[index]) || text[index] == ';';
 
     /// <summary>Returns whether the literal is the value set on a Content-Security-Policy header.</summary>
     /// <param name="literal">The candidate CSP value literal.</param>
     /// <returns><see langword="true"/> when the literal is a CSP header value.</returns>
-    private static bool IsContentSecurityPolicyHeaderValue(LiteralExpressionSyntax literal)
-        => literal.Parent switch
+    private static bool IsContentSecurityPolicyHeaderValue(LiteralExpressionSyntax literal) =>
+        literal.Parent switch
         {
             // 'headers["Content-Security-Policy"] = value'.
             AssignmentExpressionSyntax { Left: ElementAccessExpressionSyntax elementAccess }
@@ -207,14 +209,15 @@ public sealed class Ses1515PermissiveContentSecurityPolicyAnalyzer : DiagnosticA
     /// <summary>Returns the decoded text of a string-literal expression, or <see langword="null"/> when it is not one.</summary>
     /// <param name="expression">The expression to read.</param>
     /// <returns>The string value, or <see langword="null"/>.</returns>
-    private static string? GetStringLiteralText(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression)
+    private static string? GetStringLiteralText(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal && literal.IsKind(SyntaxKind.StringLiteralExpression)
             ? literal.Token.ValueText
             : null;
 
     /// <summary>Returns whether a header name equals <c>Content-Security-Policy</c> case-insensitively.</summary>
     /// <param name="name">The header name, or <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the name is the Content-Security-Policy header.</returns>
-    private static bool IsContentSecurityPolicyName(string? name)
-        => string.Equals(name, ContentSecurityPolicyHeaderName, StringComparison.OrdinalIgnoreCase);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsContentSecurityPolicyName(string? name) =>
+        string.Equals(name, ContentSecurityPolicyHeaderName, StringComparison.OrdinalIgnoreCase);
 }

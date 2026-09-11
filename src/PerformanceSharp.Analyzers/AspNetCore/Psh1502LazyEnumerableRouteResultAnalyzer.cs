@@ -108,7 +108,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <summary>Reports PSH1502 for a route-handler lambda passed to an ASP.NET Core map method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeMapInvocation(SyntaxNodeAnalysisContext context, DeferredResultModel model)
+    private static void AnalyzeMapInvocation(in SyntaxNodeAnalysisContext context, DeferredResultModel model)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -141,7 +141,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <summary>Reports PSH1502 for a public action method on a controller that returns a deferred sequence.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeAction(SyntaxNodeAnalysisContext context, DeferredResultModel model)
+    private static void AnalyzeAction(in SyntaxNodeAnalysisContext context, DeferredResultModel model)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!IsCandidateActionShape(method))
@@ -176,7 +176,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="body">The lambda body.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeReturns(SyntaxNodeAnalysisContext context, CSharpSyntaxNode body, DeferredResultModel model)
+    private static void AnalyzeReturns(in SyntaxNodeAnalysisContext context, CSharpSyntaxNode body, DeferredResultModel model)
     {
         if (body is ExpressionSyntax expression)
         {
@@ -196,7 +196,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The block (or nested statement) to scan.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void AnalyzeReturnStatements(SyntaxNodeAnalysisContext context, SyntaxNode node, DeferredResultModel model)
+    private static void AnalyzeReturnStatements(in SyntaxNodeAnalysisContext context, SyntaxNode node, DeferredResultModel model)
     {
         foreach (var child in node.ChildNodes())
         {
@@ -208,10 +208,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
                     break;
                 }
 
-                case SimpleLambdaExpressionSyntax:
-                case ParenthesizedLambdaExpressionSyntax:
-                case AnonymousMethodExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax or AnonymousMethodExpressionSyntax or LocalFunctionStatementSyntax:
                     break;
 
                 default:
@@ -227,7 +224,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The returned expression to classify.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
-    private static void TryReportDeferred(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, DeferredResultModel model)
+    private static void TryReportDeferred(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, DeferredResultModel model)
     {
         if (!IsDeferredSequence(context.SemanticModel, expression, model, context.CancellationToken))
         {
@@ -346,8 +343,8 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a namespace is <c>Microsoft.AspNetCore.Builder</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> when the namespace is the ASP.NET Core routing namespace.</returns>
-    private static bool IsRoutingNamespace(INamespaceSymbol ns)
-        => ns is { Name: "Builder" }
+    private static bool IsRoutingNamespace(INamespaceSymbol ns) =>
+        ns is { Name: "Builder" }
             && ns.ContainingNamespace is { Name: "AspNetCore" } aspNetCore
             && aspNetCore.ContainingNamespace is { Name: "Microsoft" } microsoft
             && microsoft.ContainingNamespace is { IsGlobalNamespace: true };
@@ -384,17 +381,11 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     /// <param name="type">The type to unwrap.</param>
     /// <param name="model">The compilation's resolved deferred-sequence types.</param>
     /// <returns>The awaited element type, or the input type when it is not a task wrapper.</returns>
-    private static ITypeSymbol UnwrapTaskLike(ITypeSymbol type, DeferredResultModel model)
-    {
-        if (type is INamedTypeSymbol { TypeArguments.Length: 1 } named
+    private static ITypeSymbol UnwrapTaskLike(ITypeSymbol type, DeferredResultModel model) => type is INamedTypeSymbol { TypeArguments.Length: 1 } named
             && (SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, model.TaskOfT)
-                || SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, model.ValueTaskOfT)))
-        {
-            return named.TypeArguments[0];
-        }
-
-        return type;
-    }
+                || SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, model.ValueTaskOfT))
+        ? named.TypeArguments[0]
+        : type;
 
     /// <summary>Returns whether a returned expression binds to a deferred query.</summary>
     /// <param name="semanticModel">The semantic model.</param>

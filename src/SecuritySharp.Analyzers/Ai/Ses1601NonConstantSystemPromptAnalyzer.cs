@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -78,7 +80,7 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1601 for a message type constructed with a system role and non-constant content.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="apis">The gated AI chat types resolved for the compilation.</param>
-    private static void AnalyzeMessageCreation(SyntaxNodeAnalysisContext context, LlmChatApis apis)
+    private static void AnalyzeMessageCreation(in SyntaxNodeAnalysisContext context, LlmChatApis apis)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
 
@@ -101,7 +103,7 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1601 for a Semantic Kernel <c>ChatHistory</c> system-message call with non-constant content.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="apis">The gated AI chat types resolved for the compilation.</param>
-    private static void AnalyzeChatHistoryCall(SyntaxNodeAnalysisContext context, LlmChatApis apis)
+    private static void AnalyzeChatHistoryCall(in SyntaxNodeAnalysisContext context, LlmChatApis apis)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -139,7 +141,7 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The bound method or constructor whose parameter 0 is the role and 1 the content.</param>
     /// <param name="roleType">The gated role type whose <c>System</c> member marks a system message.</param>
     /// <param name="channel">The channel label reported in the diagnostic message.</param>
-    private static void ReportIfSystemRoleWithNonConstantContent(SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, INamedTypeSymbol roleType, string channel)
+    private static void ReportIfSystemRoleWithNonConstantContent(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, INamedTypeSymbol roleType, string channel)
     {
         if (GetArgumentForParameter(argumentList, method, 0) is not { } roleArgument
             || !IsSystemRole(context.SemanticModel, roleArgument, roleType, context.CancellationToken))
@@ -156,7 +158,7 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The bound method or constructor.</param>
     /// <param name="contentOrdinal">The zero-based position of the string content parameter.</param>
     /// <param name="channel">The channel label reported in the diagnostic message.</param>
-    private static void ReportIfNonConstantContent(SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, int contentOrdinal, string channel)
+    private static void ReportIfNonConstantContent(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, int contentOrdinal, string channel)
     {
         if (GetArgumentForParameter(argumentList, method, contentOrdinal) is not { } contentArgument
             || HasConstantValue(context.SemanticModel, contentArgument, context.CancellationToken))
@@ -175,8 +177,8 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The bound method or constructor.</param>
     /// <param name="roleType">The expected type of the first (role) parameter.</param>
     /// <returns><see langword="true"/> when the shape is <c>(role, string, ...)</c>.</returns>
-    private static bool IsRoleThenStringMethod(IMethodSymbol method, INamedTypeSymbol roleType)
-        => method.Parameters.Length >= RoleAndContentArgumentCount
+    private static bool IsRoleThenStringMethod(IMethodSymbol method, INamedTypeSymbol roleType) =>
+        method.Parameters.Length >= RoleAndContentArgumentCount
             && SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, roleType)
             && method.Parameters[1].Type.SpecialType == SpecialType.System_String;
 
@@ -226,8 +228,8 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <param name="roleType">The gated role type whose <c>System</c> member marks a system message.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is the role type's <c>System</c> member.</returns>
-    private static bool IsSystemRole(SemanticModel model, ExpressionSyntax expression, INamedTypeSymbol roleType, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(expression, cancellationToken).Symbol is IPropertySymbol { IsStatic: true, Name: SystemRolePropertyName } property
+    private static bool IsSystemRole(SemanticModel model, ExpressionSyntax expression, INamedTypeSymbol roleType, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(expression, cancellationToken).Symbol is IPropertySymbol { IsStatic: true, Name: SystemRolePropertyName } property
             && SymbolEqualityComparer.Default.Equals(property.ContainingType, roleType);
 
     /// <summary>Returns whether an expression has a compile-time constant value.</summary>
@@ -235,8 +237,9 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The content argument expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is a compile-time constant.</returns>
-    private static bool HasConstantValue(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => model.GetConstantValue(expression, cancellationToken).HasValue;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasConstantValue(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        model.GetConstantValue(expression, cancellationToken).HasValue;
 
     /// <summary>The AI chat types SES1601 gates on, resolved once per compilation.</summary>
     private sealed class LlmChatApis

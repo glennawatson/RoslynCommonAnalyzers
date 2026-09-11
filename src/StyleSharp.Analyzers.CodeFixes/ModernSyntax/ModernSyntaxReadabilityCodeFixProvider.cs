@@ -93,8 +93,8 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     /// <summary>Gets the user-facing title for one diagnostic id.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The code action title, or <see langword="null"/>.</returns>
-    private static string? GetTitle(string diagnosticId)
-        => diagnosticId switch
+    private static string? GetTitle(string diagnosticId) =>
+        diagnosticId switch
         {
             "SST2212" => "Use UTF-8 literal bytes",
             "SST2213" => "Remove discard designation",
@@ -333,10 +333,10 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(inputs[i].WithoutTrivia());
+            _ = builder.Append(inputs[i].WithoutTrivia());
         }
 
         return builder.ToString();
@@ -552,11 +552,13 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     {
         for (var i = 0; i < block.Statements.Count; i++)
         {
-            if (block.Statements[i].Span == statement.Span)
+            if (block.Statements[i].Span != statement.Span)
             {
-                index = i;
-                return true;
+                continue;
             }
+
+            index = i;
+            return true;
         }
 
         index = -1;

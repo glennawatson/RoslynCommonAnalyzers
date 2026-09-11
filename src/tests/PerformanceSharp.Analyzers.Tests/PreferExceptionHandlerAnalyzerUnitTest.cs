@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeExceptionHandler = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -39,9 +40,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a class implementing the synchronous MVC exception filter is reported (PSH1505).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task SyncExceptionFilterReportedAsync()
-        => VerifyAsync("""
+    public Task SyncExceptionFilterReportedAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Mvc.Filters;
 
                        public class {|PSH1505:LegacyFilter|} : IExceptionFilter
@@ -51,9 +53,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a class implementing the asynchronous MVC exception filter is reported (PSH1505).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task AsyncExceptionFilterReportedAsync()
-        => VerifyAsync("""
+    public Task AsyncExceptionFilterReportedAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Mvc.Filters;
 
                        public class {|PSH1505:LegacyAsyncFilter|} : IAsyncExceptionFilter
@@ -63,9 +66,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified filter interface in the base list is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task FullyQualifiedFilterReportedAsync()
-        => VerifyAsync("""
+    public Task FullyQualifiedFilterReportedAsync() =>
+        VerifyAsync("""
                        public class {|PSH1505:LegacyFilter|} : Microsoft.AspNetCore.Mvc.Filters.IExceptionFilter
                        {
                        }
@@ -73,9 +77,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a class implementing both filter interfaces is reported once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task ImplementsBothFiltersReportedOnceAsync()
-        => VerifyAsync("""
+    public Task ImplementsBothFiltersReportedOnceAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Mvc.Filters;
 
                        public class {|PSH1505:LegacyFilter|} : IExceptionFilter, IAsyncExceptionFilter
@@ -85,9 +90,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a filter carried alongside another interface and a base class is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task FilterAmongOtherBaseTypesReportedAsync()
-        => VerifyAsync("""
+    public Task FilterAmongOtherBaseTypesReportedAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Mvc.Filters;
 
                        public class BaseFilter { }
@@ -101,9 +107,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a same-named filter interface in another namespace is not reported (binding gate).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task LookAlikeInterfaceNotReportedAsync()
-        => VerifyAsync("""
+    public Task LookAlikeInterfaceNotReportedAsync() =>
+        VerifyAsync("""
                        public class NotAFilter : Other.IExceptionFilter
                        {
                        }
@@ -116,9 +123,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the modern IExceptionHandler marker is absent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task SilentWhenMarkerAbsentAsync()
-        => VerifyAsync("""
+    public Task SilentWhenMarkerAbsentAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Mvc.Filters;
 
                        public class LegacyFilter : IExceptionFilter
@@ -128,9 +136,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a class implementing the modern IExceptionHandler is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task ModernExceptionHandlerNotReportedAsync()
-        => VerifyAsync("""
+    public Task ModernExceptionHandlerNotReportedAsync() =>
+        VerifyAsync("""
                        using Microsoft.AspNetCore.Diagnostics;
 
                        public class ModernHandler : IExceptionHandler
@@ -140,9 +149,10 @@ public class PreferExceptionHandlerAnalyzerUnitTest
 
     /// <summary>Verifies a class with no base list is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task ClassWithoutBaseListNotReportedAsync()
-        => VerifyAsync("""
+    public Task ClassWithoutBaseListNotReportedAsync() =>
+        VerifyAsync("""
                        public class Plain
                        {
                        }
@@ -153,11 +163,7 @@ public class PreferExceptionHandlerAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeExceptionHandler.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeExceptionHandler.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

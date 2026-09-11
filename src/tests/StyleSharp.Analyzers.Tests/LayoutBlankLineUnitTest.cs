@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBlanks = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1507MultipleBlankLinesAnalyzer,
     StyleSharp.Analyzers.Sst1507MultipleBlankLinesCodeFixProvider>;
@@ -14,9 +15,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the blank-line layout rules (SST1507/SST1516).</summary>
 public class LayoutBlankLineUnitTest
 {
-    /// <summary>The id of the rule that reports a run of more than one consecutive blank line.</summary>
-    private const string MultipleBlankLinesId = "SST1507";
-
     /// <summary>Verifies two consecutive blank lines are reported (SST1507) and collapsed to one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -43,7 +41,7 @@ public class LayoutBlankLineUnitTest
         const int LineAfterExtraBlank = 6;
         await VerifyBlanks.VerifyCodeFixAsync(
             Source,
-            VerifyBlanks.Diagnostic(MultipleBlankLinesId).WithSpan(ExtraBlankLine, 1, LineAfterExtraBlank, 1),
+            VerifyBlanks.Diagnostic("SST1507").WithSpan(ExtraBlankLine, 1, LineAfterExtraBlank, 1),
             FixedSource);
     }
 
@@ -81,17 +79,18 @@ public class LayoutBlankLineUnitTest
         await VerifyBlanks.VerifyCodeFixAsync(
             Source,
             [
-                VerifyBlanks.Diagnostic(MultipleBlankLinesId).WithSpan(FirstExtraBlankLine, 1, LineAfterFirstExtraBlank, 1),
-                VerifyBlanks.Diagnostic(MultipleBlankLinesId).WithSpan(SecondExtraBlankLine, 1, LineAfterSecondExtraBlank, 1),
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(FirstExtraBlankLine, 1, LineAfterFirstExtraBlank, 1),
+                VerifyBlanks.Diagnostic("SST1507").WithSpan(SecondExtraBlankLine, 1, LineAfterSecondExtraBlank, 1),
             ],
             FixedSource);
     }
 
     /// <summary>Verifies a single blank line between members is allowed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleBlankLineIsCleanAsync()
-        => await VerifyBlanks.VerifyAnalyzerAsync(
+    public Task SingleBlankLineIsCleanAsync() =>
+        VerifyBlanks.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -172,9 +171,10 @@ public class LayoutBlankLineUnitTest
 
     /// <summary>Verifies members already separated by a blank line are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparatedMembersAreCleanAsync()
-        => await VerifySpacing.VerifyAnalyzerAsync(
+    public Task SeparatedMembersAreCleanAsync() =>
+        VerifySpacing.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -190,9 +190,10 @@ public class LayoutBlankLineUnitTest
 
     /// <summary>Verifies a single blank line after a conditional directive is not flagged (SST1507 does not treat the directive line as blank).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineAfterConditionalDirectiveNotFlaggedAsync()
-        => await VerifyBlanks.VerifyAnalyzerAsync(
+    public Task BlankLineAfterConditionalDirectiveNotFlaggedAsync() =>
+        VerifyBlanks.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -35,14 +35,14 @@ internal static class ObsoleteAttributeFacts
     /// <summary>Returns whether an attribute's written name is the obsolete attribute's.</summary>
     /// <param name="name">The attribute name as written.</param>
     /// <returns><see langword="true"/> for <c>Obsolete</c> and <c>ObsoleteAttribute</c>, qualified or not.</returns>
-    public static bool IsObsoleteName(NameSyntax name) => GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
+    internal static bool IsObsoleteName(NameSyntax name) => GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
 
     /// <summary>Returns whether the attribute binds to the framework's obsolete attribute.</summary>
     /// <param name="semanticModel">The semantic model for the attribute's tree.</param>
     /// <param name="attribute">The obsolete attribute.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> for <c>System.ObsoleteAttribute</c>.</returns>
-    public static bool IsFrameworkObsoleteAttribute(SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
+    internal static bool IsFrameworkObsoleteAttribute(SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
     {
         var type = semanticModel.GetSymbolInfo(attribute, cancellationToken).Symbol?.ContainingType
             ?? semanticModel.GetTypeInfo(attribute, cancellationToken).Type as INamedTypeSymbol;
@@ -58,7 +58,7 @@ internal static class ObsoleteAttributeFacts
     /// <param name="attribute">The obsolete attribute.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when no message is supplied, or the one supplied says nothing.</returns>
-    public static bool HasNoUsableMessage(SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
+    internal static bool HasNoUsableMessage(SemanticModel semanticModel, AttributeSyntax attribute, CancellationToken cancellationToken)
     {
         if (FindMessageArgument(attribute) is not { } message)
         {
@@ -80,7 +80,7 @@ internal static class ObsoleteAttributeFacts
     /// <param name="attribute">The obsolete attribute.</param>
     /// <param name="propertyName">The property name to look for.</param>
     /// <returns><see langword="true"/> when a <c>Name = value</c> initializer sets the property.</returns>
-    public static bool HasPropertyInitializer(AttributeSyntax attribute, string propertyName)
+    internal static bool HasPropertyInitializer(AttributeSyntax attribute, string propertyName)
     {
         if (attribute.ArgumentList is not { } argumentList)
         {
@@ -103,7 +103,7 @@ internal static class ObsoleteAttributeFacts
     /// <summary>Gets the name of the declaration the attribute is written on.</summary>
     /// <param name="declaration">The declaration owning the attribute list.</param>
     /// <returns>The declaration's name, or an empty string when it has none to report.</returns>
-    public static string GetAnnotatedName(SyntaxNode? declaration) => declaration switch
+    internal static string GetAnnotatedName(SyntaxNode? declaration) => declaration switch
     {
         MethodDeclarationSyntax method => method.Identifier.ValueText,
         PropertyDeclarationSyntax property => property.Identifier.ValueText,

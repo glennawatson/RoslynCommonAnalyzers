@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBranches = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.IdenticalBranchesAnalyzer>;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.IdenticalBranchesAnalyzer,
@@ -63,15 +64,17 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies two switch sections with the same body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuplicateSectionIsReportedAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(DuplicateSectionSource);
+    public Task DuplicateSectionIsReportedAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(DuplicateSectionSource);
 
     /// <summary>Verifies two switch-expression arms with the same value are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuplicateArmIsReportedAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task DuplicateArmIsReportedAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -91,9 +94,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
     /// Merging stacks the later labels onto the earlier section, lifting them up the switch. A broad type
     /// pattern moved above a narrower one leaves that one unreachable.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentPatternSectionsAreCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task NonAdjacentPatternSectionsAreCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public class Animal
             {
@@ -128,9 +132,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
     /// Stacking two labels that each declare the same name does not compile (CS0128), and neither does the
     /// or pattern the stack later folds into (CS8780).
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SectionsDeclaringANameAreCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task SectionsDeclaringANameAreCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -253,9 +258,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies two if-chain branches with the same multi-statement body are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuplicateIfBranchIsReportedAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task DuplicateIfBranchIsReportedAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -284,9 +290,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies a case that shares its body with the default section is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseSharingDefaultBodyIsCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task CaseSharingDefaultBodyIsCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -311,9 +318,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies a switch a goto could jump into is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchWithGotoIsCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task SwitchWithGotoIsCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -342,9 +350,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies single-statement if branches are below the reporting threshold.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleStatementIfBranchesAreCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task SingleStatementIfBranchesAreCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -370,9 +379,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies a fully duplicated switch is the SST1476 case, not SST2414.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyDuplicatedSwitchIsTheAllBranchesCaseAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task FullyDuplicatedSwitchIsTheAllBranchesCaseAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -395,9 +405,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies the fix stacks the duplicated section's labels onto the earlier one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixMergesDuplicateSectionsAsync()
-        => await VerifyFix.VerifyCodeFixAsync(DuplicateSectionSource, DuplicateSectionFixed);
+    public Task FixMergesDuplicateSectionsAsync() =>
+        VerifyFix.VerifyCodeFixAsync(DuplicateSectionSource, DuplicateSectionFixed);
 
     /// <summary>Verifies arms that bind a name are left alone, since an <c>or</c> cannot join them.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -405,9 +416,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
     /// Reading the same member off two different shapes is the only way to write this, so the repeated
     /// result says nothing about a mistake.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArmsBindingANameAreCleanAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task ArmsBindingANameAreCleanAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -422,9 +434,10 @@ public class DuplicateBranchImplementationAnalyzerUnitTest
 
     /// <summary>Verifies arms an <c>or</c> pattern could join are still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinableArmsAreStillReportedAsync()
-        => await VerifyBranches.VerifyAnalyzerAsync(
+    public Task CombinableArmsAreStillReportedAsync() =>
+        VerifyBranches.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

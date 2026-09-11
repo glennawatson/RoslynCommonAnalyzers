@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -56,7 +58,7 @@ public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
             return;
         }
 
-        editor.ReplaceNode(statement!, (current, _) => BuildThrow((ExpressionStatementSyntax)current));
+        editor.ReplaceNode(statement!, static (current, _) => BuildThrow((ExpressionStatementSyntax)current));
     }
 
     /// <summary>Rewrites the discarded creation as a throw statement.</summary>
@@ -64,8 +66,9 @@ public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="statement">The statement that only constructs the exception.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement)
-        => document.WithSyntaxRoot(root.ReplaceNode(statement, BuildThrow(statement)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ExpressionStatementSyntax statement) =>
+        document.WithSyntaxRoot(root.ReplaceNode(statement, BuildThrow(statement)));
 
     /// <summary>Resolves the diagnostic's span back to the statement that discards the exception.</summary>
     /// <param name="root">The syntax root.</param>
@@ -87,8 +90,9 @@ public sealed class Sst1480ExceptionNeverThrownCodeFixProvider : CodeFixProvider
     /// The statement's leading trivia lives on the <c>new</c> keyword, so it moves to the <c>throw</c> keyword
     /// that now starts the line; the original semicolon carries the trailing trivia across untouched.
     /// </remarks>
-    private static ThrowStatementSyntax BuildThrow(ExpressionStatementSyntax statement)
-        => SyntaxFactory.ThrowStatement(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ThrowStatementSyntax BuildThrow(ExpressionStatementSyntax statement) =>
+        SyntaxFactory.ThrowStatement(
             SyntaxFactory.Token(statement.GetLeadingTrivia(), SyntaxKind.ThrowKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             statement.Expression.WithLeadingTrivia(SyntaxFactory.TriviaList()),
             statement.SemicolonToken);

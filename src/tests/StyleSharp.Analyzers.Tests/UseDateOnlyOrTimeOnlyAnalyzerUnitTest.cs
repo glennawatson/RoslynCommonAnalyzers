@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using VerifySplitTypes = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2017UseDateOnlyOrTimeOnlyAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 {
     /// <summary>Verifies a Date read on a DateTime is reported wherever the receiver comes from.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DateReadIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task DateReadIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -36,9 +38,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a TimeOfDay read on a DateTime is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TimeOfDayReadIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task TimeOfDayReadIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -50,9 +53,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a clock read is left to SST2010 rather than reported twice on one line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClockReadReceiverIsNotReportedAsync()
-        => await VerifyNet80Async(
+    public Task ClockReadReceiverIsNotReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -68,9 +72,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a DateTimeOffset receiver is not reported: naming its date means applying its offset first.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DateTimeOffsetReceiverIsNotReportedAsync()
-        => await VerifyNet80Async(
+    public Task DateTimeOffsetReceiverIsNotReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -84,9 +89,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 
     /// <summary>Verifies a member of some other type that happens to be called Date is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMemberOfAnotherTypeIsCleanAsync()
-        => await VerifyNet80Async(
+    public Task SameNamedMemberOfAnotherTypeIsCleanAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -107,9 +113,10 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
 
     /// <summary>Verifies the other components of a DateTime, and code already using the split types, are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComponentReadsAndSplitTypesAreCleanAsync()
-        => await VerifyNet80Async(
+    public Task ComponentReadsAndSplitTypesAreCleanAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -158,11 +165,7 @@ public class UseDateOnlyOrTimeOnlyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80Async(string source)
     {
-        var test = new VerifySplitTypes.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifySplitTypes.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

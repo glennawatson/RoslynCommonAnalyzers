@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the numeric-literal-suffix code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("UppercaseLiteralSuffixCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
@@ -40,7 +42,7 @@ public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, UppercaseLiteralSuffixBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _literal = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<LiteralExpressionSyntax>(
@@ -50,6 +52,7 @@ public class UppercaseLiteralSuffixCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

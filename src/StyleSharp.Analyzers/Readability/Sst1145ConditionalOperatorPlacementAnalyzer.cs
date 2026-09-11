@@ -71,8 +71,8 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <summary>Returns the line-break shape around both conditional operators.</summary>
     /// <param name="conditional">The conditional expression to inspect.</param>
     /// <returns>The detected line-break shape.</returns>
-    private static (bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) GetLineBreaks(ConditionalExpressionSyntax conditional)
-        => new(
+    private static (bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) GetLineBreaks(ConditionalExpressionSyntax conditional) =>
+        new(
             HasLineBreakBefore(conditional.Condition.GetLastToken(), conditional.QuestionToken),
             HasLineBreakAfter(conditional.QuestionToken, conditional.WhenTrue.GetFirstToken()),
             HasLineBreakBefore(conditional.WhenTrue.GetLastToken(), conditional.ColonToken),
@@ -81,8 +81,8 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <summary>Returns whether either conditional operator has an adjacent line break.</summary>
     /// <param name="lineBreaks">The line-break shape.</param>
     /// <returns><see langword="true"/> when either operator is wrapped by adjacent trivia.</returns>
-    private static bool HasAnyLineBreak((bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) lineBreaks)
-        => lineBreaks.QuestionBefore || lineBreaks.QuestionAfter || lineBreaks.ColonBefore || lineBreaks.ColonAfter;
+    private static bool HasAnyLineBreak((bool QuestionBefore, bool QuestionAfter, bool ColonBefore, bool ColonAfter) lineBreaks) =>
+        lineBreaks.QuestionBefore || lineBreaks.QuestionAfter || lineBreaks.ColonBefore || lineBreaks.ColonAfter;
 
     /// <summary>Runs SST1145 only when SST1140 did not already report the same operator.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -92,7 +92,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <param name="leading">Whether the operator should begin its line.</param>
     /// <param name="coveredByIndentRule">Whether SST1140 already reported this operator.</param>
     private static void CheckPlacementOperatorWhenNotCovered(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxToken operatorToken,
         bool breakBefore,
         bool breakAfter,
@@ -114,7 +114,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <param name="breakAfter">Whether the following token starts on a new line relative to the operator.</param>
     /// <param name="leading">Whether the operator should begin its line.</param>
     private static void CheckPlacementOperator(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxToken operatorToken,
         bool breakBefore,
         bool breakAfter,
@@ -144,7 +144,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <param name="expectedIndent">The expected indentation width.</param>
     /// <returns><see langword="true"/> when SST1140 was reported.</returns>
     private static bool CheckIndentedOperator(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxTree tree,
         SyntaxToken operatorToken,
         bool breakBefore,
@@ -188,7 +188,7 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <summary>Reads whether operators should lead their line, preferring the rule-specific key.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> for leading placement (the default).</returns>
-    private static bool ReadLeadingPlacement(SyntaxNodeAnalysisContext context)
+    private static bool ReadLeadingPlacement(in SyntaxNodeAnalysisContext context)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         var hasValue = (options.TryGetValue(PlacementSpecificKey, out var value) && value.Length > 0)
@@ -200,15 +200,15 @@ public sealed class Sst1145ConditionalOperatorPlacementAnalyzer : DiagnosticAnal
     /// <param name="previous">The token preceding the operator.</param>
     /// <param name="operatorToken">The operator token.</param>
     /// <returns><see langword="true"/> when the operator begins a new line.</returns>
-    private static bool HasLineBreakBefore(SyntaxToken previous, SyntaxToken operatorToken)
-        => TriviaLineBreakHelper.HasLineBreak(previous.TrailingTrivia)
+    private static bool HasLineBreakBefore(SyntaxToken previous, SyntaxToken operatorToken) =>
+        TriviaLineBreakHelper.HasLineBreak(previous.TrailingTrivia)
             || TriviaLineBreakHelper.HasLineBreak(operatorToken.LeadingTrivia);
 
     /// <summary>Returns whether a line break separates the operator from the following token.</summary>
     /// <param name="operatorToken">The operator token.</param>
     /// <param name="next">The token following the operator.</param>
     /// <returns><see langword="true"/> when the following token begins a new line.</returns>
-    private static bool HasLineBreakAfter(SyntaxToken operatorToken, SyntaxToken next)
-        => TriviaLineBreakHelper.HasLineBreak(operatorToken.TrailingTrivia)
+    private static bool HasLineBreakAfter(SyntaxToken operatorToken, SyntaxToken next) =>
+        TriviaLineBreakHelper.HasLineBreak(operatorToken.TrailingTrivia)
             || TriviaLineBreakHelper.HasLineBreak(next.LeadingTrivia);
 }

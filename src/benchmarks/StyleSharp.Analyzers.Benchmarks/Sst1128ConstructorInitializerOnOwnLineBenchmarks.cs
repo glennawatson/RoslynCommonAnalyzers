@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1128 constructor-initializer-on-own-line analyzer.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1128ConstructorInitializerOnOwnLineBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1128ConstructorInitializerOnOwnLineBenchmarks
@@ -24,11 +26,13 @@ public class Sst1128ConstructorInitializerOnOwnLineBenchmarks
 
     /// <summary>Benchmarks the clean constructor-initializer path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1128ConstructorInitializerOnOwnLine_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating constructor-initializer path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1128ConstructorInitializerOnOwnLine_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -11,8 +11,8 @@ internal static class CompositeFormatStringBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit unsatisfied placeholders.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class CompositeFormatStringBench
@@ -25,8 +25,8 @@ internal static class CompositeFormatStringBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $"public string M{index}(string value) => string.Format(\"{index}:{{1}}\", value);"
             : $"public string M{index}(string value) => string.Format(\"{index}:{{0}}\", value);";
 }

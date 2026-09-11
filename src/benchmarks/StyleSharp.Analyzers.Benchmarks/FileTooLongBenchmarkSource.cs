@@ -14,8 +14,8 @@ internal static class FileTooLongBenchmarkSource
     /// <summary>Builds a compilation unit of the requested size.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types)
-        => $$"""
+    internal static string Generate(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateType)}}
@@ -24,8 +24,8 @@ internal static class FileTooLongBenchmarkSource
     /// <summary>Builds one type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index)
-        => $$"""
+    private static string GenerateType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                // A comment costs the file nothing: it is not a code line.

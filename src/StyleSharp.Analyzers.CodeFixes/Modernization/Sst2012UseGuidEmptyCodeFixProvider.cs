@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces the parameterless <c>new Guid()</c> with the value it actually produces, <c>Guid.Empty</c> (SST2012).</summary>
@@ -74,12 +76,13 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
     /// <param name="creation">The reported construction.</param>
     /// <param name="replacement">The <c>Guid.Empty</c> expression built for it.</param>
     /// <returns>The updated document.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(
         Document document,
         SyntaxNode root,
         BaseObjectCreationExpressionSyntax creation,
-        ExpressionSyntax replacement)
-        => document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));
+        ExpressionSyntax replacement) =>
+        document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));
 
     /// <summary>Resolves the reported construction and builds the first replacement that binds.</summary>
     /// <param name="root">The syntax root.</param>
@@ -123,8 +126,8 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
     /// <summary>Gets the type name the construction was written with, or the bare name for a target-typed one.</summary>
     /// <param name="creation">The reported construction.</param>
     /// <returns>The type name the replacement should borrow.</returns>
-    private static string GetTypeName(BaseObjectCreationExpressionSyntax creation)
-        => creation is ObjectCreationExpressionSyntax { Type: { } type }
+    private static string GetTypeName(BaseObjectCreationExpressionSyntax creation) =>
+        creation is ObjectCreationExpressionSyntax { Type: { } type }
             ? type.WithoutTrivia().ToString()
             : GuidTypeName;
 
@@ -136,8 +139,9 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
     /// text read as an expression is a chain of member accesses. Building the second from the first would
     /// produce a tree that no longer matches its own text.
     /// </remarks>
-    private static ExpressionSyntax BuildEmptyAccess(string type)
-        => SyntaxFactory.ParseExpression(type + "." + EmptyFieldName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax BuildEmptyAccess(string type) =>
+        SyntaxFactory.ParseExpression($"{type}.{EmptyFieldName}");
 
     /// <summary>Returns whether a candidate expression binds to <c>System.Guid.Empty</c> where it would sit.</summary>
     /// <param name="model">The semantic model.</param>

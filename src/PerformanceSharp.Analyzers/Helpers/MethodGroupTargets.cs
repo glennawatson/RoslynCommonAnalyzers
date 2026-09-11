@@ -4,9 +4,7 @@
 
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>
-/// The set of methods a compilation converts to a delegate somewhere, resolved once and on demand.
-/// </summary>
+/// <summary>The set of methods a compilation converts to a delegate somewhere, resolved once and on demand.</summary>
 /// <param name="compilation">The compilation to search.</param>
 /// <remarks>
 /// <para>
@@ -32,7 +30,7 @@ internal sealed class MethodGroupTargets(Compilation compilation)
     /// <param name="method">The method's original definition.</param>
     /// <param name="cancellationToken">A token that cancels the walk.</param>
     /// <returns><see langword="true"/> when the method is used as a method group.</returns>
-    public bool Contains(ISymbol method, CancellationToken cancellationToken)
+    internal bool Contains(ISymbol method, CancellationToken cancellationToken)
     {
         lock (_gate)
         {
@@ -63,7 +61,7 @@ internal sealed class MethodGroupTargets(Compilation compilation)
                 model ??= compilation.GetSemanticModel(tree);
                 if (model.GetSymbolInfo(name, cancellationToken).Symbol is IMethodSymbol referenced)
                 {
-                    targets.Add(referenced.OriginalDefinition);
+                    _ = targets.Add(referenced.OriginalDefinition);
                 }
             }
         }
@@ -74,18 +72,12 @@ internal sealed class MethodGroupTargets(Compilation compilation)
     /// <summary>Returns whether a name is the target of a call written at that name.</summary>
     /// <param name="name">The candidate name.</param>
     /// <returns><see langword="true"/> when the name is invoked rather than referenced.</returns>
-    private static bool IsCalledWhereItStands(SimpleNameSyntax name)
-    {
-        if (name.Parent is InvocationExpressionSyntax direct)
-        {
-            return direct.Expression == name;
-        }
-
-        return name.Parent is MemberAccessExpressionSyntax access
+    private static bool IsCalledWhereItStands(SimpleNameSyntax name) => name.Parent is InvocationExpressionSyntax direct
+        ? direct.Expression == name
+        : name.Parent is MemberAccessExpressionSyntax access
             && access.Name == name
             && access.Parent is InvocationExpressionSyntax through
             && through.Expression == access;
-    }
 
     /// <summary>Returns whether a name sits where a type or a namespace is written, not a value.</summary>
     /// <param name="name">The candidate name.</param>
@@ -97,9 +89,13 @@ internal sealed class MethodGroupTargets(Compilation compilation)
     /// </remarks>
     private static bool IsNamingSomethingOtherThanAValue(SimpleNameSyntax name) => name.Parent switch
     {
-        TypeSyntax or BaseTypeSyntax or BaseNamespaceDeclarationSyntax => true,
-        UsingDirectiveSyntax or TypeArgumentListSyntax or TypeParameterConstraintClauseSyntax => true,
-        AttributeSyntax or ObjectCreationExpressionSyntax => true,
+        TypeSyntax
+            or BaseTypeSyntax
+            or BaseNamespaceDeclarationSyntax
+            or UsingDirectiveSyntax
+            or TypeArgumentListSyntax
+            or TypeParameterConstraintClauseSyntax
+            or AttributeSyntax or ObjectCreationExpressionSyntax => true,
         _ => NamesADeclaredType(name),
     };
 

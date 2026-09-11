@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -51,9 +52,10 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
 
     /// <summary>Verifies assignment and increment on a class primary-constructor parameter are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassPrimaryConstructorMutationReportedAsync()
-        => await VerifyPrimaryCtor.VerifyAnalyzerAsync(
+    public Task ClassPrimaryConstructorMutationReportedAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync(
             """
             public class Counter(int count)
             {
@@ -67,9 +69,10 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
 
     /// <summary>Verifies <c>ref</c>/<c>out</c> passing of a struct primary-constructor parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructPrimaryConstructorRefOutReportedAsync()
-        => await VerifyPrimaryCtor.VerifyAnalyzerAsync(
+    public Task StructPrimaryConstructorRefOutReportedAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync(
             """
             public struct Counter(int count)
             {
@@ -87,9 +90,10 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
 
     /// <summary>Verifies record primary-constructor parameters are not reported because they are properties, not captured mutable parameters.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordPrimaryConstructorMutationIsCleanAsync()
-        => await VerifyPrimaryCtor.VerifyAnalyzerAsync(
+    public Task RecordPrimaryConstructorMutationIsCleanAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync(
             """
             public record Counter(int Count)
             {
@@ -101,9 +105,10 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
 
     /// <summary>Verifies ordinary method parameters are not reported by SST1425.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrdinaryMethodParameterIsCleanAsync()
-        => await VerifyPrimaryCtor.VerifyAnalyzerAsync(
+    public Task OrdinaryMethodParameterIsCleanAsync() =>
+        VerifyPrimaryCtor.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -146,7 +151,8 @@ public class PrimaryConstructorParameterMutationAnalyzerUnitTest
     /// <summary>Selects the identifier on the left side of the record's <c>with</c> initializer assignment.</summary>
     /// <param name="root">The parsed compilation unit.</param>
     /// <returns>The selected identifier expression.</returns>
-    private static ExpressionSyntax SelectRecordWithExpressionIdentifier(CompilationUnitSyntax root)
-        => ((AssignmentExpressionSyntax)((WithExpressionSyntax)((MethodDeclarationSyntax)((RecordDeclarationSyntax)root.Members[0]).Members[0])
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax SelectRecordWithExpressionIdentifier(CompilationUnitSyntax root) =>
+        ((AssignmentExpressionSyntax)((WithExpressionSyntax)((MethodDeclarationSyntax)((RecordDeclarationSyntax)root.Members[0]).Members[0])
             .ExpressionBody!.Expression).Initializer!.Expressions[0]).Left;
 }

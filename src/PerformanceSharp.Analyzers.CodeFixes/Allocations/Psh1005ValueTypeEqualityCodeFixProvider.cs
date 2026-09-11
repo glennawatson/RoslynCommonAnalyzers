@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace PerformanceSharp.Analyzers;
@@ -83,7 +84,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
                     recordTitle,
                     cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(
                         root.ReplaceNode(declaration, ConvertToRecordStruct(declaration, immutable)))),
-                    equivalenceKey: nameof(Psh1005ValueTypeEqualityCodeFixProvider) + ".Record"),
+                    equivalenceKey: $"{nameof(Psh1005ValueTypeEqualityCodeFixProvider)}.Record"),
                 diagnostic);
         }
 
@@ -101,7 +102,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
                     cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(
                         declaration,
                         Psh1014ReadonlyStructCodeFixProvider.AddReadonlyModifier(ImplementEquatable(model, declaration, members))))),
-                    equivalenceKey: nameof(Psh1005ValueTypeEqualityCodeFixProvider) + ".EquatableReadonly"),
+                    equivalenceKey: $"{nameof(Psh1005ValueTypeEqualityCodeFixProvider)}.EquatableReadonly"),
                 diagnostic);
         }
 
@@ -112,7 +113,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
                     "Implement IEquatable",
                     cancellationToken => Task.FromResult(context.Document.WithSyntaxRoot(
                         root.ReplaceNode(declaration, ImplementEquatable(model, declaration, members)))),
-                    equivalenceKey: nameof(Psh1005ValueTypeEqualityCodeFixProvider) + ".Equatable"),
+                    equivalenceKey: $"{nameof(Psh1005ValueTypeEqualityCodeFixProvider)}.Equatable"),
                 diagnostic);
         }
     }
@@ -297,7 +298,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         var structIndent = leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? leading[leading.Count - 1].ToString()
             : string.Empty;
-        return structIndent + "    ";
+        return $"{structIndent}    ";
     }
 
     /// <summary>Appends the equatable base type to the struct's base list, creating one when absent.</summary>
@@ -323,8 +324,8 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <summary>Returns the trivia that followed the struct name, to carry after a new base list.</summary>
     /// <param name="declaration">The struct declaration.</param>
     /// <returns>The trailing trivia of the name or type parameter list.</returns>
-    private static SyntaxTriviaList GetNameTrailingTrivia(StructDeclarationSyntax declaration)
-        => declaration.TypeParameterList is { } typeParameters
+    private static SyntaxTriviaList GetNameTrailingTrivia(StructDeclarationSyntax declaration) =>
+        declaration.TypeParameterList is { } typeParameters
             ? typeParameters.GetTrailingTrivia()
             : declaration.Identifier.TrailingTrivia;
 
@@ -333,8 +334,9 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="indentation">The member indentation whitespace.</param>
     /// <param name="lineBreak">The file's line-break trivia.</param>
     /// <returns>The parsed member.</returns>
-    private static MemberDeclarationSyntax ParseMember(string text, string indentation, SyntaxTrivia lineBreak)
-        => SyntaxFactory.ParseMemberDeclaration(text)!
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MemberDeclarationSyntax ParseMember(string text, string indentation, in SyntaxTrivia lineBreak) =>
+        SyntaxFactory.ParseMemberDeclaration(text)!
             .WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation))
             .WithTrailingTrivia(lineBreak);
 
@@ -344,7 +346,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <returns>The comparison expression text.</returns>
     private static string BuildEqualsExpression(ImmutableArray<(string Type, string Name)> members, string comparer)
     {
-        if (members.Length == 0)
+        if (members.IsEmpty)
         {
             return "true";
         }
@@ -354,10 +356,10 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         {
             if (i > 0)
             {
-                builder.Append(" && ");
+                _ = builder.Append(" && ");
             }
 
-            builder.Append(comparer).Append('<').Append(members[i].Type).Append(">.Default.Equals(")
+            _ = builder.Append(comparer).Append('<').Append(members[i].Type).Append(">.Default.Equals(")
                 .Append(members[i].Name).Append(", other.").Append(members[i].Name).Append(')');
         }
 
@@ -370,7 +372,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <returns>The hash expression text.</returns>
     private static string BuildHashExpression(ImmutableArray<(string Type, string Name)> members, string hashCode)
     {
-        if (members.Length == 0)
+        if (members.IsEmpty)
         {
             return "0";
         }
@@ -380,10 +382,10 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(members[i].Name);
+            _ = builder.Append(members[i].Name);
         }
 
         return builder.Append(')').ToString();

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for manual-enumerator loop code fixes.</summary>
+[System.Diagnostics.DebuggerDisplay("ForeachOverManualEnumeratorCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ForeachOverManualEnumeratorCodeFixBenchmarks : IDisposable
@@ -40,7 +42,7 @@ public class ForeachOverManualEnumeratorCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, ForeachOverManualEnumeratorBenchmarkSource.Generate(Nodes, violating: true));
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var whileStatement = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<WhileStatementSyntax>(_root, RepresentativeNodeIndex, static _ => true);
@@ -48,6 +50,7 @@ public class ForeachOverManualEnumeratorCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

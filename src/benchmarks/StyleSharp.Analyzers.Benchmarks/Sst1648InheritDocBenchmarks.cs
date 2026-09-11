@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for inheritdoc-validity analysis (SST1648).</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1648InheritDocBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1648InheritDocBenchmarks
@@ -24,11 +26,13 @@ public class Sst1648InheritDocBenchmarks
 
     /// <summary>Benchmarks the clean inheritdoc-validity path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1648InheritDoc_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating inheritdoc-validity path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1648InheritDoc_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -11,8 +11,8 @@ internal static class UnusedLocalBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit unused locals.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
            using System.IO;
@@ -26,8 +26,8 @@ internal static class UnusedLocalBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose locals are all read, or are shapes the rule never registers.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -37,8 +37,8 @@ internal static class UnusedLocalBenchmarkSource
     /// from inside a lambda — and the declarations that never reach it: a discard, a using declaration, a
     /// foreach variable, a pattern variable, and an out variable the caller goes on to read.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public int Read(int value)
@@ -82,8 +82,8 @@ internal static class UnusedLocalBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Emits four reported locals: a pure initializer, a call, a write-only local, and an out variable.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public int Compute() => 1;

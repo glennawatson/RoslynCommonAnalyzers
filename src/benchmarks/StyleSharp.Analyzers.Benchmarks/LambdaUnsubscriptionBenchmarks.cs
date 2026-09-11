@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for lambda-unsubscription analysis (SST2449).</summary>
+[System.Diagnostics.DebuggerDisplay("LambdaUnsubscriptionBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LambdaUnsubscriptionBenchmarks
@@ -24,11 +26,13 @@ public class LambdaUnsubscriptionBenchmarks
 
     /// <summary>Benchmarks the clean lambda-unsubscription path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LambdaUnsubscription_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating lambda-unsubscription path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LambdaUnsubscription_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

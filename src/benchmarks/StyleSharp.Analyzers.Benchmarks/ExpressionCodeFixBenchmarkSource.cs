@@ -10,8 +10,8 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds source containing only bare instance-member calls that need a <c>this.</c> prefix.</summary>
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRequireThisMemberQualification(int members)
-        => $$"""
+    internal static string GenerateRequireThisMemberQualification(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RequireThisMemberQualificationBench
@@ -30,8 +30,8 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds source containing only precedence expressions that need parentheses.</summary>
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePrecedence(int members)
-        => $$"""
+    internal static string GeneratePrecedence(int members) =>
+        $$"""
            namespace Bench;
 
            internal static class PrecedenceBench
@@ -43,8 +43,8 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds one bare instance-member call that needs a <c>this.</c> prefix.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateRequireThisMemberQualificationMember(int index)
-        => $$"""
+    private static string GenerateRequireThisMemberQualificationMember(int index) =>
+        $$"""
            internal int M{{index}}(int value, int other)
            {
                Helper(value);
@@ -55,8 +55,8 @@ internal static class ExpressionCodeFixBenchmarkSource
     /// <summary>Builds one precedence expression that needs parentheses.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GeneratePrecedenceMember(int index)
-        => $$"""
+    private static string GeneratePrecedenceMember(int index) =>
+        $$"""
            internal static int M{{index}}(int value, int other)
            {
                return value + other << 1;

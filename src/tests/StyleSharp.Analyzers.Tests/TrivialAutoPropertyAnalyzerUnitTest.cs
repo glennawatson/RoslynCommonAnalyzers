@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using VerifyAutoProperty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -63,9 +64,10 @@ public class TrivialAutoPropertyAnalyzerUnitTest
 
     /// <summary>Verifies accessor logic and external field use prevent the diagnostic.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTrivialOrSharedFieldIsCleanAsync()
-        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+    public Task NonTrivialOrSharedFieldIsCleanAsync() =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -101,9 +103,10 @@ public class TrivialAutoPropertyAnalyzerUnitTest
 
     /// <summary>Verifies a write-only property is left alone because an auto-property requires a getter.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteOnlyPropertyIsCleanAsync()
-        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+    public Task WriteOnlyPropertyIsCleanAsync() =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -203,9 +206,10 @@ public class TrivialAutoPropertyAnalyzerUnitTest
 
     /// <summary>Verifies a const backing field is left alone because it is compile-time state, not storage.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstBackingFieldIsCleanAsync()
-        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+    public Task ConstBackingFieldIsCleanAsync() =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -217,9 +221,10 @@ public class TrivialAutoPropertyAnalyzerUnitTest
 
     /// <summary>Verifies an instance property over a static field is left alone because storage would stop being shared.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstancePropertyOverStaticFieldIsCleanAsync()
-        => await VerifyAutoProperty.VerifyAnalyzerAsync(
+    public Task InstancePropertyOverStaticFieldIsCleanAsync() =>
+        VerifyAutoProperty.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -259,6 +264,7 @@ public class TrivialAutoPropertyAnalyzerUnitTest
     /// <summary>Parses the first property declaration from the supplied source.</summary>
     /// <param name="source">The source containing the property declaration.</param>
     /// <returns>The parsed property declaration.</returns>
-    private static PropertyDeclarationSyntax ParseProperty(string source)
-        => ((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members.OfType<PropertyDeclarationSyntax>().Single();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static PropertyDeclarationSyntax ParseProperty(string source) =>
+        ((TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members.OfType<PropertyDeclarationSyntax>().Single();
 }

@@ -53,8 +53,8 @@ public sealed class SingleIterationLoopAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns a loop body.</summary>
     /// <param name="loop">The loop statement.</param>
     /// <returns>The loop body, or <see langword="null"/>.</returns>
-    private static StatementSyntax? GetLoopBody(StatementSyntax loop)
-        => loop switch
+    private static StatementSyntax? GetLoopBody(StatementSyntax loop) =>
+        loop switch
         {
             ForStatementSyntax statement => statement.Statement,
             ForEachStatementSyntax statement => statement.Statement,
@@ -64,17 +64,11 @@ public sealed class SingleIterationLoopAnalyzer : DiagnosticAnalyzer
         };
 
     /// <summary>Finds jump statements that make a loop single-iteration.</summary>
-    private sealed class LoopJumpWalker : CSharpSyntaxWalker
+    /// <param name="loop">The loop being analyzed.</param>
+    private sealed class LoopJumpWalker(SyntaxNode loop) : CSharpSyntaxWalker
     {
         /// <summary>The loop being analyzed.</summary>
-        private readonly SyntaxNode _loop;
-
-        /// <summary>Initializes a new instance of the <see cref="LoopJumpWalker"/> class.</summary>
-        /// <param name="loop">The loop being analyzed.</param>
-        public LoopJumpWalker(SyntaxNode loop)
-        {
-            _loop = loop;
-        }
+        private readonly SyntaxNode _loop = loop;
 
         /// <summary>Gets the first unconditional continue.</summary>
         public StatementSyntax? UnconditionalContinue { get; private set; }
@@ -131,8 +125,8 @@ public sealed class SingleIterationLoopAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a nested node should not be scanned as part of this loop.</summary>
         /// <param name="node">The candidate node.</param>
         /// <returns><see langword="true"/> for nested loops and nested function bodies.</returns>
-        private static bool IsNestedBoundary(SyntaxNode node)
-            => node is ForStatementSyntax
+        private static bool IsNestedBoundary(SyntaxNode node) =>
+            node is ForStatementSyntax
                 or ForEachStatementSyntax
                 or WhileStatementSyntax
                 or DoStatementSyntax

@@ -17,8 +17,8 @@ internal static class ObsoleteDiagnosticIdBenchmarkSource
     /// On a target without the property the analyzer registers nothing, and there is no per-node path to
     /// measure at all.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Diagnostics;
 
@@ -31,8 +31,8 @@ internal static class ObsoleteDiagnosticIdBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose deprecations a caller can act on, or which the rule does not own.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -42,8 +42,8 @@ internal static class ObsoleteDiagnosticIdBenchmarkSource
     /// one carrying an id and a url, and a bare attribute with no message — which belongs to SST2308 and
     /// which this rule has to hand over rather than report.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [DebuggerDisplay("C{{index}}")]
            public sealed class C{{index}}
            {
@@ -70,8 +70,8 @@ internal static class ObsoleteDiagnosticIdBenchmarkSource
     /// <summary>Builds one type whose deprecations explain themselves but cannot be suppressed on their own.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            [Obsolete("Use W{{index}} instead.")]
            public sealed class V{{index}}
            {

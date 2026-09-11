@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -15,9 +16,10 @@ public class MemberOrderingAnalyzerUnitTest
 {
     /// <summary>Verifies members in the conventional order produce no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrderedNoDiagnosticAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OrderedNoDiagnosticAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -122,9 +124,10 @@ public class MemberOrderingAnalyzerUnitTest
 
     /// <summary>Verifies a static constructor before a public instance constructor is accepted (no SST1202).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticConstructorBeforePublicConstructorAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticConstructorBeforePublicConstructorAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -182,9 +185,10 @@ public class MemberOrderingAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c> before a readonly field is not a readonly-ordering violation (no SST1215).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstBeforeReadonlyFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConstBeforeReadonlyFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -195,9 +199,10 @@ public class MemberOrderingAnalyzerUnitTest
 
     /// <summary>Verifies a struct's <c>readonly</c> method is not treated as a readonly field (no SST1215).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyMethodIsNotReadonlyFieldAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadonlyMethodIsNotReadonlyFieldAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public struct S
             {
@@ -211,9 +216,10 @@ public class MemberOrderingAnalyzerUnitTest
 
     /// <summary>Verifies a nested <c>readonly struct</c> is not treated as a readonly field (no SST1215).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyStructIsNotReadonlyFieldAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadonlyStructIsNotReadonlyFieldAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -229,9 +235,10 @@ public class MemberOrderingAnalyzerUnitTest
 
     /// <summary>Verifies a nested record sorts before a nested union (records before unions).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordBeforeUnionAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task RecordBeforeUnionAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -261,11 +268,7 @@ public class MemberOrderingAnalyzerUnitTest
             }
             """;
 
-        var test = new Verify.Test
-        {
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new Verify.Test { TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -290,11 +293,7 @@ public class MemberOrderingAnalyzerUnitTest
             }
             """;
 
-        var test = new Verify.Test
-        {
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new Verify.Test { TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -318,11 +317,7 @@ public class MemberOrderingAnalyzerUnitTest
             }
             """;
 
-        var test = new Verify.Test
-        {
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new Verify.Test { TestCode = Source, FixedCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -352,11 +347,7 @@ public class MemberOrderingAnalyzerUnitTest
             }
             """;
 
-        var test = new Verify.Test
-        {
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new Verify.Test { TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -450,14 +441,14 @@ public class MemberOrderingAnalyzerUnitTest
     /// <summary>Parses one type declaration for helper-level member-ordering tests.</summary>
     /// <param name="source">The type declaration source.</param>
     /// <returns>The parsed type declaration.</returns>
-    private static TypeDeclarationSyntax ParseType(string source)
-        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
+    private static TypeDeclarationSyntax ParseType(string source) =>
+        (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
 
     /// <summary>Parses one field declaration for helper-level member-ordering tests.</summary>
     /// <param name="source">The field declaration source.</param>
     /// <returns>The parsed field declaration.</returns>
-    private static FieldDeclarationSyntax ParseField(string source)
-        => (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($"public class C {{ {source} }}")
+    private static FieldDeclarationSyntax ParseField(string source) =>
+        (FieldDeclarationSyntax)SyntaxFactory.ParseCompilationUnit($"public class C {{ {source} }}")
             .Members[0]
             .ChildNodes()
             .Single();

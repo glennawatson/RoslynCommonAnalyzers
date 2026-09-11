@@ -167,12 +167,7 @@ public class ReferenceEqualsNullPatternAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task RunAsync(string source, string? fixedSource = null)
     {
-        var test = new VerifyReferenceEquals.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource ?? source,
-        };
+        var test = new VerifyReferenceEquals.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource ?? source, };
 
         await test.RunAsync(CancellationToken.None);
     }

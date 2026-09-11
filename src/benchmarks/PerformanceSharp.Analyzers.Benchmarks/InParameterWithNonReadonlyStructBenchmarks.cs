@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for in-parameter-with-non-readonly-struct analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("InParameterWithNonReadonlyStructBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class InParameterWithNonReadonlyStructBenchmarks
@@ -24,11 +26,13 @@ public class InParameterWithNonReadonlyStructBenchmarks
 
     /// <summary>Benchmarks the clean in-parameter path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InParameterWithNonReadonlyStruct_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating in-parameter path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InParameterWithNonReadonlyStruct_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

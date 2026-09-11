@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyStaticGeneric = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.TypeDesignAnalyzer>;
 
@@ -12,9 +13,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 {
     /// <summary>Verifies a static method on a generic type that ignores the type parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMemberIgnoringTypeParameterReportedAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task StaticMemberIgnoringTypeParameterReportedAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public class Cache<T>
             {
@@ -34,9 +36,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
     /// A type nested in a generic type is a different type for every instantiation, so naming one uses the
     /// enclosing type parameters as surely as writing them out.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMemberReachingANestedTypeIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task StaticMemberReachingANestedTypeIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public class Cache<T>
             {
@@ -60,9 +63,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
     /// <summary>Verifies a nested type declared in another part of the type still counts.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The name alone cannot show it, so the symbol decides rather than the syntax in this file.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeFromAnotherPartIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task NestedTypeFromAnotherPartIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public partial class Cache<T>
             {
@@ -88,9 +92,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies static members that use the type parameter and a private static helper are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterUsersAreCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task TypeParameterUsersAreCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public class Cache<T>
             {
@@ -108,9 +113,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies a field whose initializer references the type parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializerReferencingTypeParameterIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task InitializerReferencingTypeParameterIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public class Owner<T>
             {
@@ -122,9 +128,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies a field whose initializer mentions the closed self-type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClosedSelfTypeInInitializerIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task ClosedSelfTypeInInitializerIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             public class Owner<TViewModel>
                 where TViewModel : class
@@ -137,9 +144,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies a MAUI <c>BindableProperty</c> registration whose only type-parameter use is the closed self-type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BindablePropertyRegistrationIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task BindablePropertyRegistrationIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             namespace Microsoft.Maui.Controls
             {
@@ -168,9 +176,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies a forwarding property typed as a property-system registration type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DependencyPropertyForwardingIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task DependencyPropertyForwardingIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             namespace System.Windows
             {
@@ -200,9 +209,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies an Avalonia registration whose type argument is the closed self-type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AvaloniaRegistrationIsCleanAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task AvaloniaRegistrationIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             namespace Avalonia
             {
@@ -280,9 +290,10 @@ public class StaticMemberInGenericTypeAnalyzerUnitTest
 
     /// <summary>Verifies static fields and methods that ignore the type parameter are still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMembersIgnoringTypeParameterStillReportedAsync()
-        => await VerifyStaticGeneric.VerifyAnalyzerAsync(
+    public Task StaticMembersIgnoringTypeParameterStillReportedAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

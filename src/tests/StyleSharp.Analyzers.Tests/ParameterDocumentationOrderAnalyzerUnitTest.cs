@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1660ParameterDocumentationOrderAnalyzer,
     StyleSharp.Analyzers.Sst1660ParameterDocumentationOrderCodeFixProvider>;
@@ -13,9 +14,10 @@ public class ParameterDocumentationOrderAnalyzerUnitTest
 {
     /// <summary>Verifies <c>&lt;param&gt;</c> elements in declaration order produce no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InOrderIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InOrderIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -30,9 +32,10 @@ public class ParameterDocumentationOrderAnalyzerUnitTest
 
     /// <summary>Verifies a partially-documented member is out of scope (the set does not match).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IncompleteSetIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IncompleteSetIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {

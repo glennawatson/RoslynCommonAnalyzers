@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantDefault = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1494RedundantDefaultArgumentAnalyzer,
     StyleSharp.Analyzers.Sst1494RedundantDefaultArgumentCodeFixProvider>;
@@ -62,9 +63,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
     /// <summary>Verifies an argument that is not last stops the walk, even when it matches its default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Dropping it would silently re-bind the argument that follows it, so it is not reported at all.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTrailingDefaultArgumentIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NonTrailingDefaultArgumentIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -106,9 +108,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies the value is compared as a constant, not as the text that spells it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantsAreComparedByValueAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task ConstantsAreComparedByValueAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -133,9 +136,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an argument that differs from the default is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentValueIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task DifferentValueIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -153,9 +157,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an enum default and a null default are both recognized.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumAndNullDefaultsAreRecognizedAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task EnumAndNullDefaultsAreRecognizedAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -223,9 +228,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
     /// <summary>Verifies a caller-info argument is left to the rule that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>SST1448 reports the same argument with the reason that actually applies, so this rule stays quiet.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerInfoArgumentIsNotReportedAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task CallerInfoArgumentIsNotReportedAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -241,9 +247,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a call inside an expression tree is left alone, because the omission would not compile.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeCallIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task ExpressionTreeCallIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -266,9 +273,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
     /// The shortened call is bound before anything is reported. Here it would reach a different method, so
     /// the argument is not redundant at all — it is what selects the overload.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentThatSelectsTheOverloadIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task ArgumentThatSelectsTheOverloadIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -282,9 +290,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an argument bound to a params parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParamsArgumentIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task ParamsArgumentIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -298,9 +307,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a floating-point argument that spells the default differently is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualFloatingPointValueIsReportedAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task EqualFloatingPointValueIsReportedAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -322,9 +332,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
     /// The two compare equal, but dropping the argument would change the value the callee sees — the sign
     /// survives in the result of a division — so the call is not redundant.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegativeZeroAgainstPositiveZeroDefaultIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NegativeZeroAgainstPositiveZeroDefaultIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -342,9 +353,10 @@ public class RedundantDefaultArgumentAnalyzerUnitTest
     /// Shortening the call means detaching and rebinding it, which orphans the conditional-access binding
     /// and crashes the binder, so the rule stays silent on the <c>receiver?.M(...)</c> form.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessTrailingDefaultIsLeftAloneAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task ConditionalAccessTrailingDefaultIsLeftAloneAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

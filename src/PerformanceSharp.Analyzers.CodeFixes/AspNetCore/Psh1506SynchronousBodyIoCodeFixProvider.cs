@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -32,20 +34,21 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1506SynchronousBodyIoCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1506SynchronousBodyIoCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported synchronous call and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when no fix can be offered.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && TryGetReplacement(model, invocation) is { } replacement
             ? new NodeReplacement(invocation, replacement)
             : null;
@@ -54,16 +57,10 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The synchronous call to rewrite.</param>
     /// <returns>The replacement expression, or <see langword="null"/> when awaiting here would not compile or the sibling does not fit.</returns>
-    private static ExpressionSyntax? TryGetReplacement(SemanticModel model, InvocationExpressionSyntax invocation)
-    {
-        if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
-            || TryBuildSiblingCall(model, invocation) is not { } sibling)
-        {
-            return null;
-        }
-
-        return AwaitExpressionRewrite.WrapInAwait(sibling, invocation);
-    }
+    private static ExpressionSyntax? TryGetReplacement(SemanticModel model, InvocationExpressionSyntax invocation) => !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
+            || TryBuildSiblingCall(model, invocation) is not { } sibling
+        ? null
+        : AwaitExpressionRewrite.WrapInAwait(sibling, invocation);
 
     /// <summary>Builds the async sibling call for a reported synchronous invocation, and proves it binds.</summary>
     /// <param name="model">The semantic model.</param>
@@ -99,7 +96,7 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
     /// <param name="candidate">The rewritten sibling invocation.</param>
     /// <param name="sibling">The sibling the resolver produced.</param>
     /// <returns><see langword="true"/> when the replacement binds to that sibling.</returns>
-    private static bool BindsToSibling(SemanticModel model, int position, InvocationExpressionSyntax candidate, IMethodSymbol sibling)
-        => model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol bound
+    private static bool BindsToSibling(SemanticModel model, int position, InvocationExpressionSyntax candidate, IMethodSymbol sibling) =>
+        model.GetSpeculativeSymbolInfo(position, candidate, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol bound
             && SymbolEqualityComparer.Default.Equals(bound.OriginalDefinition, sibling.OriginalDefinition);
 }

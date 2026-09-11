@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyWrite = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2421ReadonlyGenericFieldWriteAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -21,9 +22,10 @@ public class ReadonlyGenericFieldWriteAnalyzerUnitTest
 
     /// <summary>Verifies a property assignment through a readonly generic field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyAssignmentIsReportedAsync()
-        => await VerifyWrite.VerifyAnalyzerAsync(
+    public Task PropertyAssignmentIsReportedAsync() =>
+        VerifyWrite.VerifyAnalyzerAsync(
             PointInterface + """
 
             public sealed class Holder<T>
@@ -39,9 +41,10 @@ public class ReadonlyGenericFieldWriteAnalyzerUnitTest
 
     /// <summary>Verifies a mutating-method call through a readonly generic field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatingCallIsReportedAsync()
-        => await VerifyWrite.VerifyAnalyzerAsync(
+    public Task MutatingCallIsReportedAsync() =>
+        VerifyWrite.VerifyAnalyzerAsync(
             PointInterface + """
 
             public sealed class Holder<T>
@@ -57,9 +60,10 @@ public class ReadonlyGenericFieldWriteAnalyzerUnitTest
 
     /// <summary>Verifies a reference-constrained type parameter is clean: the write lands.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceConstrainedIsCleanAsync()
-        => await VerifyWrite.VerifyAnalyzerAsync(
+    public Task ReferenceConstrainedIsCleanAsync() =>
+        VerifyWrite.VerifyAnalyzerAsync(
             PointInterface + """
 
             public sealed class RefHolder<T>
@@ -75,9 +79,10 @@ public class ReadonlyGenericFieldWriteAnalyzerUnitTest
 
     /// <summary>Verifies an interface-typed field is clean: it holds a reference, not a struct copy.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceFieldIsCleanAsync()
-        => await VerifyWrite.VerifyAnalyzerAsync(
+    public Task InterfaceFieldIsCleanAsync() =>
+        VerifyWrite.VerifyAnalyzerAsync(
             PointInterface + """
 
             public sealed class InterfaceHolder
@@ -92,9 +97,10 @@ public class ReadonlyGenericFieldWriteAnalyzerUnitTest
 
     /// <summary>Verifies an object member call is clean: it cannot mutate the value.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectMemberCallIsCleanAsync()
-        => await VerifyWrite.VerifyAnalyzerAsync(
+    public Task ObjectMemberCallIsCleanAsync() =>
+        VerifyWrite.VerifyAnalyzerAsync(
             PointInterface + """
 
             public sealed class Holder<T>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyComparison = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2489TypeDecidedComparisonAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 {
     /// <summary>Verifies an unsigned <c>&gt;= 0</c> is reported as always true across every unsigned type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedAtLeastZeroIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task UnsignedAtLeastZeroIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -27,9 +29,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned <c>&lt; 0</c> is reported as always false.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedBelowZeroIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task UnsignedBelowZeroIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -40,9 +43,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned <c>&gt; 0</c> is reported as an inequality in disguise.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedAboveZeroIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task UnsignedAboveZeroIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -52,9 +56,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a value compared to its type's maximum is reported as always true.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AtMostMaximumIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task AtMostMaximumIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -69,9 +74,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a value compared above its type's maximum is reported as always false.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AboveMaximumIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task AboveMaximumIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -81,9 +87,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a signed value compared to its type's minimum is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SignedAtMinimumIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task SignedAtMinimumIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -95,9 +102,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a signed value below its type's minimum is reported as always false.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SignedBelowMinimumIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task SignedBelowMinimumIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -107,9 +115,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a signed strict comparison to the minimum is reported as an inequality in disguise.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SignedAboveMinimumIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task SignedAboveMinimumIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -119,9 +128,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies the bound may sit on either side of the comparison.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundOnTheLeftIsReportedAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task BoundOnTheLeftIsReportedAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -134,9 +144,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a signed value compared to zero is a real test and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SignedComparedToZeroIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task SignedComparedToZeroIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -147,9 +158,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an interior bound asks a real question and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InteriorBoundIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task InteriorBoundIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -160,9 +172,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned <c>&lt;= 0</c>, which the rule leaves to the equality it really is, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedAtMostZeroIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task UnsignedAtMostZeroIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -172,9 +185,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a comparison at the maximum that only tests equality, not a range, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DegenerateAtMaximumIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task DegenerateAtMaximumIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -185,9 +199,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a native unsigned value against a non-minimum bound is not reported, since its maximum is platform-dependent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NativeUnsignedNonMinimumBoundIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task NativeUnsignedNonMinimumBoundIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -198,9 +213,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies two variables with no constant bound are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoVariablesAreCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task TwoVariablesAreCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -210,9 +226,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a comparison with a bound on both sides is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoConstantsAreCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task TwoConstantsAreCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -222,9 +239,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a member operand that is not a min/max bound is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberOperandIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task MemberOperandIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -236,9 +254,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a non-integer operand is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonIntegerOperandIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task NonIntegerOperandIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -248,9 +267,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a non-integral constant bound is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonIntegralConstantIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task NonIntegralConstantIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -260,9 +280,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a <c>MaxValue</c> member that is not a constant is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantMaxValueMemberIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task NonConstantMaxValueMemberIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class Holder
             {
@@ -277,9 +298,10 @@ public class TypeDecidedComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a constant operand is not reported, since the compiler already folds it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantOperandIsCleanAsync()
-        => await VerifyComparison.VerifyAnalyzerAsync(
+    public Task ConstantOperandIsCleanAsync() =>
+        VerifyComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

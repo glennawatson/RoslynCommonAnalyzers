@@ -17,7 +17,7 @@ internal static class BaseListInsertion
     /// <param name="type">The type declaration.</param>
     /// <param name="baseType">The base type to add.</param>
     /// <returns>The updated declaration.</returns>
-    public static TypeDeclarationSyntax AddBaseType(TypeDeclarationSyntax type, BaseTypeSyntax baseType)
+    internal static TypeDeclarationSyntax AddBaseType(TypeDeclarationSyntax type, BaseTypeSyntax baseType)
     {
         if (type.BaseList is { } existing)
         {

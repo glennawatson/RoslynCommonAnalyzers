@@ -11,8 +11,8 @@ internal static class BuiltInTypeAliasBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit built-in-type-alias violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -26,8 +26,8 @@ internal static class BuiltInTypeAliasBenchmarkSource
     /// <summary>Builds a direct-code-fix corpus that targets only method return types.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFixSource(int members)
-        => $$"""
+    internal static string GenerateCodeFixSource(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class C
@@ -40,14 +40,14 @@ internal static class BuiltInTypeAliasBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a violation.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
+    private static string GenerateMember(int index, bool violating) =>
+        violating ? GenerateViolatingMember(index) : GenerateCleanMember(index);
 
     /// <summary>Builds one clean member that already uses keyword aliases.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            internal int M{{index}}(int value)
            {
                int local = value + {{index}};
@@ -58,8 +58,8 @@ internal static class BuiltInTypeAliasBenchmarkSource
     /// <summary>Builds one violating member that names framework types directly.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            internal System.Int32 M{{index}}(Int32 value)
            {
                System.Int32 local = value + {{index}};
@@ -70,8 +70,8 @@ internal static class BuiltInTypeAliasBenchmarkSource
     /// <summary>Builds one direct-code-fix benchmark member that violates only on the return type.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCodeFixMember(int index)
-        => $$"""
+    private static string GenerateCodeFixMember(int index) =>
+        $$"""
            internal System.Int32 M{{index}}()
            {
                return {{index}};

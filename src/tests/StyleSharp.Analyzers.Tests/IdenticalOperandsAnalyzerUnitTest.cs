@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyIdenticalOperands = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1474IdenticalOperandsAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 {
     /// <summary>Verifies every reported operator is reported when its operands are the same.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryMeaninglessOperatorIsReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task EveryMeaninglessOperatorIsReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -49,9 +51,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies doubling and squaring are legitimate and are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdditionAndMultiplicationAreCleanAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task AdditionAndMultiplicationAreCleanAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -65,9 +68,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies different operands are not reported, which is the path almost every operator takes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentOperandsAreCleanAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task DifferentOperandsAreCleanAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -88,9 +92,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies an operand that calls something is two different evaluations, not one expression twice.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingOperandsAreCleanAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task SideEffectingOperandsAreCleanAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -116,9 +121,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies an await in an operand disqualifies the comparison.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitedOperandsAreCleanAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task AwaitedOperandsAreCleanAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -132,9 +138,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison of a member-access chain is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessChainIsReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task MemberAccessChainIsReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class Inner
             {
@@ -160,9 +167,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies trivia and parentheses do not hide a self-comparison, and that pure operator trees are compared.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructurallyEquivalentOperandsAreReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task StructurallyEquivalentOperandsAreReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -176,9 +184,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies a floating-point equality is left to SST1473, which owns the NaN idiom and its fix.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FloatingPointEqualityIsDeferredToTheFloatingPointRuleAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task FloatingPointEqualityIsDeferredToTheFloatingPointRuleAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -194,9 +203,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies the deferral is limited to equality: an ordering or an arithmetic operator on a double is still nonsense.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEqualityFloatingPointOperatorsAreStillReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task NonEqualityFloatingPointOperatorsAreStillReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -210,9 +220,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies a decimal self-comparison is reported here, because decimal is exact and SST1473 never claims it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecimalSelfComparisonIsReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task DecimalSelfComparisonIsReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -222,9 +233,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies a self-comparison of a constrained type parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericSelfComparisonIsReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task GenericSelfComparisonIsReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C<T>
                 where T : class
@@ -235,9 +247,10 @@ public class IdenticalOperandsAnalyzerUnitTest
 
     /// <summary>Verifies a static member read is compared structurally like any other name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMemberSelfComparisonIsReportedAsync()
-        => await VerifyIdenticalOperands.VerifyAnalyzerAsync(
+    public Task StaticMemberSelfComparisonIsReportedAsync() =>
+        VerifyIdenticalOperands.VerifyAnalyzerAsync(
             """
             public class C
             {

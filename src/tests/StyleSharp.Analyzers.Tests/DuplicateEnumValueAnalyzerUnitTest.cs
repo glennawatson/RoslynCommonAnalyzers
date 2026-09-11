@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDuplicateEnumValue = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2455DuplicateEnumValueAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 {
     /// <summary>Verifies a repeated literal value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedLiteralValueIsFlaggedAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task RepeatedLiteralValueIsFlaggedAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -25,9 +27,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies an implicitly numbered member colliding with an explicit one is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitValueCollidingIsFlaggedAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task ImplicitValueCollidingIsFlaggedAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -39,9 +42,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies a third member repeating the same value is reported too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThirdRepeatIsFlaggedAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task ThirdRepeatIsFlaggedAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -53,9 +57,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies an alias that names the member it duplicates is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeliberateAliasIsCleanAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task DeliberateAliasIsCleanAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -67,9 +72,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies a combination written from the enum's own members is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinationOfMembersIsCleanAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task CombinationOfMembersIsCleanAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -86,9 +92,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies distinct values are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DistinctValuesAreCleanAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task DistinctValuesAreCleanAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -99,9 +106,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies a single-member enum is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleMemberEnumIsCleanAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task SingleMemberEnumIsCleanAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {
@@ -111,9 +119,10 @@ public class DuplicateEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies implicitly numbered members with no explicit values are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitlyNumberedEnumIsCleanAsync()
-        => await VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
+    public Task ImplicitlyNumberedEnumIsCleanAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync(
             """
             internal enum Level
             {

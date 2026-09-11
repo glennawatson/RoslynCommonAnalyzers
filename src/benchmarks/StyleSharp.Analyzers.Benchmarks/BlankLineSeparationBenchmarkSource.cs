@@ -15,8 +15,8 @@ internal static class BlankLineSeparationBenchmarkSource
     /// Each type exercises all three ids at once — a constructor initializer, a conditional operator, and
     /// an expression body — so the measured cost is the whole analyzer rather than one of its callbacks.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            public class BaseType
@@ -32,8 +32,8 @@ internal static class BlankLineSeparationBenchmarkSource
     /// <summary>Builds one type whose blank lines all sit where they belong.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class Clean{{index}} : BaseType
            {
                public Clean{{index}}()
@@ -60,8 +60,8 @@ internal static class BlankLineSeparationBenchmarkSource
     /// <summary>Builds one type that trips every blank-line rule.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class Violating{{index}} : BaseType
            {
                public Violating{{index}}()

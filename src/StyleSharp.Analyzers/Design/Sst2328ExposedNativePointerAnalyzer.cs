@@ -95,12 +95,12 @@ public sealed class Sst2328ExposedNativePointerAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an accessibility admits a caller outside the declaring assembly.</summary>
     /// <param name="accessibility">The member's declared accessibility.</param>
     /// <returns><see langword="true"/> for <c>public</c>, <c>protected</c>, or <c>protected internal</c>.</returns>
-    private static bool IsExternallyReachable(Accessibility accessibility)
-        => accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
+    private static bool IsExternallyReachable(Accessibility accessibility) =>
+        accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
 
     /// <summary>Returns whether a type is a raw native pointer whose value a SafeHandle would replace.</summary>
     /// <param name="type">The member type.</param>
     /// <returns><see langword="true"/> for <c>IntPtr</c>/<c>nint</c> or <c>UIntPtr</c>/<c>nuint</c>.</returns>
-    private static bool IsNativePointer(ITypeSymbol type)
-        => type.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
+    private static bool IsNativePointer(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
 }

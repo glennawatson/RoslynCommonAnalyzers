@@ -54,8 +54,8 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the operand is a null/default value whose suppression can be target-context meaningful.</summary>
     /// <param name="operand">The suppressed expression.</param>
     /// <returns><see langword="true"/> when the operand should not be treated as a no-op suppression.</returns>
-    private static bool IsNullLikeDefault(ExpressionSyntax operand)
-        => operand.IsKind(SyntaxKind.NullLiteralExpression)
+    private static bool IsNullLikeDefault(ExpressionSyntax operand) =>
+        operand.IsKind(SyntaxKind.NullLiteralExpression)
             || operand.IsKind(SyntaxKind.DefaultLiteralExpression)
             || operand.IsKind(SyntaxKind.DefaultExpression);
 
@@ -74,8 +74,7 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            var setting = directive.SettingToken.ValueText;
-            if (setting == "restore")
+            if (directive.SettingToken.ValueText == "restore")
             {
                 if (!sawFileStateChange)
                 {
@@ -107,8 +106,8 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
     /// load-bearing case, where removing the <c>!</c> would produce a warning. Only shapes that are non-null
     /// by construction are reported.
     /// </remarks>
-    private static bool IsProvablyNonNull(TypeInfo typeInfo, ExpressionSyntax operand)
-        => typeInfo.Type is { IsValueType: true, OriginalDefinition.SpecialType: not SpecialType.System_Nullable_T }
+    private static bool IsProvablyNonNull(in TypeInfo typeInfo, ExpressionSyntax operand) =>
+        typeInfo.Type is { IsValueType: true, OriginalDefinition.SpecialType: not SpecialType.System_Nullable_T }
             || CreatesANewInstance(operand)
             || ProducesAConstantOrSelf(operand);
 
@@ -135,9 +134,7 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool CarriesNestedNullability(ITypeSymbol? type) => type switch
     {
-        IArrayTypeSymbol => true,
-        IPointerTypeSymbol => true,
-        INamedTypeSymbol { TypeArguments.Length: > 0 } => true,
+        IArrayTypeSymbol or IPointerTypeSymbol or INamedTypeSymbol { TypeArguments.Length: > 0 } => true,
         _ => false,
     };
 
@@ -165,8 +162,8 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
     /// <summary>Builds a compact comparable key for a nullable directive state.</summary>
     /// <param name="directive">The nullable directive.</param>
     /// <returns>The directive state key.</returns>
-    private static string StateKey(NullableDirectiveTriviaSyntax directive)
-        => directive.TargetToken.ValueText.Length == 0
+    private static string StateKey(NullableDirectiveTriviaSyntax directive) =>
+        directive.TargetToken.ValueText.Length == 0
             ? directive.SettingToken.ValueText
             : $"{directive.SettingToken.ValueText}:{directive.TargetToken.ValueText}";
 }

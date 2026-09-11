@@ -11,8 +11,8 @@ internal static class EnumValuesOnSeparateLinesBenchmarkSource
     /// <param name="types">The number of synthetic enums to emit.</param>
     /// <param name="violating">Whether to emit enum-member-line rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,14 +22,14 @@ internal static class EnumValuesOnSeparateLinesBenchmarkSource
     /// <param name="index">The synthetic enum index.</param>
     /// <param name="violating">Whether to emit a violating enum.</param>
     /// <returns>The generated enum block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one clean enum whose members are each on their own line.</summary>
     /// <param name="index">The synthetic enum index.</param>
     /// <returns>The generated enum block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            internal enum E{{index}}
            {
                A,
@@ -41,8 +41,8 @@ internal static class EnumValuesOnSeparateLinesBenchmarkSource
     /// <summary>Builds one violating enum whose members share a line.</summary>
     /// <param name="index">The synthetic enum index.</param>
     /// <returns>The generated enum block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            internal enum E{{index}}
            {
                A, B, C

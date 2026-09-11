@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -55,13 +57,13 @@ internal static class BlockingWait
     internal enum Kind
     {
         /// <summary>A wait on one awaitable: <c>Result</c>, <c>Wait</c>, <c>GetAwaiter().GetResult()</c>, or <c>RunSynchronously</c>.</summary>
-        SingleTask,
+        SingleTask = 0,
 
         /// <summary><c>Task.WaitAll(…)</c>, which parks the thread until every argument has finished.</summary>
-        WaitAll,
+        WaitAll = 1,
 
         /// <summary><c>Task.WaitAny(…)</c>, which parks the thread until one argument has finished.</summary>
-        WaitAny,
+        WaitAny = 2,
     }
 
     /// <summary>Matches a node against the blocking-wait shapes and binds the awaitable it blocks on.</summary>
@@ -70,8 +72,8 @@ internal static class BlockingWait
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The matched site, or <see langword="null"/> when the node does not block on a task.</returns>
-    public static Site? TryMatch(SyntaxNode node, SemanticModel model, in AsyncSiblingResolver.TaskTypes tasks, CancellationToken cancellationToken)
-        => node switch
+    internal static Site? TryMatch(SyntaxNode node, SemanticModel model, in AsyncSiblingResolver.TaskTypes tasks, CancellationToken cancellationToken) =>
+        node switch
         {
             MemberAccessExpressionSyntax access => TryMatchResult(access, model, tasks, cancellationToken),
             InvocationExpressionSyntax invocation => TryMatchInvocation(invocation, model, tasks, cancellationToken),
@@ -81,7 +83,7 @@ internal static class BlockingWait
     /// <summary>Strips the <c>ConfigureAwait(…)</c> calls wrapping an awaitable, leaving the task itself.</summary>
     /// <param name="expression">The awaited expression.</param>
     /// <returns>The underlying task expression.</returns>
-    public static ExpressionSyntax UnwrapConfigureAwait(ExpressionSyntax expression)
+    internal static ExpressionSyntax UnwrapConfigureAwait(ExpressionSyntax expression)
     {
         while (expression is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: ConfigureAwaitMethodName } configured })
         {
@@ -101,17 +103,11 @@ internal static class BlockingWait
         MemberAccessExpressionSyntax access,
         SemanticModel model,
         in AsyncSiblingResolver.TaskTypes tasks,
-        CancellationToken cancellationToken)
-    {
-        if (access.Name.Identifier.ValueText != ResultPropertyName
+        CancellationToken cancellationToken) => access.Name.Identifier.ValueText != ResultPropertyName
             || GetTypeOf(access.Expression, model, cancellationToken) is not { } type
-            || !IsGenericTask(type, tasks))
-        {
-            return null;
-        }
-
-        return new Site(Kind.SingleTask, access.Expression, access.Expression, ResultPropertyName, AwaitIsEquivalent: true);
-    }
+            || !IsGenericTask(type, tasks)
+            ? null
+            : new Site(Kind.SingleTask, access.Expression, access.Expression, ResultPropertyName, AwaitIsEquivalent: true);
 
     /// <summary>Matches the invocation shapes: <c>t.Wait(…)</c>, <c>t.GetAwaiter().GetResult()</c>, <c>t.RunSynchronously()</c>, <c>Task.WaitAll(…)</c>, and <c>Task.WaitAny(…)</c>.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
@@ -123,14 +119,9 @@ internal static class BlockingWait
         InvocationExpressionSyntax invocation,
         SemanticModel model,
         in AsyncSiblingResolver.TaskTypes tasks,
-        CancellationToken cancellationToken)
-    {
-        if (invocation.Expression is not MemberAccessExpressionSyntax access)
-        {
-            return null;
-        }
-
-        return access.Name.Identifier.ValueText switch
+        CancellationToken cancellationToken) => invocation.Expression is not MemberAccessExpressionSyntax access
+            ? null
+            : access.Name.Identifier.ValueText switch
         {
             GetResultMethodName => TryMatchAwaiterChain(invocation, access, model, tasks, cancellationToken),
             WaitMethodName => TryMatchWait(invocation, access, model, tasks, cancellationToken),
@@ -139,7 +130,6 @@ internal static class BlockingWait
             RunSynchronouslyMethodName => TryMatchRunSynchronously(invocation, access, model, tasks, cancellationToken),
             _ => null,
         };
-    }
 
     /// <summary>Matches a <c>Task.WaitAll(…)</c> or <c>Task.WaitAny(…)</c> call.</summary>
     /// <param name="invocation">The combinator invocation.</param>
@@ -234,8 +224,8 @@ internal static class BlockingWait
         // as hard, so the local is followed back to what it was given.
         var awaiterExpression = access.Expression is IdentifierNameSyntax identifier
             && TryGetLocalInitializer(identifier, model, cancellationToken) is { } initializer
-                ? initializer
-                : access.Expression;
+            ? initializer
+            : access.Expression;
 
         if (awaiterExpression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } awaiterCall
             && awaiterCall.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetAwaiterMethodName } awaiter)
@@ -270,9 +260,7 @@ internal static class BlockingWait
             return false;
         }
 
-        // A configured awaiter is nested inside its awaitable, which is the type carrying the namespace.
-        var owner = type.ContainingType ?? type;
-        return owner.ContainingNamespace is
+        return (type.ContainingType ?? type).ContainingNamespace is
         {
             Name: "CompilerServices",
             ContainingNamespace: { Name: "Runtime", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }
@@ -291,11 +279,11 @@ internal static class BlockingWait
     private static ExpressionSyntax? TryGetLocalInitializer(
         IdentifierNameSyntax identifier,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol { DeclaringSyntaxReferences.Length: 1 } local
             && local.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken) is VariableDeclaratorSyntax { Initializer.Value: { } value }
-                ? value
-                : null;
+            ? value
+            : null;
 
     /// <summary>Matches a <c>t.Wait(…)</c> call on a task.</summary>
     /// <param name="invocation">The <c>Wait</c> invocation.</param>
@@ -318,12 +306,9 @@ internal static class BlockingWait
         CancellationToken cancellationToken)
     {
         var receiver = access.Expression;
-        if (GetTypeOf(receiver, model, cancellationToken) is not { } type || !IsTask(type, tasks))
-        {
-            return null;
-        }
-
-        return new Site(Kind.SingleTask, receiver, receiver, WaitMethodName, invocation.ArgumentList.Arguments.Count == 0);
+        return GetTypeOf(receiver, model, cancellationToken) is not { } type || !IsTask(type, tasks)
+            ? null
+            : new Site(Kind.SingleTask, receiver, receiver, WaitMethodName, invocation.ArgumentList.Arguments.Count == 0);
     }
 
     /// <summary>Binds an expression's type.</summary>
@@ -331,8 +316,9 @@ internal static class BlockingWait
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The bound type, or <see langword="null"/>.</returns>
-    private static ITypeSymbol? GetTypeOf(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetTypeInfo(expression, cancellationToken).Type;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ITypeSymbol? GetTypeOf(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetTypeInfo(expression, cancellationToken).Type;
 
     /// <summary>Returns whether a type is a generic task, the only shape with a blocking result to read.</summary>
     /// <param name="type">The receiver type.</param>

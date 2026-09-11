@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConsumeOnce = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1316ConsumeValueTaskOnceAnalyzer,
     PerformanceSharp.Analyzers.Psh1316ConsumeValueTaskOnceCodeFixProvider>;
@@ -82,9 +83,10 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies a ValueTask declared outside a loop and awaited inside it is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitInLoopReportedAsync()
-        => await VerifyConsumeOnce.VerifyAnalyzerAsync(
+    public Task AwaitInLoopReportedAsync() =>
+        VerifyConsumeOnce.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -105,9 +107,10 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies a ValueTask copied into a second local, where both are consumed, is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CopyThenAwaitReportedAsync()
-        => await VerifyConsumeOnce.VerifyAnalyzerAsync(
+    public Task CopyThenAwaitReportedAsync() =>
+        VerifyConsumeOnce.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -127,9 +130,10 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies a ValueTask created fresh inside the loop is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreshInLoopIsCleanAsync()
-        => await VerifyConsumeOnce.VerifyAnalyzerAsync(
+    public Task FreshInLoopIsCleanAsync() =>
+        VerifyConsumeOnce.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -150,9 +154,10 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies a preserved ValueTask awaited in a loop is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PreservedInLoopIsCleanAsync()
-        => await VerifyConsumeOnce.VerifyAnalyzerAsync(
+    public Task PreservedInLoopIsCleanAsync() =>
+        VerifyConsumeOnce.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -174,9 +179,10 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies a single consume is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleConsumeIsCleanAsync()
-        => await VerifyConsumeOnce.VerifyAnalyzerAsync(
+    public Task SingleConsumeIsCleanAsync() =>
+        VerifyConsumeOnce.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -194,7 +200,8 @@ public class Psh1316ConsumeValueTaskOnceAnalyzerUnitTest
 
     /// <summary>Verifies the fix moves the producing call into the loop.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitInLoopFixedByMovingProducerAsync()
-        => await VerifyConsumeOnce.VerifyCodeFixAsync(AwaitInLoopSource, AwaitInLoopFixed);
+    public Task AwaitInLoopFixedByMovingProducerAsync() =>
+        VerifyConsumeOnce.VerifyCodeFixAsync(AwaitInLoopSource, AwaitInLoopFixed);
 }

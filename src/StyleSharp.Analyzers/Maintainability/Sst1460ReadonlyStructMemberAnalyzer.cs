@@ -86,8 +86,8 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The member modifiers.</param>
     /// <param name="parent">The member parent.</param>
     /// <returns><see langword="true"/> when the member is eligible.</returns>
-    private static bool IsStructInstanceMember(SyntaxTokenList modifiers, SyntaxNode? parent)
-        => parent is StructDeclarationSyntax { Modifiers: var structModifiers }
+    private static bool IsStructInstanceMember(in SyntaxTokenList modifiers, SyntaxNode? parent) =>
+        parent is StructDeclarationSyntax { Modifiers: var structModifiers }
             && !ModifierListHelper.Contains(structModifiers, SyntaxKind.ReadOnlyKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)
@@ -105,8 +105,8 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// reference-type field does not — takes semantic analysis, so every writable <c>ref</c> return is left
     /// alone. A <c>ref readonly</c> return is unaffected and is still reported.
     /// </remarks>
-    private static bool ReturnsWritableRef(TypeSyntax type)
-        => type is RefTypeSyntax { ReadOnlyKeyword.RawKind: 0 };
+    private static bool ReturnsWritableRef(TypeSyntax type) =>
+        type is RefTypeSyntax { ReadOnlyKeyword.RawKind: 0 };
 
     /// <summary>Returns whether a property declares a setter or init accessor.</summary>
     /// <param name="property">The property declaration.</param>
@@ -154,28 +154,28 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind can mutate state or call code that mutates state.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for risky operations.</returns>
-    private static bool IsRiskyKind(SyntaxKind kind)
-        => IsAssignmentKind(kind) || IsIncrementKind(kind) || kind == SyntaxKind.InvocationExpression;
+    private static bool IsRiskyKind(SyntaxKind kind) =>
+        IsAssignmentKind(kind) || IsIncrementKind(kind) || kind == SyntaxKind.InvocationExpression;
 
     /// <summary>Returns whether a syntax kind is an assignment expression.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for assignment expressions.</returns>
-    private static bool IsAssignmentKind(SyntaxKind kind)
-        => IsBasicAssignmentKind(kind) || IsCompoundAssignmentKind(kind);
+    private static bool IsAssignmentKind(SyntaxKind kind) =>
+        IsBasicAssignmentKind(kind) || IsCompoundAssignmentKind(kind);
 
     /// <summary>Returns whether a syntax kind is a simple or null-coalescing assignment expression.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for simple assignment-like expressions.</returns>
-    private static bool IsBasicAssignmentKind(SyntaxKind kind)
-        => kind is
+    private static bool IsBasicAssignmentKind(SyntaxKind kind) =>
+        kind is
             SyntaxKind.SimpleAssignmentExpression or
             SyntaxKind.CoalesceAssignmentExpression;
 
     /// <summary>Returns whether a syntax kind is a compound assignment expression.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for compound assignment expressions.</returns>
-    private static bool IsCompoundAssignmentKind(SyntaxKind kind)
-        => kind is
+    private static bool IsCompoundAssignmentKind(SyntaxKind kind) =>
+        kind is
             SyntaxKind.AddAssignmentExpression or
             SyntaxKind.SubtractAssignmentExpression or
             SyntaxKind.MultiplyAssignmentExpression or
@@ -190,8 +190,8 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is an increment or decrement expression.</summary>
     /// <param name="kind">The syntax kind.</param>
     /// <returns><see langword="true"/> for increment or decrement expressions.</returns>
-    private static bool IsIncrementKind(SyntaxKind kind)
-        => kind is
+    private static bool IsIncrementKind(SyntaxKind kind) =>
+        kind is
             SyntaxKind.PreIncrementExpression or
             SyntaxKind.PreDecrementExpression or
             SyntaxKind.PostIncrementExpression or

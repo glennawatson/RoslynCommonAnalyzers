@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for non-flags-enum-bitwise analysis (SST2458).</summary>
+[System.Diagnostics.DebuggerDisplay("NonFlagsEnumBitwiseBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class NonFlagsEnumBitwiseBenchmarks
@@ -24,11 +26,13 @@ public class NonFlagsEnumBitwiseBenchmarks
 
     /// <summary>Benchmarks the clean non-flags-enum-bitwise path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NonFlagsEnumBitwise_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating non-flags-enum-bitwise path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NonFlagsEnumBitwise_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

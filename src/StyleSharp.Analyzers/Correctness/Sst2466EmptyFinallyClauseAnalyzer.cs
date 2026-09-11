@@ -18,8 +18,8 @@ public sealed class Sst2466EmptyFinallyClauseAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.EmptyFinallyClause);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -54,7 +54,7 @@ public sealed class Sst2466EmptyFinallyClauseAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a trivia list holds a comment of any form.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
     /// <returns><see langword="true"/> when a single-line, multi-line, or documentation comment is present.</returns>
-    private static bool HasComment(SyntaxTriviaList trivia)
+    private static bool HasComment(in SyntaxTriviaList trivia)
     {
         foreach (var item in trivia)
         {

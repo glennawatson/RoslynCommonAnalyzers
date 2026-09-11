@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -30,18 +32,20 @@ public sealed class Sst1107MultipleStatementsOnLineAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports same-line statements within a block.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeBlock(SyntaxNodeAnalysisContext context)
-        => Analyze(context, ((BlockSyntax)context.Node).Statements);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeBlock(SyntaxNodeAnalysisContext context) =>
+        Analyze(context, ((BlockSyntax)context.Node).Statements);
 
     /// <summary>Reports same-line statements within a switch section.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeSwitchSection(SyntaxNodeAnalysisContext context)
-        => Analyze(context, ((SwitchSectionSyntax)context.Node).Statements);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeSwitchSection(SyntaxNodeAnalysisContext context) =>
+        Analyze(context, ((SwitchSectionSyntax)context.Node).Statements);
 
     /// <summary>Reports each statement that starts on the line the previous statement ended.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="statements">The statement list to inspect.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, SyntaxList<StatementSyntax> statements)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, SyntaxList<StatementSyntax> statements)
     {
         if (statements.Count < 2)
         {
@@ -63,7 +67,7 @@ public sealed class Sst1107MultipleStatementsOnLineAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier statement.</param>
     /// <param name="current">The later statement.</param>
     /// <returns><see langword="true"/> when both statements share a line.</returns>
-    private static bool AreOnSameLine(StatementSyntax previous, StatementSyntax current)
-        => !TriviaLineBreakHelper.HasLineBreak(previous.GetLastToken().TrailingTrivia)
+    private static bool AreOnSameLine(StatementSyntax previous, StatementSyntax current) =>
+        !TriviaLineBreakHelper.HasLineBreak(previous.GetLastToken().TrailingTrivia)
             && !TriviaLineBreakHelper.HasLineBreak(current.GetFirstToken().LeadingTrivia);
 }

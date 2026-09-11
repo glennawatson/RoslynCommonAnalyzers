@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -99,7 +101,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         }
 
         var walker = new SimpleNameWalker(tracker);
-        DescendantTraversalHelper.VisitDescendantTokens(root, ref walker, static (in SyntaxToken token, ref SimpleNameWalker state) => VisitDocumentationTrivia(token, state));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref walker, static (in SyntaxToken token, ref SimpleNameWalker state) => VisitDocumentationTrivia(token, state));
     }
 
     /// <summary>Scans one token's leading doc-comment structures for cref usages.</summary>
@@ -193,47 +195,13 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                if (IsDeclaredBy(alias, _entries[i].Directive))
+                if (!IsDeclaredBy(alias, _entries[i].Directive))
                 {
-                    MarkUsed(i);
-                    return;
+                    continue;
                 }
-            }
-        }
 
-        /// <summary>Marks the namespace directives whose target contains the resolved symbol.</summary>
-        /// <param name="containingNamespace">The resolved symbol's containing namespace.</param>
-        public void MarkNamespace(INamespaceSymbol? containingNamespace)
-        {
-            if (containingNamespace is not { IsGlobalNamespace: false })
-            {
+                MarkUsed(i);
                 return;
-            }
-
-            for (var i = 0; i < _entries.Length; i++)
-            {
-                if (!_used[i] && _entries[i] is { AliasName: null, IsStatic: false, Target: INamespaceSymbol target } && NamespaceMatches(target, containingNamespace))
-                {
-                    MarkUsed(i);
-                }
-            }
-        }
-
-        /// <summary>Marks the using-static directives whose target type contains the resolved symbol.</summary>
-        /// <param name="containingType">The resolved symbol's containing type.</param>
-        public void MarkStaticType(INamedTypeSymbol? containingType)
-        {
-            if (containingType is null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < _entries.Length; i++)
-            {
-                if (!_used[i] && _entries[i].IsStatic && SymbolEqualityComparer.Default.Equals(_entries[i].Target, containingType))
-                {
-                    MarkUsed(i);
-                }
             }
         }
 
@@ -277,31 +245,32 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
             switch (symbol.Kind)
             {
                 case SymbolKind.Namespace:
-                {
-                    MarkNamespace(((INamespaceSymbol)symbol).ContainingNamespace);
-                    break;
-                }
+                    {
+                        MarkNamespace(((INamespaceSymbol)symbol).ContainingNamespace);
+                        break;
+                    }
 
                 case SymbolKind.NamedType:
-                {
-                    MarkNamespace(symbol.ContainingNamespace);
-                    MarkStaticType(symbol.ContainingType);
-                    break;
-                }
+                    {
+                        MarkNamespace(symbol.ContainingNamespace);
+                        MarkStaticType(symbol.ContainingType);
+                        break;
+                    }
 
                 case SymbolKind.Method:
-                {
-                    MarkMethodSymbol((IMethodSymbol)symbol);
-                    break;
-                }
+                    {
+                        MarkMethodSymbol((IMethodSymbol)symbol);
+                        break;
+                    }
 
-                case SymbolKind.Field:
-                case SymbolKind.Property:
-                case SymbolKind.Event:
-                {
-                    MarkStaticType(symbol.ContainingType);
+                case SymbolKind.Field or SymbolKind.Property or SymbolKind.Event:
+                    {
+                        MarkStaticType(symbol.ContainingType);
+                        break;
+                    }
+
+                default:
                     break;
-                }
             }
         }
 
@@ -352,7 +321,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
 
         /// <summary>Reports every directive that stayed unaccounted for.</summary>
         /// <param name="context">The semantic model analysis context.</param>
-        public void Report(SemanticModelAnalysisContext context)
+        public void Report(in SemanticModelAnalysisContext context)
         {
             if (Remaining == 0)
             {
@@ -391,11 +360,13 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                if (TryCreateEntry(directive, model, cancellationToken, out var entry))
+                if (!TryCreateEntry(directive, model, cancellationToken, out var entry))
                 {
-                    entries ??= new List<Entry>(capacity: 8);
-                    entries.Add(entry);
+                    continue;
                 }
+
+                entries ??= new List<Entry>(capacity: 8);
+                entries.Add(entry);
             }
         }
 
@@ -408,11 +379,13 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         {
             for (var i = 0; i < members.Count; i++)
             {
-                if (members[i] is BaseNamespaceDeclarationSyntax ns)
+                if (members[i] is not BaseNamespaceDeclarationSyntax ns)
                 {
-                    CollectUsings(ns.Usings, model, cancellationToken, ref entries);
-                    CollectNamespaceUsings(ns.Members, model, cancellationToken, ref entries);
+                    continue;
                 }
+
+                CollectUsings(ns.Usings, model, cancellationToken, ref entries);
+                CollectNamespaceUsings(ns.Members, model, cancellationToken, ref entries);
             }
         }
 
@@ -427,7 +400,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
             entry = default;
             if (directive.Alias is not null)
             {
-                entry = new Entry(directive, Target: null, directive.Alias.Name.Identifier.ValueText, IsStatic: false);
+                entry = new(directive, Target: null, directive.Alias.Name.Identifier.ValueText, IsStatic: false);
                 return true;
             }
 
@@ -444,7 +417,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     return false;
                 }
 
-                entry = new Entry(directive, type, AliasName: null, IsStatic: true);
+                entry = new(directive, type, AliasName: null, IsStatic: true);
                 return true;
             }
 
@@ -453,7 +426,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return false;
             }
 
-            entry = new Entry(directive, namespaceSymbol, AliasName: null, IsStatic: false);
+            entry = new(directive, namespaceSymbol, AliasName: null, IsStatic: false);
             return true;
         }
 
@@ -504,6 +477,42 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
             }
 
             return false;
+        }
+
+        /// <summary>Marks the namespace directives whose target contains the resolved symbol.</summary>
+        /// <param name="containingNamespace">The resolved symbol's containing namespace.</param>
+        private void MarkNamespace(INamespaceSymbol? containingNamespace)
+        {
+            if (containingNamespace is not { IsGlobalNamespace: false })
+            {
+                return;
+            }
+
+            for (var i = 0; i < _entries.Length; i++)
+            {
+                if (!_used[i] && _entries[i] is { AliasName: null, IsStatic: false, Target: INamespaceSymbol target } && NamespaceMatches(target, containingNamespace))
+                {
+                    MarkUsed(i);
+                }
+            }
+        }
+
+        /// <summary>Marks the using-static directives whose target type contains the resolved symbol.</summary>
+        /// <param name="containingType">The resolved symbol's containing type.</param>
+        private void MarkStaticType(INamedTypeSymbol? containingType)
+        {
+            if (containingType is null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < _entries.Length; i++)
+            {
+                if (!_used[i] && _entries[i].IsStatic && SymbolEqualityComparer.Default.Equals(_entries[i].Target, containingType))
+                {
+                    MarkUsed(i);
+                }
+            }
         }
 
         /// <summary>Marks the directives a bound method resolves through.</summary>
@@ -558,17 +567,11 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     /// imports are consumed) and stops as soon as every directive is marked. Also reused to scan
     /// XML documentation cref structures.
     /// </summary>
-    private sealed class SimpleNameWalker : CSharpSyntaxWalker
+    /// <param name="tracker">The shared usage tracker.</param>
+    private sealed class SimpleNameWalker(UsageTracker tracker) : CSharpSyntaxWalker
     {
         /// <summary>The shared usage tracker.</summary>
-        private readonly UsageTracker _tracker;
-
-        /// <summary>Initializes a new instance of the <see cref="SimpleNameWalker"/> class.</summary>
-        /// <param name="tracker">The shared usage tracker.</param>
-        public SimpleNameWalker(UsageTracker tracker)
-        {
-            _tracker = tracker;
-        }
+        private readonly UsageTracker _tracker = tracker;
 
         /// <summary>Gets a value indicating whether any directive is still unaccounted for.</summary>
         public bool HasWork => _tracker.Remaining > 0;
@@ -598,8 +601,8 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         }
 
         /// <inheritdoc/>
-        public override void VisitIdentifierName(IdentifierNameSyntax node)
-            => MarkSimpleName(node, node.Identifier.ValueText, node.IsVar);
+        public override void VisitIdentifierName(IdentifierNameSyntax node) =>
+            MarkSimpleName(node, node.Identifier.ValueText, node.IsVar);
 
         /// <inheritdoc/>
         public override void VisitGenericName(GenericNameSyntax node)
@@ -611,15 +614,13 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <summary>Returns whether a simple name is a leftmost usage position worth binding.</summary>
         /// <param name="node">The simple name node.</param>
         /// <returns><see langword="true"/> when binding the name can prove an import usage.</returns>
-        private static bool IsUsageCandidate(SimpleNameSyntax node)
-            => node.Parent switch
+        private static bool IsUsageCandidate(SimpleNameSyntax node) =>
+            node.Parent switch
             {
                 QualifiedNameSyntax qualified when qualified.Right == node => false,
                 MemberAccessExpressionSyntax memberAccess when memberAccess.Name == node => false,
-                MemberBindingExpressionSyntax => false,
+                MemberBindingExpressionSyntax or NameEqualsSyntax or NameColonSyntax => false,
                 AliasQualifiedNameSyntax aliasQualified when aliasQualified.Name == node => false,
-                NameEqualsSyntax => false,
-                NameColonSyntax => false,
                 AssignmentExpressionSyntax assignment when assignment.Left == node && assignment.Parent is InitializerExpressionSyntax => false,
                 _ => true,
             };
@@ -637,7 +638,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
 
             if (node.Parent is AliasQualifiedNameSyntax aliasQualified && aliasQualified.Alias == node)
             {
-                TryMarkAlias(node, text);
+                _ = TryMarkAlias(node, text);
                 return;
             }
 
@@ -688,17 +689,11 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     /// name: reduced extension members, query clauses, foreach enumerators, deconstructions,
     /// collection-initializer adds, and awaiter lookups.
     /// </summary>
-    private sealed class FallbackWalker : CSharpSyntaxWalker
+    /// <param name="tracker">The shared usage tracker.</param>
+    private sealed class FallbackWalker(UsageTracker tracker) : CSharpSyntaxWalker
     {
         /// <summary>The shared usage tracker.</summary>
-        private readonly UsageTracker _tracker;
-
-        /// <summary>Initializes a new instance of the <see cref="FallbackWalker"/> class.</summary>
-        /// <param name="tracker">The shared usage tracker.</param>
-        public FallbackWalker(UsageTracker tracker)
-        {
-            _tracker = tracker;
-        }
+        private readonly UsageTracker _tracker = tracker;
 
         /// <inheritdoc/>
         public override void Visit(SyntaxNode? node)
@@ -928,8 +923,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
 
         /// <summary>Marks the enumerator method a foreach statement binds.</summary>
         /// <param name="node">The foreach statement.</param>
-        private void MarkForEach(CommonForEachStatementSyntax node)
-            => _tracker.MarkExtensionMethod(_tracker.Model.GetForEachStatementInfo(node).GetEnumeratorMethod);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void MarkForEach(CommonForEachStatementSyntax node) =>
+            _tracker.MarkExtensionMethod(_tracker.Model.GetForEachStatementInfo(node).GetEnumeratorMethod);
 
         /// <summary>Marks the Deconstruct methods a deconstruction binds, including nested ones.</summary>
         /// <param name="info">The deconstruction info.</param>

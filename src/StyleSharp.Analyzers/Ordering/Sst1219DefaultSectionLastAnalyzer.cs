@@ -35,15 +35,16 @@ public sealed class Sst1219DefaultSectionLastAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var switchStatement = (SwitchStatementSyntax)context.Node;
-        var sections = switchStatement.Sections;
+        var sections = ((SwitchStatementSyntax)context.Node).Sections;
         for (var i = 0; i < sections.Count - 1; i++)
         {
-            if (FindDefaultLabel(sections[i]) is { } label)
+            if (FindDefaultLabel(sections[i]) is not { } label)
             {
-                context.ReportDiagnostic(DiagnosticHelper.Create(OrderingRules.DefaultSectionLast, label.Keyword.GetLocation()));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(DiagnosticHelper.Create(OrderingRules.DefaultSectionLast, label.Keyword.GetLocation()));
+            return;
         }
     }
 

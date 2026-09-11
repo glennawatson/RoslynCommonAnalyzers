@@ -102,7 +102,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
     /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
     /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -133,7 +133,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
     /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
     /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -159,7 +159,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
             timeSpanType,
             GetArgumentForParameter(invocation.ArgumentList.Arguments, GetPatternOrdinal(method), PatternParameterName),
             GetArgumentForParameter(invocation.ArgumentList.Arguments, GetOptionsOrdinal(method, optionsType), OptionsParameterName),
-            "Regex." + method.Name);
+            $"Regex.{method.Name}");
     }
 
     /// <summary>Reports SES1509 for a <c>[GeneratedRegex(pattern, ...)]</c> whose constant pattern is ReDoS-prone.</summary>
@@ -167,7 +167,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="attributeType">The gated <c>GeneratedRegexAttribute</c> type resolved for the compilation.</param>
     /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
     /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
     {
         var attribute = (AttributeSyntax)context.Node;
 
@@ -201,7 +201,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="optionsExpression">The options argument expression, or <see langword="null"/> when absent.</param>
     /// <param name="sink">The message label identifying the call.</param>
     private static void ReportWhenVulnerable(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         IMethodSymbol method,
         INamedTypeSymbol timeSpanType,
         ExpressionSyntax? patternExpression,
@@ -266,8 +266,8 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="patternExpression">The pattern argument expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the constant pattern nests or overlaps quantifiers.</returns>
-    private static bool IsConstantBacktrackingPronePattern(SemanticModel model, ExpressionSyntax patternExpression, CancellationToken cancellationToken)
-        => model.GetConstantValue(patternExpression, cancellationToken) is { HasValue: true, Value: string pattern }
+    private static bool IsConstantBacktrackingPronePattern(SemanticModel model, ExpressionSyntax patternExpression, CancellationToken cancellationToken) =>
+        model.GetConstantValue(patternExpression, cancellationToken) is { HasValue: true, Value: string pattern }
             && HasNestedOrOverlappingQuantifier(pattern);
 
     /// <summary>Returns the argument expression bound to a parameter, honouring an explicit name.</summary>
@@ -348,19 +348,18 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <summary>Returns whether an object-creation type names the <c>Regex</c> type.</summary>
     /// <param name="type">The created type syntax.</param>
     /// <returns><see langword="true"/> when the right-most name is <c>Regex</c>.</returns>
-    private static bool IsRegexTypeName(TypeSyntax type)
-        => type switch
+    private static bool IsRegexTypeName(TypeSyntax type) =>
+        type switch
         {
-            IdentifierNameSyntax { Identifier.ValueText: RegexTypeName } => true,
-            QualifiedNameSyntax { Right.Identifier.ValueText: RegexTypeName } => true,
+            IdentifierNameSyntax { Identifier.ValueText: RegexTypeName } or QualifiedNameSyntax { Right.Identifier.ValueText: RegexTypeName } => true,
             _ => false,
         };
 
     /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
     /// <param name="name">The attribute's name syntax.</param>
     /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name)
-        => name switch
+    private static string? GetAttributeSimpleName(NameSyntax name) =>
+        name switch
         {
             SimpleNameSyntax simple => simple.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
@@ -371,8 +370,8 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <summary>Returns whether a name is one of the guarded static <c>Regex</c> methods.</summary>
     /// <param name="name">The candidate method name.</param>
     /// <returns><see langword="true"/> for <c>IsMatch</c>, <c>Match</c>, <c>Matches</c>, <c>Replace</c>, <c>Split</c>, or <c>Count</c>.</returns>
-    private static bool IsGuardedStaticMethodName(string name)
-        => name switch
+    private static bool IsGuardedStaticMethodName(string name) =>
+        name switch
         {
             "IsMatch" or "Match" or "Matches" or "Replace" or "Split" or "Count" => true,
             _ => false,
@@ -522,7 +521,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
         }
 
         var c = pattern[index];
-        return c == '*' || c == '+' || (c == '{' && IsOpenEndedBrace(pattern, index));
+        return c is '*' or '+' || (c == '{' && IsOpenEndedBrace(pattern, index));
     }
 
     /// <summary>Returns whether a brace quantifier at <paramref name="index"/> has no upper bound (<c>{n,}</c>).</summary>
@@ -597,9 +596,8 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
     /// <param name="c">The character under inspection.</param>
     /// <param name="depth">The parenthesis nesting depth at <paramref name="index"/>.</param>
     /// <returns><see langword="true"/> for <c>*</c>, <c>+</c>, an open-ended <c>{n,}</c>, or a top-level <c>|</c>.</returns>
-    private static bool RepeatsOrTopLevelAlternates(string pattern, int index, char c, int depth)
-        => c == '*'
-            || c == '+'
+    private static bool RepeatsOrTopLevelAlternates(string pattern, int index, char c, int depth) =>
+        c is '*' or '+'
             || (c == '{' && IsOpenEndedBrace(pattern, index))
             || (c == '|' && depth == 0);
 }

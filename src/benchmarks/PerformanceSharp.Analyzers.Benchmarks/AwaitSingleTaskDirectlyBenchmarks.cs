@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for await-single-task-directly analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("AwaitSingleTaskDirectlyBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class AwaitSingleTaskDirectlyBenchmarks
@@ -24,11 +26,13 @@ public class AwaitSingleTaskDirectlyBenchmarks
 
     /// <summary>Benchmarks the clean await-single-task-directly path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AwaitSingleTaskDirectly_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating await-single-task-directly path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AwaitSingleTaskDirectly_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

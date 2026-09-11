@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -27,7 +29,7 @@ internal static class IteratorGuardAnalysis
     /// one of them must check an argument, though — otherwise the method is not validating what it was
     /// handed, and this rule has nothing to say about when it runs.
     /// </remarks>
-    public static int CountLeadingGuards(BlockSyntax body, ParameterListSyntax parameters)
+    internal static int CountLeadingGuards(BlockSyntax body, ParameterListSyntax parameters)
     {
         if (parameters.Parameters.Count == 0)
         {
@@ -52,7 +54,8 @@ internal static class IteratorGuardAnalysis
     /// A <c>yield</c> inside a nested lambda or local function belongs to that function, not to the method
     /// around it, so the walk stops at both.
     /// </remarks>
-    public static bool IsIterator(BlockSyntax body) => ContainsYield(body);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsIterator(BlockSyntax body) => ContainsYield(body);
 
     /// <summary>Returns whether a statement is a guard that throws.</summary>
     /// <param name="statement">The statement.</param>
@@ -87,8 +90,7 @@ internal static class IteratorGuardAnalysis
     /// <returns><see langword="true"/> when reaching it means throwing.</returns>
     private static bool Throws(StatementSyntax statement) => statement switch
     {
-        ThrowStatementSyntax => true,
-        BlockSyntax { Statements: [.., ThrowStatementSyntax] } => true,
+        ThrowStatementSyntax or BlockSyntax { Statements: [.., ThrowStatementSyntax] } => true,
         _ => false,
     };
 
@@ -99,8 +101,8 @@ internal static class IteratorGuardAnalysis
     /// Matched on shape rather than on a list of names, so a helper added to the framework later — or one of
     /// the project's own, following the same convention — is recognized without a change here.
     /// </remarks>
-    private static bool IsThrowHelper(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax access
+    private static bool IsThrowHelper(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText.StartsWith(ThrowHelperPrefix, StringComparison.Ordinal)
             && GetSimpleName(access.Expression) is { } receiver
             && receiver.EndsWith(ExceptionSuffix, StringComparison.Ordinal);
@@ -122,7 +124,7 @@ internal static class IteratorGuardAnalysis
     private static bool ReferencesParameter(SyntaxNode node, ParameterListSyntax parameters)
     {
         var scan = new ParameterScan(parameters);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ParameterScan>(node, ref scan, VisitIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ParameterScan>(node, ref scan, VisitIdentifier);
         return scan.Found || (node is IdentifierNameSyntax self && NamesParameter(self, parameters));
     }
 

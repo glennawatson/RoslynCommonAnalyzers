@@ -20,8 +20,8 @@ public sealed class Sst2461UndefinedFlagInCompositeValueAnalyzer : DiagnosticAna
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.UndefinedFlagInCompositeValue);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -82,7 +82,7 @@ public sealed class Sst2461UndefinedFlagInCompositeValueAnalyzer : DiagnosticAna
     /// The value is read as an unsigned bit pattern because that is what a flags comparison cares about; a
     /// negative signed value simply sets its high bits.
     /// </remarks>
-    private static ulong? TryGetValue(SyntaxNodeAnalysisContext context, EnumMemberDeclarationSyntax member)
+    private static ulong? TryGetValue(in SyntaxNodeAnalysisContext context, EnumMemberDeclarationSyntax member)
     {
         if (context.SemanticModel.GetDeclaredSymbol(member, context.CancellationToken) is not { ConstantValue: { } constant })
         {

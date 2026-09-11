@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2428StaticInitializerReadsLaterFieldAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 {
     /// <summary>Verifies an initializer that reads a later static field of the same type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadsLaterFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadsLaterFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -25,9 +27,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 
     /// <summary>Verifies reading a static field declared earlier is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadsEarlierFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadsEarlierFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -38,9 +41,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 
     /// <summary>Verifies reading a later constant is left alone: a constant has no ordering to get wrong.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadsLaterConstIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadsLaterConstIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -51,9 +55,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 
     /// <summary>Verifies reading a later static field of a different type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadsLaterFieldOfDifferentTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReadsLaterFieldOfDifferentTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -68,9 +73,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 
     /// <summary>Verifies an instance field initializer that reads a later static field is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceFieldInitializerIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InstanceFieldInitializerIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -81,9 +87,10 @@ public class Sst2428StaticInitializerReadsLaterFieldAnalyzerUnitTest
 
     /// <summary>Verifies a static field with no initializer is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoInitializerIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NoInitializerIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class C
             {

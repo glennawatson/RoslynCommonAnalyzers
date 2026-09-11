@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyNegatedIs = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -63,9 +64,10 @@ public class NegatedIsPatternAnalyzerUnitTest
 
     /// <summary>Verifies an existing <c>is not</c> pattern and a negated boolean are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModernAndUnrelatedNegationsAreCleanAsync()
-        => await VerifyNegatedIs.VerifyAnalyzerAsync(
+    public Task ModernAndUnrelatedNegationsAreCleanAsync() =>
+        VerifyNegatedIs.VerifyAnalyzerAsync(
             """
             public class C
             {

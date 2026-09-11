@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -48,7 +50,7 @@ internal static class CollectionTypeClassification
     /// collection, and a span is a view over storage that cannot be null in the first place. Both are
     /// rejected before the interface walk.
     /// </remarks>
-    public static bool IsCollection(ITypeSymbol type)
+    internal static bool IsCollection(ITypeSymbol type)
     {
         if (type is IArrayTypeSymbol)
         {
@@ -87,7 +89,7 @@ internal static class CollectionTypeClassification
     /// read-only-wrapper types carry those interfaces too — and throw from every one of them — so they
     /// are rejected by namespace before the interfaces are looked at.
     /// </remarks>
-    public static bool IsMutableCollection(ITypeSymbol type)
+    internal static bool IsMutableCollection(ITypeSymbol type)
     {
         if (type is IArrayTypeSymbol)
         {
@@ -125,8 +127,9 @@ internal static class CollectionTypeClassification
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> when the framework, and not the caller, owns the name.</returns>
     /// <remarks>A rule that keys off a type name — <c>IList</c>, <c>ISet</c> — has to know whose name it is.</remarks>
-    public static bool IsInSystemCollectionsGeneric(INamedTypeSymbol type)
-        => IsCollectionsChildNamespace(type.ContainingNamespace, GenericNamespaceName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsInSystemCollectionsGeneric(INamedTypeSymbol type) =>
+        IsCollectionsChildNamespace(type.ContainingNamespace, GenericNamespaceName);
 
     /// <summary>Returns whether a named type is one of the interfaces through which a collection is changed.</summary>
     /// <param name="type">The candidate interface.</param>
@@ -166,8 +169,8 @@ internal static class CollectionTypeClassification
     /// <summary>Returns whether a namespace is <c>System.Collections</c>.</summary>
     /// <param name="namespaceSymbol">The namespace to test.</param>
     /// <returns><see langword="true"/> when the namespace is exactly <c>System.Collections</c>.</returns>
-    private static bool IsCollectionsNamespace(INamespaceSymbol? namespaceSymbol)
-        => namespaceSymbol is
+    private static bool IsCollectionsNamespace(INamespaceSymbol? namespaceSymbol) =>
+        namespaceSymbol is
         {
             Name: CollectionsNamespaceName,
             ContainingNamespace: { Name: SystemNamespaceName, ContainingNamespace.IsGlobalNamespace: true },
@@ -177,8 +180,8 @@ internal static class CollectionTypeClassification
     /// <param name="namespaceSymbol">The namespace to test.</param>
     /// <param name="name">The expected child namespace name.</param>
     /// <returns><see langword="true"/> when the namespace is <c>System.Collections.&lt;name&gt;</c>.</returns>
-    private static bool IsCollectionsChildNamespace(INamespaceSymbol? namespaceSymbol, string name)
-        => namespaceSymbol is not null
+    private static bool IsCollectionsChildNamespace(INamespaceSymbol? namespaceSymbol, string name) =>
+        namespaceSymbol is not null
             && string.Equals(namespaceSymbol.Name, name, StringComparison.Ordinal)
             && IsCollectionsNamespace(namespaceSymbol.ContainingNamespace);
 }

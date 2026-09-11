@@ -63,7 +63,7 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="setInterface">The resolved <c>ISet&lt;T&gt;</c> definition, if any.</param>
     /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol? setInterface, INamedTypeSymbol? listInterface)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? setInterface, INamedTypeSymbol? listInterface)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax member)
@@ -97,8 +97,8 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method name is one of the self-applicable collection operations.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for a known set or list operation.</returns>
-    private static bool IsSelfCollectionMethod(string name)
-        => name is "UnionWith" or "IntersectWith" or "ExceptWith" or "SymmetricExceptWith"
+    private static bool IsSelfCollectionMethod(string name) =>
+        name is "UnionWith" or "IntersectWith" or "ExceptWith" or "SymmetricExceptWith"
             or "SetEquals" or "IsSubsetOf" or "IsSupersetOf" or AddRange or InsertRange;
 
     /// <summary>Returns whether a method name is a list operation.</summary>
@@ -126,12 +126,7 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
             return "this is always true";
         }
 
-        if (name is AddRange or InsertRange)
-        {
-            return "this doubles the collection";
-        }
-
-        return "the collection cannot change";
+        return name is AddRange or InsertRange ? "this doubles the collection" : "the collection cannot change";
     }
 
     /// <summary>Returns whether a type is, or implements, an interface definition.</summary>
@@ -161,7 +156,7 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The first expression.</param>
     /// <param name="second">The second expression.</param>
     /// <returns><see langword="true"/> when evaluating either twice is provably the same.</returns>
-    private static bool SameSideEffectFree(ExpressionSyntax first, ExpressionSyntax second)
-        => SideEffectFreeExpression.IsSideEffectFree(first)
+    private static bool SameSideEffectFree(ExpressionSyntax first, ExpressionSyntax second) =>
+        SideEffectFreeExpression.IsSideEffectFree(first)
             && SyntaxFactory.AreEquivalent(first, second, topLevel: false);
 }

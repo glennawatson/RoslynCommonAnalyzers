@@ -35,9 +35,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The mask that maps a literal's hash onto one of the filter's 64 buckets.</summary>
-    private const int BucketMask = 63;
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.DuplicatedStringLiteral);
 
@@ -61,14 +58,14 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
         var root = tree.GetRoot(context.CancellationToken);
 
         var survey = new LiteralScan(options.MinimumLength);
-        DescendantTraversalHelper.VisitDescendantTokens(root, ref survey, static (in SyntaxToken token, ref LiteralScan state) => state.Observe(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref survey, static (in SyntaxToken token, ref LiteralScan state) => state.Observe(in token));
         if (!survey.CouldRepeat(options.Threshold))
         {
             return;
         }
 
         var tally = new LiteralScan(options.MinimumLength, survey.Counted);
-        DescendantTraversalHelper.VisitDescendantTokens(root, ref tally, static (in SyntaxToken token, ref LiteralScan state) => state.Observe(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref tally, static (in SyntaxToken token, ref LiteralScan state) => state.Observe(in token));
         Report(context, tally.Occurrences, options.Threshold);
     }
 
@@ -76,7 +73,7 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax-tree analysis context.</param>
     /// <param name="occurrences">The tallied literals.</param>
     /// <param name="threshold">The number of copies at which a literal is reported.</param>
-    private static void Report(SyntaxTreeAnalysisContext context, Dictionary<string, Occurrence> occurrences, int threshold)
+    private static void Report(in SyntaxTreeAnalysisContext context, Dictionary<string, Occurrence> occurrences, int threshold)
     {
         foreach (var entry in occurrences)
         {
@@ -104,8 +101,15 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
     /// The per-file scan state. Constructed without a dictionary it surveys — counting the countable literals
     /// and folding their hashes into a bucket filter, allocating nothing. Constructed with one it tallies.
     /// </summary>
-    private struct LiteralScan : IEquatable<LiteralScan>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct LiteralScan
     {
+        /// <summary>The mask that maps a literal's hash onto one of the filter's 64 buckets.</summary>
+        private const int BucketMask = 63;
+
         /// <summary>The shortest literal that counts.</summary>
         private readonly int _minimumLength;
 
@@ -138,7 +142,7 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
         public LiteralScan(int minimumLength, int capacity)
         {
             _minimumLength = minimumLength;
-            _occurrences = new Dictionary<string, Occurrence>(capacity, StringComparer.Ordinal);
+            _occurrences = new(capacity, StringComparer.Ordinal);
             _seen = 0;
             _collided = 0;
             _counted = 0;
@@ -185,21 +189,6 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
 
             return true;
         }
-
-        /// <summary>Returns whether two scan states are equivalent.</summary>
-        /// <param name="other">The other state.</param>
-        /// <returns><see langword="true"/> when the tracked state is equal.</returns>
-        public readonly bool Equals(LiteralScan other)
-            => _counted == other._counted
-                && _seen == other._seen
-                && _collided == other._collided
-                && ReferenceEquals(_occurrences, other._occurrences);
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is LiteralScan other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => unchecked((_counted * 397) ^ (int)_seen);
 
         /// <summary>Reads the value of a string literal token that is worth counting.</summary>
         /// <param name="token">The token being visited.</param>
@@ -266,8 +255,7 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
                 {
                     // `[Obsolete("use X instead")]` on twenty members is idiomatic, not twenty duplicates, and
                     // `case "read":` is a value the switch already names structurally.
-                    case AttributeSyntax:
-                    case SwitchLabelSyntax:
+                    case AttributeSyntax or SwitchLabelSyntax:
                         return true;
                     case SwitchExpressionArmSyntax arm when ReferenceEquals(previous, arm.Pattern):
                         return true;
@@ -281,9 +269,7 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
                         return local.IsConst;
 
                     // A lambda does not inherit the name of the field it is assigned to, so the walk ends here.
-                    case AnonymousFunctionExpressionSyntax:
-                    case StatementSyntax:
-                    case MemberDeclarationSyntax:
+                    case AnonymousFunctionExpressionSyntax or StatementSyntax or MemberDeclarationSyntax:
                         return false;
                 }
 
@@ -296,14 +282,14 @@ public sealed class Sst1486DuplicatedStringLiteralAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether an invocation is a <c>nameof</c> operator.</summary>
         /// <param name="invocation">The invocation.</param>
         /// <returns><see langword="true"/> for <c>nameof(...)</c>.</returns>
-        private static bool IsNameOfInvocation(InvocationExpressionSyntax invocation)
-            => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" };
+        private static bool IsNameOfInvocation(InvocationExpressionSyntax invocation) =>
+            invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: "nameof" };
 
         /// <summary>Returns whether a field declaration is the named home of a constant value.</summary>
         /// <param name="modifiers">The field's modifiers.</param>
         /// <returns><see langword="true"/> for a <c>const</c> or a <c>static readonly</c> field.</returns>
-        private static bool IsNamedConstantField(SyntaxTokenList modifiers)
-            => ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
+        private static bool IsNamedConstantField(in SyntaxTokenList modifiers) =>
+            ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
                 || (ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)
                     && ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword));
     }

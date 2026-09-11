@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDefaultSection = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.RedundantDefaultSwitchSectionCodeFixProvider>;
@@ -154,9 +155,10 @@ public class RedundantDefaultSwitchSectionAnalyzerUnitTest
     /// The section is what marks the mapping deliberately partial, so removing it turns the switch into
     /// an incomplete enum mapping (SST2242).
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BreakingDefaultOverAnEnumIsCleanAsync()
-        => await VerifyDefaultSection.VerifyAnalyzerAsync(
+    public Task BreakingDefaultOverAnEnumIsCleanAsync() =>
+        VerifyDefaultSection.VerifyAnalyzerAsync(
             """
             public enum Level
             {
@@ -181,9 +183,10 @@ public class RedundantDefaultSwitchSectionAnalyzerUnitTest
 
     /// <summary>Verifies a default section that does real work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultWithWorkIsCleanAsync()
-        => await VerifyDefaultSection.VerifyAnalyzerAsync(
+    public Task DefaultWithWorkIsCleanAsync() =>
+        VerifyDefaultSection.VerifyAnalyzerAsync(
             """
             public class C
             {

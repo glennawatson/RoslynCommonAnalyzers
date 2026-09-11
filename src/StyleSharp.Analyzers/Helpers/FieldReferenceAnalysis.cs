@@ -9,20 +9,6 @@ namespace StyleSharp.Analyzers;
 /// <summary>Shared conservative semantic checks for private-field simplification rules.</summary>
 internal static class FieldReferenceAnalysis
 {
-    /// <summary>
-    /// Caches, per containing type, the identifiers that share a declared field name. Building this
-    /// once per type turns the single-use check from a whole-type rescan per property into one shared
-    /// syntactic scan, so a type with many backing-field properties no longer costs quadratic time.
-    /// </summary>
-    private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldReferenceIndex> IndexCache = new();
-
-    /// <summary>
-    /// Caches, per containing type, the declaration each declared field name resolves to. Without it every
-    /// property rescans all of its type's members to find one backing field, so a type with many such
-    /// properties costs quadratic time.
-    /// </summary>
-    private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldDeclarationIndex> DeclarationIndexCache = new();
-
     /// <summary>Finds a private single-variable backing field referenced by a property and nowhere else.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="property">The property declaration.</param>
@@ -31,7 +17,7 @@ internal static class FieldReferenceAnalysis
     /// <param name="variable">The backing-field variable.</param>
     /// <param name="symbol">The backing-field symbol.</param>
     /// <returns><see langword="true"/> when a suitable single-use field is found.</returns>
-    public static bool TryFindSingleUseBackingField(
+    internal static bool TryFindSingleUseBackingField(
         SemanticModel model,
         PropertyDeclarationSyntax property,
         CancellationToken cancellationToken,
@@ -72,7 +58,7 @@ internal static class FieldReferenceAnalysis
     /// <param name="variable">The backing-field variable.</param>
     /// <param name="symbol">The backing-field symbol.</param>
     /// <returns><see langword="true"/> when a suitable single-use field is found.</returns>
-    public static bool TryFindSingleUseBackingField(
+    internal static bool TryFindSingleUseBackingField(
         SemanticModel model,
         PropertyDeclarationSyntax property,
         string fieldName,
@@ -110,7 +96,7 @@ internal static class FieldReferenceAnalysis
     /// <param name="allowed">The node allowed to contain references.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when all references are inside the allowed node.</returns>
-    public static bool OnlyReferencedInside(
+    internal static bool OnlyReferencedInside(
         SemanticModel model,
         TypeDeclarationSyntax type,
         IFieldSymbol field,
@@ -147,13 +133,15 @@ internal static class FieldReferenceAnalysis
     /// Callers must still bind each returned identifier with their own semantic model to confirm it
     /// references the intended field; the index is purely syntactic (name-matched) and compilation-agnostic.
     /// </remarks>
-    internal static IReadOnlyList<IdentifierNameSyntax> FieldNameReferences(TypeDeclarationSyntax type, string fieldName)
-        => TypeFieldReferenceIndex.GetOrCreate(type).ReferencesFor(fieldName);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static IReadOnlyList<IdentifierNameSyntax> FieldNameReferences(TypeDeclarationSyntax type, string fieldName) =>
+        TypeFieldReferenceIndex.GetOrCreate(type).ReferencesFor(fieldName);
 
     /// <summary>Returns whether an expression is syntactically known to reference a private object field declared in the same type.</summary>
     /// <param name="type">The containing type declaration.</param>
     /// <param name="expression">The already-unwrapped expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression safely names a private object field.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool IsPrivateObjectFieldLockTarget(TypeDeclarationSyntax type, ExpressionSyntax expression) =>
         TryGetPrivateObjectFieldLockTarget(type, expression, out _);
 
@@ -183,8 +171,8 @@ internal static class FieldReferenceAnalysis
         return expression.Parent switch
         {
             AssignmentExpressionSyntax assignment when assignment.Left == expression => true,
-            PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) ||
-                                                  prefix.IsKind(SyntaxKind.PreDecrementExpression),
+            PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression)
+                                                  || prefix.IsKind(SyntaxKind.PreDecrementExpression),
             _ => expression.Parent is PostfixUnaryExpressionSyntax or ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 }
         };
     }
@@ -230,14 +218,15 @@ internal static class FieldReferenceAnalysis
     /// <summary>Returns whether a property declares accessors or an expression body.</summary>
     /// <param name="property">The property declaration.</param>
     /// <returns><see langword="true"/> when the property has a body that can reference a field.</returns>
-    private static bool HasBody(PropertyDeclarationSyntax property)
-        => property.AccessorList is not null || property.ExpressionBody is not null;
+    private static bool HasBody(PropertyDeclarationSyntax property) =>
+        property.AccessorList is not null || property.ExpressionBody is not null;
 
     /// <summary>Returns whether a property is declared <c>static</c>.</summary>
     /// <param name="property">The property declaration.</param>
     /// <returns><see langword="true"/> when the property is static.</returns>
-    private static bool IsStaticProperty(PropertyDeclarationSyntax property)
-        => ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsStaticProperty(PropertyDeclarationSyntax property) =>
+        ModifierListHelper.Contains(property.Modifiers, SyntaxKind.StaticKeyword);
 
     /// <summary>Returns whether a field and declaration meet the shared eligibility requirements.</summary>
     /// <param name="candidate">The field symbol.</param>
@@ -437,12 +426,13 @@ internal static class FieldReferenceAnalysis
     /// <param name="declaration">The matching field declaration.</param>
     /// <param name="declarator">The matching variable declarator.</param>
     /// <returns><see langword="true"/> when the field declaration is found.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool TryFindFieldDeclaration(
         TypeDeclarationSyntax type,
         string name,
         out FieldDeclarationSyntax? declaration,
-        out VariableDeclaratorSyntax? declarator)
-        => TypeFieldDeclarationIndex.GetOrCreate(type).TryGet(name, out declaration, out declarator);
+        out VariableDeclaratorSyntax? declarator) =>
+        TypeFieldDeclarationIndex.GetOrCreate(type).TryGet(name, out declaration, out declarator);
 
     /// <summary>Finds a matching private object field declared directly in the type.</summary>
     /// <param name="type">The containing type declaration.</param>
@@ -453,11 +443,13 @@ internal static class FieldReferenceAnalysis
     {
         for (var i = 0; i < type.Members.Count; i++)
         {
-            if (type.Members[i] is FieldDeclarationSyntax field && IsPrivateObjectField(field, name))
+            if (type.Members[i] is not FieldDeclarationSyntax field || !IsPrivateObjectField(field, name))
             {
-                declaration = field;
-                return true;
+                continue;
             }
+
+            declaration = field;
+            return true;
         }
 
         declaration = null;
@@ -552,15 +544,15 @@ internal static class FieldReferenceAnalysis
     private static bool HasEarlierLocalNamed(SyntaxNode scope, int position, string name)
     {
         var state = new EarlierLocalSearchState(position, name, Found: false);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, EarlierLocalSearchState>(scope, ref state, VisitEarlierLocalCandidate);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, EarlierLocalSearchState>(scope, ref state, VisitEarlierLocalCandidate);
         return state.Found;
     }
 
     /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
     /// <param name="type">The type syntax.</param>
     /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
-    private static bool IsUnambiguousObjectType(TypeSyntax type)
-        => (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
+    private static bool IsUnambiguousObjectType(TypeSyntax type) =>
+        (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
             || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
 
     /// <summary>Records whether the scan has found a matching local declared before the reference.</summary>
@@ -593,7 +585,7 @@ internal static class FieldReferenceAnalysis
     /// <summary>Returns whether a modifier list contains <c>private</c>.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>
     /// <returns><see langword="true"/> when the field is private.</returns>
-    private static bool HasPrivateModifier(SyntaxTokenList modifiers)
+    private static bool HasPrivateModifier(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -609,11 +601,14 @@ internal static class FieldReferenceAnalysis
     /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
     /// <param name="name">The syntax to inspect.</param>
     /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
-    private static bool IsSystemNamespace(NameSyntax name)
-        => name is IdentifierNameSyntax { Identifier.ValueText: "System" }
+    private static bool IsSystemNamespace(NameSyntax name) =>
+        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
             or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Captures the state required while searching for earlier locals.</summary>
+    /// <param name="Position">The position of the field reference; only declarations starting before it can shadow it.</param>
+    /// <param name="Name">The identifier text a candidate declaration has to match.</param>
+    /// <param name="Found"><see langword="true"/> once a matching declaration has been seen, which also ends the walk.</param>
     private readonly record struct EarlierLocalSearchState(int Position, string Name, bool Found);
 
     /// <summary>One field declaration and the declarator that names it.</summary>
@@ -626,23 +621,32 @@ internal static class FieldReferenceAnalysis
     /// <summary>Maps each field name declared in a type to its declaration, built once per type.</summary>
     private sealed class TypeFieldDeclarationIndex
     {
+        /// <summary>
+        /// Caches, per containing type, the declaration each declared field name resolves to. Without it every
+        /// property rescans all of its type's members to find one backing field, so a type with many such
+        /// properties costs quadratic time.
+        /// </summary>
+        private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldDeclarationIndex> DeclarationIndexCache = new();
+
         /// <summary>The field declarations in the type keyed by declared name.</summary>
         private readonly Dictionary<string, FieldDeclarationEntry> _declarationsByName;
 
         /// <summary>Initializes a new instance of the <see cref="TypeFieldDeclarationIndex"/> class.</summary>
         /// <param name="declarationsByName">The field declarations keyed by declared name.</param>
-        private TypeFieldDeclarationIndex(Dictionary<string, FieldDeclarationEntry> declarationsByName)
-            => _declarationsByName = declarationsByName;
+        private TypeFieldDeclarationIndex(Dictionary<string, FieldDeclarationEntry> declarationsByName) =>
+            _declarationsByName = declarationsByName;
 
         /// <summary>Gets the cached index for a type, building it on first request.</summary>
         /// <param name="type">The containing type declaration.</param>
         /// <returns>The declaration index for the type.</returns>
-        public static TypeFieldDeclarationIndex GetOrCreate(TypeDeclarationSyntax type)
-            => DeclarationIndexCache.GetValue(type, Build);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TypeFieldDeclarationIndex GetOrCreate(TypeDeclarationSyntax type) =>
+            DeclarationIndexCache.GetValue(type, Build);
 
         /// <summary>Returns whether the type declares a field with the supplied name.</summary>
         /// <param name="name">The candidate field name.</param>
         /// <returns><see langword="true"/> when the name is a declared field of the type.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(string name) => _declarationsByName.ContainsKey(name);
 
         /// <summary>Looks up the declaration of a field by name.</summary>
@@ -686,12 +690,12 @@ internal static class FieldReferenceAnalysis
                     var name = variable.Identifier.ValueText;
                     if (!declarationsByName.ContainsKey(name))
                     {
-                        declarationsByName.Add(name, new FieldDeclarationEntry(field, variable));
+                        declarationsByName.Add(name, new(field, variable));
                     }
                 }
             }
 
-            return new TypeFieldDeclarationIndex(declarationsByName);
+            return new(declarationsByName);
         }
     }
 
@@ -701,25 +705,33 @@ internal static class FieldReferenceAnalysis
         /// <summary>The empty result returned when a name is never referenced.</summary>
         private static readonly IReadOnlyList<IdentifierNameSyntax> None = [];
 
+        /// <summary>
+        /// Caches, per containing type, the identifiers that share a declared field name. Building this
+        /// once per type turns the single-use check from a whole-type rescan per property into one shared
+        /// syntactic scan, so a type with many backing-field properties no longer costs quadratic time.
+        /// </summary>
+        private static readonly ConditionalWeakTable<TypeDeclarationSyntax, TypeFieldReferenceIndex> IndexCache = new();
+
         /// <summary>The identifiers in the type grouped by the declared field name they spell.</summary>
         private readonly Dictionary<string, List<IdentifierNameSyntax>> _referencesByName;
 
         /// <summary>Initializes a new instance of the <see cref="TypeFieldReferenceIndex"/> class.</summary>
         /// <param name="referencesByName">The identifiers grouped by declared field name.</param>
-        private TypeFieldReferenceIndex(Dictionary<string, List<IdentifierNameSyntax>> referencesByName)
-            => _referencesByName = referencesByName;
+        private TypeFieldReferenceIndex(Dictionary<string, List<IdentifierNameSyntax>> referencesByName) =>
+            _referencesByName = referencesByName;
 
         /// <summary>Gets the cached index for a type, building it on first request.</summary>
         /// <param name="type">The containing type declaration.</param>
         /// <returns>The reference index for the type.</returns>
-        public static TypeFieldReferenceIndex GetOrCreate(TypeDeclarationSyntax type)
-            => IndexCache.GetValue(type, Build);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static TypeFieldReferenceIndex GetOrCreate(TypeDeclarationSyntax type) =>
+            IndexCache.GetValue(type, Build);
 
         /// <summary>Returns every identifier in the type whose text matches a declared field name.</summary>
         /// <param name="name">The field name.</param>
         /// <returns>The matching identifiers, or an empty list when the name is never referenced.</returns>
-        public IReadOnlyList<IdentifierNameSyntax> ReferencesFor(string name)
-            => _referencesByName.TryGetValue(name, out var references) ? references : None;
+        public IReadOnlyList<IdentifierNameSyntax> ReferencesFor(string name) =>
+            _referencesByName.TryGetValue(name, out var references) ? references : None;
 
         /// <summary>Builds the index by scanning the type once for identifiers that name a declared field.</summary>
         /// <param name="type">The containing type declaration.</param>
@@ -731,10 +743,10 @@ internal static class FieldReferenceAnalysis
             if (fieldNames.Count > 0)
             {
                 var state = new ReferenceCollectorState(fieldNames, referencesByName);
-                DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReferenceCollectorState>(type, ref state, CollectReference);
+                _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReferenceCollectorState>(type, ref state, CollectReference);
             }
 
-            return new TypeFieldReferenceIndex(referencesByName);
+            return new(referencesByName);
         }
 
         /// <summary>Records an identifier whose text matches a declared field name.</summary>
@@ -775,7 +787,7 @@ internal static class FieldReferenceAnalysis
                 var variables = field.Declaration.Variables;
                 for (var j = 0; j < variables.Count; j++)
                 {
-                    names.Add(variables[j].Identifier.ValueText);
+                    _ = names.Add(variables[j].Identifier.ValueText);
                 }
             }
 
@@ -783,6 +795,8 @@ internal static class FieldReferenceAnalysis
         }
 
         /// <summary>Threads the field-name filter and reference map through the descendant walk.</summary>
+        /// <param name="FieldNames">The names declared as fields in the type; an identifier is recorded only when its text matches one.</param>
+        /// <param name="ReferencesByName">The map being filled, keyed by declared field name, holding every identifier that spells it.</param>
         private readonly record struct ReferenceCollectorState(
             HashSet<string> FieldNames,
             Dictionary<string, List<IdentifierNameSyntax>> ReferencesByName);

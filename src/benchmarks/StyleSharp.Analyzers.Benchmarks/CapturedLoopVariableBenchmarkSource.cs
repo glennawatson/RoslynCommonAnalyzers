@@ -11,8 +11,8 @@ internal static class CapturedLoopVariableBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
 
@@ -24,8 +24,8 @@ internal static class CapturedLoopVariableBenchmarkSource
     /// <summary>Builds one type whose loop delegates run in place or capture a stable local.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void InPlace(List<int> items)
@@ -48,8 +48,8 @@ internal static class CapturedLoopVariableBenchmarkSource
     /// <summary>Builds one type whose loop delegate captures the for variable and escapes.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Escaping(List<Action> handlers)

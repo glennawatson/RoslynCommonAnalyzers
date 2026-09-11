@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Deletes an <c>override</c> that only forwards to its base member (SST1181).</summary>
@@ -16,10 +18,11 @@ public sealed class RedundantOverrideCodeFixProvider : CodeFixProvider, IBatchFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant override", nameof(RedundantOverrideCodeFixProvider), RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        RemoveNodeCodeFix.RegisterAsync(context, "Remove the redundant override", nameof(RedundantOverrideCodeFixProvider), RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        RemoveNodeCodeFix.ApplyBatchEdit(editor, diagnostic, RemoveNodeCodeFix.Ancestor<MemberDeclarationSyntax>);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyStaticLocalFunction = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class StaticLocalFunctionAnalyzerUnitTest
 {
     /// <summary>Verifies a capture-free local function is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaptureFreeLocalFunctionIsReportedAsync()
-        => await RunAsync(
+    public Task CaptureFreeLocalFunctionIsReportedAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -30,9 +32,10 @@ public class StaticLocalFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a local function that captures an outer parameter is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturingLocalFunctionIsCleanAsync()
-        => await RunAsync(
+    public Task CapturingLocalFunctionIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -46,9 +49,10 @@ public class StaticLocalFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a recursive capture-free local function is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecursiveCaptureFreeLocalFunctionIsReportedAsync()
-        => await RunAsync(
+    public Task RecursiveCaptureFreeLocalFunctionIsReportedAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -62,9 +66,10 @@ public class StaticLocalFunctionAnalyzerUnitTest
 
     /// <summary>Verifies member-access names do not hide a capturing receiver.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapturingReceiverIsCleanAsync()
-        => await RunAsync(
+    public Task CapturingReceiverIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -77,15 +82,16 @@ public class StaticLocalFunctionAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a local function whose nested lambda captures an outer local is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// The capture does not have to be written in the body itself. A lambda created there that touches an
     /// enclosing local captures it just the same, and the local function that builds the lambda cannot then
     /// be static — the compiler says CS8421.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionCapturingThroughANestedLambdaIsNotReportedAsync()
-        => await RunAsync(
+    public Task LocalFunctionCapturingThroughANestedLambdaIsNotReportedAsync() =>
+        RunAsync(
             """
             using System;
 
@@ -105,10 +111,7 @@ public class StaticLocalFunctionAnalyzerUnitTest
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task RunAsync(string source)
-        => await new VerifyStaticLocalFunction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        }.RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task RunAsync(string source) =>
+        new VerifyStaticLocalFunction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source }.RunAsync(CancellationToken.None);
 }

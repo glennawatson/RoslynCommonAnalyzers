@@ -37,13 +37,13 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     private enum Ownership
     {
         /// <summary>The member does not own a disposable this rule reports.</summary>
-        None,
+        None = 0,
 
         /// <summary>The member owns a sync-disposable a generated <c>Dispose()</c> can release.</summary>
-        Fixable,
+        Fixable = 1,
 
         /// <summary>The member owns a disposable, but the fix is a design decision (a collection, or async-only).</summary>
-        NotFixable,
+        NotFixable = 2,
     }
 
     /// <inheritdoc/>
@@ -76,7 +76,7 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
     /// <param name="collectionInterface">The unbound <c>ICollection&lt;T&gt;</c> interface, if resolved.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in DisposableTypes types, INamedTypeSymbol? collectionInterface)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types, INamedTypeSymbol? collectionInterface)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type
@@ -168,27 +168,21 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="initializer">The initializer expression.</param>
     /// <param name="allowNewObject">Whether a direct <c>new</c> counts as ownership (auto-properties) or not (fields).</param>
     /// <returns>How the initializer owns a disposable.</returns>
-    private static Ownership ClassifyInitializer(ref OwnershipScan scan, ITypeSymbol memberType, ExpressionSyntax initializer, bool allowNewObject)
-    {
-        if (!scan.Types.IsOwnedDisposable(memberType))
-        {
-            return Ownership.None;
-        }
-
-        return initializer switch
+    private static Ownership ClassifyInitializer(ref OwnershipScan scan, ITypeSymbol memberType, ExpressionSyntax initializer, bool allowNewObject) => !scan.Types.IsOwnedDisposable(memberType)
+        ? Ownership.None
+        : initializer switch
         {
             ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax when allowNewObject => OwnershipFor(scan.Types, memberType),
             InvocationExpressionSyntax invocation when IsStaticFactory(scan.Context, invocation) => OwnershipFor(scan.Types, memberType),
             _ => Ownership.None,
         };
-    }
 
     /// <summary>Returns whether an invocation resolves to a static factory method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="invocation">The initializer invocation.</param>
     /// <returns><see langword="true"/> when the called method is static (including a reduced extension).</returns>
-    private static bool IsStaticFactory(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
-        => context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { IsStatic: true };
+    private static bool IsStaticFactory(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation) =>
+        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { IsStatic: true };
 
     /// <summary>Returns whether a field is a type-owned collection filled with newly created disposables.</summary>
     /// <param name="scan">The ownership scan state.</param>
@@ -205,7 +199,7 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
         }
 
         var addScan = new AddNewScan(scan.Context, field);
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, AddNewScan>(scan.Declaration, ref addScan, VisitAddNew);
+        _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, AddNewScan>(scan.Declaration, ref addScan, VisitAddNew);
         return addScan.Found;
     }
 
@@ -273,8 +267,8 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="types">The disposal types resolved for this compilation.</param>
     /// <param name="memberType">The member's type.</param>
     /// <returns><see cref="Ownership.Fixable"/> for a sync-disposable member, otherwise <see cref="Ownership.NotFixable"/>.</returns>
-    private static Ownership OwnershipFor(in DisposableTypes types, ITypeSymbol memberType)
-        => types.ImplementsSyncDisposable(memberType) ? Ownership.Fixable : Ownership.NotFixable;
+    private static Ownership OwnershipFor(in DisposableTypes types, ITypeSymbol memberType) =>
+        types.ImplementsSyncDisposable(memberType) ? Ownership.Fixable : Ownership.NotFixable;
 
     /// <summary>The state threaded through one type's ownership scan.</summary>
     /// <param name="Context">The syntax node analysis context.</param>

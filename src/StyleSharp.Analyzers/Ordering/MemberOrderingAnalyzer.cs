@@ -63,8 +63,7 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
         {
             switch (members[i])
             {
-                case ClassDeclarationSyntax:
-                case RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: 0 }:
+                case ClassDeclarationSyntax or RecordDeclarationSyntax { ClassOrStructKeyword.RawKind: 0 }:
                     return true;
             }
         }
@@ -75,10 +74,9 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
     /// <summary>Orders a type's members and, for C# 14 extension blocks, the members nested inside them.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="unionMarkerCache">The lazy cache for the resolved <c>IUnion</c> marker.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, UnionMarkerCache unionMarkerCache)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, UnionMarkerCache unionMarkerCache)
     {
-        var type = (TypeDeclarationSyntax)context.Node;
-        var members = type.Members;
+        var members = ((TypeDeclarationSyntax)context.Node).Members;
         var unionMarker = HasUnionCandidateMembers(members)
             ? unionMarkerCache.Get(context.SemanticModel.Compilation)
             : null;
@@ -102,7 +100,7 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="members">The member list to order.</param>
     /// <param name="unionMarker">The resolved <c>IUnion</c> marker, or <see langword="null"/>.</param>
-    private static void OrderMembers(SyntaxNodeAnalysisContext context, SyntaxList<MemberDeclarationSyntax> members, INamedTypeSymbol? unionMarker)
+    private static void OrderMembers(in SyntaxNodeAnalysisContext context, SyntaxList<MemberDeclarationSyntax> members, INamedTypeSymbol? unionMarker)
     {
         if (members.Count < 2)
         {
@@ -132,8 +130,8 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a nested type declaration is one the analyzer already visits on its own.</summary>
     /// <param name="type">The nested type declaration.</param>
     /// <returns><see langword="true"/> for the standard type kinds; <see langword="false"/> for extension blocks.</returns>
-    private static bool IsIndependentlyVisited(TypeDeclarationSyntax type)
-        => type.Kind() is SyntaxKind.ClassDeclaration
+    private static bool IsIndependentlyVisited(TypeDeclarationSyntax type) =>
+        type.Kind() is SyntaxKind.ClassDeclaration
             or SyntaxKind.StructDeclaration
             or SyntaxKind.RecordDeclaration
             or SyntaxKind.RecordStructDeclaration
@@ -145,22 +143,29 @@ public sealed class MemberOrderingAnalyzer : DiagnosticAnalyzer
         /// <summary>The cached union marker, once resolved.</summary>
         private INamedTypeSymbol? _marker;
 
-        /// <summary>Tracks whether the marker has already been resolved for this compilation start.</summary>
-        private bool _initialized;
+        /// <summary>The latch that publishes <see cref="_marker"/>, zero until it holds the resolved marker.</summary>
+        private int _resolved;
 
         /// <summary>Gets the cached union marker, resolving it only when first needed.</summary>
         /// <param name="compilation">The compilation that may contain the marker.</param>
         /// <returns>The resolved marker, or <see langword="null"/>.</returns>
+        /// <remarks>
+        /// Resolution is deterministic for one compilation, so a caller that arrives before the latch is set
+        /// resolves the marker itself and hands back what it resolved rather than waiting on the winner. The
+        /// latch exists to publish the field: the exchange releases the write of <see cref="_marker"/>, and the
+        /// volatile read acquires it, so a later caller never reads the field back empty.
+        /// </remarks>
         public INamedTypeSymbol? Get(Compilation compilation)
         {
-            if (_initialized)
+            if (Volatile.Read(ref _resolved) != 0)
             {
                 return _marker;
             }
 
-            _marker = MemberOrder.ResolveUnionMarker(compilation);
-            _initialized = true;
-            return _marker;
+            var marker = MemberOrder.ResolveUnionMarker(compilation);
+            _marker = marker;
+            _ = Interlocked.Exchange(ref _resolved, 1);
+            return marker;
         }
     }
 }

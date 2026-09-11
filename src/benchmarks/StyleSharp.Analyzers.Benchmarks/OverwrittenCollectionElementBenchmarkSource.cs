@@ -11,8 +11,8 @@ internal static class OverwrittenCollectionElementBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit overwritten-collection-element rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Collections.Generic;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class OverwrittenCollectionElementBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose adjacent element writes are all legitimate.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -35,8 +35,8 @@ internal static class OverwrittenCollectionElementBenchmarkSource
     /// all, two writes whose indexes differ, a compound assignment, a right-hand side that reads the element,
     /// and an index that cannot be evaluated twice.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                private int _cursor;
@@ -74,8 +74,8 @@ internal static class OverwrittenCollectionElementBenchmarkSource
     /// <summary>Builds one type with two lost writes.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Fill(int[] values, int i)

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNativeResource = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2317NativeResourceWithoutSafeHandleAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2317NativeResourceWithoutSafeHandleAnalyzerUnitTest
 {
     /// <summary>Verifies an owned IntPtr released in Dispose, with no finalizer, is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OwnedNativeHandleWithoutFinalizerReportedAsync()
-        => await VerifyNativeResource.VerifyAnalyzerAsync(
+    public Task OwnedNativeHandleWithoutFinalizerReportedAsync() =>
+        VerifyNativeResource.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -29,9 +31,10 @@ public class Sst2317NativeResourceWithoutSafeHandleAnalyzerUnitTest
 
     /// <summary>Verifies a type that already has a finalizer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NativeHandleWithFinalizerIsCleanAsync()
-        => await VerifyNativeResource.VerifyAnalyzerAsync(
+    public Task NativeHandleWithFinalizerIsCleanAsync() =>
+        VerifyNativeResource.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -48,9 +51,10 @@ public class Sst2317NativeResourceWithoutSafeHandleAnalyzerUnitTest
 
     /// <summary>Verifies an IntPtr that is never released is not treated as an owned resource.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnreleasedNativeHandleIsCleanAsync()
-        => await VerifyNativeResource.VerifyAnalyzerAsync(
+    public Task UnreleasedNativeHandleIsCleanAsync() =>
+        VerifyNativeResource.VerifyAnalyzerAsync(
             """
             using System;
 

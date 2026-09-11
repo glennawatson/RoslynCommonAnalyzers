@@ -37,7 +37,7 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(EqualityComparerMetadataName) is null)
             {
@@ -80,19 +80,13 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax receiver,
         ExpressionSyntax argument,
         InvocationExpressionSyntax invocation,
-        CancellationToken cancellationToken)
-    {
-        if (model.GetTypeInfo(receiver, cancellationToken).Type is not ITypeParameterSymbol typeParameter
+        CancellationToken cancellationToken) => model.GetTypeInfo(receiver, cancellationToken).Type is not ITypeParameterSymbol typeParameter
             || typeParameter.IsReferenceType
             || !SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(argument, cancellationToken).Type, typeParameter)
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { Parameters.Length: 1 } method
-            || method.ContainingType.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType))
-        {
-            return null;
-        }
-
-        return (receiver, argument, typeParameter);
-    }
+            || method.ContainingType.SpecialType is not (SpecialType.System_Object or SpecialType.System_ValueType)
+            ? null
+            : (receiver, argument, typeParameter);
 
     /// <summary>Classifies a static <c>object.Equals(x, y)</c> call over type parameter operands.</summary>
     /// <param name="model">The semantic model.</param>
@@ -111,23 +105,20 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
 
         var left = invocation.ArgumentList.Arguments[0].Expression;
         var right = invocation.ArgumentList.Arguments[1].Expression;
-        if (model.GetTypeInfo(left, cancellationToken).Type is not ITypeParameterSymbol typeParameter
+        return model.GetTypeInfo(left, cancellationToken).Type is not ITypeParameterSymbol typeParameter
             || typeParameter.IsReferenceType
             || !SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(right, cancellationToken).Type, typeParameter)
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
-            || method.ContainingType.SpecialType != SpecialType.System_Object)
-        {
-            return null;
-        }
-
-        return (left, right, typeParameter);
+            || method.ContainingType.SpecialType != SpecialType.System_Object
+            ? null
+            : (left, right, typeParameter);
     }
 
     /// <summary>Returns the rightmost invoked simple name of an invocation target.</summary>
     /// <param name="expression">The invocation's expression.</param>
     /// <returns>The invoked name text, or <see langword="null"/>.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetInvokedName(ExpressionSyntax expression) =>
+        expression switch
         {
             MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -139,8 +130,7 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        var arguments = invocation.ArgumentList.Arguments;
-        if (arguments.Count is not (1 or StaticEqualsArgumentCount)
+        if (invocation.ArgumentList.Arguments.Count is not (1 or StaticEqualsArgumentCount)
             || GetInvokedName(invocation.Expression) != EqualsMethodName
             || TryGetBoxingComparison(context.SemanticModel, invocation, context.CancellationToken) is not { } comparison)
         {

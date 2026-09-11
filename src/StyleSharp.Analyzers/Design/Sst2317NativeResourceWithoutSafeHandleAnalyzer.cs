@@ -48,7 +48,7 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
     /// <summary>Analyzes one named type for an owned native handle with no finalizer.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(SymbolAnalysisContext context, in DisposableTypes types)
+    private static void Analyze(in SymbolAnalysisContext context, in DisposableTypes types)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
@@ -106,8 +106,8 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
     /// <summary>Returns whether a type is a raw native pointer that a SafeHandle would replace.</summary>
     /// <param name="type">The field type.</param>
     /// <returns><see langword="true"/> for <c>IntPtr</c>, <c>UIntPtr</c>, <c>nint</c>, <c>nuint</c>, or a pointer type.</returns>
-    private static bool IsNativePointer(ITypeSymbol type)
-        => type.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr
+    private static bool IsNativePointer(ITypeSymbol type) =>
+        type.SpecialType is SpecialType.System_IntPtr or SpecialType.System_UIntPtr
             || type.TypeKind == TypeKind.Pointer;
 
     /// <summary>Returns whether the native field is handed to a call inside a disposal method.</summary>
@@ -132,7 +132,7 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
             for (var j = 0; j < references.Length; j++)
             {
                 var scan = new FieldArgumentScan(fieldName);
-                DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldArgumentScan>(references[j].GetSyntax(cancellationToken), ref scan, VisitFieldArgument);
+                _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, FieldArgumentScan>(references[j].GetSyntax(cancellationToken), ref scan, VisitFieldArgument);
                 if (scan.Found)
                 {
                     return true;

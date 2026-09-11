@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -209,9 +210,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies <c>Trim(char)</c> is not reported: trimming a specific character is a different question.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrimWithCharArgumentIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task TrimWithCharArgumentIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -221,9 +223,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies <c>Trim(char[])</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrimWithCharArrayArgumentIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task TrimWithCharArrayArgumentIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -233,9 +236,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies a trimmed value that is stored is not reported: something else may still read the copy.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StoredTrimmedValueIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StoredTrimmedValueIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -249,9 +253,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies a length test that is not an emptiness test is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrimLengthGreaterThanZeroIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task TrimLengthGreaterThanZeroIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -261,9 +266,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against something other than the empty string is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrimComparedToOtherValueIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task TrimComparedToOtherValueIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -273,9 +279,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies a trimmed value handed to something other than the emptiness helper is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrimPassedToAnotherMethodIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task TrimPassedToAnotherMethodIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -287,9 +294,10 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
 
     /// <summary>Verifies a test inside an expression tree is not reported: the provider translates the call, it does not run it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeLambdaIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ExpressionTreeLambdaIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -306,12 +314,7 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -319,5 +322,6 @@ public class UseIsNullOrWhiteSpaceAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyAsync(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyAsync(source, source);
 }

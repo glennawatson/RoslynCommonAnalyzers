@@ -23,7 +23,7 @@ internal readonly record struct PositionalConstructorTypes(
     /// <summary>Resolves the well-known types once per compilation.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The resolved symbols; any may be <see langword="null"/>.</returns>
-    public static PositionalConstructorTypes Create(Compilation compilation) => new(
+    internal static PositionalConstructorTypes Create(Compilation compilation) => new(
         compilation.GetTypeByMetadataName("System.DateTime"),
         compilation.GetTypeByMetadataName("System.DateTimeOffset"),
         compilation.GetTypeByMetadataName("System.TimeSpan"),
@@ -33,7 +33,7 @@ internal readonly record struct PositionalConstructorTypes(
     /// <summary>Returns whether a type is one of the positional constructor types.</summary>
     /// <param name="type">The constructed type.</param>
     /// <returns><see langword="true"/> when the type's constructor arguments are positional by convention.</returns>
-    public bool Contains(INamedTypeSymbol? type) =>
+    internal bool Contains(INamedTypeSymbol? type) =>
         type is not null
         && (SymbolEqualityComparer.Default.Equals(type, DateTime)
             || SymbolEqualityComparer.Default.Equals(type, DateTimeOffset)

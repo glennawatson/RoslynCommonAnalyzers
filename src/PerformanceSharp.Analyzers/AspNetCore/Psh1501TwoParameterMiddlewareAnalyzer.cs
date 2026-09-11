@@ -79,8 +79,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the invoked member is spelled <c>Use</c>.</returns>
     internal static bool IsUseInvocation(InvocationExpressionSyntax invocation) => invocation.Expression switch
     {
-        MemberAccessExpressionSyntax { Name.Identifier.ValueText: UseMethodName } => true,
-        MemberBindingExpressionSyntax { Name.Identifier.ValueText: UseMethodName } => true,
+        MemberAccessExpressionSyntax { Name.Identifier.ValueText: UseMethodName } or MemberBindingExpressionSyntax { Name.Identifier.ValueText: UseMethodName } => true,
         _ => false,
     };
 
@@ -92,8 +91,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
         var expression = Unwrap(argument.Expression);
         var isSingleParameterLambda = expression switch
         {
-            SimpleLambdaExpressionSyntax => true,
-            ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } => true,
+            SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 } => true,
             _ => false,
         };
 
@@ -111,7 +109,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <param name="applicationBuilderType">The gated middleware builder interface.</param>
     /// <param name="requestDelegateType">The gated request delegate type.</param>
     private static void AnalyzeInvocation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol applicationBuilderType,
         INamedTypeSymbol requestDelegateType)
     {
@@ -177,8 +175,8 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a lambda or anonymous method, ignoring parentheses.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> when the expression is a freshly written delegate.</returns>
-    private static bool IsDelegateExpression(ExpressionSyntax expression)
-        => Unwrap(expression) is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax;
+    private static bool IsDelegateExpression(ExpressionSyntax expression) =>
+        Unwrap(expression) is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax;
 
     /// <summary>Returns whether a type is, or implements, the middleware builder interface.</summary>
     /// <param name="type">The method's containing type.</param>
@@ -207,8 +205,8 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <param name="parameterType">The single parameter type of the bound <c>Use</c> overload.</param>
     /// <param name="requestDelegateType">The gated request delegate type.</param>
     /// <returns><see langword="true"/> when the parameter is the legacy middleware factory delegate.</returns>
-    private static bool IsLegacyMiddlewareParameter(ITypeSymbol parameterType, INamedTypeSymbol requestDelegateType)
-        => parameterType is INamedTypeSymbol { Name: FuncTypeName, TypeArguments.Length: LegacyMiddlewareFuncArity, ContainingNamespace: { Name: "System" } namespaceSymbol } func
+    private static bool IsLegacyMiddlewareParameter(ITypeSymbol parameterType, INamedTypeSymbol requestDelegateType) =>
+        parameterType is INamedTypeSymbol { Name: FuncTypeName, TypeArguments.Length: LegacyMiddlewareFuncArity, ContainingNamespace: { Name: "System" } namespaceSymbol } func
             && namespaceSymbol.ContainingNamespace is { IsGlobalNamespace: true }
             && SymbolEqualityComparer.Default.Equals(func.TypeArguments[0], requestDelegateType)
             && SymbolEqualityComparer.Default.Equals(func.TypeArguments[1], requestDelegateType);

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -19,9 +20,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
     /// build has to evaluate the condition for the assertion to mean anything. Either way the condition is
     /// not work that gets thrown away. Reported as issue #52.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallInConditionIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task CallInConditionIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -40,9 +42,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
     /// The interpolated-string overload hands the framework a handler that only builds the message once the
     /// condition has already failed, so a passing assertion pays nothing. It is the shape to move towards.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedMessageIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task InterpolatedMessageIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Diagnostics;
 
@@ -55,9 +58,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a message built by a call is reported, because a passing assertion still builds it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallInMessageIsReportedAsync()
-        => await VerifyAsync(
+    public Task CallInMessageIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -71,9 +75,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a cheap comparison is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CheapConditionIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task CheapConditionIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Diagnostics;
 
@@ -85,9 +90,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a property read is not reported, because it costs nothing worth moving.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyReadIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task PropertyReadIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -100,9 +106,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a constant message is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantMessageIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ConstantMessageIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Diagnostics;
 
@@ -114,9 +121,10 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
 
     /// <summary>Verifies nameof is not reported: it is an invocation in syntax only, and folds to a constant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameOfMessageIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task NameOfMessageIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Diagnostics;
 
@@ -131,11 +139,7 @@ public class ExpensiveDebugAssertArgumentAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

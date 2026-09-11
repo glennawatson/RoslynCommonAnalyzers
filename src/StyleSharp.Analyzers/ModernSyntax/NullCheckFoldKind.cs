@@ -8,14 +8,14 @@ namespace StyleSharp.Analyzers;
 internal enum NullCheckFoldKind
 {
     /// <summary>The conjunction is not a foldable shape.</summary>
-    None,
+    None = 0,
 
     /// <summary>A bool-valued member read that folds to <c>receiver?.Member == true</c>.</summary>
-    BooleanMember,
+    BooleanMember = 1,
 
     /// <summary>A comparison against a non-null constant that folds to <c>receiver?.Member op constant</c>.</summary>
-    Comparison,
+    Comparison = 2,
 
     /// <summary>A <c>bool?</c> read through <c>.Value</c> that folds to <c>receiver == true</c>.</summary>
-    NullableBooleanValue,
+    NullableBooleanValue = 3,
 }

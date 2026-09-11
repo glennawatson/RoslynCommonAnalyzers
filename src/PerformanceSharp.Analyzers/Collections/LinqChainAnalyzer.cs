@@ -72,7 +72,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The receiver invocation.</param>
     /// <param name="receiverName">The receiver invocation's method name.</param>
     private static void AnalyzeWhere(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax name,
         InvocationExpressionSyntax receiver,
@@ -103,7 +103,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The <c>Where</c> method name.</param>
     /// <param name="receiver">The sort invocation.</param>
     private static void ReportFilterAfterSort(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax name,
         InvocationExpressionSyntax receiver)
@@ -124,7 +124,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The inner <c>Where</c> invocation.</param>
     /// <param name="outerLambda">The outer <c>Where</c> predicate.</param>
     private static void ReportConsecutiveWhere(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax name,
         InvocationExpressionSyntax receiver,
@@ -149,7 +149,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
     /// <param name="receiverName">The receiver invocation's method name.</param>
     /// <param name="refiningName">The refining method name to suggest.</param>
     private static void AnalyzeRepeatedSort(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         SimpleNameSyntax name,
         InvocationExpressionSyntax receiver,
@@ -175,7 +175,7 @@ public sealed class LinqChainAnalyzer : DiagnosticAnalyzer
     private static bool AreEnumerableInvocations(
         InvocationExpressionSyntax outer,
         InvocationExpressionSyntax inner,
-        SyntaxNodeAnalysisContext context)
-        => EnumerableInvocationHelper.IsEnumerableInvocation(outer, context.SemanticModel, context.CancellationToken)
+        in SyntaxNodeAnalysisContext context) =>
+        EnumerableInvocationHelper.IsEnumerableInvocation(outer, context.SemanticModel, context.CancellationToken)
             && EnumerableInvocationHelper.IsEnumerableInvocation(inner, context.SemanticModel, context.CancellationToken);
 }

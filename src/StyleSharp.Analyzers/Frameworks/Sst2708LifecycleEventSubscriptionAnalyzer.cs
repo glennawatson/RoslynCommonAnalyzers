@@ -63,7 +63,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
     /// <summary>Analyzes one class for lifecycle event subscriptions that are never removed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
         if (classDeclaration.BaseList is null
@@ -85,7 +85,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="classDeclaration">The component declaration.</param>
     /// <returns>The subscriptions found, or <see langword="null"/> when there are none.</returns>
-    private static List<EventSubscription>? CollectLifecycleSubscriptions(SyntaxNodeAnalysisContext context, ClassDeclarationSyntax classDeclaration)
+    private static List<EventSubscription>? CollectLifecycleSubscriptions(in SyntaxNodeAnalysisContext context, ClassDeclarationSyntax classDeclaration)
     {
         var scan = new SubscriptionScan(context.SemanticModel, context.CancellationToken);
         var members = classDeclaration.Members;
@@ -96,7 +96,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
                 && BlazorComponentModel.IsLifecycleMethodName(method.Identifier.ValueText)
                 && ((SyntaxNode?)method.Body ?? method.ExpressionBody) is { } body)
             {
-                DescendantTraversalHelper.VisitDescendants(body, ref scan, SubscriptionVisitor);
+                _ = DescendantTraversalHelper.VisitDescendants(body, ref scan, SubscriptionVisitor);
             }
         }
 
@@ -107,13 +107,13 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="classDeclaration">The component declaration.</param>
     /// <param name="subscriptions">The subscriptions found in lifecycle methods.</param>
-    private static void ReportUnremovedSubscriptions(SyntaxNodeAnalysisContext context, ClassDeclarationSyntax classDeclaration, List<EventSubscription> subscriptions)
+    private static void ReportUnremovedSubscriptions(in SyntaxNodeAnalysisContext context, ClassDeclarationSyntax classDeclaration, List<EventSubscription> subscriptions)
     {
         for (var i = 0; i < subscriptions.Count; i++)
         {
             var subscription = subscriptions[i];
             var scan = new UnsubscribeScan(context.SemanticModel, subscription.EventSymbol, context.CancellationToken);
-            DescendantTraversalHelper.VisitDescendants(classDeclaration, ref scan, UnsubscribeVisitor);
+            _ = DescendantTraversalHelper.VisitDescendants(classDeclaration, ref scan, UnsubscribeVisitor);
             if (!scan.Found)
             {
                 context.ReportDiagnostic(DiagnosticHelper.Create(FrameworksRules.LifecycleEventSubscriptionLeak, subscription.Location, subscription.EventName));
@@ -134,7 +134,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
             return true;
         }
 
-        state.Add(new EventSubscription(eventSymbol, memberAccess.GetLocation(), eventSymbol.Name));
+        state.Add(new(eventSymbol, memberAccess.GetLocation(), eventSymbol.Name));
         return true;
     }
 

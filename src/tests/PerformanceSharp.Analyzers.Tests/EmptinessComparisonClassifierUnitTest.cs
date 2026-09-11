@@ -2,15 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="EmptinessComparisonClassifier"/>, the count-comparison arithmetic
-/// shared by PSH1117, PSH1119, and PSH1126.
-/// </summary>
+/// <summary>Direct tests for <see cref="EmptinessComparisonClassifier"/>, the count-comparison arithmetic shared by PSH1117, PSH1119, and PSH1126.</summary>
 public class EmptinessComparisonClassifierUnitTest
 {
     /// <summary>Verifies only the literals <c>0</c> and <c>1</c> are recognized.</summary>
@@ -90,6 +88,7 @@ public class EmptinessComparisonClassifierUnitTest
     /// <summary>Parses an expression fragment.</summary>
     /// <param name="text">The expression source.</param>
     /// <returns>The parsed expression.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExpressionSyntax Expr(string text) => SyntaxFactory.ParseExpression(text);
 
     /// <summary>Parses a binary comparison expression.</summary>

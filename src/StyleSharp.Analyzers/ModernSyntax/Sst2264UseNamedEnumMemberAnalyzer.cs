@@ -56,7 +56,7 @@ public sealed class Sst2264UseNamedEnumMemberAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var text = enumType.ToMinimalDisplayString(model, cast.SpanStart) + "." + member.Name;
+        var text = $"{enumType.ToMinimalDisplayString(model, cast.SpanStart)}.{member.Name}";
         if (model.GetSpeculativeSymbolInfo(cast.SpanStart, SyntaxFactory.ParseExpression(text), SpeculativeBindingOption.BindAsExpression).Symbol is not IFieldSymbol bound
             || !SymbolEqualityComparer.Default.Equals(bound, member))
         {
@@ -118,8 +118,8 @@ public sealed class Sst2264UseNamedEnumMemberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a boxed value is one of the integral types an enum can use.</summary>
     /// <param name="value">The boxed value.</param>
     /// <returns><see langword="true"/> for the integral types.</returns>
-    private static bool IsIntegral(object value)
-        => value is byte or sbyte or short or ushort or int or uint or long or ulong;
+    private static bool IsIntegral(object value) =>
+        value is byte or sbyte or short or ushort or int or uint or long or ulong;
 
     /// <summary>Strips redundant parentheses from the cast operand.</summary>
     /// <param name="expression">The operand.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 {
     /// <summary>Verifies a callback whose single parameter is not a StreamingContext is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WrongParameterTypeIsReportedAsync()
-        => await VerifyOnNet80Async(
+    public Task WrongParameterTypeIsReportedAsync() =>
+        VerifyOnNet80Async(
             """
             using System.Runtime.Serialization;
 
@@ -31,9 +33,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a static callback is reported: the serializer only invokes instance methods.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallbackIsReportedAsync()
-        => await VerifyOnNet80Async(
+    public Task StaticCallbackIsReportedAsync() =>
+        VerifyOnNet80Async(
             """
             using System.Runtime.Serialization;
 
@@ -48,9 +51,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a callback with no parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoParameterIsReportedAsync()
-        => await VerifyOnNet80Async(
+    public Task NoParameterIsReportedAsync() =>
+        VerifyOnNet80Async(
             """
             using System.Runtime.Serialization;
 
@@ -65,9 +69,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a non-void callback is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonVoidCallbackIsReportedAsync()
-        => await VerifyOnNet80Async(
+    public Task NonVoidCallbackIsReportedAsync() =>
+        VerifyOnNet80Async(
             """
             using System.Runtime.Serialization;
 
@@ -80,9 +85,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a correctly shaped callback is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectSignatureIsCleanAsync()
-        => await VerifyOnNet80Async(
+    public Task CorrectSignatureIsCleanAsync() =>
+        VerifyOnNet80Async(
             """
             using System.Runtime.Serialization;
 
@@ -97,9 +103,10 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
 
     /// <summary>Verifies a method with no serialization attribute is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodWithoutCallbackAttributeIsCleanAsync()
-        => await VerifyOnNet80Async(
+    public Task MethodWithoutCallbackAttributeIsCleanAsync() =>
+        VerifyOnNet80Async(
             """
             public class C
             {
@@ -114,11 +121,7 @@ public class Sst2430SerializationCallbackSignatureAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOnNet80Async(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -37,8 +37,8 @@ public sealed class Sst2259RemoveStrayEmptyStatementAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a type declaration carries a stray trailing semicolon after its body.</summary>
     /// <param name="type">The type declaration.</param>
     /// <returns><see langword="true"/> when a brace body and a trailing semicolon are both present.</returns>
-    internal static bool HasStraySemicolon(BaseTypeDeclarationSyntax type)
-        => type.CloseBraceToken.IsKind(SyntaxKind.CloseBraceToken) && type.SemicolonToken.IsKind(SyntaxKind.SemicolonToken);
+    internal static bool HasStraySemicolon(BaseTypeDeclarationSyntax type) =>
+        type.CloseBraceToken.IsKind(SyntaxKind.CloseBraceToken) && type.SemicolonToken.IsKind(SyntaxKind.SemicolonToken);
 
     /// <summary>Reports a stray semicolon on a type declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>

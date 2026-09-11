@@ -54,9 +54,13 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   fix the underlying issue. The one allowed exception is a
   `SuppressMessageAttribute` on a proven perf-motivated large `switch` statement
   when the switch is measurably better than the non-suppressed alternatives.
-  Keep that exception narrow, document the justification inline, and do not use it
-  for anything else. The repo builds its own source under `TreatWarningsAsErrors`
-  with a strict analyzer set, including the benchmark project.
+  The second is a rule the code physically cannot satisfy: `Polyfills/IsExternalInit.cs`
+  suppresses the empty-type rule because the compiler only requires that type to
+  *exist* for `init` accessors to compile on netstandard2.0, so it has no members by
+  design. Keep both exceptions narrow, document the justification inline, and do not
+  use a suppression anywhere a code change would do. The repo builds its own source
+  under `TreatWarningsAsErrors` with a strict analyzer set, including the benchmark
+  project.
 
 - **Repo layout:** repo metadata stays at the repository root, but build entry
   points live under `src/`. Run `dotnet` commands from `src/`; projects are

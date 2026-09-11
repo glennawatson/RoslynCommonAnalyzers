@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyStringBuilder = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2408StringBuilderNeverReadAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 {
     /// <summary>Verifies a builder that is appended to and never read is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnreadBuilderIsReportedAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task UnreadBuilderIsReportedAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -32,9 +34,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a chain of discarded appends is still no read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainedAppendsAreStillUnreadAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task ChainedAppendsAreStillUnreadAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -51,9 +54,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a builder whose contents are collected is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderThatIsReadIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task BuilderThatIsReadIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -74,9 +78,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies handing the builder to something else counts as a read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderPassedOnIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task BuilderPassedOnIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -97,9 +102,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies reading a property of the builder counts as a read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderLengthReadIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task BuilderLengthReadIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System;
             using System.Text;
@@ -117,9 +123,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a builder that is returned is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedBuilderIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task ReturnedBuilderIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -136,9 +143,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a builder that is never appended to is not this rule's business.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderWithNoAppendIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task BuilderWithNoAppendIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -154,9 +162,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a field is left alone: any other member of the type may read it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderFieldIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task BuilderFieldIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             using System.Text;
 
@@ -170,9 +179,10 @@ public class StringBuilderNeverReadAnalyzerUnitTest
 
     /// <summary>Verifies a type of the project's own with the same name is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedProjectTypeIsCleanAsync()
-        => await VerifyStringBuilder.VerifyAnalyzerAsync(
+    public Task SameNamedProjectTypeIsCleanAsync() =>
+        VerifyStringBuilder.VerifyAnalyzerAsync(
             """
             namespace Custom
             {

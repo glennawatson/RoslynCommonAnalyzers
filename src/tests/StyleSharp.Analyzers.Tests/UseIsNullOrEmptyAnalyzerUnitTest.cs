@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyIsNullOrEmpty = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2255UseIsNullOrEmptyAnalyzer,
     StyleSharp.Analyzers.Sst2255UseIsNullOrEmptyCodeFixProvider>;
@@ -153,9 +154,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a comparison of the wrong kind is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WrongKindComparisonIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task WrongKindComparisonIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -165,9 +167,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a zero comparison against a member that is not Length is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLengthMemberIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task NonLengthMemberIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal sealed class Box
             {
@@ -182,9 +185,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies an operand that is not a comparison is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonComparisonOperandIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task NonComparisonOperandIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -194,9 +198,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated disjunction of two comparisons is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedComparisonsAreCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task UnrelatedComparisonsAreCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -206,9 +211,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies two different values in the null and empty checks are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentValuesAreCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task DifferentValuesAreCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -218,9 +224,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a length check before the null check is left alone; the order can throw.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LengthBeforeNullIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task LengthBeforeNullIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -230,9 +237,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a non-string value with a Length member is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringLengthIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task NonStringLengthIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -242,9 +250,10 @@ public class UseIsNullOrEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a value with a side effect is left alone; the fold would change how often it runs.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingValueIsCleanAsync()
-        => await VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
+    public Task SideEffectingValueIsCleanAsync() =>
+        VerifyIsNullOrEmpty.VerifyAnalyzerAsync(
             """
             internal class C
             {

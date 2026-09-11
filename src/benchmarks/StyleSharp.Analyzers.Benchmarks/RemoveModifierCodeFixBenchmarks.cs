@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the remove-modifier code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("RemoveModifierCodeFixBenchmarks: {Types}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RemoveModifierCodeFixBenchmarks
@@ -23,13 +25,14 @@ public class RemoveModifierCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative declaration with a redundant partial modifier.</summary>
     /// <returns>A task that completes when the benchmark context has been created.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Types,
             StructuralCodeFixBenchmarkSource.GenerateRemoveModifier,
-            static (root, index) => CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>(root, index)).ConfigureAwait(false);
+            CodeFixBenchmarkSyntaxLookup.GetNthNamespaceMember<ClassDeclarationSyntax>).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -45,6 +48,7 @@ public class RemoveModifierCodeFixBenchmarks
     /// <summary>Finds the partial modifier token that the benchmark removes.</summary>
     /// <param name="declaration">The declaration whose modifiers are inspected.</param>
     /// <returns>The partial modifier token.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="declaration"/> carries no partial modifier for the fix to remove.</exception>
     private static SyntaxToken FindPartialModifier(ClassDeclarationSyntax declaration)
     {
         for (var i = 0; i < declaration.Modifiers.Count; i++)

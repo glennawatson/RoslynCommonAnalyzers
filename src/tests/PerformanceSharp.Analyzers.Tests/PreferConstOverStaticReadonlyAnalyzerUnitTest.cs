@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
@@ -162,9 +163,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a public static readonly field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicStaticReadonlyIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task PublicStaticReadonlyIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -174,9 +176,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant initializer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewObjectInitializerIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task NewObjectInitializerIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -186,9 +189,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies an instance readonly field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStaticReadonlyIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task NonStaticReadonlyIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -198,9 +202,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a static readonly field of a type that cannot be const is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyGuidIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task StaticReadonlyGuidIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -210,9 +215,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a multi-variable declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiVariableDeclarationIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task MultiVariableDeclarationIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -590,9 +596,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a reassigned local is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReassignedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task ReassignedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -607,9 +614,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a compound-assigned local is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task CompoundAssignedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -624,9 +632,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies incremented and decremented locals are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IncrementedAndDecrementedLocalsAreCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task IncrementedAndDecrementedLocalsAreCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -647,9 +656,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local passed by ref is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefArgumentLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task RefArgumentLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -666,9 +676,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local passed by in is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InArgumentLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task InArgumentLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -684,9 +695,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local passed by out is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OutArgumentLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task OutArgumentLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -701,9 +713,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local aliased by a ref local is not reported, and neither is the alias.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefLocalAliasIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task RefLocalAliasIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -746,9 +759,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local referenced by __makeref is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MakeRefLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task MakeRefLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -762,9 +776,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local mutated inside a lambda is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedCaptureLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task MutatedCaptureLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -778,9 +793,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local written by deconstruction is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeconstructionAssignedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task DeconstructionAssignedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -795,9 +811,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local written by nested deconstruction is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedDeconstructionAssignedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task NestedDeconstructionAssignedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -814,9 +831,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies locals with never-constant initializer shapes are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantInitializerShapesAreCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task NonConstantInitializerShapesAreCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -838,9 +856,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local initialized from an await expression is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitInitializedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task AwaitInitializedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -854,9 +873,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a local of a type that cannot be const is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstCapableTypedLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task NonConstCapableTypedLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -870,9 +890,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a multi-variable local declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiVariableLocalDeclarationIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task MultiVariableLocalDeclarationIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -886,9 +907,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies an already-const local is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task ConstLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -902,9 +924,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a using declaration is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationLocalIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task UsingDeclarationLocalIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -918,9 +941,10 @@ public class PreferConstOverStaticReadonlyAnalyzerUnitTest
 
     /// <summary>Verifies a for-loop variable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForLoopVariableIsCleanAsync()
-        => await VerifyPreferConst.VerifyAnalyzerAsync(
+    public Task ForLoopVariableIsCleanAsync() =>
+        VerifyPreferConst.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -104,7 +104,7 @@ public sealed class Sst1474IdenticalOperandsAnalyzer : DiagnosticAnalyzer
     /// already been proved identical — so a clean file never pays for it. The operands are the same
     /// expression, so the left one settles the type.
     /// </remarks>
-    private static bool IsFloatingPointEquality(SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary)
+    private static bool IsFloatingPointEquality(in SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary)
     {
         if (binary.RawKind is not ((int)SyntaxKind.EqualsExpression or (int)SyntaxKind.NotEqualsExpression))
         {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeDetailedErrors = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -26,9 +27,10 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>DetailedErrors = true</c> assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task DirectAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Server;
 
@@ -43,9 +45,10 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form of <c>DetailedErrors = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task ObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Server;
 
@@ -58,9 +61,10 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>DetailedErrors</c> to false is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetToFalseIsCleanAsync()
-        => await VerifyAsync(
+    public Task SetToFalseIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Server;
 
@@ -75,9 +79,10 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
 
     /// <summary>Verifies a same-named flag on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyOptions
             {
@@ -113,11 +118,7 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeDetailedErrors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeDetailedErrors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -127,11 +128,7 @@ public class CircuitDetailedErrorsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeDetailedErrors.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + CircuitOptionsStub
-        };
+        var test = new AnalyzeDetailedErrors.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + CircuitOptionsStub };
 
         await test.RunAsync(CancellationToken.None);
     }

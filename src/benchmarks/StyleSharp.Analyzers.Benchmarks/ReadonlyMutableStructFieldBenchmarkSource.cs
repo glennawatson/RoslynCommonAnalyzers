@@ -11,8 +11,8 @@ internal static class ReadonlyMutableStructFieldBenchmarkSource
     /// <param name="members">The number of synthetic fields to emit.</param>
     /// <param name="violating">Whether to emit readonly mutable-struct fields.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal struct Mutable
@@ -35,8 +35,8 @@ internal static class ReadonlyMutableStructFieldBenchmarkSource
     /// <param name="index">The synthetic field index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated field source.</returns>
-    private static string GenerateField(int index, bool violating)
-        => violating
+    private static string GenerateField(int index, bool violating) =>
+        violating
             ? $"private readonly Mutable _value{index};"
             : $"private readonly Immutable _value{index};";
 }

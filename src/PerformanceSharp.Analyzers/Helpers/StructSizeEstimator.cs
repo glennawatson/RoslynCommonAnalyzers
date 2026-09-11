@@ -6,9 +6,7 @@ using System.Collections.Concurrent;
 
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>
-/// Estimates the size in bytes a value type occupies, for the size gate on PSH1007.
-/// </summary>
+/// <summary>Estimates the size in bytes a value type occupies, for the size gate on PSH1007.</summary>
 /// <remarks>
 /// Roslyn does not expose a type's runtime layout, so the size is summed from the declared instance
 /// fields with sequential-layout padding — the layout C# emits for a struct by default. It is an
@@ -47,7 +45,7 @@ internal static class StructSizeEstimator
     /// <param name="type">The type to measure.</param>
     /// <param name="cache">The per-compilation size cache.</param>
     /// <returns>The estimated size in bytes, or <see cref="Unknown"/>.</returns>
-    public static int Estimate(ITypeSymbol type, ConcurrentDictionary<ITypeSymbol, int> cache)
+    internal static int Estimate(ITypeSymbol type, ConcurrentDictionary<ITypeSymbol, int> cache)
     {
         if (cache.TryGetValue(type, out var cached))
         {
@@ -55,7 +53,7 @@ internal static class StructSizeEstimator
         }
 
         var size = Measure(type, 0, out _);
-        cache.TryAdd(type, size);
+        _ = cache.TryAdd(type, size);
         return size;
     }
 

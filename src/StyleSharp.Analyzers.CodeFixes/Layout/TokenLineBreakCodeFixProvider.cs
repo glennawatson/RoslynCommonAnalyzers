@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 using Microsoft.CodeAnalysis.Text;
@@ -28,12 +29,13 @@ public sealed class TokenLineBreakCodeFixProvider : CodeFixProvider, ITextChange
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(TokenLineBreakCodeFixProvider), TryAppendChanges);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TextChangeCodeFix.RegisterAsync(context, "Move the line break to the other side", nameof(TokenLineBreakCodeFixProvider), TryAppendChanges);
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => TryAppendChanges(text, root, diagnostic, changes);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        TryAppendChanges(text, root, diagnostic, changes);
 
     /// <summary>Appends the break-moving changes when the token carries exactly one break on the wrong side.</summary>
     /// <param name="text">The source text.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the empty-GUID code fix.</summary>
+[System.Diagnostics.DebuggerDisplay("UseGuidEmptyCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseGuidEmptyCodeFixBenchmarks : IDisposable
@@ -43,7 +45,7 @@ public class UseGuidEmptyCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         var source = UseGuidEmptyBenchmarkSource.Generate(Nodes, violating: true);
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, source);
         _root = (await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
@@ -54,11 +56,12 @@ public class UseGuidEmptyCodeFixBenchmarks : IDisposable
 
         var model = (await _document.GetSemanticModelAsync().ConfigureAwait(false))!;
         var diagnostic = Diagnostic.Create(ModernizationRules.UseGuidEmpty, _creation.GetLocation());
-        Sst2012UseGuidEmptyCodeFixProvider.TryBuildReplacement(_root, model, diagnostic, out _, out var replacement);
+        _ = Sst2012UseGuidEmptyCodeFixProvider.TryBuildReplacement(_root, model, diagnostic, out _, out var replacement);
         _replacement = replacement!;
     }
 
     /// <summary>Disposes the benchmark workspace.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

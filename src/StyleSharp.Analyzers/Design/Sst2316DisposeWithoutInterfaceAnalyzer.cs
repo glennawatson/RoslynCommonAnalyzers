@@ -64,7 +64,7 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one named type for an orphaned disposal method.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(SymbolAnalysisContext context, in DisposableTypes types)
+    private static void Analyze(in SymbolAnalysisContext context, in DisposableTypes types)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -76,7 +76,7 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
 
         var disposeMembers = type.GetMembers(DisposeName);
         var disposeAsyncMembers = type.GetMembers(DisposeAsyncName);
-        if ((disposeMembers.Length == 0 && disposeAsyncMembers.Length == 0) || IsDuckTypedEnumerator(type))
+        if ((disposeMembers.IsEmpty && disposeAsyncMembers.IsEmpty) || IsDuckTypedEnumerator(type))
         {
             return;
         }
@@ -91,7 +91,7 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
     /// <param name="disposeMembers">The members named <c>Dispose</c>.</param>
     /// <param name="disposeAsyncMembers">The members named <c>DisposeAsync</c>.</param>
     private static void ReportOrphan(
-        SymbolAnalysisContext context,
+        in SymbolAnalysisContext context,
         in DisposableTypes types,
         INamedTypeSymbol type,
         ImmutableArray<ISymbol> disposeMembers,
@@ -99,7 +99,7 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
     {
         if (FindSyncDisposeMethod(disposeMembers) is { } dispose && !types.ImplementsSyncDisposable(type))
         {
-            Report(context, dispose, type, DisposeName, "IDisposable");
+            Report(context, dispose, type, DisposeName, nameof(IDisposable));
             return;
         }
 
@@ -176,7 +176,7 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The declaring type.</param>
     /// <param name="methodName">The disposal method name.</param>
     /// <param name="interfaceName">The interface the method should sign up to.</param>
-    private static void Report(SymbolAnalysisContext context, IMethodSymbol method, INamedTypeSymbol type, string methodName, string interfaceName)
+    private static void Report(in SymbolAnalysisContext context, IMethodSymbol method, INamedTypeSymbol type, string methodName, string interfaceName)
     {
         if (method.Locations is not [var location, ..])
         {

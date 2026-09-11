@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile (EventPipe) benchmarks for the SST1444 single-iteration-loop analyzer.</summary>
+[System.Diagnostics.DebuggerDisplay("SingleIterationLoopProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class SingleIterationLoopProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class SingleIterationLoopProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean loop path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SingleIterationLoop_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating loop path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SingleIterationLoop_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

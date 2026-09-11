@@ -4,13 +4,11 @@
 
 using System.Collections.Generic;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Adds the constructors an exception type is missing (SST1488), each forwarding to the matching
-/// <c>base</c> constructor.
-/// </summary>
+/// <summary>Adds the constructors an exception type is missing (SST1488), each forwarding to the matching <c>base</c> constructor.</summary>
 /// <remarks>
 /// The generated constructors carry XML documentation. That is not decoration: this repository — and any
 /// project that turns the documentation rules on — treats an undocumented public member as a build error,
@@ -70,8 +68,9 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
     /// <param name="declaration">The exception type declaration.</param>
     /// <param name="missing">The constructors to add.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration, int missing)
-        => document.WithSyntaxRoot(root.ReplaceNode(declaration, AddConstructors(declaration, missing)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration, int missing) =>
+        document.WithSyntaxRoot(root.ReplaceNode(declaration, AddConstructors(declaration, missing)));
 
     /// <summary>Resolves the diagnostic to its type declaration and the set of constructors to add.</summary>
     /// <param name="root">The syntax root.</param>
@@ -201,46 +200,46 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
     {
         var keyword = SyntaxFactory.Token(accessibility).ValueText;
         var builder = new System.Text.StringBuilder();
-        builder.Append("/// <summary>Initializes a new instance of the <see cref=\"")
+        _ = builder.Append("/// <summary>Initializes a new instance of the <see cref=\"")
             .Append(name)
             .Append("\"/> class.</summary>")
             .Append(newLine);
 
         if (withMessage)
         {
-            builder.Append("/// <param name=\"message\">The message that describes the error.</param>").Append(newLine);
+            _ = builder.Append("/// <param name=\"message\">The message that describes the error.</param>").Append(newLine);
         }
 
         if (withInner)
         {
-            builder.Append("/// <param name=\"innerException\">The exception that is the cause of this exception.</param>").Append(newLine);
+            _ = builder.Append("/// <param name=\"innerException\">The exception that is the cause of this exception.</param>").Append(newLine);
         }
 
-        builder.Append(keyword).Append(' ').Append(name).Append('(');
+        _ = builder.Append(keyword).Append(' ').Append(name).Append('(');
         if (withMessage)
         {
-            builder.Append("string message");
+            _ = builder.Append("string message");
         }
 
         if (withInner)
         {
-            builder.Append(", System.Exception innerException");
+            _ = builder.Append(", System.Exception innerException");
         }
 
-        builder.Append(')').Append(newLine);
+        _ = builder.Append(')').Append(newLine);
 
         if (withMessage)
         {
-            builder.Append("    : base(message");
+            _ = builder.Append("    : base(message");
             if (withInner)
             {
-                builder.Append(", innerException");
+                _ = builder.Append(", innerException");
             }
 
-            builder.Append(')').Append(newLine);
+            _ = builder.Append(')').Append(newLine);
         }
 
-        builder.Append('{').Append(newLine).Append('}').Append(newLine);
+        _ = builder.Append('{').Append(newLine).Append('}').Append(newLine);
 
         var constructor = (ConstructorDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(builder.ToString())!;
         return constructor

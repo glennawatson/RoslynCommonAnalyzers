@@ -52,14 +52,14 @@ internal sealed class BenchmarkAnalyzerConfigOptionsProvider : AnalyzerConfigOpt
 
         /// <summary>Initializes a new instance of the <see cref="DictionaryAnalyzerConfigOptions"/> class.</summary>
         /// <param name="values">The analyzer-config key/value pairs.</param>
-        public DictionaryAnalyzerConfigOptions(IReadOnlyDictionary<string, string> values)
-            => _values = values;
+        public DictionaryAnalyzerConfigOptions(IReadOnlyDictionary<string, string> values) =>
+            _values = values;
 
         /// <summary>Attempts to read an analyzer-config value by key.</summary>
         /// <param name="key">The key to look up.</param>
         /// <param name="value">The resolved value when present.</param>
         /// <returns><see langword="true"/> when the key was found; otherwise, <see langword="false"/>.</returns>
-        public override bool TryGetValue(string key, out string value)
-            => _values.TryGetValue(key, out value!);
+        public override bool TryGetValue(string key, out string value) =>
+            _values.TryGetValue(key, out value!);
     }
 }

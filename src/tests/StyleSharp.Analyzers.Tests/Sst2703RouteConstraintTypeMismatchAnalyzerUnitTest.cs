@@ -400,11 +400,7 @@ public class Sst2703RouteConstraintTypeMismatchAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyRoute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new VerifyRoute.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -413,11 +409,7 @@ public class Sst2703RouteConstraintTypeMismatchAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyRoute.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = source,
-        };
+        var test = new VerifyRoute.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = source, };
         test.TestState.Sources.Add(("ComponentsStub.cs", ComponentsStub));
         await test.RunAsync(CancellationToken.None);
     }

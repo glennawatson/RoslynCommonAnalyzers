@@ -192,12 +192,7 @@ public class Sst1426PragmaWarningDisableCodeFixProviderUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new VerifyPragma.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource,
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
-        };
+        var test = new VerifyPragma.Test { TestCode = source, FixedCode = fixedSource, TestBehaviors = TestBehaviors.SkipSuppressionCheck, };
 
         await test.RunAsync(CancellationToken.None);
     }

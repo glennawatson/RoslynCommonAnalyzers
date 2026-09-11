@@ -79,6 +79,6 @@ public sealed class ConstructorSummaryCodeFixProvider : CodeFixProvider, ITextCh
     /// <param name="summary">The summary element.</param>
     /// <param name="standardSummary">The standard summary inner text.</param>
     /// <returns>The text change that rewrites the summary.</returns>
-    private static TextChange BuildChange(XmlElementSyntax summary, string standardSummary)
-        => new(summary.Span, "<summary>" + standardSummary + "</summary>");
+    private static TextChange BuildChange(XmlElementSyntax summary, string standardSummary) =>
+        new(summary.Span, $"<summary>{standardSummary}</summary>");
 }

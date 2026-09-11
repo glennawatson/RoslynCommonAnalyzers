@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -25,8 +26,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(ReadabilityRules.ParameterMustNotSpanMultipleLines.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(ReadabilityRules.ParameterMustNotSpanMultipleLines.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -59,8 +60,9 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
     }
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => changes.AddRange(BuildCollapse(text, root, diagnostic, ReadMaximumLineLength(document: null, root.SyntaxTree)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.AddRange(BuildCollapse(text, root, diagnostic, ReadMaximumLineLength(document: null, root.SyntaxTree)));
 
     /// <summary>Collapses the reported item onto one line.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -84,8 +86,8 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
     /// <param name="document">The document being fixed, when one is available.</param>
     /// <param name="tree">The syntax tree holding the reported item.</param>
     /// <returns>The configured maximum line length.</returns>
-    private static int ReadMaximumLineLength(Document? document, SyntaxTree tree)
-        => document is null
+    private static int ReadMaximumLineLength(Document? document, SyntaxTree tree) =>
+        document is null
             ? SizeLimitOptions.DefaultMaxLineLength
             : SizeLimitOptions.ReadMaxLineLength(document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(tree));
 
@@ -123,7 +125,7 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
             {
                 var replacement = Tighten(token, next) ? string.Empty : " ";
                 collapsed += next.SpanStart - token.Span.End - replacement.Length;
-                changes.Add(new TextChange(TextSpan.FromBounds(token.Span.End, next.SpanStart), replacement));
+                changes.Add(new(TextSpan.FromBounds(token.Span.End, next.SpanStart), replacement));
             }
 
             token = next;
@@ -153,8 +155,8 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
     /// <param name="token">The earlier token.</param>
     /// <param name="next">The later token.</param>
     /// <returns><see langword="true"/> when the gap should close to nothing.</returns>
-    private static bool Tighten(SyntaxToken token, SyntaxToken next)
-        => token.IsKind(SyntaxKind.OpenParenToken)
+    private static bool Tighten(SyntaxToken token, SyntaxToken next) =>
+        token.IsKind(SyntaxKind.OpenParenToken)
             || token.IsKind(SyntaxKind.OpenBracketToken)
             || next.IsKind(SyntaxKind.CloseParenToken)
             || next.IsKind(SyntaxKind.CloseBracketToken)

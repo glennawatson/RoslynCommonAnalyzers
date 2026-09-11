@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for iterator-validation analysis (SST2404).</summary>
+[System.Diagnostics.DebuggerDisplay("IteratorValidationProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class IteratorValidationProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class IteratorValidationProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean iterator-validation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> IteratorValidation_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating iterator-validation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> IteratorValidation_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

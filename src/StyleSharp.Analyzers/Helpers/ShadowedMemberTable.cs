@@ -34,7 +34,7 @@ internal sealed class ShadowedMemberTable
     /// resolves it. A private member of a base type is invisible here and is skipped, or a local would be
     /// reported for shadowing something it cannot even name.
     /// </remarks>
-    public static ShadowedMemberTable Create(INamedTypeSymbol type)
+    internal static ShadowedMemberTable Create(INamedTypeSymbol type)
     {
         var members = new Dictionary<string, ShadowedMember>(type.GetMembers().Length, StringComparer.Ordinal);
         var inherited = false;
@@ -51,7 +51,7 @@ internal sealed class ShadowedMemberTable
     /// <param name="name">The declared name.</param>
     /// <param name="member">The member the name already denotes.</param>
     /// <returns><see langword="true"/> when the name is already taken by a visible field or property.</returns>
-    public bool TryGet(string name, out ShadowedMember member)
+    internal bool TryGet(string name, out ShadowedMember member)
     {
         if (_members is null)
         {
@@ -102,7 +102,7 @@ internal sealed class ShadowedMemberTable
         var name = symbol.Name;
         if (!members.TryGetValue(name, out var existing))
         {
-            members.Add(name, new ShadowedMember(isProperty, symbol.IsStatic, inherited, HidesInheritedField: false));
+            members.Add(name, new(isProperty, symbol.IsStatic, inherited, HidesInheritedField: false));
             return;
         }
 

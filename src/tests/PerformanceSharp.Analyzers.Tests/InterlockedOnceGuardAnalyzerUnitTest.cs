@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -22,9 +23,10 @@ public class InterlockedOnceGuardAnalyzerUnitTest
 
     /// <summary>Verifies the classic dispose once-guard is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeOnceGuardIsReportedAsync()
-        => await VerifyOptInAsync(
+    public Task DisposeOnceGuardIsReportedAsync() =>
+        VerifyOptInAsync(
             """
             using System;
 
@@ -46,9 +48,10 @@ public class InterlockedOnceGuardAnalyzerUnitTest
 
     /// <summary>Verifies a this-qualified guard is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisQualifiedGuardIsReportedAsync()
-        => await VerifyOptInAsync(
+    public Task ThisQualifiedGuardIsReportedAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -68,9 +71,10 @@ public class InterlockedOnceGuardAnalyzerUnitTest
 
     /// <summary>Verifies a guard whose check and write sit inside a lock stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LockedGuardIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task LockedGuardIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -94,9 +98,10 @@ public class InterlockedOnceGuardAnalyzerUnitTest
 
     /// <summary>Verifies a guard over a local variable stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFlagIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task LocalFlagIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -114,9 +119,10 @@ public class InterlockedOnceGuardAnalyzerUnitTest
 
     /// <summary>Verifies a guard that never writes the flag stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyGuardIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task ReadOnlyGuardIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System;
 
@@ -139,19 +145,15 @@ public class InterlockedOnceGuardAnalyzerUnitTest
     /// <summary>Verifies the rule ships disabled by default; guard thread-safety is contextual.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task RuleIsOffByDefaultAsync()
-        => await Assert.That(ConcurrencyRules.InterlockedOnceGuard.IsEnabledByDefault).IsFalse();
+    public async Task RuleIsOffByDefaultAsync() =>
+        await Assert.That(ConcurrencyRules.InterlockedOnceGuard.IsEnabledByDefault).IsFalse();
 
     /// <summary>Runs an opted-in verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOptInAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         await test.RunAsync(CancellationToken.None);
     }

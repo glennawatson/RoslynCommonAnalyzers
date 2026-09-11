@@ -28,8 +28,8 @@ internal readonly record struct InlineSingleUseLocalOptions(int MaxInitializerLe
     /// earning its place stops that before it starts. An unset, non-numeric, or non-positive value keeps the
     /// default, so a typo neither disables the rule nor lets every width through.
     /// </remarks>
-    public static InlineSingleUseLocalOptions Read(AnalyzerConfigOptions options)
-        => new(ReadPositiveInt(options, MaxRuleKey, MaxGeneralKey, DefaultMaxInitializerLength));
+    internal static InlineSingleUseLocalOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadPositiveInt(options, MaxRuleKey, MaxGeneralKey, DefaultMaxInitializerLength));
 
     /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

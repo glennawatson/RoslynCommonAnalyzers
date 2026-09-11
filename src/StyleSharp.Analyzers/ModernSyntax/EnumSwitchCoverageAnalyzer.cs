@@ -232,10 +232,10 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         builder ??= new System.Text.StringBuilder();
         if (builder.Length > 0)
         {
-            builder.Append(MissingMembersSeparator);
+            _ = builder.Append(MissingMembersSeparator);
         }
 
-        builder
+        _ = builder
             .Append(field.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
             .Append('.')
             .Append(field.Name);

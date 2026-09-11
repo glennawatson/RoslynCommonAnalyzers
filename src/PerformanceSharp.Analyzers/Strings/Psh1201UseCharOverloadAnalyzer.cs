@@ -50,7 +50,7 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1201 for a single-character literal passed to an ordinal-safe string search shape.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="overloads">The char overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, CharOverloads overloads)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CharOverloads overloads)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetCandidateLiteral(invocation, overloads, out var literal, out var value, out var requiresOrdinalArgument)
@@ -183,8 +183,8 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
     /// <param name="comparisonType">The method's declared comparison parameter type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a genuine <c>StringComparison.Ordinal</c> argument.</returns>
-    private static bool IsOrdinalComparison(SemanticModel model, ExpressionSyntax expression, ITypeSymbol comparisonType, CancellationToken cancellationToken)
-        => comparisonType is { TypeKind: TypeKind.Enum, Name: "StringComparison" }
+    private static bool IsOrdinalComparison(SemanticModel model, ExpressionSyntax expression, ITypeSymbol comparisonType, CancellationToken cancellationToken) =>
+        comparisonType is { TypeKind: TypeKind.Enum, Name: "StringComparison" }
             && model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol field
             && string.Equals(field.Name, "Ordinal", StringComparison.Ordinal)
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, comparisonType);
@@ -203,15 +203,15 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
         /// <summary>Probes the compilation's <see cref="string"/> member list once for the char overloads.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The available char overloads.</returns>
-        public static CharOverloads Resolve(Compilation compilation)
+        internal static CharOverloads Resolve(Compilation compilation)
         {
             var stringType = compilation.GetSpecialType(SpecialType.System_String);
             return new(
-                HasCharOverload(stringType, "Contains"),
-                HasCharOverload(stringType, "StartsWith"),
-                HasCharOverload(stringType, "EndsWith"),
-                HasCharOverload(stringType, "IndexOf"),
-                HasCharOverload(stringType, "LastIndexOf"));
+                HasCharOverload(stringType, nameof(Contains)),
+                HasCharOverload(stringType, nameof(StartsWith)),
+                HasCharOverload(stringType, nameof(EndsWith)),
+                HasCharOverload(stringType, nameof(IndexOf)),
+                HasCharOverload(stringType, nameof(LastIndexOf)));
         }
 
         /// <summary>Returns whether a named instance method with a single char parameter exists on a type.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2495RedundantFlagsOperandAnalyzer,
     StyleSharp.Analyzers.Sst2495RedundantFlagsOperandCodeFixProvider>;
@@ -91,9 +92,10 @@ public class Sst2495RedundantFlagsOperandAnalyzerUnitTest
 
     /// <summary>Verifies a disjoint combination and a non-flags enum are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisjointAndNonFlagsAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DisjointAndNonFlagsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             [System.Flags]
             public enum F { A = 1, B = 2 }
@@ -109,9 +111,10 @@ public class Sst2495RedundantFlagsOperandAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant operand cannot be proven redundant and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantOperandIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonConstantOperandIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             [System.Flags]
             public enum F { A = 1, B = 2 }

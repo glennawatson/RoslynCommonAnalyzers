@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyArguments = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2106CollectionExpressionArgumentsAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 {
     /// <summary>Verifies a comparer argument with an element initializer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparerWithInitializerReportedAsync()
-        => await RunAsync(
+    public Task ComparerWithInitializerReportedAsync() =>
+        RunAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -28,9 +30,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a capacity argument on an explicitly typed local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CapacityReportedAsync()
-        => await RunAsync(
+    public Task CapacityReportedAsync() =>
+        RunAsync(
             """
             using System.Collections.Generic;
 
@@ -46,9 +49,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed creation carrying a comparer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TargetTypedComparerReportedAsync()
-        => await RunAsync(
+    public Task TargetTypedComparerReportedAsync() =>
+        RunAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -63,9 +67,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies seeding from a source is not reported, because that rewrite is a spread element.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeedFromSourceIsCleanAsync()
-        => await RunAsync(
+    public Task SeedFromSourceIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections.Generic;
 
@@ -81,9 +86,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a 'var' target is not reported, because a collection expression needs a written target type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VarTargetIsCleanAsync()
-        => await RunAsync(
+    public Task VarTargetIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections.Generic;
 
@@ -99,9 +105,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless creation is not reported by this rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoArgumentsIsCleanAsync()
-        => await RunAsync(
+    public Task NoArgumentsIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections.Generic;
 
@@ -117,9 +124,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies an unsupported collection type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsupportedCollectionIsCleanAsync()
-        => await RunAsync(
+    public Task UnsupportedCollectionIsCleanAsync() =>
+        RunAsync(
             """
             using System.Collections.Generic;
 
@@ -135,9 +143,10 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported below C# 15, where 'with(...)' does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BelowCSharp15IsCleanAsync()
-        => await RunAsync(
+    public Task BelowCSharp15IsCleanAsync() =>
+        RunAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -155,10 +164,7 @@ public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
     {
-        var test = new VerifyArguments.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyArguments.Test { TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

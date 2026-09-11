@@ -20,8 +20,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.CodeTagContent.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.CodeTagContent.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -59,8 +59,8 @@ public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITex
             return;
         }
 
-        changes.Add(new TextChange(element.StartTag.Name.Span, target));
-        changes.Add(new TextChange(element.EndTag.Name.Span, target));
+        changes.Add(new(element.StartTag.Name.Span, target));
+        changes.Add(new(element.EndTag.Name.Span, target));
     }
 
     /// <summary>Applies the tag-name swap to the document.</summary>
@@ -72,12 +72,9 @@ public sealed class Sst1661CodeTagContentCodeFixProvider : CodeFixProvider, ITex
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null || !TryGetSwap(root, diagnostic, out var element, out var target))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(
+        return root is null || !TryGetSwap(root, diagnostic, out var element, out var target)
+            ? document
+            : document.WithText(text.WithChanges(
             new TextChange(element.StartTag.Name.Span, target),
             new TextChange(element.EndTag.Name.Span, target)));
     }

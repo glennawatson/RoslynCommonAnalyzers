@@ -22,8 +22,8 @@ public sealed class Sst2335PartialStaticMismatchAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.PartialTypeStaticModifierMismatch);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -75,7 +75,7 @@ public sealed class Sst2335PartialStaticMismatchAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="typeName">The type's name.</param>
     /// <param name="references">The type's declaring syntax references.</param>
-    private static void ReportPartsMissingStatic(SymbolAnalysisContext context, string typeName, ImmutableArray<SyntaxReference> references)
+    private static void ReportPartsMissingStatic(in SymbolAnalysisContext context, string typeName, ImmutableArray<SyntaxReference> references)
     {
         for (var i = 0; i < references.Length; i++)
         {

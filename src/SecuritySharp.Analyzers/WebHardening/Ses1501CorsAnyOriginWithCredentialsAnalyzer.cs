@@ -56,7 +56,7 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
     /// <summary>Reports SES1501 for an <c>AllowCredentials()</c> call whose policy scope also allows any origin.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -127,7 +127,7 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
         }
 
         var scan = new AllowAnyOriginScan(model, builderType, false, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, AllowAnyOriginScan>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             scope,
             ref scan,
             static (InvocationExpressionSyntax invocation, ref AllowAnyOriginScan state) =>
@@ -150,16 +150,16 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
     /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for an <c>AllowAnyOrigin()</c> call on the gated builder.</returns>
-    private static bool IsAllowAnyOriginCall(InvocationExpressionSyntax invocation, SemanticModel model, INamedTypeSymbol builderType, CancellationToken cancellationToken)
-        => GetCalleeName(invocation.Expression) is { Identifier.ValueText: AllowAnyOriginMethodName }
+    private static bool IsAllowAnyOriginCall(InvocationExpressionSyntax invocation, SemanticModel model, INamedTypeSymbol builderType, CancellationToken cancellationToken) =>
+        GetCalleeName(invocation.Expression) is { Identifier.ValueText: AllowAnyOriginMethodName }
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Name: AllowAnyOriginMethodName } method
             && SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType);
 
     /// <summary>Returns the simple name a member invocation targets, or <see langword="null"/> when there is no receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The invoked member's simple name, or <see langword="null"/> when it is not a member access.</returns>
-    private static SimpleNameSyntax? GetCalleeName(ExpressionSyntax invoked)
-        => invoked switch
+    private static SimpleNameSyntax? GetCalleeName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name,

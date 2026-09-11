@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConsistent = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1520ConsistentBracesAnalyzer,
     StyleSharp.Analyzers.Sst1520ConsistentBracesCodeFixProvider>;
@@ -90,9 +91,10 @@ public class LayoutBraceRequirementUnitTest
 
     /// <summary>Verifies a single-line unbraced child is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineChildIsCleanAsync()
-        => await VerifyMultiLine.VerifyAnalyzerAsync(
+    public Task SingleLineChildIsCleanAsync() =>
+        VerifyMultiLine.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -106,9 +108,10 @@ public class LayoutBraceRequirementUnitTest
 
     /// <summary>Verifies stacked <c>using</c> statements sharing one braced body are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StackedUsingStatementsAreCleanAsync()
-        => await VerifyMultiLine.VerifyAnalyzerAsync(
+    public Task StackedUsingStatementsAreCleanAsync() =>
+        VerifyMultiLine.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -218,9 +221,10 @@ public class LayoutBraceRequirementUnitTest
 
     /// <summary>Verifies an if/else chain with consistent braces is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsistentBracesAreCleanAsync()
-        => await VerifyConsistent.VerifyAnalyzerAsync(
+    public Task ConsistentBracesAreCleanAsync() =>
+        VerifyConsistent.VerifyAnalyzerAsync(
             """
             internal class C
             {

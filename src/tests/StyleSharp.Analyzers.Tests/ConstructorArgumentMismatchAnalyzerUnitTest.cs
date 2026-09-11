@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2487ConstructorArgumentMismatchAnalyzer>;
 
@@ -32,9 +33,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a name matching no constructor parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MismatchIsReportedAsync()
-        => await VerifyWithStubAsync(
+    public Task MismatchIsReportedAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -49,9 +51,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a name matching the constructor parameter is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchingNameIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task MatchingNameIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -66,9 +69,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a name matching a parameter of any constructor, not only the first, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchInAnyConstructorIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task MatchInAnyConstructorIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -85,9 +89,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a type whose only constructor takes no such parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithoutMatchingParameterIsReportedAsync()
-        => await VerifyWithStubAsync(
+    public Task TypeWithoutMatchingParameterIsReportedAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -100,9 +105,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified attribute name is still measured and reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedAttributeNameIsReportedAsync()
-        => await VerifyWithStubAsync(
+    public Task QualifiedAttributeNameIsReportedAsync() =>
+        VerifyWithStubAsync(
             """
             public class MapExtension
             {
@@ -115,9 +121,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies an argument that is not a string literal is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralArgumentIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task NonLiteralArgumentIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -134,9 +141,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies an argument that is a literal but not a string is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringLiteralArgumentIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task NonStringLiteralArgumentIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             using System.Windows.Markup;
 
@@ -151,9 +159,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies an attribute written with no argument is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyArgumentListIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptyArgumentListIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace System.Windows.Markup
             {
@@ -185,9 +194,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a different attribute on the property is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentAttributeIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task DifferentAttributeIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             using System;
             using System.Windows.Markup;
@@ -203,9 +213,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute from another namespace is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedAttributeFromOtherNamespaceIsCleanAsync()
-        => await VerifyWithStubAsync(
+    public Task SameNamedAttributeFromOtherNamespaceIsCleanAsync() =>
+        VerifyWithStubAsync(
             """
             namespace Other
             {
@@ -229,9 +240,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies nothing is registered when the markup attribute is absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WithoutMarkupAttributeNothingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task WithoutMarkupAttributeNothingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace Other
             {
@@ -260,9 +272,10 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
 
     /// <summary>Verifies the attribute on a member other than a property is not measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeNotOnPropertyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AttributeNotOnPropertyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace System.Windows.Markup
             {
@@ -296,6 +309,7 @@ public class ConstructorArgumentMismatchAnalyzerUnitTest
     /// <summary>Runs a source with the markup attribute stub appended.</summary>
     /// <param name="body">The test body, with markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyWithStubAsync(string body)
-        => await Verify.VerifyAnalyzerAsync(body + MarkupAttributeStub);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyWithStubAsync(string body) =>
+        Verify.VerifyAnalyzerAsync(body + MarkupAttributeStub);
 }

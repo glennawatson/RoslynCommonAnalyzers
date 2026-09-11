@@ -48,7 +48,7 @@ public sealed class Sst2427HidingGeneralOverloadAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < members.Length; i++)
         {
             if (members[i] is IMethodSymbol { MethodKind: MethodKind.Ordinary, IsOverride: false, Arity: 0, IsImplicitlyDeclared: false } method
-                && method.Parameters.Length > 0
+                && !method.Parameters.IsEmpty
                 && !HasParamsParameter(method.Parameters))
             {
                 AnalyzeMethod(context, type, method);
@@ -60,7 +60,7 @@ public sealed class Sst2427HidingGeneralOverloadAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="method">The declared method under test.</param>
-    private static void AnalyzeMethod(SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol method)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol method)
     {
         for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
         {

@@ -8,11 +8,11 @@ namespace StyleSharp.Analyzers;
 internal enum LogPlaceholderKind
 {
     /// <summary>A placeholder whose name is a property identifier the value is captured under.</summary>
-    Named,
+    Named = 0,
 
     /// <summary>A placeholder whose name is all digits, so it is positional rather than a captured property.</summary>
-    Numeric,
+    Numeric = 1,
 
     /// <summary>A placeholder that is empty, whitespace, or whose name contains a character a name cannot.</summary>
-    Malformed,
+    Malformed = 2,
 }

@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a method parameter whose name is identical to its containing method's name (SST1320).
-/// </summary>
+/// <summary>Reports a method parameter whose name is identical to its containing method's name (SST1320).</summary>
 /// <remarks>
 /// <para>
 /// A parameter that repeats its method's name is almost always a copy-paste slip, and it makes a

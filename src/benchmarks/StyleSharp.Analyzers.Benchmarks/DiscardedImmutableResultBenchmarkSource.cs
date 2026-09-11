@@ -11,8 +11,8 @@ internal static class DiscardedImmutableResultBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class DiscardedImmutableResultBenchmarkSource
     /// <summary>Builds one type that uses the immutable value it computes.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public DateTime M(DateTime date) => date.AddDays(1);
@@ -34,8 +34,8 @@ internal static class DiscardedImmutableResultBenchmarkSource
     /// <summary>Builds one type that computes an immutable value and drops it.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void M(DateTime date)

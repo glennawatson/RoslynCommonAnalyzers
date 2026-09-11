@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyObsoleteRemoval = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2310ObsoleteCodeShouldBeRemovedAnalyzer>;
@@ -13,9 +14,10 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
 {
     /// <summary>Verifies a message does not exempt the attribute: the rule wants the code gone, not explained.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplainedDeprecationIsStillReportedAsync()
-        => await VerifyObsoleteRemoval.VerifyAnalyzerAsync(
+    public Task ExplainedDeprecationIsStillReportedAsync() =>
+        VerifyObsoleteRemoval.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -55,11 +57,7 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyObsoleteRemoval.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyObsoleteRemoval.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -115,11 +113,7 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
                               """;
 
         // Records need IsExternalInit, which the default reference assemblies do not carry.
-        var test = new VerifyObsoleteRemoval.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyObsoleteRemoval.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -130,9 +124,10 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
     /// Unlike a rule that demands a different member shape, this one asks for the attribute — and the code under
     /// it — to go away, which is something the overriding type can do on its own.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsReportedAsync()
-        => await VerifyObsoleteRemoval.VerifyAnalyzerAsync(
+    public Task OverrideIsReportedAsync() =>
+        VerifyObsoleteRemoval.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -155,9 +150,10 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
 
     /// <summary>Verifies an attribute of the same name that is not the framework's is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignObsoleteAttributeIsCleanAsync()
-        => await VerifyObsoleteRemoval.VerifyAnalyzerAsync(
+    public Task ForeignObsoleteAttributeIsCleanAsync() =>
+        VerifyObsoleteRemoval.VerifyAnalyzerAsync(
             """
             namespace Vendor
             {
@@ -183,9 +179,10 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
 
     /// <summary>Verifies code carrying no deprecation is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CurrentCodeIsCleanAsync()
-        => await VerifyObsoleteRemoval.VerifyAnalyzerAsync(
+    public Task CurrentCodeIsCleanAsync() =>
+        VerifyObsoleteRemoval.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -215,10 +212,7 @@ public class ObsoleteCodeShouldBeRemovedAnalyzerUnitTest
                                      }
                                  }
                                  """;
-        var test = new VerifyObsoleteRemoval.Test
-        {
-            TestState = { Sources = { ("Proxy.g.cs", Generated) } },
-        };
+        var test = new VerifyObsoleteRemoval.Test { TestState = { Sources = { ("Proxy.g.cs", Generated) } }, };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for type parameter equality analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("EqualityComparerDefaultBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class EqualityComparerDefaultBenchmarks
@@ -24,11 +26,13 @@ public class EqualityComparerDefaultBenchmarks
 
     /// <summary>Benchmarks the clean type parameter equality path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EqualityComparerDefault_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating type parameter equality path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EqualityComparerDefault_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -17,7 +17,7 @@ internal static class DescendantTraversalHelper
     /// <param name="node">The current matching descendant.</param>
     /// <param name="state">The caller state.</param>
     /// <returns><see langword="true"/> to continue, or <see langword="false"/> to stop.</returns>
-    public delegate bool DescendantVisitor<in TNode, TState>(TNode node, ref TState state)
+    internal delegate bool DescendantVisitor<in TNode, TState>(TNode node, ref TState state)
         where TNode : SyntaxNode;
 
     /// <summary>Represents a preorder descendant-token visitor.</summary>
@@ -25,7 +25,7 @@ internal static class DescendantTraversalHelper
     /// <param name="token">The current descendant token.</param>
     /// <param name="state">The caller state.</param>
     /// <returns><see langword="true"/> to continue, or <see langword="false"/> to stop.</returns>
-    public delegate bool DescendantTokenVisitor<TState>(in SyntaxToken token, ref TState state);
+    internal delegate bool DescendantTokenVisitor<TState>(in SyntaxToken token, ref TState state);
 
     /// <summary>
     /// Visits every token beneath <paramref name="root"/> in document (preorder)
@@ -38,7 +38,7 @@ internal static class DescendantTraversalHelper
     /// <param name="state">The caller state.</param>
     /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
     /// <returns><see langword="true"/> when the full traversal completed.</returns>
-    public static bool VisitDescendantTokens<TState>(SyntaxNode root, ref TState state, DescendantTokenVisitor<TState> visitor)
+    internal static bool VisitDescendantTokens<TState>(SyntaxNode root, ref TState state, DescendantTokenVisitor<TState> visitor)
     {
         var children = root.ChildNodesAndTokens();
         for (var i = 0; i < children.Count; i++)
@@ -67,7 +67,7 @@ internal static class DescendantTraversalHelper
     /// <param name="state">The caller state.</param>
     /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
     /// <returns><see langword="true"/> when the full traversal completed.</returns>
-    public static bool VisitDescendants<TNode, TState>(SyntaxNode root, ref TState state, DescendantVisitor<TNode, TState> visitor)
+    internal static bool VisitDescendants<TNode, TState>(SyntaxNode root, ref TState state, DescendantVisitor<TNode, TState> visitor)
         where TNode : SyntaxNode
     {
         var children = root.ChildNodesAndTokens();

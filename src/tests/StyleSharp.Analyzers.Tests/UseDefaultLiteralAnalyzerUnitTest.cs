@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyDefaultLiteral = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -35,9 +36,10 @@ public class UseDefaultLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a <c>var</c> initializer and a converting context keep the explicit form.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeRequiredContextsAreCleanAsync()
-        => await VerifyDefaultLiteral.VerifyAnalyzerAsync(
+    public Task TypeRequiredContextsAreCleanAsync() =>
+        VerifyDefaultLiteral.VerifyAnalyzerAsync(
             """
             public class C
             {

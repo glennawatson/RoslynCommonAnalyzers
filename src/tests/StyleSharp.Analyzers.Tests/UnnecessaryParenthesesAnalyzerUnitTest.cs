@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUnnecessaryParentheses = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1459UnnecessaryParenthesesAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UnnecessaryParenthesesAnalyzerUnitTest
 {
     /// <summary>Verifies a return value wrapped in non-grouping parentheses is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StandaloneReturnValueIsReportedAsync()
-        => await VerifyUnnecessaryParentheses.VerifyAnalyzerAsync(
+    public Task StandaloneReturnValueIsReportedAsync() =>
+        VerifyUnnecessaryParentheses.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -24,9 +26,10 @@ public class UnnecessaryParenthesesAnalyzerUnitTest
 
     /// <summary>Verifies parentheses that declare precedence are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrecedenceParenthesesAreCleanAsync()
-        => await VerifyUnnecessaryParentheses.VerifyAnalyzerAsync(
+    public Task PrecedenceParenthesesAreCleanAsync() =>
+        VerifyUnnecessaryParentheses.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

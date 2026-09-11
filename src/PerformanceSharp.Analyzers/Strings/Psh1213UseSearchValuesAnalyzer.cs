@@ -51,15 +51,15 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name is one of the any-of search methods.</summary>
     /// <param name="name">The invoked member name.</param>
     /// <returns><see langword="true"/> for the IndexOfAny family.</returns>
-    private static bool IsAnyOfSearchName(string name)
-        => name is "IndexOfAny" or "LastIndexOfAny" or "IndexOfAnyExcept" or "LastIndexOfAnyExcept"
+    private static bool IsAnyOfSearchName(string name) =>
+        name is "IndexOfAny" or "LastIndexOfAny" or "IndexOfAnyExcept" or "LastIndexOfAnyExcept"
             or "ContainsAny" or "ContainsAnyExcept";
 
     /// <summary>Returns whether an expression is an inline creation of constant chars.</summary>
     /// <param name="expression">The set argument.</param>
     /// <returns><see langword="true"/> for array creations and collection expressions of char literals.</returns>
-    private static bool IsInlineConstantCharSet(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsInlineConstantCharSet(ExpressionSyntax expression) =>
+        expression switch
         {
             ArrayCreationExpressionSyntax { Initializer: { } initializer } => AllCharLiterals(initializer.Expressions),
             ImplicitArrayCreationExpressionSyntax { Initializer: { } initializer } => AllCharLiterals(initializer.Expressions),
@@ -113,7 +113,7 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1213 for an any-of search over an inline constant set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="extensions">The span extensions type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol extensions)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol extensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 1

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyObsoleteMessage = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2308ObsoleteWithoutExplanationAnalyzer>;
@@ -13,9 +14,10 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
 {
     /// <summary>Verifies a bare obsolete attribute is reported wherever it is written.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareAttributeIsReportedAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task BareAttributeIsReportedAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -41,9 +43,10 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
     /// The attribute has no constructor taking the flag alone, so the only way to write the flag without
     /// explaining anything is to hand the message a null.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ErrorFlagWithoutMessageIsReportedAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task ErrorFlagWithoutMessageIsReportedAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -58,9 +61,10 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
 
     /// <summary>Verifies a message that says nothing is reported like a missing one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankMessageIsReportedAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task BlankMessageIsReportedAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -92,9 +96,10 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
 
     /// <summary>Verifies a message, however it is supplied, is what the rule is asking for.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SuppliedMessageIsCleanAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task SuppliedMessageIsCleanAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -145,20 +150,17 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyObsoleteMessage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyObsoleteMessage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies an attribute of the same name that is not the framework's is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignObsoleteAttributeIsCleanAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task ForeignObsoleteAttributeIsCleanAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             namespace Vendor
             {
@@ -196,19 +198,17 @@ public class ObsoleteWithoutExplanationAnalyzerUnitTest
                                      }
                                  }
                                  """;
-        var test = new VerifyObsoleteMessage.Test
-        {
-            TestState = { Sources = { ("Proxy.g.cs", Generated) } },
-        };
+        var test = new VerifyObsoleteMessage.Test { TestState = { Sources = { ("Proxy.g.cs", Generated) } }, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies the attribute is reported on the many kinds of declaration it can be written on.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryAnnotatedDeclarationKindIsReportedAsync()
-        => await VerifyObsoleteMessage.VerifyAnalyzerAsync(
+    public Task EveryAnnotatedDeclarationKindIsReportedAsync() =>
+        VerifyObsoleteMessage.VerifyAnalyzerAsync(
             """
             using System;
 

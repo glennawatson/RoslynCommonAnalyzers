@@ -71,10 +71,9 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="allowAnonymous">The resolved <c>AllowAnonymousAttribute</c> type.</param>
     /// <param name="authorize">The resolved <c>AuthorizeAttribute</c> type.</param>
-    private static void AnalyzeDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol allowAnonymous, INamedTypeSymbol authorize)
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol allowAnonymous, INamedTypeSymbol authorize)
     {
-        var declaration = (MemberDeclarationSyntax)context.Node;
-        var attributeLists = declaration.AttributeLists;
+        var attributeLists = ((MemberDeclarationSyntax)context.Node).AttributeLists;
 
         // Syntactic prefilter: the conflict needs at least two attributes on this one declaration.
         if (!HasAtLeastTwoAttributes(attributeLists))
@@ -102,7 +101,7 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
     /// <param name="authorize">The resolved <c>AuthorizeAttribute</c> type.</param>
     /// <returns>The first authorize attribute when both markers are present; otherwise <see langword="null"/>.</returns>
     private static AttributeSyntax? FindConflictingAuthorizeAttribute(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         INamedTypeSymbol allowAnonymous,
         INamedTypeSymbol authorize)

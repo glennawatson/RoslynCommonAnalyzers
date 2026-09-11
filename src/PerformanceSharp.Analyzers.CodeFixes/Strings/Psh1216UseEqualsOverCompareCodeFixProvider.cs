@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -40,20 +42,21 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with the matching StringComparison", nameof(Psh1216UseEqualsOverCompareCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with the matching StringComparison", nameof(Psh1216UseEqualsOverCompareCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported comparison with its <c>string.Equals</c> form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison expression to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
-        => TryGetReplacement(comparison, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
+        TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
 
@@ -61,8 +64,8 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BinaryExpressionSyntax binary
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is BinaryExpressionSyntax binary
             && TryGetReplacement(binary, out var replacement)
             ? new NodeReplacement(binary, replacement!)
             : null;
@@ -139,7 +142,7 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
                 CommaWithTrailingSpace(),
                 SyntaxFactory.Argument(right.WithoutTrivia()),
                 CommaWithTrailingSpace(),
-                SyntaxFactory.Argument(comparison)
+                SyntaxFactory.Argument(comparison),
             })));
     }
 
@@ -158,6 +161,7 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
 
     /// <summary>Creates a comma token followed by a single space.</summary>
     /// <returns>The comma token.</returns>
-    private static SyntaxToken CommaWithTrailingSpace()
-        => SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken CommaWithTrailingSpace() =>
+        SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyContract = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2333NonGenericContractAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 {
     /// <summary>Verifies a type implementing <c>IComparable&lt;T&gt;</c> without <c>IComparable</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparableWithoutNonGenericIsReportedAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task ComparableWithoutNonGenericIsReportedAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -25,9 +27,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a type implementing <c>IComparer&lt;T&gt;</c> without <c>IComparer</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparerWithoutNonGenericIsReportedAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task ComparerWithoutNonGenericIsReportedAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -39,9 +42,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a type implementing <c>IEqualityComparer&lt;T&gt;</c> without <c>IEqualityComparer</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualityComparerWithoutNonGenericIsReportedAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task EqualityComparerWithoutNonGenericIsReportedAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -55,9 +59,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a type implementing <c>IEquatable&lt;T&gt;</c> without an <c>object.Equals</c> override is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EquatableWithoutObjectEqualsIsReportedAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task EquatableWithoutObjectEqualsIsReportedAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -69,9 +74,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a type that also implements the non-generic contract is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparableWithNonGenericIsCleanAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task ComparableWithNonGenericIsCleanAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -85,9 +91,10 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a type that also overrides <c>object.Equals</c> is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EquatableWithObjectEqualsIsCleanAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task EquatableWithObjectEqualsIsCleanAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -103,18 +110,20 @@ public class Sst2333NonGenericContractAnalyzerUnitTest
 
     /// <summary>Verifies a record, whose equality members the compiler already generates, is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordIsCleanAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task RecordIsCleanAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             public record Point(int X, int Y);
             """);
 
     /// <summary>Verifies an internal type, invisible outside the assembly, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalTypeIsCleanAsync()
-        => await VerifyContract.VerifyAnalyzerAsync(
+    public Task InternalTypeIsCleanAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
             """
             using System;
 

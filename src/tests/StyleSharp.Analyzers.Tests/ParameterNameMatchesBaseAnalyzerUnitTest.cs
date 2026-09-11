@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyParameterName = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MethodNamingAnalyzer,
     StyleSharp.Analyzers.NamingRenameCodeFixProvider>;
@@ -49,9 +50,10 @@ public class ParameterNameMatchesBaseAnalyzerUnitTest
 
     /// <summary>Verifies an interface implementation with a mismatched parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceImplementationMismatchReportedAsync()
-        => await VerifyParameterName.VerifyAnalyzerAsync(
+    public Task InterfaceImplementationMismatchReportedAsync() =>
+        VerifyParameterName.VerifyAnalyzerAsync(
             """
             public interface IProcessor
             {
@@ -69,9 +71,10 @@ public class ParameterNameMatchesBaseAnalyzerUnitTest
 
     /// <summary>Verifies a matching override and a non-overriding method are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchingNamesAreCleanAsync()
-        => await VerifyParameterName.VerifyAnalyzerAsync(
+    public Task MatchingNamesAreCleanAsync() =>
+        VerifyParameterName.VerifyAnalyzerAsync(
             """
             public abstract class B
             {

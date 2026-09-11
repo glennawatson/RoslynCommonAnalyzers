@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDisplay = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2334MissingDebuggerDisplayAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 {
     /// <summary>Verifies a public class with no debugger-display attribute is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicClassWithoutAttributeIsReportedAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task PublicClassWithoutAttributeIsReportedAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class {|SST2334:Money|}
             {
@@ -23,9 +25,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a public struct with no debugger-display attribute is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicStructWithoutAttributeIsReportedAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task PublicStructWithoutAttributeIsReportedAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public struct {|SST2334:Point|}
             {
@@ -35,9 +38,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a type that already carries the attribute is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithAttributeIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task TypeWithAttributeIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -50,9 +54,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies an internal type, invisible outside the assembly, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalTypeIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task InternalTypeIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             internal class Money
             {
@@ -62,9 +67,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a static class, which has no instances to display, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task StaticClassIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public static class Money
             {
@@ -74,9 +80,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a type with nothing to show is not reported — a display string could only repeat the type name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithNoMembersIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task TypeWithNoMembersIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class Marker
             {
@@ -85,9 +92,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a type holding only statics and constants, which identify no instance, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeOfConstantsAndStaticsIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task TypeOfConstantsAndStaticsIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class Limits
             {
@@ -101,15 +109,17 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies an empty positional record, whose every member is compiler-generated, is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyRecordIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync("public record Nothing();");
+    public Task EmptyRecordIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync("public record Nothing();");
 
     /// <summary>Verifies a write-only property, which cannot be shown, does not qualify a type on its own.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteOnlyPropertyIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task WriteOnlyPropertyIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class Sink
             {
@@ -119,9 +129,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies an indexer, which has no name to drop into a display string, does not qualify a type on its own.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerOnlyTypeIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task IndexerOnlyTypeIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class Bag
             {
@@ -131,9 +142,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a property that only answers a base contract does not qualify a behavioural type.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverridingPropertyIsCleanAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task OverridingPropertyIsCleanAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public abstract class {|SST2334:Shape|}
             {
@@ -148,9 +160,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a private field counts, because a display string binds in the type's own context.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateFieldIsReportedAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task PrivateFieldIsReportedAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public struct {|SST2334:Wrapper|}
             {
@@ -162,9 +175,10 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a ToString override qualifies a type, since that is what the fallback display string names.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToStringOverrideIsReportedAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync(
+    public Task ToStringOverrideIsReportedAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync(
             """
             public class {|SST2334:Marker|}
             {
@@ -174,7 +188,8 @@ public class Sst2334MissingDebuggerDisplayAnalyzerUnitTest
 
     /// <summary>Verifies a positional record's generated property counts as state worth showing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordIsReportedAsync()
-        => await VerifyDisplay.VerifyAnalyzerAsync("public record {|SST2334:Money|}(int Amount);");
+    public Task PositionalRecordIsReportedAsync() =>
+        VerifyDisplay.VerifyAnalyzerAsync("public record {|SST2334:Money|}(int Amount);");
 }

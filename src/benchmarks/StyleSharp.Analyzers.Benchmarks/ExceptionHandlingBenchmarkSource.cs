@@ -11,8 +11,8 @@ internal static class ExceptionHandlingBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit empty base-exception catches.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class ExceptionHandlingBench
@@ -25,8 +25,8 @@ internal static class ExceptionHandlingBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit an empty base-exception catch.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $"internal static void M{index}() {{ try {{ }} catch (System.Exception) {{ }} }}"
             : $"internal static void M{index}() {{ try {{ }} catch (System.InvalidOperationException ex) {{ System.Console.WriteLine(ex); }} }}";
 }

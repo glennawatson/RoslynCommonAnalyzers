@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeHomeRolled = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 {
     /// <summary>Verifies a class deriving from the abstract <c>HashAlgorithm</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashAlgorithmDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task HashAlgorithmDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -36,9 +38,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from the abstract <c>KeyedHashAlgorithm</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyedHashAlgorithmDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task KeyedHashAlgorithmDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -58,9 +61,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from the abstract <c>HMAC</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HmacDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task HmacDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -71,9 +75,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from the abstract <c>SymmetricAlgorithm</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SymmetricAlgorithmDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task SymmetricAlgorithmDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -95,9 +100,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from the abstract <c>AsymmetricAlgorithm</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsymmetricAlgorithmDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task AsymmetricAlgorithmDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -108,9 +114,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from the abstract <c>DeriveBytes</c> primitive is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeriveBytesDerivativeReportedAsync()
-        => await VerifyNet90Async(
+    public Task DeriveBytesDerivativeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -126,9 +133,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class reaching a primitive base through a custom intermediate is reported, along with the intermediate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomIntermediateBaseReportedAsync()
-        => await VerifyNet90Async(
+    public Task CustomIntermediateBaseReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -152,9 +160,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies subclassing the concrete <c>HMACSHA256</c> algorithm to configure it is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteKeyedHashSubclassIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConcreteKeyedHashSubclassIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -165,9 +174,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies subclassing the concrete <c>Aes</c> algorithm to configure it is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteSymmetricAlgorithmSubclassIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConcreteSymmetricAlgorithmSubclassIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -189,9 +199,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a chain reaching a primitive only through a concrete algorithm is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntermediateOverConcreteAlgorithmIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task IntermediateOverConcreteAlgorithmIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -206,9 +217,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class whose base list carries only an interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceOnlyBaseListIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InterfaceOnlyBaseListIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class MyDisposable : System.IDisposable
             {
@@ -220,9 +232,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving from an unrelated, non-cryptographic base is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedBaseClassIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedBaseClassIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class MyException : System.Exception
             {
@@ -231,9 +244,10 @@ public class HomeRolledCryptographyAnalyzerUnitTest
 
     /// <summary>Verifies a class with no base list is not reported (the syntactic prefilter rejects it).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoBaseListIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NoBaseListIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class Plain
             {
@@ -258,11 +272,7 @@ public class HomeRolledCryptographyAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeHomeRolled.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10,
-            TestCode = Source
-        };
+        var test = new AnalyzeHomeRolled.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -272,11 +282,7 @@ public class HomeRolledCryptographyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeHomeRolled.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeHomeRolled.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

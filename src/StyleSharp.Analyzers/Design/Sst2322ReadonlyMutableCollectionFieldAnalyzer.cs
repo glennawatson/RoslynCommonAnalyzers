@@ -56,7 +56,7 @@ public sealed class Sst2322ReadonlyMutableCollectionFieldAnalyzer : DiagnosticAn
     /// <summary>Reports each declarator of a visible instance readonly field that holds a mutable collection.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="mutableTypes">The known mutable collection types.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, MutableCollectionTypes mutableTypes)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, MutableCollectionTypes mutableTypes)
     {
         var declaration = (FieldDeclarationSyntax)context.Node;
         if (!IsVisibleInstanceReadonly(declaration.Modifiers))
@@ -91,7 +91,7 @@ public sealed class Sst2322ReadonlyMutableCollectionFieldAnalyzer : DiagnosticAn
     /// alone, before any symbol is touched. A <c>static</c> field is out of scope, and a field with no
     /// <c>readonly</c> keyword is a different, more obvious problem this rule leaves to others.
     /// </remarks>
-    private static bool IsVisibleInstanceReadonly(SyntaxTokenList modifiers)
+    private static bool IsVisibleInstanceReadonly(in SyntaxTokenList modifiers)
     {
         if (!ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword)
             || ModifierListHelper.Contains(modifiers, SyntaxKind.StaticKeyword)

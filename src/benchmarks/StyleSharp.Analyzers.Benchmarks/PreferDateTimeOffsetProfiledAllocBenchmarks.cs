@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for public-boundary date-and-time analysis (SST2016).</summary>
+[System.Diagnostics.DebuggerDisplay("PreferDateTimeOffsetProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class PreferDateTimeOffsetProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class PreferDateTimeOffsetProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferDateTimeOffset_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PreferDateTimeOffset_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

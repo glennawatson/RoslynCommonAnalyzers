@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1008UselessSuppressFinalizeAnalyzer,
     PerformanceSharp.Analyzers.Psh1008UselessSuppressFinalizeCodeFixProvider>;
@@ -38,15 +39,17 @@ public class UselessSuppressFinalizeAnalyzerUnitTest
 
     /// <summary>Verifies a sealed finalizer-free type is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedFinalizerFreeTypeIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(SealedNoFinalizerSource);
+    public Task SealedFinalizerFreeTypeIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(SealedNoFinalizerSource);
 
     /// <summary>Verifies a sealed type with a finalizer is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedTypeWithFinalizerIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SealedTypeWithFinalizerIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -65,9 +68,10 @@ public class UselessSuppressFinalizeAnalyzerUnitTest
 
     /// <summary>Verifies an unsealed type is clean because a derived type may add a finalizer.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsealedTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnsealedTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -82,9 +86,10 @@ public class UselessSuppressFinalizeAnalyzerUnitTest
 
     /// <summary>Verifies a sealed type whose base declares a finalizer is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedTypeWithBaseFinalizerIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SealedTypeWithBaseFinalizerIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -106,9 +111,10 @@ public class UselessSuppressFinalizeAnalyzerUnitTest
 
     /// <summary>Verifies a struct dispose is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructDisposeIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StructDisposeIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -123,7 +129,8 @@ public class UselessSuppressFinalizeAnalyzerUnitTest
 
     /// <summary>Verifies the fix removes the whole statement.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRemovesStatementAsync()
-        => await Verify.VerifyCodeFixAsync(SealedNoFinalizerSource, SealedNoFinalizerFixed);
+    public Task FixRemovesStatementAsync() =>
+        Verify.VerifyCodeFixAsync(SealedNoFinalizerSource, SealedNoFinalizerFixed);
 }

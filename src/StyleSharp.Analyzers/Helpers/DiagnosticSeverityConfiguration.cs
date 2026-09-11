@@ -23,7 +23,7 @@ internal static class DiagnosticSeverityConfiguration
     /// (<see cref="CompilationOptions.SpecificDiagnosticOptions"/>) is still checked, since a <c>NoWarn</c>
     /// disables a diagnostic just as completely.
     /// </remarks>
-    public static bool IsOff(
+    internal static bool IsOff(
         string diagnosticId,
         SyntaxTree tree,
         AnalyzerOptions options,
@@ -44,7 +44,7 @@ internal static class DiagnosticSeverityConfiguration
         }
 
         var config = options.AnalyzerConfigOptionsProvider.GetOptions(tree);
-        return config.TryGetValue("dotnet_diagnostic." + diagnosticId + ".severity", out var severity)
+        return config.TryGetValue($"dotnet_diagnostic.{diagnosticId}.severity", out var severity)
             && (StringComparer.OrdinalIgnoreCase.Equals(severity, "none")
                 || StringComparer.OrdinalIgnoreCase.Equals(severity, "silent"));
     }
@@ -52,6 +52,6 @@ internal static class DiagnosticSeverityConfiguration
     /// <summary>Returns whether a configured severity means the diagnostic can never be reported.</summary>
     /// <param name="report">The configured severity.</param>
     /// <returns><see langword="true"/> for <c>none</c> and <c>silent</c>.</returns>
-    private static bool IsOff(ReportDiagnostic report)
-        => report is ReportDiagnostic.Suppress or ReportDiagnostic.Hidden;
+    private static bool IsOff(ReportDiagnostic report) =>
+        report is ReportDiagnostic.Suppress or ReportDiagnostic.Hidden;
 }

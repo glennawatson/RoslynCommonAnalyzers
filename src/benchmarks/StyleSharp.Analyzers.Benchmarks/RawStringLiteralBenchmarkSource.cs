@@ -14,8 +14,8 @@ internal static class RawStringLiteralBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit reportable literals.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RawStringLiteralBench
@@ -28,8 +28,8 @@ internal static class RawStringLiteralBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => (index % LiteralShapeCount, violating) switch
+    private static string GenerateMember(int index, bool violating) =>
+        (index % LiteralShapeCount, violating) switch
         {
             (0, true) => $$"""
                            public string Escaped{{index}}() => @"say ""hi"" number {{index}}";

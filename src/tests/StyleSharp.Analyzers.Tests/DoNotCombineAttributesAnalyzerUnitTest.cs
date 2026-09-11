@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCombineAttributes = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1133DoNotCombineAttributesAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DoNotCombineAttributesAnalyzerUnitTest
 {
     /// <summary>Verifies each attribute beyond the first in a combined list is reported (SST1133).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinedAttributesReportedAsync()
-        => await VerifyCombineAttributes.VerifyAnalyzerAsync(
+    public Task CombinedAttributesReportedAsync() =>
+        VerifyCombineAttributes.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -26,9 +28,10 @@ public class DoNotCombineAttributesAnalyzerUnitTest
 
     /// <summary>Verifies separate attribute lists are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateAttributesAreCleanAsync()
-        => await VerifyCombineAttributes.VerifyAnalyzerAsync(
+    public Task SeparateAttributesAreCleanAsync() =>
+        VerifyCombineAttributes.VerifyAnalyzerAsync(
             """
             using System;
 

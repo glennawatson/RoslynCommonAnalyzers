@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2467BypassedParamsOverloadAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 {
     /// <summary>Verifies a more specific reference-typed sibling bypasses the params overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceTypeSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReferenceTypeSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -31,9 +33,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a value-typed sibling that boxes to the element type bypasses the params overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoxingValueTypeSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BoxingValueTypeSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -49,9 +52,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a <c>string</c> sibling bypasses a <c>params object[]</c> overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StringSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -67,9 +71,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies an interface-typed sibling bypasses a <c>params object[]</c> overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -87,9 +92,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling implementing the params element interface bypasses the params overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceElementImplementingSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceElementImplementingSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IAnimal
             {
@@ -113,9 +119,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a subclass sibling bypasses a params overload whose element type is a base class.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SubclassSiblingIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SubclassSiblingIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Animal
             {
@@ -139,9 +146,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies the shape is reported when the params array is the only parameter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleParamsParameterIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleParamsParameterIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -159,9 +167,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies the shape is reported for static overloads.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticOverloadsAreReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticOverloadsAreReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -179,9 +188,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies the deliberate element-typed overload (allocation-avoiding) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElementTypedSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ElementTypedSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -197,9 +207,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose parameter is a base type of the element type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseTypedSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseTypedSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -215,9 +226,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling of a different arity (no trailing element) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShorterAritySiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ShorterAritySiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -233,9 +245,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose leading parameter differs in type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MismatchedLeadingParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MismatchedLeadingParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -253,9 +266,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a lone params overload with no sibling is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoneParamsOverloadIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task LoneParamsOverloadIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -267,9 +281,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies two params overloads are not treated as a bypassing pair.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParamsSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParamsSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -285,9 +300,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a static params overload and an instance sibling are not treated as a pair.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticInstanceMismatchIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticInstanceMismatchIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -305,9 +321,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose parameter is unrelated to the element type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedSiblingTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnrelatedSiblingTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -323,9 +340,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a differently named method is not treated as a sibling.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentNameIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentNameIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -343,9 +361,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose parameter does not implement the params element interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceElementUnrelatedSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceElementUnrelatedSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IAnimal
             {
@@ -369,9 +388,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a generic sibling is not treated as a bypassing overload.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GenericSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -387,9 +407,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose capturing parameter is by-reference is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ByReferenceSiblingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ByReferenceSiblingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -407,9 +428,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a sibling whose leading parameter differs only by ref kind is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MismatchedLeadingRefKindIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MismatchedLeadingRefKindIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -427,9 +449,10 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless method alongside a params overload is handled without a report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParameterlessMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Log
             {
@@ -445,7 +468,8 @@ public class Sst2467BypassedParamsOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a delegate type with a params signature is skipped by the type-kind guard.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync("public delegate void Callback(string format, params object[] args);");
+    public Task DelegateTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync("public delegate void Callback(string format, params object[] args);");
 }

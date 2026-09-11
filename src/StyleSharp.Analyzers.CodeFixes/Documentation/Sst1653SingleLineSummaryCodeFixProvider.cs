@@ -74,6 +74,6 @@ public sealed class Sst1653SingleLineSummaryCodeFixProvider : CodeFixProvider, I
     private static TextChange BuildChange(SourceText text, XmlElementSyntax summary)
     {
         var innerSpan = TextSpan.FromBounds(summary.StartTag.Span.End, summary.EndTag.Span.Start);
-        return new TextChange(summary.Span, "<summary>" + SummaryCollapse.Collapse(text, innerSpan) + "</summary>");
+        return new(summary.Span, $"<summary>{SummaryCollapse.Collapse(text, innerSpan)}</summary>");
     }
 }

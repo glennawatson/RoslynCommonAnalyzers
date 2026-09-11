@@ -63,7 +63,7 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
     /// <summary>Reports SES1604 for <c>AllowDangerouslySetContent = true</c> on a gated Semantic Kernel type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="contentTypes">The gated Semantic Kernel types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] contentTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] contentTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -92,14 +92,12 @@ public sealed class Ses1604PromptTemplateContentEncodingDisabledAnalyzer : Diagn
     /// <summary>Returns whether an assignment target syntactically names the content flag.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns><see langword="true"/> for <c>x.AllowDangerouslySetContent</c> or the bare initializer form.</returns>
-    private static bool IsContentFlagTarget(ExpressionSyntax left)
-        => left switch
+    private static bool IsContentFlagTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'config.AllowDangerouslySetContent = true'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: AllowDangerouslySetContentPropertyName } => true,
-
-            // 'new PromptTemplateConfig { AllowDangerouslySetContent = true }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: AllowDangerouslySetContentPropertyName } => true,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: AllowDangerouslySetContentPropertyName }
+                or IdentifierNameSyntax { Identifier.ValueText: AllowDangerouslySetContentPropertyName } => true,
 
             _ => false,
         };

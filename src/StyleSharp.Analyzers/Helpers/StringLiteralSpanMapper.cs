@@ -32,7 +32,7 @@ internal static class StringLiteralSpanMapper
     /// <param name="valueLength">The length in the literal's decoded value.</param>
     /// <param name="span">The source span, when it can be mapped.</param>
     /// <returns><see langword="true"/> when the span was mapped; otherwise the caller should use the whole literal.</returns>
-    public static bool TryMap(LiteralExpressionSyntax literal, int valueStart, int valueLength, out TextSpan span)
+    internal static bool TryMap(LiteralExpressionSyntax literal, int valueStart, int valueLength, out TextSpan span)
     {
         span = default;
         var token = literal.Token;
@@ -96,35 +96,29 @@ internal static class StringLiteralSpanMapper
     /// <param name="index">The index in the raw text.</param>
     /// <param name="verbatim">Whether the literal is verbatim.</param>
     /// <returns>The number of raw characters to skip.</returns>
-    private static int StepLength(string text, int index, bool verbatim)
-        => verbatim ? VerbatimStepLength(text, index) : RegularStepLength(text, index);
+    private static int StepLength(string text, int index, bool verbatim) =>
+        verbatim ? VerbatimStepLength(text, index) : RegularStepLength(text, index);
 
     /// <summary>Returns the raw length that encodes one decoded character in a verbatim literal.</summary>
     /// <param name="text">The literal's raw text.</param>
     /// <param name="index">The index in the raw text.</param>
     /// <returns>The number of raw characters to skip.</returns>
-    private static int VerbatimStepLength(string text, int index)
-        => text[index] == '"' && index + 1 < text.Length && text[index + 1] == '"' ? PairLength : 1;
+    private static int VerbatimStepLength(string text, int index) =>
+        text[index] == '"' && index + 1 < text.Length && text[index + 1] == '"' ? PairLength : 1;
 
     /// <summary>Returns the raw length that encodes one decoded character in a regular literal.</summary>
     /// <param name="text">The literal's raw text.</param>
     /// <param name="index">The index in the raw text.</param>
     /// <returns>The number of raw characters to skip.</returns>
-    private static int RegularStepLength(string text, int index)
-    {
-        if (text[index] != '\\' || index + 1 >= text.Length)
-        {
-            return 1;
-        }
-
-        return text[index + 1] switch
+    private static int RegularStepLength(string text, int index) => text[index] != '\\' || index + 1 >= text.Length
+        ? 1
+        : text[index + 1] switch
         {
             'u' => Utf16EscapeLength,
             'x' => PairLength + CountHexDigits(text, index + PairLength, MaxShortHexDigits),
             'U' => Utf32EscapeLength,
             _ => PairLength,
         };
-    }
 
     /// <summary>Counts consecutive hexadecimal digits, up to a maximum.</summary>
     /// <param name="text">The literal's raw text.</param>
@@ -145,6 +139,6 @@ internal static class StringLiteralSpanMapper
     /// <summary>Returns whether a character is a hexadecimal digit.</summary>
     /// <param name="c">The character.</param>
     /// <returns><see langword="true"/> when the character is a hexadecimal digit.</returns>
-    private static bool IsHexDigit(char c)
-        => c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
+    private static bool IsHexDigit(char c) =>
+        c is (>= '0' and <= '9') or (>= 'a' and <= 'f') or (>= 'A' and <= 'F');
 }

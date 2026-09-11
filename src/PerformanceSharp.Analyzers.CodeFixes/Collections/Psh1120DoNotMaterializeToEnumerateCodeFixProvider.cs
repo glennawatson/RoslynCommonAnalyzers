@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,27 +22,29 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Removes the reported materialization call, leaving its receiver as the loop source.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The ToList/ToArray invocation to remove.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
 
     /// <summary>Resolves the reported materialization call and builds its receiver-only replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => TryGetMaterializeInvocation(root, diagnostic) is { } invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetMaterializeInvocation(root, diagnostic) is { } invocation
             ? new NodeReplacement(invocation, Rewrite(invocation), RewriteCurrent)
             : null;
 
@@ -65,14 +69,16 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     /// <summary>Rewrites the current materialization invocation during batch FixAll composition.</summary>
     /// <param name="current">The current invocation node.</param>
     /// <returns>The rewritten expression.</returns>
-    private static ExpressionSyntax RewriteCurrent(SyntaxNode current)
-        => Rewrite((InvocationExpressionSyntax)current);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax RewriteCurrent(SyntaxNode current) =>
+        Rewrite((InvocationExpressionSyntax)current);
 
     /// <summary>Builds the receiver-only replacement for a materialization invocation.</summary>
     /// <param name="invocation">The invocation to rewrite; callers must have validated the shape.</param>
     /// <returns>The receiver expression carrying the invocation's trailing trivia.</returns>
-    private static ExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
-        => ((MemberAccessExpressionSyntax)invocation.Expression).Expression
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
+        ((MemberAccessExpressionSyntax)invocation.Expression).Expression
             .WithTrailingTrivia(invocation.GetTrailingTrivia())
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 }

@@ -80,8 +80,8 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The guard's receiver expression.</param>
     /// <param name="key">The guard's key expression.</param>
     /// <returns><see langword="true"/> when the receiver and key are syntactically equivalent to the guard's.</returns>
-    internal static bool IsMatchingElementAccess(ElementAccessExpressionSyntax elementAccess, ExpressionSyntax receiver, ExpressionSyntax key)
-        => elementAccess.ArgumentList.Arguments is [var argument]
+    internal static bool IsMatchingElementAccess(ElementAccessExpressionSyntax elementAccess, ExpressionSyntax receiver, ExpressionSyntax key) =>
+        elementAccess.ArgumentList.Arguments is [var argument]
             && SyntaxFactory.AreEquivalent(elementAccess.Expression, receiver)
             && SyntaxFactory.AreEquivalent(argument.Expression, key);
 
@@ -146,8 +146,8 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     /// <param name="receiver">The guard's receiver expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the rewrite target exists and is accessible.</returns>
-    private static bool HasAccessibleTryGetValue(SemanticModel model, InvocationExpressionSyntax invocation, ExpressionSyntax receiver, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Parameters.Length: 1 }
+    private static bool HasAccessibleTryGetValue(SemanticModel model, InvocationExpressionSyntax invocation, ExpressionSyntax receiver, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Parameters.Length: 1 }
             && model.GetTypeInfo(receiver, cancellationToken).Type is { } receiverType
             && LookupGuardHelper.TypeExposesAccessibleMethod(receiverType, TryGetValueMethodName, secondParameterIsOut: true, model, invocation.SpanStart);
 
@@ -161,7 +161,7 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        DescendantTraversalHelper.VisitDescendants<ElementAccessExpressionSyntax, ElementAccessScanState>(region, ref state, VisitElementAccess);
+        _ = DescendantTraversalHelper.VisitDescendants<ElementAccessExpressionSyntax, ElementAccessScanState>(region, ref state, VisitElementAccess);
     }
 
     /// <summary>Classifies one element access encountered during a guarded-region scan.</summary>
@@ -188,8 +188,8 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an element access is used as a write target rather than a read.</summary>
     /// <param name="elementAccess">The element access to classify.</param>
     /// <returns><see langword="true"/> when the element is assigned, incremented, decremented, or passed by reference.</returns>
-    private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess)
-        => elementAccess.Parent switch
+    private static bool IsWriteTarget(ElementAccessExpressionSyntax elementAccess) =>
+        elementAccess.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == elementAccess,
             PrefixUnaryExpressionSyntax prefix =>
@@ -204,8 +204,8 @@ public sealed class Psh1104UseTryGetValueAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an argument position writes to its element-access expression.</summary>
     /// <param name="argument">The argument wrapping the element access.</param>
     /// <returns><see langword="true"/> for <c>ref</c>/<c>out</c> arguments and deconstruction targets.</returns>
-    private static bool IsWriteArgument(ArgumentSyntax argument)
-        => argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
+    private static bool IsWriteArgument(ArgumentSyntax argument) =>
+        argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword)
             || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
             || IsDeconstructionTarget(argument);
 

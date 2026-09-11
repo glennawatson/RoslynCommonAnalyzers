@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2326InterfaceToConcreteCastAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 {
     /// <summary>Verifies an explicit cast from an interface to a cross-assembly concrete class is reported on the target type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitCastToExternalConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExplicitCastToExternalConcreteIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -28,9 +30,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>as</c> conversion from an interface to a cross-assembly concrete class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsExpressionToExternalConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AsExpressionToExternalConcreteIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -45,9 +48,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>is</c> type test from an interface to a cross-assembly concrete class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IsTypeTestToExternalConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IsTypeTestToExternalConcreteIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -59,9 +63,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>is</c> declaration pattern from an interface to a cross-assembly concrete class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IsDeclarationPatternToExternalConcreteIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IsDeclarationPatternToExternalConcreteIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -79,9 +84,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies narrowing to a concrete type declared in the same assembly is not reported: it is a closed, in-house set, not coupling.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameAssemblyConcreteTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SameAssemblyConcreteTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             interface IShape
             {
@@ -137,9 +143,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast from one interface to another interface is not reported: the target is not a concrete class.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceToInterfaceCastIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceToInterfaceCastIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -154,9 +161,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast to an abstract class that implements the interface is not reported: an abstract base is not a concrete implementation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastToAbstractImplementingClassIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CastToAbstractImplementingClassIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             interface IShape
             {
@@ -177,9 +185,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast to a struct that implements the interface is not reported: the target must be a class.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastToStructImplementingInterfaceIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CastToStructImplementingInterfaceIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             interface IShape
             {
@@ -200,9 +209,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast to an unrelated non-sealed class that does not implement the interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastToUnrelatedNonSealedClassIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CastToUnrelatedNonSealedClassIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             interface IShape
             {
@@ -223,9 +233,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies a downcast from <c>object</c> to a concrete class is not reported: the operand is not an interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastFromObjectIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CastFromObjectIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -240,9 +251,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>is</c> test where the operand is a type parameter constrained to an interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IsTypeTestFromTypeParameterIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IsTypeTestFromTypeParameterIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -255,9 +267,10 @@ public class InterfaceToConcreteCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>is not</c> pattern, which is not a declaration pattern, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IsNotPatternIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IsNotPatternIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

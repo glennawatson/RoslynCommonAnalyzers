@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -24,12 +26,13 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported Enumerable call with the receiver's indexer form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -37,8 +40,9 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <param name="invocation">The reported invocation.</param>
     /// <param name="countPropertyName">The count property used by the <c>Last()</c> rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string countPropertyName)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation, CreateReplacement(invocation, countPropertyName)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string countPropertyName) =>
+        document.WithSyntaxRoot(root.ReplaceNode(invocation, CreateReplacement(invocation, countPropertyName)));
 
     /// <summary>Resolves the reported Enumerable call and builds its indexer replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -50,8 +54,8 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// the call sits in an argument list, and walking up from there lands on the surrounding call —
     /// rewriting <c>M(values.First())</c> into <c>M[values.First()]</c>.
     /// </remarks>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
             && CanApply(invocation)
             ? new NodeReplacement(invocation, CreateReplacement(invocation, GetCountSourceName(diagnostic)))
             : null;
@@ -89,8 +93,9 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <param name="receiver">The receiver expression to duplicate into the index.</param>
     /// <param name="countPropertyName">The receiver's count property name.</param>
     /// <returns>The last-element index expression.</returns>
-    private static BinaryExpressionSyntax CreateLastIndex(ExpressionSyntax receiver, string countPropertyName)
-        => SyntaxFactory.BinaryExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BinaryExpressionSyntax CreateLastIndex(ExpressionSyntax receiver, string countPropertyName) =>
+        SyntaxFactory.BinaryExpression(
             SyntaxKind.SubtractExpression,
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
@@ -102,8 +107,8 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <summary>Returns whether a receiver expression is side-effect-free to duplicate.</summary>
     /// <param name="expression">The receiver expression.</param>
     /// <returns><see langword="true"/> for identifiers, <c>this</c>, and simple member-access chains over them.</returns>
-    private static bool IsSimpleReceiver(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsSimpleReceiver(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax or ThisExpressionSyntax => true,
             MemberAccessExpressionSyntax access => access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
@@ -115,8 +120,8 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     /// <summary>Reads the analyzer's count source property name from the diagnostic.</summary>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The count property name; only meaningful for <c>Last()</c> diagnostics.</returns>
-    private static string GetCountSourceName(Diagnostic diagnostic)
-        => diagnostic.Properties.TryGetValue(Psh1106UseIndexerForElementAccessAnalyzer.CountSourceKey, out var name) && name is not null
+    private static string GetCountSourceName(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Psh1106UseIndexerForElementAccessAnalyzer.CountSourceKey, out var name) && name is not null
             ? name
             : "Count";
 }

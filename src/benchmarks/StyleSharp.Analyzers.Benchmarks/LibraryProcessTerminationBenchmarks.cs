@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for library-process-termination analysis (SST2321).</summary>
+[System.Diagnostics.DebuggerDisplay("LibraryProcessTerminationBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class LibraryProcessTerminationBenchmarks
@@ -24,11 +26,13 @@ public class LibraryProcessTerminationBenchmarks
 
     /// <summary>Benchmarks the clean library-process-termination path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LibraryProcessTermination_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating library-process-termination path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LibraryProcessTermination_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

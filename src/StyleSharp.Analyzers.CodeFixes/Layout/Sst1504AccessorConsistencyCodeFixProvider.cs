@@ -77,12 +77,7 @@ public sealed class Sst1504AccessorConsistencyCodeFixProvider : CodeFixProvider,
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var changes = new List<TextChange>(EstimatedChangeCapacity(list));
 
-        if (!TryBuildChanges(text, list, changes) || changes.Count == 0)
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(changes));
+        return !TryBuildChanges(text, list, changes) || changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Appends the changes that expand every single-line block accessor in the list.</summary>

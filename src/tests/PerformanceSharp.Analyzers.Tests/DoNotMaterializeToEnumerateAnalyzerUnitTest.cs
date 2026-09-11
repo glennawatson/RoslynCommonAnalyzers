@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -103,9 +104,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies a loop that mutates the materialized source stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedSourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task MutatedSourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -127,9 +129,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies any mention of the source identifier in the loop body suppresses the report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyMentionOfSourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BodyMentionOfSourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -151,9 +154,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies the guard follows the root identifier through a LINQ chain to the source.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RootIdentifierGuardsThroughChainAsync()
-        => await VerifyNet90Async(
+    public Task RootIdentifierGuardsThroughChainAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -172,9 +176,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies enumerating a variable that holds the materialized copy stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MaterializedLocalIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task MaterializedLocalIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -197,9 +202,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies an await foreach stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitForeachIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task AwaitForeachIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Collections.Generic;
@@ -231,9 +237,10 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
 
     /// <summary>Verifies a custom ToList extension that takes an argument stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToListWithArgumentIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ToListWithArgumentIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -269,11 +276,7 @@ public class DoNotMaterializeToEnumerateAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

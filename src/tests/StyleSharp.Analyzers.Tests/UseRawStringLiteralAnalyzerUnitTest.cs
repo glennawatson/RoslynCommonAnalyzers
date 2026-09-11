@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRawString = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2243UseRawStringLiteralAnalyzer,
     StyleSharp.Analyzers.Sst2243UseRawStringLiteralCodeFixProvider>;
@@ -147,9 +148,10 @@ public class UseRawStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a single-line verbatim literal without doubled-quote escapes is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainVerbatimIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task PlainVerbatimIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -159,9 +161,10 @@ public class UseRawStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a regular literal with backslash escapes is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegularEscapedLiteralIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task RegularEscapedLiteralIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -171,9 +174,10 @@ public class UseRawStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated verbatim literal is clean even when it carries doubled-quote escapes.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedVerbatimIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task InterpolatedVerbatimIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -183,9 +187,10 @@ public class UseRawStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a single-line verbatim literal whose value starts with a quote is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeadingQuoteValueIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task LeadingQuoteValueIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             """"
             internal class C
             {
@@ -195,9 +200,10 @@ public class UseRawStringLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a single-line verbatim literal whose value ends with a quote is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingQuoteValueIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task TrailingQuoteValueIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             """"
             internal class C
             {
@@ -210,8 +216,9 @@ public class UseRawStringLiteralAnalyzerUnitTest
     /// string conversion would normalize that line to empty and change the value.
     /// </summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WhitespaceOnlyValueLineIsCleanAsync()
-        => await VerifyRawString.VerifyAnalyzerAsync(
+    public Task WhitespaceOnlyValueLineIsCleanAsync() =>
+        VerifyRawString.VerifyAnalyzerAsync(
             "internal class C\n{\n    private string _value = @\"first\n   \nlast\";\n}\n");
 }

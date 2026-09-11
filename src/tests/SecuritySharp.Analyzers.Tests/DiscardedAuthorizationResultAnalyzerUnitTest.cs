@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeDiscard = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -47,9 +48,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies an awaited call used as an expression statement is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitedExpressionStatementReportedAsync()
-        => await VerifyAsync(
+    public Task AwaitedExpressionStatementReportedAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -73,9 +75,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies an awaited call assigned to a discard is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task DiscardAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -99,9 +102,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies a discarded call wrapped in <c>.ConfigureAwait(false)</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConfigureAwaitedDiscardReportedAsync()
-        => await VerifyAsync(
+    public Task ConfigureAwaitedDiscardReportedAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -125,9 +129,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies the convenience policy-name extension overload is reported when discarded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionOverloadDiscardReportedAsync()
-        => await VerifyAsync(
+    public Task ExtensionOverloadDiscardReportedAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -151,9 +156,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies a non-awaited fire-and-forget call whose task is discarded is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAwaitedFireAndForgetReportedAsync()
-        => await VerifyAsync(
+    public Task NonAwaitedFireAndForgetReportedAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -176,9 +182,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies a result stored in a variable and later branched on is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultStoredAndCheckedIsCleanAsync()
-        => await VerifyAsync(
+    public Task ResultStoredAndCheckedIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -206,9 +213,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies reading <c>.Succeeded</c> inline is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SucceededReadInlineIsCleanAsync()
-        => await VerifyAsync(
+    public Task SucceededReadInlineIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -235,9 +243,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies a returned result is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedResultIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReturnedResultIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -259,9 +268,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies a result passed as an argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultPassedAsArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task ResultPassedAsArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -287,9 +297,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies an assignment to a real variable named <c>_</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentToRealUnderscoreVariableIsCleanAsync()
-        => await VerifyAsync(
+    public Task AssignmentToRealUnderscoreVariableIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -314,9 +325,10 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated <c>AuthorizeAsync</c> not on the service is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedAuthorizeAsyncIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedAuthorizeAsyncIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace App
             {
@@ -375,11 +387,7 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeDiscard.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeDiscard.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -389,11 +397,7 @@ public class DiscardedAuthorizationResultAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string consumer)
     {
-        var test = new AnalyzeDiscard.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = AuthorizationStubs + consumer
-        };
+        var test = new AnalyzeDiscard.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = AuthorizationStubs + consumer };
 
         await test.RunAsync(CancellationToken.None);
     }

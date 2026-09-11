@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -77,8 +79,9 @@ public sealed class RecordInitOnlyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// Every part is passed to the factory at once. Setting them one at a time through the With
     /// mutators builds and discards a whole accessor per call, six of them for this shape.
     /// </remarks>
-    private static AccessorDeclarationSyntax ToInitAccessor(AccessorDeclarationSyntax accessor)
-        => SyntaxFactory.AccessorDeclaration(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static AccessorDeclarationSyntax ToInitAccessor(AccessorDeclarationSyntax accessor) =>
+        SyntaxFactory.AccessorDeclaration(
             SyntaxKind.InitAccessorDeclaration,
             accessor.AttributeLists,
             accessor.Modifiers,

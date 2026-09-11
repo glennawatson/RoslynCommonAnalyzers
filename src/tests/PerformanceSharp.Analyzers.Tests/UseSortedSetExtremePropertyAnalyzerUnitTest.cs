@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -123,9 +124,10 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
 
     /// <summary>Verifies the selector overload stays clean; it asks a different question.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelectorOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SelectorOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -138,9 +140,10 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
 
     /// <summary>Verifies the comparer overload stays clean; the set is ordered by its own comparer.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparerOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ComparerOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -153,9 +156,10 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
 
     /// <summary>Verifies an unordered set stays clean; it has no Min property to read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HashSetReceiverIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task HashSetReceiverIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -168,9 +172,10 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
 
     /// <summary>Verifies a set exposed through an interface stays clean; the property is not on the interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceReceiverIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InterfaceReceiverIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -183,9 +188,10 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
 
     /// <summary>Verifies a Queryable source stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QueryableSourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task QueryableSourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Linq;
 
@@ -201,11 +207,7 @@ public class UseSortedSetExtremePropertyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

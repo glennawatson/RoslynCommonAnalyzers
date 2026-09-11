@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFlags = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2303MisusedFlagsAttributeAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -12,9 +13,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
     /// <summary>Verifies a flags enum left to the compiler's counting is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Nobody wrote <c>Done = 3</c>; the compiler counted to it, and it is now <c>Active | Pending</c>.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SequentiallyNumberedFlagsEnumIsReportedAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task SequentiallyNumberedFlagsEnumIsReportedAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -30,9 +32,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies powers of two, with a zero member, are the shape the attribute promises.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PowersOfTwoAreCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task PowersOfTwoAreCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -49,9 +52,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies a combination written out of other members is exactly what the attribute is for.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclaredCombinationIsCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task DeclaredCombinationIsCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -69,9 +73,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies a combination written as the literal it adds up to is accepted too.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralCombinationIsCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task LiteralCombinationIsCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -89,9 +94,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies a value carrying a bit no member declares can never be a combination, and is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueWithAnUndeclaredBitIsReportedAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task ValueWithAnUndeclaredBitIsReportedAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -107,9 +113,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies an enum with no attribute makes no promise, so its numbering is its own business.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumWithoutTheAttributeIsCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task EnumWithoutTheAttributeIsCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             public enum Status
             {
@@ -123,9 +130,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
     /// <summary>Verifies counted values that happen to land on bits are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>0, 1 and 2 are a valid flags enum however they were arrived at; the rule reports facts, not luck.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CountedValuesThatLandOnBitsAreCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task CountedValuesThatLandOnBitsAreCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -140,9 +148,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned underlying type is read as bits, not as an arithmetic value.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HighBitOfAnUnsignedEnumIsCleanAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task HighBitOfAnUnsignedEnumIsCleanAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -157,9 +166,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies a negative member is measured on its bits, which are every bit there is.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegativeMemberIsReportedAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task NegativeMemberIsReportedAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -174,9 +184,10 @@ public class Sst2303MisusedFlagsAttributeAnalyzerUnitTest
 
     /// <summary>Verifies the attribute is recognised through its qualified name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedAttributeIsRecognisedAsync()
-        => await VerifyFlags.VerifyAnalyzerAsync(
+    public Task QualifiedAttributeIsRecognisedAsync() =>
+        VerifyFlags.VerifyAnalyzerAsync(
             """
             [System.Flags]
             public enum {|SST2303:Status|}

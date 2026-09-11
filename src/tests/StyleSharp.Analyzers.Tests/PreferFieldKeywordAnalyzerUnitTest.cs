@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFieldKeyword = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2200PreferFieldKeywordAnalyzer,
     StyleSharp.Analyzers.Sst2200PreferFieldKeywordCodeFixProvider>;
@@ -69,9 +70,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied property is left to SST1420 rather than steered toward the field keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedPropertyIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedPropertyIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -83,9 +85,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a field used by another member is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SharedBackingFieldIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task SharedBackingFieldIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -103,9 +106,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a field referenced from a nested type is not reported, even though only its own property holds matching syntax.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BackingFieldReferencedInNestedTypeIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task BackingFieldReferencedInNestedTypeIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class Outer
             {
@@ -130,9 +134,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a same-named local in another member does not block the report, because it binds to a different symbol.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNameLocalInOtherMethodIsReportedAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task SameNameLocalInOtherMethodIsReportedAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -154,9 +159,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies expression-bodied trivial accessors are left to SST1420.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrivialAccessorsAreCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task TrivialAccessorsAreCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -172,9 +178,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies block-bodied trivial accessors are left to SST1420.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodiedTrivialAccessorsAreCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task BlockBodiedTrivialAccessorsAreCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -190,9 +197,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies <c>this.</c>-qualified trivial accessors are left to SST1420.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisQualifiedTrivialAccessorsAreCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task ThisQualifiedTrivialAccessorsAreCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -208,9 +216,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a trivial get-only property is left to SST1420.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetOnlyTrivialAccessorIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task GetOnlyTrivialAccessorIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -226,9 +235,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
     /// <summary>Verifies a trivial write-only property has no accessor logic worth a field keyword.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A write-only property has no getter, so the syntactic prepass cannot short-circuit it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteOnlyTrivialAccessorIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task WriteOnlyTrivialAccessorIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -243,9 +253,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies logic in the getter alone is enough to report.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetterWithLogicIsReportedAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task GetterWithLogicIsReportedAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -291,9 +302,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a static property is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPropertyIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task StaticPropertyIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -309,9 +321,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies an explicit interface implementation is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceImplementationIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceImplementationIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public interface I
             {
@@ -332,9 +345,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a volatile backing field is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VolatileBackingFieldIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task VolatileBackingFieldIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -350,9 +364,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies an attributed backing field is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributedBackingFieldIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task AttributedBackingFieldIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -376,9 +391,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies a field declared alongside another declarator is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclaratorsBackingFieldIsCleanAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task MultipleDeclaratorsBackingFieldIsCleanAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -397,9 +413,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
     /// <summary>Verifies another type's field read before the backing field does not hide the report.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The backing-field search skips fields the containing type does not declare.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignFieldReferencedFirstIsReportedAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task ForeignFieldReferencedFirstIsReportedAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public static class Other
             {
@@ -420,9 +437,10 @@ public class PreferFieldKeywordAnalyzerUnitTest
 
     /// <summary>Verifies every single-use backing field in one type is reported independently.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ManyBackingFieldsInOneTypeAreEachReportedAsync()
-        => await VerifyFieldKeyword.VerifyAnalyzerAsync(
+    public Task ManyBackingFieldsInOneTypeAreEachReportedAsync() =>
+        VerifyFieldKeyword.VerifyAnalyzerAsync(
             """
             public class C
             {

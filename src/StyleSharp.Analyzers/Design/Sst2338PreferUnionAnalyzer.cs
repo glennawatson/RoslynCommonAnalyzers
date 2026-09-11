@@ -53,7 +53,7 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one type whose shape is a hand-rolled union.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="unionMarker">The resolved union marker symbol.</param>
-    private static void Analyze(SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
+    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol unionMarker)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (!IsEligible(type, unionMarker) || !HasSingleDiscriminator(type))
@@ -87,7 +87,7 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
             || type.IsAbstract
             || type.IsStatic
-            || type.DeclaringSyntaxReferences.Length == 0)
+            || type.DeclaringSyntaxReferences.IsEmpty)
         {
             return false;
         }
@@ -163,26 +163,20 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the type of a member that could hold a payload, ignoring everything else.</summary>
     /// <param name="member">The type member.</param>
     /// <returns>The member's type, or <see langword="null"/> when it cannot hold state.</returns>
-    private static ITypeSymbol? PayloadType(ISymbol member)
-    {
-        if (member.IsStatic || member.IsImplicitlyDeclared)
-        {
-            return null;
-        }
-
-        return member switch
+    private static ITypeSymbol? PayloadType(ISymbol member) => member.IsStatic || member.IsImplicitlyDeclared
+        ? null
+        : member switch
         {
             IFieldSymbol { IsConst: false } field => field.Type,
             IPropertySymbol { IsIndexer: false } property => property.Type,
             _ => null,
         };
-    }
 
     /// <summary>Gets whether a member type can be one arm of a discriminated value.</summary>
     /// <param name="type">The member type.</param>
     /// <returns><see langword="true"/> for a reference type or a nullable value type.</returns>
-    private static bool IsPayload(ITypeSymbol type)
-        => type.TypeKind != TypeKind.Enum
+    private static bool IsPayload(ITypeSymbol type) =>
+        type.TypeKind != TypeKind.Enum
             && (type.IsReferenceType || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T);
 
     /// <summary>Gets whether a member name reads as a discriminator.</summary>

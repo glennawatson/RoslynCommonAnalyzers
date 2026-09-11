@@ -30,8 +30,8 @@ public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer : 
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.PrivateSetterOnlyWrittenDuringConstruction);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -117,7 +117,7 @@ public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer : 
         CancellationToken cancellationToken)
     {
         var state = new WriteSearchState(model, property, type, Disqualified: false, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WriteSearchState>(type, ref state, VisitWriteCandidate);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, WriteSearchState>(type, ref state, VisitWriteCandidate);
         return state.Disqualified;
     }
 
@@ -170,8 +170,8 @@ public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer : 
     /// <summary>Returns whether an identifier is the assigned member of an object initializer.</summary>
     /// <param name="identifier">The identifier to inspect.</param>
     /// <returns><see langword="true"/> when the identifier is <c>X</c> in <c>new T { X = ... }</c>.</returns>
-    private static bool IsObjectInitializerTarget(IdentifierNameSyntax identifier)
-        => identifier.Parent is AssignmentExpressionSyntax { } assignment
+    private static bool IsObjectInitializerTarget(IdentifierNameSyntax identifier) =>
+        identifier.Parent is AssignmentExpressionSyntax { } assignment
             && assignment.Left == identifier
             && assignment.Parent is InitializerExpressionSyntax initializer
             && initializer.IsKind(SyntaxKind.ObjectInitializerExpression);

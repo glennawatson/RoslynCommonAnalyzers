@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile (EventPipe) benchmarks for nested-property-pattern analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("NestedPropertyPatternProfiledAllocBenchmarks: {Nodes}")]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 [ShortRunJob]
 public class NestedPropertyPatternProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class NestedPropertyPatternProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean nested-property-pattern path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NestedPropertyPattern_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating nested-property-pattern path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> NestedPropertyPattern_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

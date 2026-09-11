@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeUpload = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -29,9 +30,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies an unbounded <c>long.MaxValue</c> size limit is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LongMaxValueReportedAsync()
-        => await VerifyAsync(
+    public Task LongMaxValueReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -43,9 +45,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies the client-reported <c>IBrowserFile.Size</c> size limit is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClientReportedSizeReportedAsync()
-        => await VerifyAsync(
+    public Task ClientReportedSizeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -57,9 +60,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a constant size above the default ceiling is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantAboveCeilingReportedAsync()
-        => await VerifyAsync(
+    public Task ConstantAboveCeilingReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -71,9 +75,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a size one byte above the default ceiling is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantJustAboveCeilingReportedAsync()
-        => await VerifyAsync(
+    public Task ConstantJustAboveCeilingReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -85,9 +90,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a named <c>maxAllowedSize:</c> unbounded argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedMaxAllowedSizeReportedAsync()
-        => await VerifyAsync(
+    public Task NamedMaxAllowedSizeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
             using System.Threading;
@@ -101,9 +107,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies an unbounded read on a concrete <c>IBrowserFile</c> implementation is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteImplementationReportedAsync()
-        => await VerifyAsync(
+    public Task ConcreteImplementationReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
             using System.IO;
@@ -124,9 +131,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies the no-argument <c>OpenReadStream()</c> (the safe default) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoArgumentDefaultCleanAsync()
-        => await VerifyAsync(
+    public Task NoArgumentDefaultCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -138,9 +146,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a small bounded constant size is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SmallBoundedConstantCleanAsync()
-        => await VerifyAsync(
+    public Task SmallBoundedConstantCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -152,9 +161,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a size exactly at the default ceiling is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantAtCeilingCleanAsync()
-        => await VerifyAsync(
+    public Task ConstantAtCeilingCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -166,9 +176,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a named <c>maxAllowedSize:</c> bounded constant is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedBoundedConstantCleanAsync()
-        => await VerifyAsync(
+    public Task NamedBoundedConstantCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -180,9 +191,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies passing only a named <c>cancellationToken:</c> (leaving the safe default) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OnlyCancellationTokenCleanAsync()
-        => await VerifyAsync(
+    public Task OnlyCancellationTokenCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
             using System.Threading;
@@ -195,9 +207,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant size that is not the client-reported <c>Size</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantServerChosenSizeCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantServerChosenSizeCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -209,9 +222,10 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Size</c> property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedSizePropertyCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedSizePropertyCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Forms;
 
@@ -303,11 +317,7 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeUpload.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzeUpload.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -317,11 +327,7 @@ public class UnboundedBrowserFileReadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeUpload.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + BrowserFileStub,
-        };
+        var test = new AnalyzeUpload.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + BrowserFileStub, };
 
         await test.RunAsync(CancellationToken.None);
     }

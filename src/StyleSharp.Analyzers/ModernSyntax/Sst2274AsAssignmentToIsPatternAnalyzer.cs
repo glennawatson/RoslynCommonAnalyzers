@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -75,7 +76,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        candidate = new AsAssignmentPatternCandidate(block, local, declarator, asExpression, type, ifStatement, isNegative);
+        candidate = new(block, local, declarator, asExpression, type, ifStatement, isNegative);
         return true;
     }
 
@@ -226,13 +227,9 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     private static bool TryMatchBinaryNullCheck(BinaryExpressionSyntax binary, string name, out bool isNegative)
     {
         isNegative = binary.IsKind(SyntaxKind.EqualsExpression);
-        if (binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression))
-        {
-            return IsNullComparedToName(binary, name);
-        }
-
-        // 'o is object' is a type-test that is true exactly when the reference is non-null.
-        return binary.IsKind(SyntaxKind.IsExpression)
+        return binary.IsKind(SyntaxKind.EqualsExpression) || binary.IsKind(SyntaxKind.NotEqualsExpression)
+            ? IsNullComparedToName(binary, name)
+            : binary.IsKind(SyntaxKind.IsExpression)
             && IsNameExpression(binary.Left, name)
             && binary.Right is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.ObjectKeyword };
     }
@@ -264,20 +261,21 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="comparison">The equality comparison.</param>
     /// <param name="name">The local's name.</param>
     /// <returns><see langword="true"/> when one side is <c>null</c> and the other is the named local.</returns>
-    private static bool IsNullComparedToName(BinaryExpressionSyntax comparison, string name)
-        => (IsNullLiteral(comparison.Right) && IsNameExpression(comparison.Left, name))
+    private static bool IsNullComparedToName(BinaryExpressionSyntax comparison, string name) =>
+        (IsNullLiteral(comparison.Right) && IsNameExpression(comparison.Left, name))
             || (IsNullLiteral(comparison.Left) && IsNameExpression(comparison.Right, name));
 
     /// <summary>Returns whether an expression is exactly the named identifier.</summary>
     /// <param name="expression">The expression to test.</param>
     /// <param name="name">The identifier name.</param>
     /// <returns><see langword="true"/> for an identifier with that name.</returns>
-    private static bool IsNameExpression(ExpressionSyntax expression, string name)
-        => expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
+    private static bool IsNameExpression(ExpressionSyntax expression, string name) =>
+        expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
 
     /// <summary>Returns whether an expression is the <c>null</c> literal.</summary>
     /// <param name="expression">The expression to test.</param>
     /// <returns><see langword="true"/> for a <c>null</c> literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsNullLiteral(ExpressionSyntax expression) => expression.IsKind(SyntaxKind.NullLiteralExpression);
 
     /// <summary>Returns whether a statement always leaves the enclosing block without falling through.</summary>
@@ -300,8 +298,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     private static bool IsWriteOrAlias(IdentifierNameSyntax reference) => reference.Parent switch
     {
         AssignmentExpressionSyntax assignment => assignment.Left == reference,
-        ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None } => true,
-        RefExpressionSyntax => true,
+        ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None } or RefExpressionSyntax => true,
         _ => false,
     };
 
@@ -314,7 +311,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// <see langword="true"/> when the local is never reassigned and, for the guarded-use shape, is read only
     /// inside the guarded then-branch, or, for the early-exit shape, is never read inside the guard body.
     /// </returns>
-    private static bool ReferencesAreCompatible(SemanticModel model, AsAssignmentPatternCandidate candidate, ILocalSymbol local, CancellationToken token)
+    private static bool ReferencesAreCompatible(SemanticModel model, in AsAssignmentPatternCandidate candidate, ILocalSymbol local, CancellationToken token)
     {
         var conditionSpan = candidate.IfStatement.Condition.Span;
         var bodySpan = candidate.IfStatement.Statement.Span;
@@ -351,14 +348,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
         }
 
         var inBody = bodySpan.Contains(reference.Span);
-        if (isNegative)
-        {
-            // Under 'is not T s' the local is unassigned inside the guard body, so it may not be read there.
-            return !inBody;
-        }
-
-        // Under 'is T s' the pattern variable is only definitely assigned inside the then-branch (or the check).
-        return inBody || conditionSpan.Contains(reference.Span);
+        return isNegative ? !inBody : inBody || conditionSpan.Contains(reference.Span);
     }
 
     /// <summary>Speculatively binds the rewritten type test to confirm it still yields a boolean at the check site.</summary>
@@ -366,7 +356,7 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="candidate">The matched candidate.</param>
     /// <param name="operand">The <c>as</c> operand re-read by the pattern.</param>
     /// <returns><see langword="true"/> when <c>operand is T</c> binds as a boolean expression.</returns>
-    private static bool RewrittenPatternBinds(SemanticModel model, AsAssignmentPatternCandidate candidate, ExpressionSyntax operand)
+    private static bool RewrittenPatternBinds(SemanticModel model, in AsAssignmentPatternCandidate candidate, ExpressionSyntax operand)
     {
         var typeTest = PatternMatchingAnalyzer.BuildIsTypeTest(operand, candidate.Type);
         var speculative = model.GetSpeculativeTypeInfo(candidate.IfStatement.Condition.SpanStart, typeTest, SpeculativeBindingOption.BindAsExpression);

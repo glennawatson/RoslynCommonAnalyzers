@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyValueTypeNullComparison = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1469ValueTypeNullComparisonAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 {
     /// <summary>Verifies an int equality comparison against null is reported as always false.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntEqualsNullIsReportedAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task IntEqualsNullIsReportedAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -25,9 +27,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a DateTime inequality comparison against null is reported as always true.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DateTimeNotEqualsNullIsReportedAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task DateTimeNotEqualsNullIsReportedAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -40,9 +43,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an enum compared to null is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnumComparedToNullIsReportedAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task EnumComparedToNullIsReportedAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -58,9 +62,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a user struct with a user-defined equality operator compared to null is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserStructWithEqualityOperatorIsReportedAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task UserStructWithEqualityOperatorIsReportedAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public struct Money
             {
@@ -77,9 +82,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a null literal on the left side of the comparison is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullOnLeftSideIsReportedAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task NullOnLeftSideIsReportedAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -89,9 +95,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a nullable value type compared to null is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableValueTypeIsCleanAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task NullableValueTypeIsCleanAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -101,9 +108,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a string compared to null is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringComparedToNullIsCleanAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task StringComparedToNullIsCleanAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -113,9 +121,10 @@ public class ValueTypeNullComparisonAnalyzerUnitTest
 
     /// <summary>Verifies an object compared to null is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultObjectComparedToNullIsCleanAsync()
-        => await VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
+    public Task DefaultObjectComparedToNullIsCleanAsync() =>
+        VerifyValueTypeNullComparison.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

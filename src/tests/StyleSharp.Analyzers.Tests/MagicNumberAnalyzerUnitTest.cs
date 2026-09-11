@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMagicNumber = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1471MagicNumberAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1471 (magic numbers should be named constants).</summary>
 public class MagicNumberAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the allow-list options are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a bare literal in an expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralInExpressionIsReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task LiteralInExpressionIsReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -27,9 +26,10 @@ public class MagicNumberAnalyzerUnitTest
     /// <summary>Verifies a positional capacity argument is reported by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>Labelling it is the documented way to say what it means, so the bare form still asks for one.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalCapacityIsReportedByDefaultAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task PositionalCapacityIsReportedByDefaultAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -62,7 +62,7 @@ public class MagicNumberAnalyzerUnitTest
                        }
                        """,
         };
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1471.allow_capacity_arguments = true
@@ -74,9 +74,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies the allow-listed values need no name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllowedValuesAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task AllowedValuesAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -92,9 +93,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a negative literal is measured after folding the unary minus.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegativeLiteralIsFoldedBeforeComparingAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task NegativeLiteralIsFoldedBeforeComparingAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -106,9 +108,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a literal that names itself at a declaration is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedDeclarationSitesAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task NamedDeclarationSitesAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -147,9 +150,10 @@ public class MagicNumberAnalyzerUnitTest
     /// <summary>Verifies a literal inside a non-bare initializer is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The local names the task, not the delay, so the delay stays unexplained.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralInsideNonBareInitializerIsReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task LiteralInsideNonBareInitializerIsReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -165,9 +169,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a literal in a lambda does not inherit the enclosing field's name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralInsideLambdaUnderReadonlyFieldIsReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task LiteralInsideLambdaUnderReadonlyFieldIsReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -181,9 +186,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies bit patterns and shift distances state their own meaning.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BitPatternsAndShiftDistancesAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task BitPatternsAndShiftDistancesAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -200,9 +206,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a cardinality guard against a count or a length is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CardinalityGuardsAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task CardinalityGuardsAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -220,9 +227,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a named argument, an array size and a stackalloc length are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LabelledAndBufferLengthsAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task LabelledAndBufferLengthsAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -243,9 +251,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies the hash-mixing primes in a GetHashCode body are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetHashCodeBodyIsCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task GetHashCodeBodyIsCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -258,9 +267,10 @@ public class MagicNumberAnalyzerUnitTest
     /// <summary>Verifies a mixing prime held in a local inside <c>GetHashCode</c> is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The declaration does not name the value, so the walk must reach the method that excuses it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GetHashCodeLocalIsCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task GetHashCodeLocalIsCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -276,9 +286,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a local inside an ordinary method is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalInsideOrdinaryMethodIsReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task LocalInsideOrdinaryMethodIsReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -292,9 +303,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies arguments to a positional BCL constructor are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalConstructorArgumentsAreCleanAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task PositionalConstructorArgumentsAreCleanAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -309,9 +321,10 @@ public class MagicNumberAnalyzerUnitTest
     /// <summary>Verifies a static factory does not inherit the positional constructor exemption.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The method names the unit; the magnitude is still policy that deserves a name.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DurationFactoryArgumentIsReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task DurationFactoryArgumentIsReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -323,9 +336,10 @@ public class MagicNumberAnalyzerUnitTest
 
     /// <summary>Verifies a case label and a constant pattern are reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseLabelsAndPatternsAreReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task CaseLabelsAndPatternsAreReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -358,7 +372,7 @@ public class MagicNumberAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1471.magic_number_allowed_values = -1, 0, 1, 2
@@ -386,7 +400,7 @@ public class MagicNumberAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1471.magic_number_allowed_values = nonsense
@@ -397,14 +411,15 @@ public class MagicNumberAnalyzerUnitTest
     }
 
     /// <summary>Verifies an index into an element access is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The literal is a slot, the same positional shape as an array rank, which is already exempt. Naming it
     /// can only produce a constant that restates the number it holds.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElementAccessIndexIsNotReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task ElementAccessIndexIsNotReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -413,15 +428,16 @@ public class MagicNumberAnalyzerUnitTest
             """);
 
     /// <summary>Verifies the elements of a collection that is a declaration's whole value are not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// <c>var timeout = 500;</c> is exempt because the name explains the number, and this is that statement
     /// three times over — the name explains the whole list. Reporting some of the elements was the odd part:
     /// it pointed at the 2 and the 3 and left the 1 alone, because 1 is allowlisted.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionThatIsAWholeInitializerIsNotReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task CollectionThatIsAWholeInitializerIsNotReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -434,11 +450,12 @@ public class MagicNumberAnalyzerUnitTest
             """);
 
     /// <summary>Verifies a literal inside a collection passed straight to a call is still reported.</summary>
-    /// <remarks>The exemption is the declaration's name explaining the list; an argument has no such name.</remarks>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>The exemption is the declaration's name explaining the list; an argument has no such name.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionPassedAsAnArgumentIsStillReportedAsync()
-        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+    public Task CollectionPassedAsAnArgumentIsStillReportedAsync() =>
+        VerifyMagicNumber.VerifyAnalyzerAsync(
             """
             public class C
             {

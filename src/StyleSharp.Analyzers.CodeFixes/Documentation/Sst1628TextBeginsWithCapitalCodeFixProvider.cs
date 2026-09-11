@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,12 +22,13 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Gets the first content node that carries a visible character.</summary>
     /// <param name="summary">The summary element.</param>
@@ -104,7 +107,7 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
             return null;
         }
 
-        var capitalized = value.Substring(0, at) + char.ToUpperInvariant(value[at]) + value.Substring(at + 1);
+        var capitalized = value[0..(0 + at)] + char.ToUpperInvariant(value[at]) + value.Substring(at + 1);
         var replacement = SyntaxFactory.XmlTextLiteral(token.LeadingTrivia, capitalized, capitalized, token.TrailingTrivia);
         return new NodeReplacement(text, text.WithTextTokens(tokens.Replace(token, replacement)));
     }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyPlacement = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1145ConditionalOperatorPlacementAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ConditionalOperatorPlacementAnalyzerUnitTest
 {
     /// <summary>Verifies trailing operators are reported by the stricter branch-leading layout rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingOperatorsReportedByBranchLeadingLayoutAsync()
-        => await VerifyPlacement.VerifyAnalyzerAsync(
+    public Task TrailingOperatorsReportedByBranchLeadingLayoutAsync() =>
+        VerifyPlacement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -26,9 +28,10 @@ public class ConditionalOperatorPlacementAnalyzerUnitTest
 
     /// <summary>Verifies leading operators and a single-line conditional are not reported by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeadingAndSingleLineAreCleanAsync()
-        => await VerifyPlacement.VerifyAnalyzerAsync(
+    public Task LeadingAndSingleLineAreCleanAsync() =>
+        VerifyPlacement.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -54,7 +57,7 @@ public class ConditionalOperatorPlacementAnalyzerUnitTest
                                {|SST1145:?|} 1
                                {|SST1145::|} 2;
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

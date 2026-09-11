@@ -58,8 +58,8 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointAnalyzer : DiagnosticAn
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -142,8 +142,8 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointAnalyzer : DiagnosticAn
     /// <summary>Returns whether an operand is a literal written as a real number.</summary>
     /// <param name="operand">The operand to inspect.</param>
     /// <returns><see langword="true"/> when the literal's own type is floating point.</returns>
-    private static bool IsRealLiteral(ExpressionSyntax operand)
-        => operand is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+    private static bool IsRealLiteral(ExpressionSyntax operand) =>
+        operand is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
             && IsRealLiteralText(literal.Token.Text);
 
     /// <summary>Returns whether a numeric literal's source text spells a real number.</summary>
@@ -174,14 +174,14 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointAnalyzer : DiagnosticAn
     /// <summary>Returns whether a numeric literal is written as a hexadecimal or binary bit pattern.</summary>
     /// <param name="text">The literal's source text.</param>
     /// <returns><see langword="true"/> for a <c>0x</c> or <c>0b</c> prefix.</returns>
-    private static bool IsBitPatternText(string text)
-        => text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
+    private static bool IsBitPatternText(string text) =>
+        text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
 
     /// <summary>Returns whether a character can only appear in a literal that spells a real number.</summary>
     /// <param name="character">One character of the literal's source text.</param>
     /// <returns><see langword="true"/> for a decimal point, an exponent marker, or a real suffix.</returns>
-    private static bool IsRealMarker(char character)
-        => character is '.' or 'e' or 'E' or 'f' or 'F' or 'd' or 'D' or 'm' or 'M';
+    private static bool IsRealMarker(char character) =>
+        character is '.' or 'e' or 'E' or 'f' or 'F' or 'd' or 'D' or 'm' or 'M';
 
     /// <summary>Returns whether a type divides by truncating toward zero.</summary>
     /// <param name="type">The division's own type.</param>

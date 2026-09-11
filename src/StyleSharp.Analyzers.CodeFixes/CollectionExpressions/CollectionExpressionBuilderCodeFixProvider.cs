@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces narrow builder sequences with a collection expression.</summary>
@@ -10,8 +12,8 @@ namespace StyleSharp.Analyzers;
 public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(CollectionExpressionRules.UseCollectionExpressionForBuilder.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(CollectionExpressionRules.UseCollectionExpressionForBuilder.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider? GetFixAllProvider() => null;
@@ -73,7 +75,7 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var replacement = SyntaxFactory.ParseStatement("return " + CollectionExpressionText(elements) + ";")
+        var replacement = SyntaxFactory.ParseStatement($"return {CollectionExpressionText(elements)};")
             .WithTriviaFrom(local);
         var statements = ReplaceStatementRange(block.Statements, start, end, replacement);
         return root.ReplaceNode(block, block.WithStatements(statements));
@@ -120,18 +122,18 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
     private static string CollectionExpressionText(ExpressionSyntax[] elements)
     {
         var builder = new System.Text.StringBuilder();
-        builder.Append('[');
+        _ = builder.Append('[');
         for (var i = 0; i < elements.Length; i++)
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(elements[i].WithoutTrivia());
+            _ = builder.Append(elements[i].WithoutTrivia());
         }
 
-        builder.Append(']');
+        _ = builder.Append(']');
         return builder.ToString();
     }
 
@@ -139,6 +141,7 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
     /// <param name="root">The root.</param>
     /// <param name="span">The diagnostic span.</param>
     /// <returns>The local declaration, or <see langword="null"/>.</returns>
-    private static LocalDeclarationStatementSyntax? FindLocal(SyntaxNode root, TextSpan span)
-        => root.FindToken(span.Start).Parent?.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LocalDeclarationStatementSyntax? FindLocal(SyntaxNode root, TextSpan span) =>
+        root.FindToken(span.Start).Parent?.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>();
 }

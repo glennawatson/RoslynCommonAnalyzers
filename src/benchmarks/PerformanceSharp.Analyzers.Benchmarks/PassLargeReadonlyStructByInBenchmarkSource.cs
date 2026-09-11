@@ -11,8 +11,8 @@ internal static class PassLargeReadonlyStructByInBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
            using System.Threading;
@@ -51,8 +51,8 @@ internal static class PassLargeReadonlyStructByInBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating block.</param>
     /// <returns>The generated block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one block whose every parameter is rejected without a diagnostic.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -64,8 +64,8 @@ internal static class PassLargeReadonlyStructByInBenchmarkSource
     /// settings; and an async method, an iterator, a captured parameter and a written one are rejected only
     /// after the body walk.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            internal static class C{{index}}
            {
                internal static int Primitive(int value, string text) => value + text.Length;
@@ -110,8 +110,8 @@ internal static class PassLargeReadonlyStructByInBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated block.</returns>
     /// <remarks>Four diagnostics per block: three methods and the constructor.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            internal sealed class V{{index}}
            {
                internal V{{index}}(Snapshot snapshot) => Total = snapshot.A;

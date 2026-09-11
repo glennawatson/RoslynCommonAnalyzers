@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for collection native-method analysis.</summary>
@@ -14,23 +16,25 @@ internal static class CollectionNativeMethodBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => GenerateCore(members, violating, shape: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating) =>
+        GenerateCore(members, violating, shape: null);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFix(int members, CollectionNativeMethodBenchmarkShape shape)
-        => GenerateCore(members, violating: true, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateCodeFix(int members, CollectionNativeMethodBenchmarkShape shape) =>
+        GenerateCore(members, violating: true, shape);
 
     /// <summary>Builds the benchmark source body.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The fixed shape, or <see langword="null"/> to cycle all shapes.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCore(int members, bool violating, CollectionNativeMethodBenchmarkShape? shape)
-        => $$"""
+    private static string GenerateCore(int members, bool violating, CollectionNativeMethodBenchmarkShape? shape) =>
+        $$"""
            using System.Collections.Generic;
            using System.Linq;
 
@@ -47,8 +51,8 @@ internal static class CollectionNativeMethodBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating, CollectionNativeMethodBenchmarkShape shape)
-        => shape switch
+    private static string GenerateMember(int index, bool violating, CollectionNativeMethodBenchmarkShape shape) =>
+        shape switch
         {
             CollectionNativeMethodBenchmarkShape.ListPredicate => GenerateListPredicate(index, violating),
             CollectionNativeMethodBenchmarkShape.ArrayPredicate => GenerateArrayPredicate(index, violating),
@@ -59,8 +63,8 @@ internal static class CollectionNativeMethodBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateListPredicate(int index, bool violating)
-        => violating
+    private static string GenerateListPredicate(int index, bool violating) =>
+        violating
             ? $$"""
                 private int ListPredicate{{index}}(List<int> values) => values.FirstOrDefault(value => value > {{index}});
                 """
@@ -72,8 +76,8 @@ internal static class CollectionNativeMethodBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateArrayPredicate(int index, bool violating)
-        => violating
+    private static string GenerateArrayPredicate(int index, bool violating) =>
+        violating
             ? $$"""
                 private bool ArrayPredicate{{index}}(int[] values) => values.Any(value => value > {{index}});
                 """
@@ -85,8 +89,8 @@ internal static class CollectionNativeMethodBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMembership(int index, bool violating)
-        => violating
+    private static string GenerateMembership(int index, bool violating) =>
+        violating
             ? $$"""
                 private bool Membership{{index}}(List<int> values, int target) => values.Any(value => value == target);
                 """

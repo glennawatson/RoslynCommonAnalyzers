@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
@@ -12,6 +13,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for modern-syntax value code fixes.</summary>
+[System.Diagnostics.DebuggerDisplay("ModernSyntaxValueCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
@@ -60,7 +62,7 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             ModernSyntaxValueBenchmarkSource.GenerateCodeFix(Nodes, CurrentShape));
@@ -69,6 +71,7 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -103,13 +106,13 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates the representative diagnostic for the selected shape.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateDiagnostic()
-        => CreateOriginalDiagnostic() ?? CreateAdditionalDiagnostic();
+    private Diagnostic CreateDiagnostic() =>
+        CreateOriginalDiagnostic() ?? CreateAdditionalDiagnostic();
 
     /// <summary>Creates a representative diagnostic for the original value-shape batch.</summary>
     /// <returns>The diagnostic, or <see langword="null"/>.</returns>
-    private Diagnostic? CreateOriginalDiagnostic()
-        => CurrentShape switch
+    private Diagnostic? CreateOriginalDiagnostic() =>
+        CurrentShape switch
         {
             ModernSyntaxValueBenchmarkShape.Interpolation => CreateInterpolationDiagnostic(),
             ModernSyntaxValueBenchmarkShape.IgnoredValue => CreateIgnoredValueDiagnostic(),
@@ -124,8 +127,8 @@ public class ModernSyntaxValueCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates a representative diagnostic for the additional value-shape batch.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateAdditionalDiagnostic()
-        => CurrentShape switch
+    private Diagnostic CreateAdditionalDiagnostic() =>
+        CurrentShape switch
         {
             ModernSyntaxValueBenchmarkShape.LocalFunction => CreateLocalFunctionDiagnostic(),
             ModernSyntaxValueBenchmarkShape.NullPattern => CreateNullPatternDiagnostic(),

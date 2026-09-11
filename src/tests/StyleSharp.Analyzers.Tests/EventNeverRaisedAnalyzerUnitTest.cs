@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEventNeverRaised = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2407EventNeverRaisedAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 {
     /// <summary>Verifies an event nothing raises is reported, on its own declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NeverRaisedEventIsReportedAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task NeverRaisedEventIsReportedAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -27,9 +29,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 
     /// <summary>Verifies subscribing to an event is not raising it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SubscribedButNeverRaisedEventIsReportedAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task SubscribedButNeverRaisedEventIsReportedAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -56,9 +59,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 
     /// <summary>Verifies an event the type raises is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RaisedEventIsCleanAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task RaisedEventIsCleanAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -74,9 +78,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 
     /// <summary>Verifies an event raised through a copy of the delegate is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventRaisedThroughACopyIsCleanAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task EventRaisedThroughACopyIsCleanAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -134,9 +139,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 
     /// <summary>Verifies an event the type does not decide the existence of is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceAndInheritedEventsAreCleanAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task InterfaceAndInheritedEventsAreCleanAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -162,9 +168,10 @@ public class EventNeverRaisedAnalyzerUnitTest
 
     /// <summary>Verifies a custom event, whose accessors choose their own backing store, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomEventIsCleanAsync()
-        => await VerifyEventNeverRaised.VerifyAnalyzerAsync(
+    public Task CustomEventIsCleanAsync() =>
+        VerifyEventNeverRaised.VerifyAnalyzerAsync(
             """
             #nullable enable
 

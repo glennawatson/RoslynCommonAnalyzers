@@ -15,7 +15,7 @@ internal static class CodeFixBenchmarkDocumentFactory
     /// <param name="workspace">The workspace that owns the document.</param>
     /// <param name="source">The source text to load.</param>
     /// <returns>The created document.</returns>
-    public static Document CreateDocument(AdhocWorkspace workspace, string source)
+    internal static Document CreateDocument(AdhocWorkspace workspace, string source)
     {
         var projectId = ProjectId.CreateNewId();
         var documentId = DocumentId.CreateNewId(projectId);

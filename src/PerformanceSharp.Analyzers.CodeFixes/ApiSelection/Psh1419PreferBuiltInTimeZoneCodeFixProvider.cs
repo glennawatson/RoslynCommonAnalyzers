@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -37,23 +39,24 @@ public sealed class Psh1419PreferBuiltInTimeZoneCodeFixProvider : CodeFixProvide
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use System.TimeZoneInfo.FindSystemTimeZoneById",
             nameof(Psh1419PreferBuiltInTimeZoneCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported call and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape is not a fixable <c>GetTimeZoneInfo</c> call.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax invocation
             && Psh1419PreferBuiltInTimeZoneAnalyzer.IsGetTimeZoneInfoInvocation(invocation)
             ? new NodeReplacement(invocation, Rewrite(invocation))
             : null;
@@ -61,8 +64,9 @@ public sealed class Psh1419PreferBuiltInTimeZoneCodeFixProvider : CodeFixProvide
     /// <summary>Builds the fully qualified <c>System.TimeZoneInfo.FindSystemTimeZoneById</c> call, keeping the argument.</summary>
     /// <param name="invocation">The reported call.</param>
     /// <returns>The replacement expression.</returns>
-    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
-        => SyntaxFactory.InvocationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
+        SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.MemberAccessExpression(

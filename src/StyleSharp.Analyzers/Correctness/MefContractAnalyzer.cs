@@ -36,24 +36,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class MefContractAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the MEF1 export attribute.</summary>
-    private const string Mef1ExportMetadataName = "System.ComponentModel.Composition.ExportAttribute";
-
-    /// <summary>The metadata name of the MEF1 part-creation-policy attribute.</summary>
-    private const string Mef1PartCreationPolicyMetadataName = "System.ComponentModel.Composition.PartCreationPolicyAttribute";
-
-    /// <summary>The metadata name of the MEF1 creation-policy enum.</summary>
-    private const string Mef1CreationPolicyMetadataName = "System.ComponentModel.Composition.CreationPolicy";
-
-    /// <summary>The metadata name of the MEF2 export attribute.</summary>
-    private const string Mef2ExportMetadataName = "System.Composition.ExportAttribute";
-
-    /// <summary>The metadata name of the MEF2 shared attribute.</summary>
-    private const string Mef2SharedMetadataName = "System.Composition.SharedAttribute";
-
-    /// <summary>The name of the creation-policy enum's shared member.</summary>
-    private const string SharedPolicyFieldName = "Shared";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         CorrectnessRules.ExportedContractNotImplemented,
@@ -64,13 +46,13 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     private enum MefAttributeKind
     {
         /// <summary>Not a MEF attribute this analyzer cares about.</summary>
-        None,
+        None = 0,
 
         /// <summary>An export attribute (<c>[Export]</c>).</summary>
-        Export,
+        Export = 1,
 
         /// <summary>A creation-policy attribute (<c>[PartCreationPolicy]</c> or <c>[Shared]</c>).</summary>
-        CreationPolicy,
+        CreationPolicy = 2,
     }
 
     /// <inheritdoc/>
@@ -105,7 +87,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <summary>Routes a MEF attribute to the export or creation-policy rule after a syntactic name match.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="symbols">The resolved MEF marker symbols.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
     {
         var attribute = (AttributeSyntax)context.Node;
         var kind = ClassifyAttributeName(GetSimpleName(attribute.Name));
@@ -134,7 +116,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <param name="symbols">The resolved MEF marker symbols.</param>
     /// <param name="attribute">The candidate export attribute.</param>
     /// <param name="typeDeclaration">The type the attribute is written on.</param>
-    private static void AnalyzeExport(SyntaxNodeAnalysisContext context, MefContractSymbols symbols, AttributeSyntax attribute, TypeDeclarationSyntax typeDeclaration)
+    private static void AnalyzeExport(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols, AttributeSyntax attribute, TypeDeclarationSyntax typeDeclaration)
     {
         if (!symbols.HasAnyExport)
         {
@@ -168,7 +150,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <param name="symbols">The resolved MEF marker symbols.</param>
     /// <param name="attribute">The candidate creation-policy attribute.</param>
     /// <param name="typeDeclaration">The type the attribute is written on.</param>
-    private static void AnalyzeCreationPolicy(SyntaxNodeAnalysisContext context, MefContractSymbols symbols, AttributeSyntax attribute, TypeDeclarationSyntax typeDeclaration)
+    private static void AnalyzeCreationPolicy(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols, AttributeSyntax attribute, TypeDeclarationSyntax typeDeclaration)
     {
         if (!symbols.HasAnyExport)
         {
@@ -197,7 +179,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST2473 when a <c>new</c> expression constructs a shared export part directly.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="symbols">The resolved MEF marker symbols.</param>
-    private static void AnalyzeObjectCreation(SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } constructedType })
@@ -244,12 +226,13 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         var arguments = data.ConstructorArguments;
         for (var i = 0; i < arguments.Length; i++)
         {
-            if (arguments[i].Kind == TypedConstantKind.Type
-                && arguments[i].Value is ITypeSymbol { TypeKind: not TypeKind.Error } type)
+            if (arguments[i].Kind != TypedConstantKind.Type || arguments[i].Value is not ITypeSymbol { TypeKind: not TypeKind.Error } type)
             {
-                contract = type;
-                return true;
+                continue;
             }
+
+            contract = type;
+            return true;
         }
 
         contract = null;
@@ -291,8 +274,8 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// <param name="candidate">The candidate type from the exporting type's hierarchy.</param>
     /// <param name="contract">The declared contract type.</param>
     /// <returns><see langword="true"/> when they are the same type.</returns>
-    private static bool Matches(ITypeSymbol candidate, ITypeSymbol contract)
-        => SymbolEqualityComparer.Default.Equals(candidate, contract)
+    private static bool Matches(ITypeSymbol candidate, ITypeSymbol contract) =>
+        SymbolEqualityComparer.Default.Equals(candidate, contract)
             || SymbolEqualityComparer.Default.Equals(candidate.OriginalDefinition, contract.OriginalDefinition);
 
     /// <summary>Classifies an attribute's written simple name as an export, a creation policy, or neither.</summary>
@@ -322,6 +305,24 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     /// </summary>
     private sealed class MefContractSymbols
     {
+        /// <summary>The metadata name of the MEF1 export attribute.</summary>
+        private const string Mef1ExportMetadataName = "System.ComponentModel.Composition.ExportAttribute";
+
+        /// <summary>The metadata name of the MEF1 part-creation-policy attribute.</summary>
+        private const string Mef1PartCreationPolicyMetadataName = "System.ComponentModel.Composition.PartCreationPolicyAttribute";
+
+        /// <summary>The metadata name of the MEF1 creation-policy enum.</summary>
+        private const string Mef1CreationPolicyMetadataName = "System.ComponentModel.Composition.CreationPolicy";
+
+        /// <summary>The metadata name of the MEF2 export attribute.</summary>
+        private const string Mef2ExportMetadataName = "System.Composition.ExportAttribute";
+
+        /// <summary>The metadata name of the MEF2 shared attribute.</summary>
+        private const string Mef2SharedMetadataName = "System.Composition.SharedAttribute";
+
+        /// <summary>The name of the creation-policy enum's shared member.</summary>
+        private const string SharedPolicyFieldName = "Shared";
+
         /// <summary>The MEF1 export attribute, when resolved.</summary>
         private readonly INamedTypeSymbol? _mef1Export;
 
@@ -379,7 +380,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
             }
 
             var sharedPolicyValue = ReadSharedPolicyValue(compilation.GetTypeByMetadataName(Mef1CreationPolicyMetadataName));
-            return new MefContractSymbols(mef1Export, mef1PartCreationPolicy, mef2Export, mef2Shared, sharedPolicyValue);
+            return new(mef1Export, mef1PartCreationPolicy, mef2Export, mef2Shared, sharedPolicyValue);
         }
 
         /// <summary>Returns whether an attribute class is, or derives from, a resolved export attribute.</summary>
@@ -393,8 +394,8 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         /// miss a shared part that really is composed. Roslyn's own <c>ExportCodeFixProvider</c> is the
         /// most widely written example of the pattern.
         /// </remarks>
-        public bool IsExport(INamedTypeSymbol attributeClass)
-            => InheritsMarker(attributeClass, _mef1Export) || InheritsMarker(attributeClass, _mef2Export);
+        public bool IsExport(INamedTypeSymbol attributeClass) =>
+            InheritsMarker(attributeClass, _mef1Export) || InheritsMarker(attributeClass, _mef2Export);
 
         /// <summary>Returns whether an attribute class is one of the resolved creation-policy attributes.</summary>
         /// <param name="attributeClass">The bound attribute class.</param>
@@ -403,8 +404,8 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         /// Exact equality is right here, unlike for exports: both flavors seal their creation-policy
         /// attribute, so no derived form can exist to match.
         /// </remarks>
-        public bool IsCreationPolicy(INamedTypeSymbol attributeClass)
-            => SymbolEqualityComparer.Default.Equals(attributeClass, _mef1PartCreationPolicy)
+        public bool IsCreationPolicy(INamedTypeSymbol attributeClass) =>
+            SymbolEqualityComparer.Default.Equals(attributeClass, _mef1PartCreationPolicy)
                 || SymbolEqualityComparer.Default.Equals(attributeClass, _mef2Shared);
 
         /// <summary>Returns whether a type carries a MEF export attribute.</summary>
@@ -503,7 +504,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when its argument is <c>CreationPolicy.Shared</c>.</returns>
         private bool IsSharedPolicy(AttributeData data)
         {
-            if (_sharedPolicyValue is null || data.ConstructorArguments.Length == 0)
+            if (_sharedPolicyValue is null || data.ConstructorArguments.IsEmpty)
             {
                 return false;
             }

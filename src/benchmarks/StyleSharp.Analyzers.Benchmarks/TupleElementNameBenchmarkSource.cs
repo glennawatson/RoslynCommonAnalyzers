@@ -11,7 +11,7 @@ internal static class TupleElementNameBenchmarkSource
     /// <param name="nodes">The number of member-access nodes to emit.</param>
     /// <param name="violating">Whether to emit <c>ItemN</c> accesses instead of named accesses.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int nodes, bool violating)
+    internal static string Generate(int nodes, bool violating)
     {
         var memberName = violating ? "Item1" : "first";
         return $$"""

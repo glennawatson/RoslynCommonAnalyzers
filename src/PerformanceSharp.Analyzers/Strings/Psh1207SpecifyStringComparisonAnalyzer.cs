@@ -80,10 +80,7 @@ public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
     {
         switch (methodName)
         {
-            case "StartsWith":
-            case "EndsWith":
-            case "IndexOf":
-            case "LastIndexOf":
+            case "StartsWith" or "EndsWith" or "IndexOf" or "LastIndexOf":
             {
                 argumentCount = InstanceSearchArgumentCount;
                 isStatic = false;

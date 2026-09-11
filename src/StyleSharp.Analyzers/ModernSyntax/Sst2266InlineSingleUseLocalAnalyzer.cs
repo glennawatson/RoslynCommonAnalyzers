@@ -76,15 +76,15 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is side-effect-free and safe to duplicate at the use site.</summary>
     /// <param name="expression">The initializer expression.</param>
     /// <returns><see langword="true"/> when the expression reads state without invoking, allocating, or mutating.</returns>
-    internal static bool IsPureInlinable(ExpressionSyntax expression)
-        => IsAtomicPure(expression) || IsCompositePure(expression);
+    internal static bool IsPureInlinable(ExpressionSyntax expression) =>
+        IsAtomicPure(expression) || IsCompositePure(expression);
 
     /// <summary>Returns whether an inlined initializer needs parentheses to preserve its meaning.</summary>
     /// <param name="expression">The initializer expression.</param>
     /// <param name="reference">The reference the initializer is spliced into.</param>
     /// <returns><see langword="true"/> when an operator expression lands where a neighbouring operator could bind into it.</returns>
-    internal static bool NeedsParentheses(ExpressionSyntax expression, SyntaxNode reference)
-        => expression is BinaryExpressionSyntax or ConditionalExpressionSyntax or CastExpressionSyntax or PrefixUnaryExpressionSyntax
+    internal static bool NeedsParentheses(ExpressionSyntax expression, SyntaxNode reference) =>
+        expression is BinaryExpressionSyntax or ConditionalExpressionSyntax or CastExpressionSyntax or PrefixUnaryExpressionSyntax
             && !IsAlreadyDelimited(reference);
 
     /// <summary>Returns whether a reference sits somewhere punctuation already bounds the expression.</summary>
@@ -96,10 +96,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     internal static bool IsAlreadyDelimited(SyntaxNode reference) => reference.Parent switch
     {
-        ArgumentSyntax => true,
-        EqualsValueClauseSyntax => true,
-        ReturnStatementSyntax => true,
-        ParenthesizedExpressionSyntax => true,
+        ArgumentSyntax or EqualsValueClauseSyntax or ReturnStatementSyntax or ParenthesizedExpressionSyntax => true,
         AssignmentExpressionSyntax assignment => assignment.Right == reference,
         _ => false,
     };
@@ -144,10 +141,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     internal static bool IsWriteOrAlias(IdentifierNameSyntax reference) => reference.Parent switch
     {
         AssignmentExpressionSyntax assignment => assignment.Left == reference,
-        ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None } => true,
-        PostfixUnaryExpressionSyntax => true,
+        ArgumentSyntax { RefKindKeyword.RawKind: not (int)SyntaxKind.None } or PostfixUnaryExpressionSyntax or RefExpressionSyntax => true,
         PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),
-        RefExpressionSyntax => true,
         _ => false,
     };
 
@@ -179,8 +174,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// worse program than the local it replaced. A leaf — a literal, an identifier, <c>typeof</c> — costs the
     /// same either way, so it still inlines.
     /// </remarks>
-    internal static bool RepeatsWorkInLoop(ExpressionSyntax value, SyntaxNode reference, BlockSyntax boundary)
-        => !IsAtomicPure(value) && IsInsideLoop(reference, boundary);
+    internal static bool RepeatsWorkInLoop(ExpressionSyntax value, SyntaxNode reference, BlockSyntax boundary) =>
+        !IsAtomicPure(value) && IsInsideLoop(reference, boundary);
 
     /// <summary>Returns whether a side-effecting expression is evaluated before a reference within a statement.</summary>
     /// <param name="statement">The statement holding the reference.</param>
@@ -242,8 +237,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a leaf that reads state without any operation.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> for a literal, identifier, <c>this</c>, <c>default(T)</c>, <c>typeof</c>, or <c>sizeof</c>.</returns>
-    private static bool IsAtomicPure(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax or IdentifierNameSyntax or ThisExpressionSyntax
+    private static bool IsAtomicPure(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax or IdentifierNameSyntax or ThisExpressionSyntax
             or DefaultExpressionSyntax or TypeOfExpressionSyntax or SizeOfExpressionSyntax;
 
     /// <summary>Returns whether a compound expression is pure given that its operands are pure.</summary>
@@ -263,8 +258,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a prefix-unary expression is a non-mutating operator over a pure operand.</summary>
     /// <param name="unary">The prefix-unary expression.</param>
     /// <returns><see langword="true"/> for a value operator such as <c>-</c>, <c>!</c>, or <c>~</c> over a pure operand.</returns>
-    private static bool IsPureUnary(PrefixUnaryExpressionSyntax unary)
-        => !unary.IsKind(SyntaxKind.PreIncrementExpression)
+    private static bool IsPureUnary(PrefixUnaryExpressionSyntax unary) =>
+        !unary.IsKind(SyntaxKind.PreIncrementExpression)
             && !unary.IsKind(SyntaxKind.PreDecrementExpression)
             && !unary.IsKind(SyntaxKind.AddressOfExpression)
             && !unary.IsKind(SyntaxKind.PointerIndirectionExpression)
@@ -273,8 +268,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a conditional expression is pure in all three of its parts.</summary>
     /// <param name="conditional">The conditional expression.</param>
     /// <returns><see langword="true"/> when the condition and both branches are pure.</returns>
-    private static bool IsPureConditional(ConditionalExpressionSyntax conditional)
-        => IsPureInlinable(conditional.Condition) && IsPureInlinable(conditional.WhenTrue) && IsPureInlinable(conditional.WhenFalse);
+    private static bool IsPureConditional(ConditionalExpressionSyntax conditional) =>
+        IsPureInlinable(conditional.Condition) && IsPureInlinable(conditional.WhenTrue) && IsPureInlinable(conditional.WhenFalse);
 
     /// <summary>Returns whether a node performs an observable side effect.</summary>
     /// <param name="node">The node to classify.</param>
@@ -292,27 +287,21 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="local">The local declaration statement.</param>
     /// <returns>The block, declarator and initializer, or <see langword="null"/> when the shape does not match.</returns>
     private static (BlockSyntax Block, VariableDeclaratorSyntax Declarator, ExpressionSyntax Value)? GetInlinableShape(
-        LocalDeclarationStatementSyntax local)
-    {
-        if (local.Modifiers.Any(SyntaxKind.ConstKeyword)
+        LocalDeclarationStatementSyntax local) => local.Modifiers.Any(SyntaxKind.ConstKeyword)
             || local.Parent is not BlockSyntax block
             || local.Declaration is not { Variables.Count: 1 } declaration
             || declaration.Type is RefTypeSyntax
             || declaration.Variables[0].Initializer is not { } equalsValue
-            || !IsPureInlinable(equalsValue.Value))
-        {
-            return null;
-        }
-
-        return (block, declaration.Variables[0], equalsValue.Value);
-    }
+            || !IsPureInlinable(equalsValue.Value)
+            ? null
+            : (block, declaration.Variables[0], equalsValue.Value);
 
     /// <summary>Reads the settings for the declaration's tree, parsing each tree's options at most once.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static InlineSingleUseLocalOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -322,7 +311,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         }
 
         options = InlineSingleUseLocalOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -338,8 +327,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         BlockSyntax block,
         StatementSyntax useStatement,
         ILocalSymbol symbol,
-        ExpressionSyntax value)
-        => FindSingleReference(model, block, symbol) is { } reference
+        ExpressionSyntax value) =>
+        FindSingleReference(model, block, symbol) is { } reference
             && useStatement.Span.Contains(reference.Span)
             && !IsWriteOrAlias(reference)
             && !IsCaptured(reference, block)
@@ -350,7 +339,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions> optionsByTree)
     {
         var local = (LocalDeclarationStatementSyntax)context.Node;

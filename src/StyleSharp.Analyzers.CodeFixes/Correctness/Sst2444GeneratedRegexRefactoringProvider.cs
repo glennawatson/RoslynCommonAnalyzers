@@ -94,8 +94,8 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     /// <summary>Returns whether the compilation unit's language version supports a generated regular expression.</summary>
     /// <param name="root">The syntax root.</param>
     /// <returns><see langword="true"/> when the language version is C# 11 or later.</returns>
-    private static bool SupportsGeneratedRegex(SyntaxNode root)
-        => root.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 };
+    private static bool SupportsGeneratedRegex(SyntaxNode root) =>
+        root.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 };
 
     /// <summary>Returns whether the construction can be converted, and the type declaration to add the method to.</summary>
     /// <param name="model">The semantic model.</param>
@@ -132,18 +132,12 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     /// <summary>Finds the non-generic, non-nested class, struct, or record the method can be added to.</summary>
     /// <param name="creation">The construction being converted.</param>
     /// <returns>The host type declaration, or <see langword="null"/> when none is eligible.</returns>
-    private static TypeDeclarationSyntax? FindHostType(ObjectCreationExpressionSyntax creation)
-    {
-        if (creation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } type
+    private static TypeDeclarationSyntax? FindHostType(ObjectCreationExpressionSyntax creation) => creation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } type
             || type is InterfaceDeclarationSyntax
             || type.TypeParameterList is not null
-            || type.Parent is TypeDeclarationSyntax)
-        {
-            return null;
-        }
-
-        return type;
-    }
+            || type.Parent is TypeDeclarationSyntax
+        ? null
+        : type;
 
     /// <summary>Returns whether a pattern parses under the default engine.</summary>
     /// <param name="pattern">The constant pattern.</param>
@@ -192,6 +186,7 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     /// <param name="root">The rewritten syntax root.</param>
     /// <param name="annotation">The annotation marking the call.</param>
     /// <returns>The host type declaration.</returns>
+    /// <exception cref="InvalidOperationException">The rewrite left the annotated call outside any type declaration.</exception>
     private static TypeDeclarationSyntax FindAnnotatedHost(SyntaxNode root, SyntaxAnnotation annotation)
     {
         foreach (var node in root.GetAnnotatedNodes(annotation))
@@ -284,11 +279,11 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
         {
             if (member is MethodDeclarationSyntax method)
             {
-                names.Add(method.Identifier.ValueText);
+                _ = names.Add(method.Identifier.ValueText);
             }
             else if (member is PropertyDeclarationSyntax property)
             {
-                names.Add(property.Identifier.ValueText);
+                _ = names.Add(property.Identifier.ValueText);
             }
             else if (member is FieldDeclarationSyntax field)
             {
@@ -306,7 +301,7 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     {
         foreach (var variable in variables)
         {
-            names.Add(variable.Identifier.ValueText);
+            _ = names.Add(variable.Identifier.ValueText);
         }
     }
 

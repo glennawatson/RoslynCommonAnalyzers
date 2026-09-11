@@ -53,8 +53,8 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
     /// <summary>Returns the snapshot property access when a foreach expression has the <c>x.Keys</c>/<c>x.Values</c> shape.</summary>
     /// <param name="statement">The foreach statement to inspect.</param>
     /// <returns>The member access, or <see langword="null"/> when the shape does not match.</returns>
-    internal static MemberAccessExpressionSyntax? TryGetSnapshotAccess(CommonForEachStatementSyntax statement)
-        => statement.Expression is MemberAccessExpressionSyntax access
+    internal static MemberAccessExpressionSyntax? TryGetSnapshotAccess(CommonForEachStatementSyntax statement) =>
+        statement.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText is KeysPropertyName or ValuesPropertyName
             ? access
             : null;
@@ -62,7 +62,7 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
     /// <summary>Reports PSH1305 for a foreach over a concurrent dictionary's Keys or Values snapshot.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dictionaryType">The concurrent dictionary type definition.</param>
-    private static void AnalyzeForEach(SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
     {
         var statement = (CommonForEachStatementSyntax)context.Node;
         if (TryGetSnapshotAccess(statement) is not { } access)

@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum EnumFlagValueStyle
 {
     /// <summary><c>1 &lt;&lt; n</c> bit shifts.</summary>
-    Shift,
+    Shift = 0,
 
     /// <summary>Decimal literals.</summary>
-    Decimal
+    Decimal = 1,
 }

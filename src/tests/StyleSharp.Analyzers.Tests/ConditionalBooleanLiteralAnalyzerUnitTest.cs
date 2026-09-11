@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConditional = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.ConditionalBooleanLiteralCodeFixProvider>;
@@ -81,9 +82,10 @@ public class ConditionalBooleanLiteralAnalyzerUnitTest
 
     /// <summary>Verifies a conditional with non-literal branches is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralBranchesAreCleanAsync()
-        => await VerifyConditional.VerifyAnalyzerAsync(
+    public Task NonLiteralBranchesAreCleanAsync() =>
+        VerifyConditional.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -11,8 +11,8 @@ internal static class NewMemberReducesAccessibilityBenchmarkSource
     /// <param name="types">The number of synthetic base/derived pairs to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingPair(i) : GenerateCleanPair(i))}}
@@ -21,8 +21,8 @@ internal static class NewMemberReducesAccessibilityBenchmarkSource
     /// <summary>Builds one base/derived pair whose derived member hides at equal accessibility, exercising the full walk without a report.</summary>
     /// <param name="index">The synthetic pair index.</param>
     /// <returns>The generated pair block.</returns>
-    private static string GenerateCleanPair(int index)
-        => $$"""
+    private static string GenerateCleanPair(int index) =>
+        $$"""
            public class Base{{index}}
            {
                public void M()
@@ -41,8 +41,8 @@ internal static class NewMemberReducesAccessibilityBenchmarkSource
     /// <summary>Builds one base/derived pair whose derived member hides a more accessible base member with a narrower one.</summary>
     /// <param name="index">The synthetic pair index.</param>
     /// <returns>The generated pair block.</returns>
-    private static string GenerateViolatingPair(int index)
-        => $$"""
+    private static string GenerateViolatingPair(int index) =>
+        $$"""
            public class Base{{index}}
            {
                public void M()

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -69,16 +71,17 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
     }
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported comparison with its default length-pattern form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison expression to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
-        => TryGetReplacement(comparison, EmptyStringStyle.Pattern, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
+        TryGetReplacement(comparison, EmptyStringStyle.Pattern, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
 
@@ -101,8 +104,8 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
     /// <param name="style">The style the fix would emit.</param>
     /// <returns><see langword="true"/> when the replacement compiles in this file.</returns>
     /// <remarks>Only the pattern form is gated: it needs the <c>not</c> pattern, which is C# 9.</remarks>
-    private static bool SupportsStyle(SyntaxTree tree, EmptyStringStyle style)
-        => style != EmptyStringStyle.Pattern
+    private static bool SupportsStyle(SyntaxTree tree, EmptyStringStyle style) =>
+        style != EmptyStringStyle.Pattern
             || ((CSharpParseOptions)tree.Options).LanguageVersion >= LanguageVersion.CSharp9;
 
     /// <summary>Gets the code action title naming the replacement.</summary>
@@ -166,8 +169,9 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
     /// parentheses of its own — but the operand does, whenever it binds looser than member access:
     /// <c>a + b == ""</c> must become <c>(a + b).Length == 0</c>, not <c>a + b.Length == 0</c>.
     /// </remarks>
-    private static BinaryExpressionSyntax BuildLengthTest(ExpressionSyntax value, bool negated)
-        => SyntaxFactory.BinaryExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BinaryExpressionSyntax BuildLengthTest(ExpressionSyntax value, bool negated) =>
+        SyntaxFactory.BinaryExpression(
             negated ? SyntaxKind.NotEqualsExpression : SyntaxKind.EqualsExpression,
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
@@ -228,8 +232,9 @@ public sealed class Psh1204EmptyStringComparisonCodeFixProvider : CodeFixProvide
 
     /// <summary>Builds the <c>{ Length: 0 }</c> property pattern with conventional spacing.</summary>
     /// <returns>The built pattern.</returns>
-    private static RecursivePatternSyntax BuildLengthZeroPattern()
-        => SyntaxFactory.RecursivePattern(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RecursivePatternSyntax BuildLengthZeroPattern() =>
+        SyntaxFactory.RecursivePattern(
             type: null,
             positionalPatternClause: null,
             propertyPatternClause: SyntaxFactory.PropertyPatternClause(

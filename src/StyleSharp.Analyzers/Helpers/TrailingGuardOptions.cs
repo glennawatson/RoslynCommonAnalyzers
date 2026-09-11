@@ -26,8 +26,8 @@ internal readonly record struct TrailingGuardOptions(int MinWrappedStatements)
     /// level of indentation. An unset, non-numeric, or non-positive value keeps the default, so a typo neither
     /// disables the rule nor fires it on every single-statement <c>if</c>.
     /// </remarks>
-    public static TrailingGuardOptions Read(AnalyzerConfigOptions options)
-        => new(ReadPositiveInt(options, MinRuleKey, MinGeneralKey, DefaultMinWrappedStatements));
+    internal static TrailingGuardOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadPositiveInt(options, MinRuleKey, MinGeneralKey, DefaultMinWrappedStatements));
 
     /// <summary>Reads a positive integer setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

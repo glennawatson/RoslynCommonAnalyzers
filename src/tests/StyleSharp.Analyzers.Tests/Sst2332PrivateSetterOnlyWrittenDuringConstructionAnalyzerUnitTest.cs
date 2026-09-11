@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySetter = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 {
     /// <summary>Verifies a private setter written only in the constructor is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetterWrittenOnlyInConstructorIsReportedAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task SetterWrittenOnlyInConstructorIsReportedAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -25,9 +27,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a property carrying an initializer as well as a constructor write is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetterWithInitializerIsReportedAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task SetterWithInitializerIsReportedAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -39,9 +42,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a private setter written after construction is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetterWrittenInMethodIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task SetterWrittenInMethodIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -53,9 +57,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a private setter written through <c>this</c> after construction is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetterWrittenThroughThisInMethodIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task SetterWrittenThroughThisInMethodIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -67,9 +72,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies an <c>init</c> accessor is not this rule's concern.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitAccessorIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task InitAccessorIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -79,9 +85,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a public setter is not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicSetterIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task PublicSetterIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -91,9 +98,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a partial type is skipped, because a write could sit in an unseen part.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task PartialTypeIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public partial class Counter
             {
@@ -105,9 +113,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
 
     /// <summary>Verifies a private setter reached only through a compound assignment in the constructor is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundAssignmentInConstructorIsReportedAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task CompoundAssignmentInConstructorIsReportedAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             public class Counter
             {
@@ -124,9 +133,10 @@ public class Sst2332PrivateSetterOnlyWrittenDuringConstructionAnalyzerUnitTest
     /// <summary>Verifies a private setter written inside a lambda in the constructor is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The lambda may run after the constructor returns, so the write is not construction-time.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SetterWrittenInLambdaIsCleanAsync()
-        => await VerifySetter.VerifyAnalyzerAsync(
+    public Task SetterWrittenInLambdaIsCleanAsync() =>
+        VerifySetter.VerifyAnalyzerAsync(
             """
             using System;
 

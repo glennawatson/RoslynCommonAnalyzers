@@ -143,8 +143,8 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Maps a recognised assertion class to its equality and boolean assertion method names.</summary>
     /// <param name="assertType">The assertion class.</param>
     /// <returns>The framework's method names, or <see langword="null"/> when the namespace is unrecognised.</returns>
-    private static (string Equality, string True, string False)? GetFrameworkMethods(INamedTypeSymbol assertType)
-        => assertType.ContainingNamespace?.ToDisplayString() switch
+    private static (string Equality, string True, string False)? GetFrameworkMethods(INamedTypeSymbol assertType) =>
+        assertType.ContainingNamespace?.ToDisplayString() switch
         {
             XunitNamespace => (XunitEqualityMethod, XunitTrueMethod, XunitFalseMethod),
             NUnitNamespace or MSTestNamespace => (ClassicEqualityMethod, ClassicTrueMethod, ClassicFalseMethod),
@@ -239,7 +239,7 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     private static bool AcceptsSingleBoolean(IMethodSymbol method)
     {
         var parameters = method.Parameters;
-        if (parameters.Length == 0 || !IsBooleanLike(parameters[0].Type))
+        if (parameters.IsEmpty || !IsBooleanLike(parameters[0].Type))
         {
             return false;
         }
@@ -258,8 +258,8 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <see cref="bool"/> or <see cref="Nullable{Boolean}"/>.</summary>
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> when the type accepts a boolean argument.</returns>
-    private static bool IsBooleanLike(ITypeSymbol type)
-        => type.SpecialType == SpecialType.System_Boolean
+    private static bool IsBooleanLike(ITypeSymbol type) =>
+        type.SpecialType == SpecialType.System_Boolean
             || type is INamedTypeSymbol
             {
                 OriginalDefinition.SpecialType: SpecialType.System_Nullable_T,

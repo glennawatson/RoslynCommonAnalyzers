@@ -113,10 +113,7 @@ public class Sst1171FunctionPointerParameterListAnalyzersUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, string? fixedSource)
     {
-        var test = new Verifysst0022.Test
-        {
-            TestCode = source
-        };
+        var test = new Verifysst0022.Test { TestCode = source };
 
         if (fixedSource is not null)
         {

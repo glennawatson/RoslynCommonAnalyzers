@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConstraintOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1221ConstraintClauseOrderAnalyzer,
     StyleSharp.Analyzers.Sst1221ConstraintClauseOrderCodeFixProvider>;
@@ -63,9 +64,10 @@ public class ConstraintClauseOrderAnalyzerUnitTest
 
     /// <summary>Verifies constraint clauses already in type-parameter order are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InOrderConstraintsAreCleanAsync()
-        => await VerifyConstraintOrder.VerifyAnalyzerAsync(
+    public Task InOrderConstraintsAreCleanAsync() =>
+        VerifyConstraintOrder.VerifyAnalyzerAsync(
             """
             public class C<TKey, TValue>
                 where TKey : new()
@@ -76,9 +78,10 @@ public class ConstraintClauseOrderAnalyzerUnitTest
 
     /// <summary>Verifies a single constraint clause is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleConstraintIsCleanAsync()
-        => await VerifyConstraintOrder.VerifyAnalyzerAsync(
+    public Task SingleConstraintIsCleanAsync() =>
+        VerifyConstraintOrder.VerifyAnalyzerAsync(
             """
             public class C<TKey, TValue>
                 where TValue : class

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Adds the <c>static</c> modifier to a class whose members are all static (SST1432).</summary>
@@ -48,7 +50,7 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
             return;
         }
 
-        editor.ReplaceNode(declaration, (current, _) => MakeStatic((ClassDeclarationSyntax)current));
+        editor.ReplaceNode(declaration, static (current, _) => MakeStatic((ClassDeclarationSyntax)current));
     }
 
     /// <summary>Inserts <c>static</c> after the access modifiers, moving leading trivia when the list is empty.</summary>
@@ -56,8 +58,9 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
     /// <param name="root">The syntax root.</param>
     /// <param name="declaration">The class declaration to mark static.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration)
-        => document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeStatic(declaration)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration) =>
+        document.WithSyntaxRoot(root.ReplaceNode(declaration, MakeStatic(declaration)));
 
     /// <summary>Builds the class declaration with <c>static</c> inserted after the access modifiers.</summary>
     /// <param name="declaration">The class declaration to mark static.</param>

@@ -941,11 +941,7 @@ public class NoBlockingWaitAnalyzerUnitTest
                                   private static Task RunAsync() => Task.CompletedTask;
                               }
                               """;
-        var test = new VerifyBlocking.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new VerifyBlocking.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         test.TestState.OutputKind = OutputKind.ConsoleApplication;
         await test.RunAsync(CancellationToken.None);
@@ -1035,11 +1031,7 @@ public class NoBlockingWaitAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerAsync(string source)
     {
-        var test = new VerifyBlocking.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new VerifyBlocking.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -1050,12 +1042,7 @@ public class NoBlockingWaitAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyBlockingFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyBlockingFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -1065,12 +1052,7 @@ public class NoBlockingWaitAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNoFixOfferedAsync(string source)
     {
-        var test = new VerifyBlockingFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = source
-        };
+        var test = new VerifyBlockingFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

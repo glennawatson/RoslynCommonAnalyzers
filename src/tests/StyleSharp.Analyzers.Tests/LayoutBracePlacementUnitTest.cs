@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBlank = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.BracePlacementAnalyzer,
     StyleSharp.Analyzers.BlankLineRemovalCodeFixProvider>;
@@ -16,9 +17,10 @@ public class LayoutBracePlacementUnitTest
 {
     /// <summary>Verifies a well-formatted Allman block produces no diagnostics.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllmanBlockIsCleanAsync()
-        => await VerifyBrace.VerifyAnalyzerAsync(
+    public Task AllmanBlockIsCleanAsync() =>
+        VerifyBrace.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -31,9 +33,10 @@ public class LayoutBracePlacementUnitTest
 
     /// <summary>Verifies a single-line auto-property accessor list is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineAccessorListIsCleanAsync()
-        => await VerifyBrace.VerifyAnalyzerAsync(
+    public Task SingleLineAccessorListIsCleanAsync() =>
+        VerifyBrace.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -43,9 +46,10 @@ public class LayoutBracePlacementUnitTest
 
     /// <summary>Verifies a property with an initializer below a blank line is not flagged (the '{' is mid-line).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyInitializerBelowBlankLineIsCleanAsync()
-        => await VerifyBrace.VerifyAnalyzerAsync(
+    public Task PropertyInitializerBelowBlankLineIsCleanAsync() =>
+        VerifyBrace.VerifyAnalyzerAsync(
             """
             internal class C
             {

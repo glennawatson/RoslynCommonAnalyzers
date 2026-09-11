@@ -85,8 +85,8 @@ public sealed class Sst1497UnusedLocalAnalyzer : DiagnosticAnalyzer
     /// The name of a member access (<c>other.x</c>), of a named argument (<c>x: 1</c>) and of a qualified
     /// name is not a reference to a local at all, so those are not reads either.
     /// </remarks>
-    internal static bool IsReadReference(IdentifierNameSyntax identifier)
-        => !IsNameOfSomethingElse(identifier) && !IsDeadWriteTarget(identifier, out _);
+    internal static bool IsReadReference(IdentifierNameSyntax identifier) =>
+        !IsNameOfSomethingElse(identifier) && !IsDeadWriteTarget(identifier, out _);
 
     /// <summary>Returns whether an identifier is the target of an assignment written as its own statement.</summary>
     /// <param name="identifier">The identifier to classify.</param>
@@ -171,7 +171,7 @@ public sealed class Sst1497UnusedLocalAnalyzer : DiagnosticAnalyzer
     private static bool IsRead(SyntaxNode scope, string name)
     {
         var state = new ReadScanState(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, ReadScanState>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             scope,
             ref state,
             static (IdentifierNameSyntax identifier, ref ReadScanState scan) => scan.Observe(identifier));
@@ -192,7 +192,11 @@ public sealed class Sst1497UnusedLocalAnalyzer : DiagnosticAnalyzer
     };
 
     /// <summary>Tracks whether one named local has been read, and stops the walk as soon as it has.</summary>
-    private struct ReadScanState : IEquatable<ReadScanState>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct ReadScanState
     {
         /// <summary>The local's name.</summary>
         private readonly string _name;
@@ -207,17 +211,6 @@ public sealed class Sst1497UnusedLocalAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets a value indicating whether a read has been seen.</summary>
         public bool Read { get; private set; }
-
-        /// <summary>Returns whether two scan states are equivalent.</summary>
-        /// <param name="other">The other state.</param>
-        /// <returns><see langword="true"/> when the tracked state is equal.</returns>
-        public readonly bool Equals(ReadScanState other) => Read == other.Read && _name == other._name;
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is ReadScanState other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => unchecked((_name.GetHashCode() * 397) ^ (Read ? 1 : 0));
 
         /// <summary>Observes one identifier and returns whether scanning should continue.</summary>
         /// <param name="identifier">The identifier.</param>

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -56,7 +57,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var fileName = TypeFileNaming.Stem(type, useMetadata) + ".cs";
+            var fileName = $"{TypeFileNaming.Stem(type, useMetadata)}.cs";
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Move type to '{fileName}'",
@@ -72,8 +73,9 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
     /// <param name="fileName">The new file's name.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated solution.</returns>
-    internal static Task<Solution> MoveAsync(Document document, BaseTypeDeclarationSyntax type, string fileName, CancellationToken cancellationToken)
-        => MoveAllAsync(document, [(type, fileName)], cancellationToken);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<Solution> MoveAsync(Document document, BaseTypeDeclarationSyntax type, string fileName, CancellationToken cancellationToken) =>
+        MoveAllAsync(document, [(type, fileName)], cancellationToken);
 
     /// <summary>Extracts every supplied type into its own document in one pass, removing them all from the original.</summary>
     /// <param name="document">The document containing the types.</param>
@@ -205,15 +207,15 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
         {
             if (index > 0)
             {
-                builder.Append(newLine);
+                _ = builder.Append(newLine);
             }
 
-            builder.Append(text, kept[index].Start, kept[index].Length);
+            _ = builder.Append(text, kept[index].Start, kept[index].Length);
         }
 
         if (endsWithNewLine)
         {
-            builder.Append(newLine);
+            _ = builder.Append(newLine);
         }
 
         return builder.ToString();
@@ -246,7 +248,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             var newLineIndex = text.IndexOf('\n', start);
             var end = newLineIndex < 0 ? text.Length : newLineIndex;
             var lineEnd = end > start && text[end - 1] == '\r' ? end - 1 : end;
-            AppendNormalized(text, kept, new LineSpan(start, lineEnd - start));
+            AppendNormalized(text, kept, new(start, lineEnd - start));
             if (newLineIndex < 0)
             {
                 return kept;
@@ -267,7 +269,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             // Keep a blank only as a single separator between content lines (not leading, repeated, or after '{').
             if (ShouldKeepBlankSeparator(text, result))
             {
-                result.Add(new LineSpan(line.Start, 0));
+                result.Add(new(line.Start, 0));
             }
 
             return;
@@ -405,7 +407,7 @@ public sealed class Sst1402MoveTypeToFileCodeFixProvider : CodeFixProvider
             {
                 if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<BaseTypeDeclarationSyntax>() is { } type)
                 {
-                    moves.Add((type, TypeFileNaming.Stem(type, useMetadata) + ".cs"));
+                    moves.Add((type, $"{TypeFileNaming.Stem(type, useMetadata)}.cs"));
                 }
             }
 

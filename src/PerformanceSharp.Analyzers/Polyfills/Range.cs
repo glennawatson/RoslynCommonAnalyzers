@@ -34,29 +34,6 @@ internal readonly struct Range : IEquatable<Range>
     /// <summary>Gets the exclusive end index.</summary>
     public Index End { get; }
 
-    /// <summary>Creates a range starting at <paramref name="start"/> and continuing to the end.</summary>
-    /// <param name="start">The inclusive start index.</param>
-    /// <returns>The range.</returns>
-    public static Range StartAt(Index start) => new(start, new(0, fromEnd: true));
-
-    /// <summary>Creates a range from the beginning to <paramref name="end"/>.</summary>
-    /// <param name="end">The exclusive end index.</param>
-    /// <returns>The range.</returns>
-    public static Range EndAt(Index end) => new(new(0), end);
-
-    /// <summary>Calculates the offset and length for a collection of the given length.</summary>
-    /// <param name="length">The collection length.</param>
-    /// <returns>The offset and length represented by this range.</returns>
-    /// <exception cref="ArgumentOutOfRangeException">Thrown when the range is outside the collection.</exception>
-    public (int Offset, int Length) GetOffsetAndLength(int length)
-    {
-        var start = Start.GetOffset(length);
-        var end = End.GetOffset(length);
-        return (uint)end > (uint)length || (uint)start > (uint)end
-            ? throw new ArgumentOutOfRangeException(nameof(length))
-            : ((int Offset, int Length))(start, end - start);
-    }
-
     /// <inheritdoc/>
     public bool Equals(Range other) => Start.Equals(other.Start) && End.Equals(other.End);
 
@@ -65,6 +42,29 @@ internal readonly struct Range : IEquatable<Range>
 
     /// <inheritdoc/>
     public override int GetHashCode() => (Start.GetHashCode() * 397) ^ End.GetHashCode();
+
+    /// <summary>Creates a range starting at <paramref name="start"/> and continuing to the end.</summary>
+    /// <param name="start">The inclusive start index.</param>
+    /// <returns>The range.</returns>
+    internal static Range StartAt(Index start) => new(start, new(0, fromEnd: true));
+
+    /// <summary>Creates a range from the beginning to <paramref name="end"/>.</summary>
+    /// <param name="end">The exclusive end index.</param>
+    /// <returns>The range.</returns>
+    internal static Range EndAt(Index end) => new(new(0), end);
+
+    /// <summary>Calculates the offset and length for a collection of the given length.</summary>
+    /// <param name="length">The collection length.</param>
+    /// <returns>The offset and length represented by this range.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when the range is outside the collection.</exception>
+    internal (int Offset, int Length) GetOffsetAndLength(int length)
+    {
+        var start = Start.GetOffset(length);
+        var end = End.GetOffset(length);
+        return (uint)end > (uint)length || (uint)start > (uint)end
+            ? throw new ArgumentOutOfRangeException(nameof(length))
+            : ((int Offset, int Length))(start, end - start);
+    }
 }
 
 #else

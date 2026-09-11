@@ -51,8 +51,8 @@ public sealed class Sst2254ExplicitObjectCreationTypeAnalyzer : DiagnosticAnalyz
     /// have no plain type-name spelling that can stand between <c>new</c> and the argument list, so they are
     /// rejected here before any display string is allocated.
     /// </remarks>
-    internal static bool IsExpressibleTypeName(ITypeSymbol? type)
-        => type is { IsAnonymousType: false } resolved
+    internal static bool IsExpressibleTypeName(ITypeSymbol? type) =>
+        type is { IsAnonymousType: false } resolved
             && resolved.TypeKind is not (TypeKind.Error or TypeKind.Dynamic or TypeKind.Pointer or TypeKind.FunctionPointer)
             && resolved is not INamedTypeSymbol { IsTupleType: true };
 

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -40,8 +42,8 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.ConstructorArgumentMismatch);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -66,7 +68,7 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
     /// <summary>Analyzes one attribute for a constructor-argument name that binds to nothing.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="attributeType">The resolved markup attribute type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (!IsConstructorArgumentName(attribute.Name)
@@ -102,8 +104,8 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
     /// The rightmost token of any of those name shapes is the type's own identifier, so one comparison against
     /// it is the whole syntactic filter — no attribute is bound until this passes.
     /// </remarks>
-    private static bool IsConstructorArgumentName(NameSyntax name)
-        => name.GetLastToken().ValueText is AttributeSimpleName or AttributeQualifiedSimpleName;
+    private static bool IsConstructorArgumentName(NameSyntax name) =>
+        name.GetLastToken().ValueText is AttributeSimpleName or AttributeQualifiedSimpleName;
 
     /// <summary>Gets the attribute's first argument when it is a string literal.</summary>
     /// <param name="attribute">The attribute.</param>
@@ -131,8 +133,9 @@ public sealed class Sst2487ConstructorArgumentMismatchAnalyzer : DiagnosticAnaly
     /// <param name="attribute">The attribute.</param>
     /// <param name="attributeType">The resolved markup attribute type.</param>
     /// <returns><see langword="true"/> when the attribute is the markup one and not a same-named other.</returns>
-    private static bool IsMarkupAttribute(SyntaxNodeAnalysisContext context, AttributeSyntax attribute, INamedTypeSymbol attributeType)
-        => SymbolEqualityComparer.Default.Equals(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsMarkupAttribute(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute, INamedTypeSymbol attributeType) =>
+        SymbolEqualityComparer.Default.Equals(
             context.SemanticModel.GetTypeInfo(attribute, context.CancellationToken).Type,
             attributeType);
 

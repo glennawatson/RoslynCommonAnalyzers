@@ -18,10 +18,9 @@ internal static class LookupGuardHelper
     /// <summary>Returns whether an expression is a side-effect-free receiver shape.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> for an identifier, <c>this</c>, or a plain member-access chain of identifiers.</returns>
-    public static bool IsSimpleReceiver(ExpressionSyntax expression) => expression switch
+    internal static bool IsSimpleReceiver(ExpressionSyntax expression) => expression switch
     {
-        IdentifierNameSyntax => true,
-        ThisExpressionSyntax => true,
+        IdentifierNameSyntax or ThisExpressionSyntax => true,
         MemberAccessExpressionSyntax memberAccess when memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && memberAccess.Name is IdentifierNameSyntax => IsSimpleReceiver(memberAccess.Expression),
         _ => false
@@ -30,14 +29,14 @@ internal static class LookupGuardHelper
     /// <summary>Returns whether an expression is a side-effect-free key shape.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> for a literal or any simple receiver shape.</returns>
-    public static bool IsSimpleKey(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax || IsSimpleReceiver(expression);
+    internal static bool IsSimpleKey(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax || IsSimpleReceiver(expression);
 
     /// <summary>Returns whether an argument is passed by value without a name colon.</summary>
     /// <param name="argument">The argument to inspect.</param>
     /// <returns><see langword="true"/> when the argument can be moved to another call site verbatim.</returns>
-    public static bool IsPlainArgument(ArgumentSyntax argument)
-        => argument.NameColon is null && argument.RefKindKeyword.IsKind(SyntaxKind.None);
+    internal static bool IsPlainArgument(ArgumentSyntax argument) =>
+        argument.NameColon is null && argument.RefKindKeyword.IsKind(SyntaxKind.None);
 
     /// <summary>Returns whether a type exposes an accessible bool-returning two-parameter instance method.</summary>
     /// <param name="type">The receiver's static type; its base types and implemented interfaces are also probed.</param>
@@ -46,7 +45,7 @@ internal static class LookupGuardHelper
     /// <param name="model">The semantic model used for the accessibility check.</param>
     /// <param name="position">The source position at which the method must be accessible.</param>
     /// <returns><see langword="true"/> when a matching accessible method exists.</returns>
-    public static bool TypeExposesAccessibleMethod(ITypeSymbol type, string name, bool secondParameterIsOut, SemanticModel model, int position)
+    internal static bool TypeExposesAccessibleMethod(ITypeSymbol type, string name, bool secondParameterIsOut, SemanticModel model, int position)
     {
         for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
         {

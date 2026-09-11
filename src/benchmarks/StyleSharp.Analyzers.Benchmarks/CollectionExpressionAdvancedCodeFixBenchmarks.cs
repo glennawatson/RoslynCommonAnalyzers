@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for advanced collection-expression code fixes.</summary>
+[System.Diagnostics.DebuggerDisplay("CollectionExpressionAdvancedCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class CollectionExpressionAdvancedCodeFixBenchmarks : IDisposable
@@ -54,7 +56,7 @@ public class CollectionExpressionAdvancedCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             CollectionExpressionAdvancedBenchmarkSource.GenerateCodeFix(Nodes, CurrentShape));
@@ -73,6 +75,7 @@ public class CollectionExpressionAdvancedCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -110,8 +113,8 @@ public class CollectionExpressionAdvancedCodeFixBenchmarks : IDisposable
     /// <summary>Gets the diagnostic id for the selected expression-shaped fix.</summary>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The diagnostic id.</returns>
-    private static string DiagnosticId(CollectionExpressionAdvancedBenchmarkShape shape)
-        => shape switch
+    private static string DiagnosticId(CollectionExpressionAdvancedBenchmarkShape shape) =>
+        shape switch
         {
             CollectionExpressionAdvancedBenchmarkShape.Stackalloc => CollectionExpressionRules.UseCollectionExpressionForStackalloc.Id,
             CollectionExpressionAdvancedBenchmarkShape.Create => CollectionExpressionRules.UseCollectionExpressionForCreate.Id,
@@ -120,8 +123,8 @@ public class CollectionExpressionAdvancedCodeFixBenchmarks : IDisposable
 
     /// <summary>Finds the representative expression for the selected shape.</summary>
     /// <returns>The expression target.</returns>
-    private ExpressionSyntax FindExpressionTarget()
-        => CurrentShape switch
+    private ExpressionSyntax FindExpressionTarget() =>
+        CurrentShape switch
         {
             CollectionExpressionAdvancedBenchmarkShape.Stackalloc
                 => CodeFixBenchmarkSyntaxLookup.GetNthDescendant<StackAllocArrayCreationExpressionSyntax>(_root, Nodes / MiddleNodeDivisor, static _ => true),

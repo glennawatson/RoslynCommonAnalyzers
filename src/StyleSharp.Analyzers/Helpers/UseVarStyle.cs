@@ -8,11 +8,11 @@ namespace StyleSharp.Analyzers;
 internal enum UseVarStyle
 {
     /// <summary>Always use <c>var</c>.</summary>
-    Always,
+    Always = 0,
 
     /// <summary>Never use <c>var</c>; always name the type.</summary>
-    Never,
+    Never = 1,
 
     /// <summary>Use <c>var</c> only when the type is named on the right-hand side.</summary>
-    WhenObvious
+    WhenObvious = 2,
 }

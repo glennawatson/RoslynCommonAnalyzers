@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces a forwarding lambda with the method group it forwards to (SST2239).</summary>
@@ -20,16 +22,17 @@ public sealed class Sst2239MethodGroupCodeFixProvider : CodeFixProvider, IBatchF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use the method group",
             nameof(Sst2239MethodGroupCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported lambda and swaps it for the invoked method group.</summary>
     /// <param name="root">The syntax root.</param>
@@ -39,14 +42,9 @@ public sealed class Sst2239MethodGroupCodeFixProvider : CodeFixProvider, IBatchF
     /// A lambda passed positionally shares its span with the argument that holds it, and the outermost
     /// node of a tie is the argument, so the innermost one is the one to ask for.
     /// </remarks>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not AnonymousFunctionExpressionSyntax lambda
-            || lambda.Body is not InvocationExpressionSyntax invocation)
-        {
-            return null;
-        }
-
-        return new NodeReplacement(lambda, invocation.Expression.WithTriviaFrom(lambda));
-    }
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not AnonymousFunctionExpressionSyntax lambda
+            || lambda.Body is not InvocationExpressionSyntax invocation
+            ? null
+            : new NodeReplacement(lambda, invocation.Expression.WithTriviaFrom(lambda));
 }

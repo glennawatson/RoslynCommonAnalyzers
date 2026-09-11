@@ -4,10 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a class that implements <c>IEquatable&lt;T&gt;</c> against itself while still allowing a
-/// derived type to exist (SST2301).
-/// </summary>
+/// <summary>Reports a class that implements <c>IEquatable&lt;T&gt;</c> against itself while still allowing a derived type to exist (SST2301).</summary>
 /// <remarks>
 /// <para>
 /// The contract is the problem, not the syntax. <c>IEquatable&lt;Money&gt;</c> says "I decide equality
@@ -64,7 +61,7 @@ public sealed class Sst2301EquatableTypeShouldBeSealedAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (!ImplementsEquatableOfSelf(type) || type.Locations.Length == 0 || !type.Locations[0].IsInSource)
+        if (!ImplementsEquatableOfSelf(type) || type.Locations.IsEmpty || !type.Locations[0].IsInSource)
         {
             return;
         }
@@ -104,6 +101,6 @@ public sealed class Sst2301EquatableTypeShouldBeSealedAnalyzer : DiagnosticAnaly
     /// <summary>Returns whether a namespace is the global <c>System</c> namespace.</summary>
     /// <param name="containingNamespace">The namespace to test.</param>
     /// <returns><see langword="true"/> for <c>System</c> and nothing else.</returns>
-    private static bool IsSystemNamespace(INamespaceSymbol? containingNamespace)
-        => containingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
+    private static bool IsSystemNamespace(INamespaceSymbol? containingNamespace) =>
+        containingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
 }

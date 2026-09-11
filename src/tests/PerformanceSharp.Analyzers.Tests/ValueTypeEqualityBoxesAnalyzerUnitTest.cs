@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEquality = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 {
     /// <summary>Verifies a plain public struct without equality members is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainPublicStructReportedAsync()
-        => await VerifyNet90Async(
+    public Task PlainPublicStructReportedAsync() =>
+        VerifyNet90Async(
             """
             public struct {|PSH1005:Point|}
             {
@@ -26,18 +28,20 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a readonly record struct (synthesized equality) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyRecordStructIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ReadonlyRecordStructIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public readonly record struct Point(int X);
             """);
 
     /// <summary>Verifies a struct that overrides <c>Equals(object)</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructOverridingObjectEqualsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task StructOverridingObjectEqualsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public struct Point
             {
@@ -51,9 +55,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a struct implementing <c>IEquatable&lt;T&gt;</c> of itself is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructImplementingSelfEquatableIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task StructImplementingSelfEquatableIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public struct Point : System.IEquatable<Point>
             {
@@ -65,9 +70,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a struct equatable only to a different type is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructImplementingDifferentEquatableReportedAsync()
-        => await VerifyNet90Async(
+    public Task StructImplementingDifferentEquatableReportedAsync() =>
+        VerifyNet90Async(
             """
             public struct {|PSH1005:Meters|} : System.IEquatable<int>
             {
@@ -79,9 +85,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a ref struct (which cannot box) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefStructIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RefStructIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public ref struct Cursor
             {
@@ -91,9 +98,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies an internal struct without equality members is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalStructReportedAsync()
-        => await VerifyNet90Async(
+    public Task InternalStructReportedAsync() =>
+        VerifyNet90Async(
             """
             internal struct {|PSH1005:Point|}
             {
@@ -103,9 +111,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a private nested helper struct is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateNestedStructIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PrivateNestedStructIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class Outer
             {
@@ -124,9 +133,10 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
 
     /// <summary>Verifies a class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ClassIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class Point
             {
@@ -139,11 +149,7 @@ public class ValueTypeEqualityBoxesAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new VerifyEquality.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new VerifyEquality.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

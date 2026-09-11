@@ -46,19 +46,19 @@ public sealed class Sst1218OverloadsGroupedAnalyzer : DiagnosticAnalyzer
         None = 0,
 
         /// <summary>The member is <c>public</c>.</summary>
-        Public = 1,
+        Public = 1 << 0,
 
         /// <summary>The member is <c>protected</c>.</summary>
-        Protected = 2,
+        Protected = 1 << 1,
 
         /// <summary>The member is <c>internal</c>.</summary>
-        Internal = 4,
+        Internal = 1 << 2,
 
         /// <summary>The member is <c>private</c>.</summary>
-        Private = 8,
+        Private = 1 << 3,
 
         /// <summary>The member is <c>static</c>.</summary>
-        Static = 16,
+        Static = 1 << 4,
     }
 
     /// <inheritdoc/>
@@ -116,8 +116,8 @@ public sealed class Sst1218OverloadsGroupedAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The first method.</param>
     /// <param name="second">The second method.</param>
     /// <returns><see langword="true"/> when they share a name and the place the ordering rules give them.</returns>
-    internal static bool IsSameFamily(MethodDeclarationSyntax first, MethodDeclarationSyntax second)
-        => string.Equals(first.Identifier.ValueText, second.Identifier.ValueText, StringComparison.Ordinal)
+    internal static bool IsSameFamily(MethodDeclarationSyntax first, MethodDeclarationSyntax second) =>
+        string.Equals(first.Identifier.ValueText, second.Identifier.ValueText, StringComparison.Ordinal)
             && GetPlacement(first.Modifiers) == GetPlacement(second.Modifiers);
 
     /// <summary>Returns whether a method takes part in overload grouping at all.</summary>
@@ -152,7 +152,7 @@ public sealed class Sst1218OverloadsGroupedAnalyzer : DiagnosticAnalyzer
     /// The keywords are compared, not the accessibility they resolve to, so a member that declares none is
     /// only ever grouped with another that declares none — which is the same default, whatever the type is.
     /// </remarks>
-    private static Placements GetPlacement(SyntaxTokenList modifiers)
+    private static Placements GetPlacement(in SyntaxTokenList modifiers)
     {
         var placement = Placements.None;
         for (var i = 0; i < modifiers.Count; i++)

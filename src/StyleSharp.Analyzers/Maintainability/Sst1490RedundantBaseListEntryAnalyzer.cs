@@ -100,7 +100,7 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
         int candidateIndex,
         INamedTypeSymbol candidate,
         TypeDeclarationSyntax declaration,
-        SyntaxNodeAnalysisContext context)
+        in SyntaxNodeAnalysisContext context)
     {
         var impliedByBaseClass = false;
         for (var i = 0; i < entries.Count; i++)
@@ -155,7 +155,7 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
     /// and keeps running after the entry is deleted. Every other member declared here — an explicit
     /// implementation, a <c>new</c> member that hides the base one — is a re-implementation and is kept.
     /// </remarks>
-    private static bool DeclaresOwnImplementation(INamedTypeSymbol candidate, TypeDeclarationSyntax declaration, SyntaxNodeAnalysisContext context)
+    private static bool DeclaresOwnImplementation(INamedTypeSymbol candidate, TypeDeclarationSyntax declaration, in SyntaxNodeAnalysisContext context)
     {
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type)
         {
@@ -206,6 +206,6 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
     /// <param name="entry">The base-list entry.</param>
     /// <param name="context">The syntax node context.</param>
     /// <returns>The named type, or <see langword="null"/> when the entry does not bind to one.</returns>
-    private static INamedTypeSymbol? GetEntryType(BaseTypeSyntax entry, SyntaxNodeAnalysisContext context)
-        => context.SemanticModel.GetSymbolInfo(entry.Type, context.CancellationToken).Symbol as INamedTypeSymbol;
+    private static INamedTypeSymbol? GetEntryType(BaseTypeSyntax entry, in SyntaxNodeAnalysisContext context) =>
+        context.SemanticModel.GetSymbolInfo(entry.Type, context.CancellationToken).Symbol as INamedTypeSymbol;
 }

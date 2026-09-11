@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 
@@ -40,9 +41,10 @@ public class AlternateLookupAnalyzerUnitTest
 
     /// <summary>Verifies a span materialized with ToString for a dictionary probe is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpanToStringProbeIsReportedAsync()
-        => await VerifyAsync(
+    public Task SpanToStringProbeIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -56,9 +58,10 @@ public class AlternateLookupAnalyzerUnitTest
 
     /// <summary>Verifies a span materialized with the string constructor for a set probe is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewStringSetProbeIsReportedAsync()
-        => await VerifyAsync(
+    public Task NewStringSetProbeIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -72,9 +75,10 @@ public class AlternateLookupAnalyzerUnitTest
 
     /// <summary>Verifies probing with an existing string stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringKeyProbeIsCleanAsync()
-        => await VerifyAsync(
+    public Task StringKeyProbeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -86,9 +90,10 @@ public class AlternateLookupAnalyzerUnitTest
 
     /// <summary>Verifies a materialized key that outlives the probe stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MaterializedKeyStoredFirstIsCleanAsync()
-        => await VerifyAsync(
+    public Task MaterializedKeyStoredFirstIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -109,11 +114,7 @@ public class AlternateLookupAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,23 +16,24 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(ModernSyntaxRules.FoldNullCheckIntoConditionalAccess.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(ModernSyntaxRules.FoldNullCheckIntoConditionalAccess.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Fold into a conditional access",
             nameof(Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported conjunction and replaces it with the folded form.</summary>
     /// <param name="root">The syntax root.</param>
@@ -60,8 +63,9 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : C
     /// <summary>Builds <c>value == true</c>.</summary>
     /// <param name="value">The left operand.</param>
     /// <returns>The comparison expression.</returns>
-    private static BinaryExpressionSyntax ComparedToTrue(ExpressionSyntax value)
-        => SyntaxFactory.BinaryExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BinaryExpressionSyntax ComparedToTrue(ExpressionSyntax value) =>
+        SyntaxFactory.BinaryExpression(
             SyntaxKind.EqualsExpression,
             value.WithoutTrivia(),
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsEqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
@@ -71,8 +75,8 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : C
     /// <param name="receiver">The guarded value.</param>
     /// <param name="use">The member read built on it.</param>
     /// <returns>The folded expression, or <see langword="null"/> when the chain no longer matches.</returns>
-    private static BinaryExpressionSyntax? BuildBooleanMember(ExpressionSyntax receiver, ExpressionSyntax use)
-        => ToConditionalAccess(receiver, use) is { } conditional ? ComparedToTrue(conditional) : null;
+    private static BinaryExpressionSyntax? BuildBooleanMember(ExpressionSyntax receiver, ExpressionSyntax use) =>
+        ToConditionalAccess(receiver, use) is { } conditional ? ComparedToTrue(conditional) : null;
 
     /// <summary>Builds <c>receiver?.Member op constant</c> for a guarded comparison.</summary>
     /// <param name="receiver">The guarded value.</param>
@@ -82,8 +86,8 @@ public sealed class Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider : C
     /// The rebuilt left operand takes the original left operand's trivia, because the space that separates it
     /// from the operator is that operand's trailing trivia and would otherwise be dropped.
     /// </remarks>
-    private static BinaryExpressionSyntax? BuildComparison(ExpressionSyntax receiver, BinaryExpressionSyntax comparison)
-        => ToConditionalAccess(receiver, comparison.Left) is { } conditional
+    private static BinaryExpressionSyntax? BuildComparison(ExpressionSyntax receiver, BinaryExpressionSyntax comparison) =>
+        ToConditionalAccess(receiver, comparison.Left) is { } conditional
             ? comparison.WithLeft(conditional.WithTriviaFrom(comparison.Left))
             : null;
 

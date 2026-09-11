@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySwitchExpression = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2201PreferSwitchExpressionAnalyzer,
     StyleSharp.Analyzers.Sst2201PreferSwitchExpressionCodeFixProvider>;
@@ -92,9 +93,10 @@ public class PreferSwitchExpressionAnalyzerUnitTest
 
     /// <summary>Verifies switches that need statement bodies or lack a default are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonExpressionSwitchesAreCleanAsync()
-        => await VerifySwitchExpression.VerifyAnalyzerAsync(
+    public Task NonExpressionSwitchesAreCleanAsync() =>
+        VerifySwitchExpression.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

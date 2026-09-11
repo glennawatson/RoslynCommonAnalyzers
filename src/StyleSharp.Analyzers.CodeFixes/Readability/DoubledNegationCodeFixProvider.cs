@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Collapses a run of doubled prefix-negation operators (SST1190).</summary>
@@ -16,12 +18,13 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the doubled operator", nameof(DoubledNegationCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the doubled operator", nameof(DoubledNegationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported node and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -46,7 +49,7 @@ public sealed class DoubledNegationCodeFixProvider : CodeFixProvider, IBatchFixa
         const int NegationsPerCancellingPair = 2;
 
         var operand = ExpressionSimplificationAnalyzer.Unwrap(current).WithoutTrivia();
-        ExpressionSyntax replacement = count % NegationsPerCancellingPair == 0
+        var replacement = count % NegationsPerCancellingPair == 0
             ? operand
             : SyntaxFactory.PrefixUnaryExpression(unary.Kind(), operand);
 

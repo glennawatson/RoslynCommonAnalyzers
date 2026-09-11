@@ -91,13 +91,13 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     private enum Separation
     {
         /// <summary>The tokens touch with no whitespace.</summary>
-        Adjacent,
+        Adjacent = 0,
 
         /// <summary>The tokens are separated by whitespace on the same line.</summary>
-        Space,
+        Space = 1,
 
         /// <summary>The tokens are separated by a line break.</summary>
-        NewLine
+        NewLine = 2,
     }
 
     /// <inheritdoc/>
@@ -135,7 +135,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
-    private static void CheckPair(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, bool collectionPadded)
+    private static void CheckPair(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, bool collectionPadded)
     {
         if (previous.IsKind(SyntaxKind.None))
         {
@@ -173,7 +173,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a dereference or address-of symbol followed by a space (SST1023, opt-in, unsafe code only).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token, which is the candidate pointer symbol.</param>
-    private static void CheckPointerSymbol(SyntaxTreeAnalysisContext context, SyntaxToken previous)
+    private static void CheckPointerSymbol(in SyntaxTreeAnalysisContext context, SyntaxToken previous)
     {
         if (!IsDereferenceOrAddressOf(previous))
         {
@@ -189,7 +189,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="current">The later token.</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
     /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
-    private static void CheckOpeningBracket(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
+    private static void CheckOpeningBracket(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
     {
         CheckSpaceBeforeOpen(context, previous, current, separation);
 
@@ -214,7 +214,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token (the candidate '[').</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
-    private static void CheckSpaceBeforeOpen(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckSpaceBeforeOpen(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         // A collection-expression / list-pattern '[' opens a new construct after an operator/keyword
         // ('x = [1]', 'x is [1]'), so its leading space belongs to those rules and is always allowed —
@@ -242,8 +242,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// comma, which is the outer-space case the rule allows. The inner spacing stays tight, because this is
     /// not a collection expression and the padding option does not reach it.
     /// </remarks>
-    private static bool IsIndexedInitializerBracket(SyntaxToken open)
-        => open.Parent?.Parent is ImplicitElementAccessSyntax;
+    private static bool IsIndexedInitializerBracket(SyntaxToken open) =>
+        open.Parent?.Parent is ImplicitElementAccessSyntax;
 
     /// <summary>Applies the configured collection-expression inner-spacing style to the space after '['.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
@@ -251,7 +251,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="current">The token following the bracket.</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
     /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
-    private static void CheckCollectionInnerAfterOpen(SyntaxTreeAnalysisContext context, SyntaxToken open, SyntaxToken current, Separation separation, bool collectionPadded)
+    private static void CheckCollectionInnerAfterOpen(in SyntaxTreeAnalysisContext context, SyntaxToken open, SyntaxToken current, Separation separation, bool collectionPadded)
     {
         // An empty collection ('[]') is handled with the closing bracket so the single inner space is
         // reported once; never force padding into an empty collection.
@@ -276,14 +276,14 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a '[' / ']' opens a collection expression or list pattern (the literal '[...]' forms).</summary>
     /// <param name="parent">The bracket token's parent node.</param>
     /// <returns><see langword="true"/> for a collection expression or list pattern.</returns>
-    private static bool IsCollectionLikeBracket(SyntaxNode? parent)
-        => parent is CollectionExpressionSyntax or ListPatternSyntax;
+    private static bool IsCollectionLikeBracket(SyntaxNode? parent) =>
+        parent is CollectionExpressionSyntax or ListPatternSyntax;
 
     /// <summary>Reports a space inside parentheses — after '(' (SST1008) or before ')' (SST1009).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckParentheses(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckParentheses(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (previous.IsKind(SyntaxKind.OpenParenToken))
         {
@@ -299,7 +299,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="separation">The separation to the following token.</param>
-    private static void CheckOperatorKeyword(SyntaxTreeAnalysisContext context, SyntaxToken previous, Separation separation)
+    private static void CheckOperatorKeyword(in SyntaxTreeAnalysisContext context, SyntaxToken previous, Separation separation)
     {
         if (separation != Separation.Adjacent || !previous.IsKind(SyntaxKind.OperatorKeyword))
         {
@@ -314,7 +314,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="separation">The separation between the tokens.</param>
-    private static void CheckKeyword(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckKeyword(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         if (separation != Separation.Adjacent || !current.IsKind(SyntaxKind.OpenParenToken) || !IsControlKeyword(previous))
         {
@@ -329,7 +329,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="separation">The separation between the tokens.</param>
-    private static void CheckBinaryOperator(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckBinaryOperator(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         if (separation != Separation.Adjacent)
         {
@@ -349,8 +349,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a token is the <c>=</c> of a transposed-operator assignment (SST2417's span).</summary>
     /// <param name="token">The candidate assignment operator.</param>
     /// <returns><see langword="true"/> when adding a space would cement the fake compound operator.</returns>
-    private static bool IsTransposedAssignmentOperator(SyntaxToken token)
-        => token.Parent is AssignmentExpressionSyntax assignment
+    private static bool IsTransposedAssignmentOperator(SyntaxToken token) =>
+        token.Parent is AssignmentExpressionSyntax assignment
             && assignment.OperatorToken == token
             && TransposedCompoundAssignment.Matches(assignment);
 
@@ -359,7 +359,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="separation">The separation between the tokens.</param>
-    private static void CheckBraces(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckBraces(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         if (separation != Separation.Adjacent)
         {
@@ -381,7 +381,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="separation">The separation between the tokens.</param>
-    private static void CheckColon(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckColon(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         if (current.IsKind(SyntaxKind.ColonToken))
         {
@@ -400,7 +400,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="colon">The colon token.</param>
     /// <param name="separation">The separation to the token before it.</param>
-    private static void CheckColonBefore(SyntaxTreeAnalysisContext context, SyntaxToken colon, Separation separation)
+    private static void CheckColonBefore(in SyntaxTreeAnalysisContext context, SyntaxToken colon, Separation separation)
     {
         switch (separation)
         {
@@ -415,6 +415,9 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
                     Report(context, SpacingRules.ColonSpacing, colon, RemoveBefore);
                     break;
                 }
+
+            case StyleSharp.Analyzers.SpacingAnalyzer.Separation.Adjacent or StyleSharp.Analyzers.SpacingAnalyzer.Separation.Space or StyleSharp.Analyzers.SpacingAnalyzer.Separation.NewLine:
+                break;
         }
     }
 
@@ -422,7 +425,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="colon">The colon token.</param>
     /// <param name="separation">The separation to the token after it.</param>
-    private static void CheckColonAfter(SyntaxTreeAnalysisContext context, SyntaxToken colon, Separation separation)
+    private static void CheckColonAfter(in SyntaxTreeAnalysisContext context, SyntaxToken colon, Separation separation)
     {
         if (separation != Separation.Adjacent || !(RequiresSpaceBothSides(colon) || RequiresNoSpaceBefore(colon)))
         {
@@ -435,20 +438,20 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a colon should have a space on both sides (base list, ctor initializer, ternary, constraint).</summary>
     /// <param name="colon">The colon token.</param>
     /// <returns><see langword="true"/> when the colon needs a space on each side.</returns>
-    private static bool RequiresSpaceBothSides(SyntaxToken colon)
-        => colon.Parent is BaseListSyntax or ConstructorInitializerSyntax or ConditionalExpressionSyntax or TypeParameterConstraintClauseSyntax;
+    private static bool RequiresSpaceBothSides(SyntaxToken colon) =>
+        colon.Parent is BaseListSyntax or ConstructorInitializerSyntax or ConditionalExpressionSyntax or TypeParameterConstraintClauseSyntax;
 
     /// <summary>Returns whether a colon should have no space before and a space after (label, named argument, attribute target).</summary>
     /// <param name="colon">The colon token.</param>
     /// <returns><see langword="true"/> when the colon needs no space before it.</returns>
-    private static bool RequiresNoSpaceBefore(SyntaxToken colon)
-        => colon.Parent is NameColonSyntax or SwitchLabelSyntax or LabeledStatementSyntax or AttributeTargetSpecifierSyntax;
+    private static bool RequiresNoSpaceBefore(SyntaxToken colon) =>
+        colon.Parent is NameColonSyntax or SwitchLabelSyntax or LabeledStatementSyntax or AttributeTargetSpecifierSyntax;
 
     /// <summary>Returns whether the token is a control-flow keyword that takes a parenthesised clause.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> for if/while/for/foreach/switch/lock/using/fixed/catch.</returns>
-    private static bool IsControlKeyword(SyntaxToken token)
-        => token.IsKind(SyntaxKind.IfKeyword)
+    private static bool IsControlKeyword(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.IfKeyword)
             || token.IsKind(SyntaxKind.WhileKeyword)
             || token.IsKind(SyntaxKind.ForKeyword)
             || token.IsKind(SyntaxKind.ForEachKeyword)
@@ -472,7 +475,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckIncrementDecrement(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckIncrementDecrement(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         var postfix = IsIncrementDecrement(current) && current.Parent is PostfixUnaryExpressionSyntax;
         var prefix = IsIncrementDecrement(previous) && previous.Parent is PrefixUnaryExpressionSyntax;
@@ -488,7 +491,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckUnarySign(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckUnarySign(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (previous.Parent is not PrefixUnaryExpressionSyntax prefix)
         {
@@ -518,7 +521,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="current">The later token (the candidate ']').</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
     /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
-    private static void CheckClosingBracket(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
+    private static void CheckClosingBracket(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
     {
         if (!current.IsKind(SyntaxKind.CloseBracketToken) || current.Parent is AttributeListSyntax)
         {
@@ -542,7 +545,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="current">The closing bracket token.</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
     /// <param name="collectionPadded">Whether collection-expression brackets are padded ('[ 1 ]').</param>
-    private static void CheckCollectionInnerBeforeClose(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
+    private static void CheckCollectionInnerBeforeClose(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation, bool collectionPadded)
     {
         // An empty collection ('[]' or '[ ]') is kept tight and never forced to pad.
         if (previous.IsKind(SyntaxKind.OpenBracketToken))
@@ -571,22 +574,22 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reads the collection-expression inner-spacing style ('none' tight, default; 'space' padded).</summary>
     /// <param name="options">The analyzer config options for the syntax tree.</param>
     /// <returns><see langword="true"/> when collection expressions should be padded ('[ 1, 2 ]').</returns>
-    private static bool ReadCollectionExpressionPadded(AnalyzerConfigOptions options)
-        => options.TryGetValue(CollectionExpressionSpacingKey, out var value)
+    private static bool ReadCollectionExpressionPadded(AnalyzerConfigOptions options) =>
+        options.TryGetValue(CollectionExpressionSpacingKey, out var value)
             && string.Equals(value, "space", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Returns whether the token is an increment or decrement operator.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> for <c>++</c> or <c>--</c>.</returns>
-    private static bool IsIncrementDecrement(SyntaxToken token)
-        => token.IsKind(SyntaxKind.PlusPlusToken) || token.IsKind(SyntaxKind.MinusMinusToken);
+    private static bool IsIncrementDecrement(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.PlusPlusToken) || token.IsKind(SyntaxKind.MinusMinusToken);
 
     /// <summary>Checks comma and semicolon spacing for the pair.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
     /// <param name="separation">The whitespace separation between the tokens.</param>
-    private static void CheckCommaSemicolon(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
+    private static void CheckCommaSemicolon(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current, Separation separation)
     {
         if (separation == Separation.Space && !IsUnboundGenericArityComma(current))
         {
@@ -625,14 +628,14 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// formatter produces. Demanding a space after it would put this rule against every other formatter in
     /// the toolchain, on a comma that has nothing to line up with.
     /// </remarks>
-    private static bool IsInterpolationAlignmentComma(SyntaxToken token)
-        => token.IsKind(SyntaxKind.CommaToken) && token.Parent is InterpolationAlignmentClauseSyntax;
+    private static bool IsInterpolationAlignmentComma(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.CommaToken) && token.Parent is InterpolationAlignmentClauseSyntax;
 
     /// <summary>Reports a space adjacent to a member-access dot (SST1019).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckMemberDot(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckMemberDot(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (!IsMemberDot(current) && !IsMemberDot(previous))
         {
@@ -646,7 +649,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckGenericBrackets(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckGenericBrackets(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (IsGenericOpen(current) || IsGenericOpen(previous))
         {
@@ -662,7 +665,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckAttributeBrackets(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckAttributeBrackets(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (IsAttributeBracket(previous, SyntaxKind.OpenBracketToken))
         {
@@ -677,7 +680,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a space before a nullable type's question mark (SST1018).</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckNullable(SyntaxTreeAnalysisContext context, SyntaxToken current)
+    private static void CheckNullable(in SyntaxTreeAnalysisContext context, SyntaxToken current)
     {
         if (!current.IsKind(SyntaxKind.QuestionToken) || current.Parent is not NullableTypeSyntax)
         {
@@ -691,7 +694,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The earlier token.</param>
     /// <param name="current">The later token.</param>
-    private static void CheckImplicitArray(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void CheckImplicitArray(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (!current.IsKind(SyntaxKind.OpenBracketToken) || (!previous.IsKind(SyntaxKind.NewKeyword) && !previous.IsKind(SyntaxKind.StackAllocKeyword)))
         {
@@ -704,28 +707,28 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the token is the dot of a member access or qualified name.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> when the token is a member-access dot.</returns>
-    private static bool IsMemberDot(SyntaxToken token)
-        => token.IsKind(SyntaxKind.DotToken)
+    private static bool IsMemberDot(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.DotToken)
             && token.Parent is MemberAccessExpressionSyntax or QualifiedNameSyntax or MemberBindingExpressionSyntax;
 
     /// <summary>Returns whether the token opens a generic argument or parameter list.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> when the token is a generic <c>&lt;</c>.</returns>
-    private static bool IsGenericOpen(SyntaxToken token)
-        => token.IsKind(SyntaxKind.LessThanToken) && token.Parent is TypeArgumentListSyntax or TypeParameterListSyntax;
+    private static bool IsGenericOpen(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.LessThanToken) && token.Parent is TypeArgumentListSyntax or TypeParameterListSyntax;
 
     /// <summary>Returns whether the token closes a generic argument or parameter list.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> when the token is a generic <c>&gt;</c>.</returns>
-    private static bool IsGenericClose(SyntaxToken token)
-        => token.IsKind(SyntaxKind.GreaterThanToken) && token.Parent is TypeArgumentListSyntax or TypeParameterListSyntax;
+    private static bool IsGenericClose(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.GreaterThanToken) && token.Parent is TypeArgumentListSyntax or TypeParameterListSyntax;
 
     /// <summary>Returns whether the token is the requested bracket of an attribute list.</summary>
     /// <param name="token">The token.</param>
     /// <param name="kind">The bracket kind to match.</param>
     /// <returns><see langword="true"/> when the token is that bracket of an attribute list.</returns>
-    private static bool IsAttributeBracket(SyntaxToken token, SyntaxKind kind)
-        => token.IsKind(kind) && token.Parent is AttributeListSyntax;
+    private static bool IsAttributeBracket(SyntaxToken token, SyntaxKind kind) =>
+        token.IsKind(kind) && token.Parent is AttributeListSyntax;
 
     /// <summary>Returns whether the comma separates omitted type arguments in an unbound generic arity marker.</summary>
     /// <param name="token">The candidate comma token.</param>
@@ -757,7 +760,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a comma or semicolon preceded by whitespace.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="current">The candidate punctuation token.</param>
-    private static void ReportPrecedingSpace(SyntaxTreeAnalysisContext context, SyntaxToken current)
+    private static void ReportPrecedingSpace(in SyntaxTreeAnalysisContext context, SyntaxToken current)
     {
         if (current.IsKind(SyntaxKind.CommaToken))
         {
@@ -773,7 +776,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="previous">The candidate punctuation token.</param>
     /// <param name="current">The token following it.</param>
-    private static void ReportTrailingPunctuation(SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
+    private static void ReportTrailingPunctuation(in SyntaxTreeAnalysisContext context, SyntaxToken previous, SyntaxToken current)
     {
         if (previous.IsKind(SyntaxKind.CommaToken))
         {
@@ -790,7 +793,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="rule">The descriptor to report.</param>
     /// <param name="token">The punctuation token.</param>
     /// <param name="action">The fix action to stash.</param>
-    private static void Report(SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken token, string action)
+    private static void Report(in SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken token, string action)
     {
         var properties = ActionProperties(action);
         context.ReportDiagnostic(DiagnosticHelper.Create(rule, token.GetLocation(), properties));
@@ -801,7 +804,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="rule">The descriptor to report.</param>
     /// <param name="span">The span to flag.</param>
     /// <param name="action">The fix action to stash.</param>
-    private static void ReportSpan(SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, TextSpan span, string action)
+    private static void ReportSpan(in SyntaxTreeAnalysisContext context, DiagnosticDescriptor rule, TextSpan span, string action)
     {
         var properties = ActionProperties(action);
         context.ReportDiagnostic(DiagnosticHelper.Create(rule, context.Tree, span, properties));
@@ -851,8 +854,8 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the token is a closing bracket, brace, or parenthesis.</summary>
     /// <param name="token">The token.</param>
     /// <returns><see langword="true"/> when the token closes a bracketed construct.</returns>
-    private static bool IsClosing(SyntaxToken token)
-        => token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.CloseBracketToken) || token.IsKind(SyntaxKind.CloseBraceToken);
+    private static bool IsClosing(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.CloseParenToken) || token.IsKind(SyntaxKind.CloseBracketToken) || token.IsKind(SyntaxKind.CloseBraceToken);
 
     /// <summary>Returns whether the token is a unary dereference ('*') or address-of ('&amp;') operator.</summary>
     /// <param name="token">The token.</param>
@@ -867,7 +870,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="text">The source text.</param>
     /// <param name="list">The trivia list.</param>
     /// <param name="isTrailing">Whether the list is trailing trivia (always mid-line).</param>
-    private static void ProcessTrivia(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTriviaList list, bool isTrailing)
+    private static void ProcessTrivia(in SyntaxTreeAnalysisContext context, SourceText text, in SyntaxTriviaList list, bool isTrailing)
     {
         for (var index = 0; index < list.Count; index++)
         {
@@ -897,7 +900,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="list">The trivia list.</param>
     /// <param name="index">The index of the whitespace trivia.</param>
     /// <param name="isTrailing">Whether the list is trailing trivia.</param>
-    private static void CheckWhitespace(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTriviaList list, int index, bool isTrailing)
+    private static void CheckWhitespace(in SyntaxTreeAnalysisContext context, SourceText text, in SyntaxTriviaList list, int index, bool isTrailing)
     {
         var span = list[index].Span;
         var endsLine = (index + 1 < list.Count && list[index + 1].IsKind(SyntaxKind.EndOfLineTrivia)) || span.End == text.Length;
@@ -925,7 +928,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="text">The source text.</param>
     /// <param name="trivia">The comment trivia.</param>
-    private static void CheckComment(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTrivia trivia)
+    private static void CheckComment(in SyntaxTreeAnalysisContext context, SourceText text, in SyntaxTrivia trivia)
     {
         var span = trivia.Span;
         if (span.Length <= CommentOpenerLength)
@@ -946,7 +949,7 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="text">The source text.</param>
     /// <param name="trivia">The single-line documentation comment trivia.</param>
-    private static void CheckDocComment(SyntaxTreeAnalysisContext context, SourceText text, SyntaxTrivia trivia)
+    private static void CheckDocComment(in SyntaxTreeAnalysisContext context, SourceText text, in SyntaxTrivia trivia)
     {
         var span = trivia.FullSpan;
         var end = span.End;
@@ -1000,13 +1003,13 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
     /// <param name="after">The position immediately after the '///'.</param>
     /// <param name="end">The end of the documentation trivia.</param>
     /// <returns><see langword="true"/> when a non-whitespace character abuts the exterior.</returns>
-    private static bool DocTextAbutsExterior(SourceText text, int after, int end)
-        => after < end && text[after] is not (' ' or '\t' or '\r' or '\n');
+    private static bool DocTextAbutsExterior(SourceText text, int after, int end) =>
+        after < end && text[after] is not (' ' or '\t' or '\r' or '\n');
 
     /// <summary>Reports a preprocessor keyword that is separated from its '#' by whitespace.</summary>
     /// <param name="context">The syntax tree analysis context.</param>
     /// <param name="trivia">The directive trivia.</param>
-    private static void CheckDirective(SyntaxTreeAnalysisContext context, SyntaxTrivia trivia)
+    private static void CheckDirective(in SyntaxTreeAnalysisContext context, in SyntaxTrivia trivia)
     {
         if (trivia.GetStructure() is not DirectiveTriviaSyntax directive)
         {

@@ -81,8 +81,8 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a constant string compares byte-exactly as a u8 literal.</summary>
     /// <param name="value">The constant string value.</param>
     /// <returns><see langword="true"/> when the literal compiles and cannot alias an invalid decode.</returns>
-    internal static bool CanCompareAsUtf8Literal(string value)
-        => value.IndexOf(ReplacementCharacter) < 0
+    internal static bool CanCompareAsUtf8Literal(string value) =>
+        value.IndexOf(ReplacementCharacter) < 0
             && Psh1208Utf8LiteralAnalyzer.CanBecomeUtf8Literal(value, asciiOnly: false);
 
     /// <summary>Returns an expression's <c>Encoding.UTF8.GetString(x)</c> invocation shape match.</summary>
@@ -111,7 +111,7 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1210 for a decode-then-compare against a representable constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="encodingType">The encoding type.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonParts(binary) is not { } parts

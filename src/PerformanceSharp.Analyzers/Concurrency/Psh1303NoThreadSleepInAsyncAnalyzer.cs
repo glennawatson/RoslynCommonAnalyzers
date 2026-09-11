@@ -98,7 +98,7 @@ public sealed class Psh1303NoThreadSleepInAsyncAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1303 for a <c>Thread.Sleep</c> call whose nearest enclosing function is async.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="threadType">The thread type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsThreadSleepShape(invocation)

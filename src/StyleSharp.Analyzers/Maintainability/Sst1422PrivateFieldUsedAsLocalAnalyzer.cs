@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports a private field used as resettable temporary storage by one method (SST1422).</summary>
@@ -26,13 +28,11 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var declaration = (FieldDeclarationSyntax)context.Node;
-
         // The field is local-equivalent only when its first access writes it outright, with no value
         // flowing in from a previous call. A plain '=' whose right side does not read the field is the
         // only safe reset: a compound or coalescing assignment ('+=', '??=') reads the old value first,
         // and so does a right side that mentions the field ('_x = _x + 1'), so both keep cross-call state.
-        if (!TryGetCandidate(context, declaration, out var variable, out var field, out var method)
+        if (!TryGetCandidate(context, (FieldDeclarationSyntax)context.Node, out var variable, out var field, out var method)
             || method!.Body is not { Statements.Count: > 0 } body
             || body.Statements[0] is not ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression } assignment }
             || !IsFieldTarget(context.SemanticModel, assignment.Left, field!, context.CancellationToken)
@@ -52,7 +52,7 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The only using method.</param>
     /// <returns><see langword="true"/> when all candidate checks pass.</returns>
     private static bool TryGetCandidate(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         FieldDeclarationSyntax declaration,
         out VariableDeclaratorSyntax? variable,
         out IFieldSymbol? field,
@@ -97,11 +97,13 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
         var references = FieldReferenceAnalysis.FieldNameReferences(type, field.Name);
         for (var i = 0; i < references.Count; i++)
         {
-            if (!TryRecordFieldReference(references[i], model, field, cancellationToken, ref methodStart, ref method))
+            if (TryRecordFieldReference(references[i], model, field, cancellationToken, ref methodStart, ref method))
             {
-                method = null;
-                return false;
+                continue;
             }
+
+            method = null;
+            return false;
         }
 
         return methodStart >= 0;
@@ -152,12 +154,13 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="field">The field symbol.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is the field target.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsFieldTarget(
         SemanticModel model,
         ExpressionSyntax expression,
         IFieldSymbol field,
-        CancellationToken cancellationToken)
-        => SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
+        CancellationToken cancellationToken) =>
+        SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(expression, cancellationToken).Symbol, field);
 
     /// <summary>Returns whether the right side of the resetting assignment reads the field.</summary>
     /// <param name="right">The assignment's right-hand side.</param>

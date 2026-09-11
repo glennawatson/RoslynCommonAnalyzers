@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,12 +23,13 @@ public sealed class Sst2271VarStyleCodeFixProvider : CodeFixProvider, IBatchFixa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the variable type style", nameof(Sst2271VarStyleCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the variable type style", nameof(Sst2271VarStyleCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported type node and flips its var-versus-explicit spelling.</summary>
     /// <param name="root">The syntax root.</param>
@@ -52,11 +55,8 @@ public sealed class Sst2271VarStyleCodeFixProvider : CodeFixProvider, IBatchFixa
         }
 
         var typeName = resolvedType.ToMinimalDisplayString(model, typeSyntax.SpanStart);
-        if (!Sst2271VarStyleAnalyzer.TypeNameBindsTo(model, typeSyntax.SpanStart, typeName, resolvedType))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(typeSyntax, SyntaxFactory.ParseTypeName(typeName).WithTriviaFrom(typeSyntax));
+        return !Sst2271VarStyleAnalyzer.TypeNameBindsTo(model, typeSyntax.SpanStart, typeName, resolvedType)
+            ? null
+            : new NodeReplacement(typeSyntax, SyntaxFactory.ParseTypeName(typeName).WithTriviaFrom(typeSyntax));
     }
 }

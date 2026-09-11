@@ -54,8 +54,7 @@ public sealed class Sst1131UseReadableConditionsAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the operand is a literal or a signed numeric literal.</returns>
     private static bool IsConstantOperand(ExpressionSyntax expression) => expression switch
     {
-        LiteralExpressionSyntax => true,
-        PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.UnaryMinusExpression or (int)SyntaxKind.UnaryPlusExpression, Operand: LiteralExpressionSyntax } => true,
+        LiteralExpressionSyntax or PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.UnaryMinusExpression or (int)SyntaxKind.UnaryPlusExpression, Operand: LiteralExpressionSyntax } => true,
         _ => false
     };
 }

@@ -13,7 +13,7 @@ internal static class CollectionExpressionHelper
     /// <summary>Resolves the conservative set of generic collection target definitions.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The accepted target definitions.</returns>
-    public static INamedTypeSymbol[] ResolveTargets(Compilation compilation)
+    internal static INamedTypeSymbol[] ResolveTargets(Compilation compilation)
     {
         var targets = new INamedTypeSymbol[6];
         var count = 0;
@@ -37,16 +37,16 @@ internal static class CollectionExpressionHelper
     /// <summary>Returns whether collection expressions are enabled for the syntax tree.</summary>
     /// <param name="node">A node in the syntax tree.</param>
     /// <returns><see langword="true"/> for C# 12 or later.</returns>
-    public static bool IsLanguageSupported(SyntaxNode node)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp12;
+    internal static bool IsLanguageSupported(SyntaxNode node) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp12;
 
     /// <summary>Returns whether the expression has an explicit target type and that type is accepted.</summary>
     /// <param name="context">The syntax analysis context.</param>
     /// <param name="expression">The candidate expression.</param>
     /// <param name="targets">The accepted named target definitions.</param>
     /// <returns><see langword="true"/> when replacement with a collection expression is conservative.</returns>
-    public static bool HasAcceptedTarget(
-        SyntaxNodeAnalysisContext context,
+    internal static bool HasAcceptedTarget(
+        in SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression,
         INamedTypeSymbol[] targets)
     {
@@ -64,8 +64,8 @@ internal static class CollectionExpressionHelper
     /// <param name="expression">The candidate expression.</param>
     /// <param name="converted">The converted target type.</param>
     /// <returns><see langword="true"/> when a target context exists and a converted type was resolved.</returns>
-    public static bool TryGetConvertedTypeWithExplicitTarget(
-        SyntaxNodeAnalysisContext context,
+    internal static bool TryGetConvertedTypeWithExplicitTarget(
+        in SyntaxNodeAnalysisContext context,
         ExpressionSyntax expression,
         out ITypeSymbol? converted)
     {
@@ -82,8 +82,8 @@ internal static class CollectionExpressionHelper
     /// <summary>Returns whether a type is <c>System.Span&lt;T&gt;</c> or <c>System.ReadOnlySpan&lt;T&gt;</c>.</summary>
     /// <param name="type">The type.</param>
     /// <returns><see langword="true"/> for span targets.</returns>
-    public static bool IsSpanTarget(ITypeSymbol? type)
-        => type is INamedTypeSymbol
+    internal static bool IsSpanTarget(ITypeSymbol? type) =>
+        type is INamedTypeSymbol
         {
             TypeArguments.Length: 1,
             ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
@@ -102,13 +102,13 @@ internal static class CollectionExpressionHelper
     /// the substituted parameter type is the concrete type inference produced, which looks like an
     /// explicit target. A type parameter of the containing type is fine — the receiver already fixed it.
     /// </remarks>
-    private static bool SuppliesAnInferredTypeArgument(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    private static bool SuppliesAnInferredTypeArgument(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         if (expression.Parent is not ArgumentSyntax argument
             || argument.Parent is not ArgumentListSyntax argumentList
             || argumentList.Parent is not SyntaxNode call
             || context.SemanticModel.GetSymbolInfo(call, context.CancellationToken).Symbol is not IMethodSymbol method
-            || method.TypeParameters.Length == 0)
+            || method.TypeParameters.IsEmpty)
         {
             return false;
         }

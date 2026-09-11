@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -383,9 +384,10 @@ public class UseArrayEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a non-zero constant length is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonZeroLengthArrayIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task NonZeroLengthArrayIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -395,9 +397,10 @@ public class UseArrayEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a variable length is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VariableLengthArrayIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task VariableLengthArrayIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -407,9 +410,10 @@ public class UseArrayEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a zero-length creation inside an attribute argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeArgumentArrayIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task AttributeArgumentArrayIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class SomeAttribute : System.Attribute
             {
@@ -426,9 +430,10 @@ public class UseArrayEmptyAnalyzerUnitTest
 
     /// <summary>Verifies a multi-dimensional zero-length creation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiDimensionalZeroLengthArrayIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task MultiDimensionalZeroLengthArrayIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -440,24 +445,21 @@ public class UseArrayEmptyAnalyzerUnitTest
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
     /// <returns>The configured test.</returns>
-    private static VerifyArrayEmpty.Test CreateNet90Test(string source, string fixedSource)
-        => new()
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+    private static VerifyArrayEmpty.Test CreateNet90Test(string source, string fixedSource) =>
+        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90Async(string source, string fixedSource)
-        => await CreateNet90Test(source, fixedSource).RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90Async(string source, string fixedSource) =>
+        CreateNet90Test(source, fixedSource).RunAsync(CancellationToken.None);
 
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

@@ -13,8 +13,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating accessor-order benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateAccessorOrder(int members)
-        => $$"""
+    internal static string GenerateAccessorOrder(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class AccessorOrderBench
@@ -28,8 +28,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating accessor-consistency benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateAccessorConsistency(int members)
-        => $$"""
+    internal static string GenerateAccessorConsistency(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class AccessorConsistencyBench
@@ -43,8 +43,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating conditional-on-new-line benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateConditionalOnNewLine(int members)
-        => $$"""
+    internal static string GenerateConditionalOnNewLine(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class ConditionalOnNewLineBench
@@ -56,8 +56,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating consistent-braces benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateConsistentBraces(int members)
-        => $$"""
+    internal static string GenerateConsistentBraces(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class ConsistentBracesBench
@@ -69,8 +69,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating empty-statement benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateEmptyStatement(int members)
-        => $$"""
+    internal static string GenerateEmptyStatement(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class EmptyStatementBench
@@ -82,8 +82,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating no-public-on-internal-type benchmark source.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateNoPublicOnInternalType(int types)
-        => $$"""
+    internal static string GenerateNoPublicOnInternalType(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateNoPublicOnInternalTypeType)}}
@@ -92,8 +92,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating record-init-only benchmark source.</summary>
     /// <param name="types">The number of synthetic record types to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRecordInitOnly(int types)
-        => $$"""
+    internal static string GenerateRecordInitOnly(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateRecordInitOnlyType)}}
@@ -102,8 +102,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating record-readonly benchmark source.</summary>
     /// <param name="types">The number of synthetic record structs to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRecordReadonly(int types)
-        => $$"""
+    internal static string GenerateRecordReadonly(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateRecordReadonlyType)}}
@@ -112,8 +112,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating redundant-modifier benchmark source.</summary>
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRemoveModifier(int types)
-        => $$"""
+    internal static string GenerateRemoveModifier(int types) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, GenerateRemoveModifierType)}}
@@ -122,8 +122,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating require-braces benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRequireBraces(int members)
-        => $$"""
+    internal static string GenerateRequireBraces(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class RequireBracesBench
@@ -135,8 +135,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating single-line-block-reflow benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateSingleLineBlockReflow(int members)
-        => $$"""
+    internal static string GenerateSingleLineBlockReflow(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class SingleLineBlockReflowBench
@@ -148,8 +148,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating multi-line-child-brace benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateMultiLineChildBrace(int members)
-        => $$"""
+    internal static string GenerateMultiLineChildBrace(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class MultiLineChildBraceBench
@@ -161,8 +161,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating trailing-comma benchmark source.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateTrailingComma(int members)
-        => $$"""
+    internal static string GenerateTrailingComma(int members) =>
+        $$"""
            namespace Bench;
 
            internal sealed class TrailingCommaBench
@@ -174,15 +174,15 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds violating using-directive-qualified benchmark source.</summary>
     /// <param name="types">The number of synthetic namespace blocks to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUsingDirectiveQualified(int types)
-        => $$"""
+    internal static string GenerateUsingDirectiveQualified(int types) =>
+        $$"""
            {{BenchmarkSourceText.JoinBlocks(types, GenerateUsingDirectiveQualifiedNamespace)}}
            """;
 
     /// <summary>Builds violating using-sort benchmark source.</summary>
     /// <param name="members">The number of synthetic using directives to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUsingSort(int members)
+    internal static string GenerateUsingSort(int members)
     {
         var builder = new System.Text.StringBuilder();
         for (var i = 0; i < members; i++)
@@ -190,7 +190,7 @@ internal static class StructuralCodeFixBenchmarkSource
             AppendUsingSortDirective(builder, i);
         }
 
-        builder
+        _ = builder
             .AppendLine()
             .AppendLine("namespace Bench;")
             .AppendLine()
@@ -203,8 +203,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating accessor-order property.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateAccessorOrderProperty(int index)
-        => $$"""
+    private static string GenerateAccessorOrderProperty(int index) =>
+        $$"""
            public int Value{{index}}
            {
                set => _value = value;
@@ -215,8 +215,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating accessor-consistency property.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateAccessorConsistencyProperty(int index)
-        => $$"""
+    private static string GenerateAccessorConsistencyProperty(int index) =>
+        $$"""
            public int Value{{index}}
            {
                get { return _value; }
@@ -230,8 +230,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating conditional-on-new-line member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateConditionalOnNewLineMember(int index)
-        => $$"""
+    private static string GenerateConditionalOnNewLineMember(int index) =>
+        $$"""
            internal void M{{index}}(bool a, bool b)
            {
                if (a) { } if (b) { }
@@ -241,8 +241,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating consistent-braces member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateConsistentBracesMember(int index)
-        => $$"""
+    private static string GenerateConsistentBracesMember(int index) =>
+        $$"""
            internal void M{{index}}(bool x)
            {
                if (x)
@@ -257,8 +257,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating empty-statement member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateEmptyStatementMember(int index)
-        => $$"""
+    private static string GenerateEmptyStatementMember(int index) =>
+        $$"""
            internal int M{{index}}()
            {
                var value = {{index}};
@@ -270,8 +270,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating no-public-on-internal-type declaration.</summary>
     /// <param name="index">The synthetic declaration index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateNoPublicOnInternalTypeType(int index)
-        => $$"""
+    private static string GenerateNoPublicOnInternalTypeType(int index) =>
+        $$"""
            internal sealed class C{{index}}
            {
                public void M()
@@ -283,8 +283,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating record init-only declaration.</summary>
     /// <param name="index">The synthetic declaration index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateRecordInitOnlyType(int index)
-        => $$"""
+    private static string GenerateRecordInitOnlyType(int index) =>
+        $$"""
            public sealed record Person{{index}}
            {
                public string Name { get; set; } = "Person{{index}}";
@@ -294,16 +294,16 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating record-readonly declaration.</summary>
     /// <param name="index">The synthetic declaration index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateRecordReadonlyType(int index)
-        => $$"""
+    private static string GenerateRecordReadonlyType(int index) =>
+        $$"""
            public record struct Point{{index}}(int X, int Y);
            """;
 
     /// <summary>Builds a violating redundant-modifier declaration.</summary>
     /// <param name="index">The synthetic declaration index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateRemoveModifierType(int index)
-        => $$"""
+    private static string GenerateRemoveModifierType(int index) =>
+        $$"""
            public partial class C{{index}}
            {
            }
@@ -312,8 +312,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating require-braces member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateRequireBracesMember(int index)
-        => $$"""
+    private static string GenerateRequireBracesMember(int index) =>
+        $$"""
            internal int M{{index}}(bool x)
            {
                if (x) return {{index}};
@@ -324,16 +324,16 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating single-line-block-reflow member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateSingleLineBlockReflowMember(int index)
-        => $$"""
+    private static string GenerateSingleLineBlockReflowMember(int index) =>
+        $$"""
            internal void M{{index}}() { System.Console.WriteLine({{index}}); }
            """;
 
     /// <summary>Builds a violating multi-line-child-brace member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateMultiLineChildBraceMember(int index)
-        => $$"""
+    private static string GenerateMultiLineChildBraceMember(int index) =>
+        $$"""
            internal void M{{index}}(bool x)
            {
                if (x)
@@ -345,8 +345,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating trailing-comma member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateTrailingCommaMember(int index)
-        => $$"""
+    private static string GenerateTrailingCommaMember(int index) =>
+        $$"""
            private static readonly int[] Values{{index}} = new[]
            {
                {{index}},
@@ -357,8 +357,8 @@ internal static class StructuralCodeFixBenchmarkSource
     /// <summary>Builds a violating using-directive-qualified namespace block.</summary>
     /// <param name="index">The synthetic declaration index.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateUsingDirectiveQualifiedNamespace(int index)
-        => $$"""
+    private static string GenerateUsingDirectiveQualifiedNamespace(int index) =>
+        $$"""
            namespace System.Threading
            {
                using Tasks;
@@ -379,23 +379,23 @@ internal static class StructuralCodeFixBenchmarkSource
         {
             case 0:
             {
-                builder.AppendLine("using System.Text;");
-                break;
+                    _ = builder.AppendLine("using System.Text;");
+                    break;
             }
 
             case 1:
             {
-                builder.AppendLine("using System.Collections;");
-                break;
+                    _ = builder.AppendLine("using System.Collections;");
+                    break;
             }
 
             default:
             {
-                builder
+                    _ = builder
                     .Append("using X")
                     .Append(index / UsingSortDirectivePatternSize)
                     .AppendLine(" = System.Console;");
-                break;
+                    break;
             }
         }
     }

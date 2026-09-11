@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,12 +11,13 @@ namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>
 /// Micro-benchmark that isolates the shared jagged-layout token walk
-/// (<see cref="ArgumentsOrParameterOnSameLineHelper.ReportsJaggedLayout{T}"/>) from
+/// (<see cref="ArgumentsOrParameterOnSameLineHelperExtensions.ReportsJaggedLayout{T}"/>) from
 /// Roslyn binding and the analyzer driver. The synthetic corpus is parsed and the
 /// parameter lists extracted once in <see cref="Setup"/>, so the timed methods only
 /// measure the per-list scan over pre-parsed nodes — the same isolation strategy
 /// <see cref="LineScanBenchmarks"/> applies to a single list.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("UniqueLinesHelperMicroBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UniqueLinesHelperMicroBenchmarks
@@ -40,11 +42,13 @@ public class UniqueLinesHelperMicroBenchmarks
 
     /// <summary>Scans the clean corpus, where the helper should report no jagged layouts.</summary>
     /// <returns>The number of lists reported as jagged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int Clean() => CountJagged(_cleanLists);
 
     /// <summary>Scans the violating corpus, where the helper should report every list as jagged.</summary>
     /// <returns>The number of lists reported as jagged.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int Violating() => CountJagged(_violatingLists);
 
@@ -65,7 +69,7 @@ public class UniqueLinesHelperMicroBenchmarks
         var jagged = 0;
         foreach (var list in lists)
         {
-            if (ArgumentsOrParameterOnSameLineHelper.ReportsJaggedLayout(list, list.Parameters))
+            if (ArgumentsOrParameterOnSameLineHelperExtensions.ReportsJaggedLayout(list, list.Parameters))
             {
                 jagged++;
             }

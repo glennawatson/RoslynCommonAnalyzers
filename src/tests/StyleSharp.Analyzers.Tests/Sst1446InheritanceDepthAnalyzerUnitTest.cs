@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1446InheritanceDepthAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst1446InheritanceDepthAnalyzerUnitTest
 {
     /// <summary>Verifies a chain deeper than the default maximum flags the deepest class.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainOverDefaultMaximumIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ChainOverDefaultMaximumIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C0
             {
@@ -47,9 +49,10 @@ public class Sst1446InheritanceDepthAnalyzerUnitTest
 
     /// <summary>Verifies a chain at the default maximum is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainAtDefaultMaximumIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ChainAtDefaultMaximumIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C0
             {
@@ -78,9 +81,10 @@ public class Sst1446InheritanceDepthAnalyzerUnitTest
 
     /// <summary>Verifies framework ancestors are free by default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FrameworkAncestorsAreFreeByDefaultAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task FrameworkAncestorsAreFreeByDefaultAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class MyException : System.ArgumentException
             {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -71,7 +73,7 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <summary>Checks one extension block's documentation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
-    private static void CheckBlock(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block)
+    private static void CheckBlock(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block)
     {
         var documentation = XmlDocumentationHelper.GetDocumentationComment(block);
         if (documentation is null)
@@ -98,8 +100,9 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the missing-summary diagnostic on the <c>extension</c> keyword.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
-    private static void ReportMissingSummary(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block)
-        => context.ReportDiagnostic(Diagnostic.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void ReportMissingSummary(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block) =>
+        context.ReportDiagnostic(Diagnostic.Create(
             DocumentationRules.ExtensionBlockMustBeDocumented,
             block.GetFirstToken().GetLocation()));
 
@@ -107,7 +110,7 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="documentation">The block's documentation comment.</param>
-    private static void CheckParameters(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
+    private static void CheckParameters(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
     {
         if (block.ParameterList is not { } parameterList)
         {
@@ -136,7 +139,7 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="documentation">The block's documentation comment.</param>
-    private static void CheckTypeParameters(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
+    private static void CheckTypeParameters(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
     {
         if (block.TypeParameterList is not { } typeParameterList)
         {
@@ -165,7 +168,7 @@ public sealed class ExtensionBlockDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="block">The extension block.</param>
     /// <param name="documentation">The block's documentation comment.</param>
-    private static void CheckReferences(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
+    private static void CheckReferences(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax block, DocumentationCommentTriviaSyntax documentation)
     {
         foreach (var node in documentation.Content)
         {

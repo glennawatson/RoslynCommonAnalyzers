@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2416SignedRemainderTestAnalyzer,
@@ -13,25 +14,25 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2416 (a remainder parity test on a signed operand).</summary>
 public class SignedRemainderTestAnalyzerUnitTest
 {
-    /// <summary>The odd-parity test on a signed operand, which is the shape the rule reports.</summary>
-    private const string OddTestOnSignedOperandSource = """
-        public sealed class C
-        {
-            public bool M(int n) => {|SST2416:n % 2 == 1|};
-        }
-        """;
-
     /// <summary>Verifies the odd test on a signed int is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OddTestOnSignedIntIsReportedAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(OddTestOnSignedOperandSource);
+    public Task OddTestOnSignedIntIsReportedAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public bool M(int n) => {|SST2416:n % 2 == 1|};
+            }
+            """);
 
     /// <summary>Verifies the not-equal parity test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NotEqualParityTestIsReportedAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(
+    public Task NotEqualParityTestIsReportedAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -41,9 +42,10 @@ public class SignedRemainderTestAnalyzerUnitTest
 
     /// <summary>Verifies the correct zero comparison is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroComparisonIsCleanAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(
+    public Task ZeroComparisonIsCleanAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -53,9 +55,10 @@ public class SignedRemainderTestAnalyzerUnitTest
 
     /// <summary>Verifies a count operand, which cannot be negative, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CountOperandIsCleanAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(
+    public Task CountOperandIsCleanAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -67,9 +70,10 @@ public class SignedRemainderTestAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned operand is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedOperandIsCleanAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(
+    public Task UnsignedOperandIsCleanAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -79,9 +83,10 @@ public class SignedRemainderTestAnalyzerUnitTest
 
     /// <summary>Verifies an absolute value, which cannot be negative, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbsoluteValueIsCleanAsync()
-        => await VerifyRemainder.VerifyAnalyzerAsync(
+    public Task AbsoluteValueIsCleanAsync() =>
+        VerifyRemainder.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -99,7 +104,12 @@ public class SignedRemainderTestAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = OddTestOnSignedOperandSource,
+            TestCode = """
+                public sealed class C
+                {
+                    public bool M(int n) => {|SST2416:n % 2 == 1|};
+                }
+                """,
             FixedCode = """
                 public sealed class C
                 {
@@ -144,7 +154,12 @@ public class SignedRemainderTestAnalyzerUnitTest
         var test = new VerifyFix.Test
         {
             ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = OddTestOnSignedOperandSource,
+            TestCode = """
+                public sealed class C
+                {
+                    public bool M(int n) => {|SST2416:n % 2 == 1|};
+                }
+                """,
             FixedCode = """
                 public sealed class C
                 {

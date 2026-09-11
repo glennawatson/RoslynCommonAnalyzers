@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum InfiniteLoopStyle
 {
     /// <summary><c>while (true)</c>.</summary>
-    While,
+    While = 0,
 
     /// <summary><c>for (;;)</c>.</summary>
-    For
+    For = 1,
 }

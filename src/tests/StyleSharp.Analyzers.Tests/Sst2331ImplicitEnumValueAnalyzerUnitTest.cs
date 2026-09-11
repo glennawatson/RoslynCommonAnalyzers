@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyImplicit = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2331ImplicitEnumValueAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2331ImplicitEnumValueAnalyzerUnitTest
 {
     /// <summary>Verifies an enum with only implicit values is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllImplicitEnumIsReportedAsync()
-        => await VerifyImplicit.VerifyAnalyzerAsync(
+    public Task AllImplicitEnumIsReportedAsync() =>
+        VerifyImplicit.VerifyAnalyzerAsync(
             """
             public enum {|SST2331:Color|}
             {
@@ -25,9 +27,10 @@ public class Sst2331ImplicitEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies an enum with one implicit member among explicit ones is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartiallyImplicitEnumIsReportedAsync()
-        => await VerifyImplicit.VerifyAnalyzerAsync(
+    public Task PartiallyImplicitEnumIsReportedAsync() =>
+        VerifyImplicit.VerifyAnalyzerAsync(
             """
             public enum {|SST2331:Color|}
             {
@@ -39,9 +42,10 @@ public class Sst2331ImplicitEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies an enum whose every member has an explicit value is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyExplicitEnumIsCleanAsync()
-        => await VerifyImplicit.VerifyAnalyzerAsync(
+    public Task FullyExplicitEnumIsCleanAsync() =>
+        VerifyImplicit.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -53,9 +57,10 @@ public class Sst2331ImplicitEnumValueAnalyzerUnitTest
 
     /// <summary>Verifies an empty enum has no implicit member and is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyEnumIsCleanAsync()
-        => await VerifyImplicit.VerifyAnalyzerAsync(
+    public Task EmptyEnumIsCleanAsync() =>
+        VerifyImplicit.VerifyAnalyzerAsync(
             """
             public enum Color
             {

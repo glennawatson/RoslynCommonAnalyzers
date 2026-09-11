@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyUnnecessaryUnsafeModifier = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UnnecessaryUnsafeModifierAnalyzerUnitTest
 {
     /// <summary>Verifies an unsafe method with no unsafe syntax is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsafeMethodWithoutUnsafeSyntaxIsReportedAsync()
-        => await RunUnsafeAsync(
+    public Task UnsafeMethodWithoutUnsafeSyntaxIsReportedAsync() =>
+        RunUnsafeAsync(
             """
             public sealed class C
             {
@@ -29,9 +31,10 @@ public class UnnecessaryUnsafeModifierAnalyzerUnitTest
 
     /// <summary>Verifies pointer syntax keeps the unsafe modifier meaningful.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PointerSyntaxIsCleanAsync()
-        => await RunUnsafeAsync(
+    public Task PointerSyntaxIsCleanAsync() =>
+        RunUnsafeAsync(
             """
             public sealed class C
             {
@@ -44,10 +47,7 @@ public class UnnecessaryUnsafeModifierAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task RunUnsafeAsync(string source)
     {
-        var test = new VerifyUnnecessaryUnsafeModifier.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyUnnecessaryUnsafeModifier.Test { TestCode = source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var compilationOptions = (CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!;

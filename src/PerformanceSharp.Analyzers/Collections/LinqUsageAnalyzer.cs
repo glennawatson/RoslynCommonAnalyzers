@@ -22,6 +22,9 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Editorconfig key that enables LINQ diagnostics on performance-sensitive paths.</summary>
     private const string AvoidLinqOnHotPathKey = "performancesharp.avoid_linq_on_hot_path";
 
+    /// <summary>The filter operator whose call a terminal operator can be collapsed into.</summary>
+    private const string WhereMethodName = "Where";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         CollectionRules.AvoidLinqOnHotPath,
@@ -85,7 +88,7 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
             || invocation.Expression is not MemberAccessExpressionSyntax { Name: { } name, Expression: InvocationExpressionSyntax whereInvocation }
             || !IsPredicateTerminalName(name.Identifier.ValueText)
             || whereInvocation.ArgumentList.Arguments.Count != 1
-            || whereInvocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Where" })
+            || whereInvocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: WhereMethodName })
         {
             return false;
         }
@@ -117,7 +120,7 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
             || invocation.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax { Identifier.ValueText: "Cast" } name, Expression: InvocationExpressionSyntax whereInvocation }
             || name.TypeArgumentList.Arguments.Count != 1
             || whereInvocation.ArgumentList.Arguments.Count != 1
-            || whereInvocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: "Where" }
+            || whereInvocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: WhereMethodName }
             || !TryGetLambdaTypeCheck(whereInvocation.ArgumentList.Arguments[0].Expression, out var checkedType))
         {
             return false;
@@ -238,30 +241,74 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the method name is a common <see cref="System.Linq.Enumerable"/> operator worth screening semantically.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> when the method can be a LINQ iterator or terminal call.</returns>
-    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat name switch avoids an allocation-heavy lookup on every invocation.")]
-    private static bool IsHotPathLinqMethodName(string name)
-        => name switch
-        {
-            "Aggregate" or "All" or "Any" or "Append" or "Cast" or "Concat" or "Contains" or "Count" or "DefaultIfEmpty"
-                or "Distinct" or "ElementAt" or "Except" or "First" or "FirstOrDefault" or "GroupBy" or "Intersect"
-                or "Last" or "LastOrDefault" or "Max" or "Min" or "OfType" or "OrderBy" or "OrderByDescending"
-                or "Prepend" or "Reverse" or "Select" or "SelectMany" or "Single" or "SingleOrDefault" or "Skip"
-                or "SkipWhile" or "Sum" or "Take" or "TakeWhile" or "ThenBy" or "ThenByDescending" or "ToArray"
-                or "ToDictionary" or "ToHashSet" or "ToList" or "ToLookup" or "Union" or "Where" or "Zip" => true,
-            _ => false
-        };
+    /// <remarks>
+    /// The names are grouped by the operator family they belong to, so a new operator lands beside the ones it
+    /// behaves like rather than at the end of one flat list.
+    /// </remarks>
+    private static bool IsHotPathLinqMethodName(string name) =>
+        IsAggregateOperatorName(name)
+            || IsElementOperatorName(name)
+            || IsProjectionOperatorName(name)
+            || IsOrderingOperatorName(name)
+            || IsPartitioningOperatorName(name)
+            || IsSetOperatorName(name)
+            || IsGroupingOperatorName(name);
+
+    /// <summary>Returns whether the name is an operator that folds the whole sequence into one value.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the quantifier and aggregate terminals.</returns>
+    private static bool IsAggregateOperatorName(string name) =>
+        name is "Aggregate" or "All" or "Any" or "Contains" or "Count" or "Max" or "Min" or "Sum";
+
+    /// <summary>Returns whether the name is an operator that picks a single element out of the sequence.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the element terminals and their fallbacks.</returns>
+    private static bool IsElementOperatorName(string name) =>
+        name is "DefaultIfEmpty" or "ElementAt" or "First" or "FirstOrDefault"
+            or "Last" or "LastOrDefault" or "Single" or "SingleOrDefault";
+
+    /// <summary>Returns whether the name is an operator that reshapes or filters the elements.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the projection and filtering operators.</returns>
+    private static bool IsProjectionOperatorName(string name) =>
+        name is "Cast" or "OfType" or "Select" or "SelectMany" or "Where";
+
+    /// <summary>Returns whether the name is an operator that changes the order elements arrive in.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the ordering operators.</returns>
+    private static bool IsOrderingOperatorName(string name) =>
+        name is "OrderBy" or "OrderByDescending" or "Reverse" or "ThenBy" or "ThenByDescending";
+
+    /// <summary>Returns whether the name is an operator that takes a contiguous run of the sequence.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the partitioning operators.</returns>
+    private static bool IsPartitioningOperatorName(string name) =>
+        name is "Skip" or "SkipWhile" or "Take" or "TakeWhile";
+
+    /// <summary>Returns whether the name is an operator that combines sequences or removes duplicates.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the set and concatenation operators.</returns>
+    private static bool IsSetOperatorName(string name) =>
+        name is "Append" or "Concat" or "Distinct" or "Except"
+            or "Intersect" or "Prepend" or "Union" or "Zip";
+
+    /// <summary>Returns whether the name is an operator that buckets the sequence or materializes it.</summary>
+    /// <param name="name">The method name.</param>
+    /// <returns><see langword="true"/> for the grouping and materialization operators.</returns>
+    private static bool IsGroupingOperatorName(string name) =>
+        name is "GroupBy" or "ToArray" or "ToDictionary" or "ToHashSet" or "ToList" or "ToLookup";
 
     /// <summary>Returns whether the terminal method has an overload that accepts a predicate.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for terminal calls with predicate overloads.</returns>
-    private static bool IsPredicateTerminalName(string name)
-        => name is "Any" or "Count" or "First" or "FirstOrDefault" or "Last" or "LastOrDefault"
+    private static bool IsPredicateTerminalName(string name) =>
+        name is "Any" or "Count" or "First" or "FirstOrDefault" or "Last" or "LastOrDefault"
             or "Single" or "SingleOrDefault";
 
     /// <summary>Returns whether the hot-path LINQ rule is enabled for this compilation or tree.</summary>
     /// <param name="context">The syntax context.</param>
     /// <returns><see langword="true"/> when the opt-in rule is enabled.</returns>
-    private static bool IsAvoidLinqOnHotPathEnabled(SyntaxNodeAnalysisContext context)
+    private static bool IsAvoidLinqOnHotPathEnabled(in SyntaxNodeAnalysisContext context)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         return options.TryGetValue(AvoidLinqOnHotPathKey, out var value)
@@ -271,8 +318,8 @@ public sealed class LinqUsageAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an editorconfig value is truthy.</summary>
     /// <param name="value">The option value.</param>
     /// <returns><see langword="true"/> for common truthy values.</returns>
-    private static bool IsTrue(string value)
-        => value.Equals("true", StringComparison.OrdinalIgnoreCase)
+    private static bool IsTrue(string value) =>
+        value.Equals("true", StringComparison.OrdinalIgnoreCase)
             || value.Equals("1", StringComparison.Ordinal)
             || value.Equals("yes", StringComparison.OrdinalIgnoreCase);
 }

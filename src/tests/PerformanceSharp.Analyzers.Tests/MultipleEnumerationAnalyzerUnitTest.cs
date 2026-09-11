@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 {
     /// <summary>Verifies two foreach loops over an IEnumerable parameter are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoForEachLoopsAreReportedAsync()
-        => await VerifyAsync(
+    public Task TwoForEachLoopsAreReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -42,9 +44,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a Count() followed by a foreach over the same parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CountThenForEachIsReportedAsync()
-        => await VerifyAsync(
+    public Task CountThenForEachIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -66,9 +69,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies an Any() guard followed by a First() on the same parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnyThenFirstIsReportedAsync()
-        => await VerifyAsync(
+    public Task AnyThenFirstIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -81,9 +85,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a deferred chain ending in an eager call counts as a walk of its root.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeferredChainEndingInEagerCallIsReportedAsync()
-        => await VerifyAsync(
+    public Task DeferredChainEndingInEagerCallIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -101,9 +106,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a lazily-initialized IEnumerable local walked twice is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyLocalWalkedTwiceIsReportedAsync()
-        => await VerifyAsync(
+    public Task LazyLocalWalkedTwiceIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -126,9 +132,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a materialized collection type is never reported, because re-walking it is safe.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ListParameterIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ListParameterIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -150,9 +157,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies an IReadOnlyCollection parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyCollectionParameterIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ReadOnlyCollectionParameterIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -174,9 +182,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies an array parameter is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArrayParameterIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ArrayParameterIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Linq;
 
@@ -197,9 +206,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a local materialized with ToList is not reported, even when typed as IEnumerable.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MaterializedLocalIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task MaterializedLocalIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -222,9 +232,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a parameter reassigned to a materialized copy is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReassignedParameterIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task ReassignedParameterIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -247,9 +258,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies two walks on opposite arms of an if/else are not reported, because only one runs.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WalksOnOppositeIfElseArmsAreNotReportedAsync()
-        => await VerifyAsync(
+    public Task WalksOnOppositeIfElseArmsAreNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -272,9 +284,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies two walks in different switch sections are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WalksInDifferentSwitchSectionsAreNotReportedAsync()
-        => await VerifyAsync(
+    public Task WalksInDifferentSwitchSectionsAreNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -296,9 +309,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a single walk is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleWalkIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task SingleWalkIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -311,9 +325,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a deferred-only chain is not treated as a walk.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeferredOnlyChainsAreNotReportedAsync()
-        => await VerifyAsync(
+    public Task DeferredOnlyChainsAreNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -327,9 +342,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies handing the sequence to another method is not treated as a walk.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassingToAnotherMethodIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task PassingToAnotherMethodIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -350,9 +366,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies the same eager call repeated across the operands of one expression is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedEagerCallInOneExpressionIsReportedAsync()
-        => await VerifyAsync(
+    public Task RepeatedEagerCallInOneExpressionIsReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -367,9 +384,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a constructor parameter walked twice is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorParameterWalkedTwiceIsReportedAsync()
-        => await VerifyAsync(
+    public Task ConstructorParameterWalkedTwiceIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -392,9 +410,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a local function parameter walked twice is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionParameterWalkedTwiceIsReportedAsync()
-        => await VerifyAsync(
+    public Task LocalFunctionParameterWalkedTwiceIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -416,9 +435,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a property accessor body walking a lazy local twice is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyAccessorLocalWalkedTwiceIsReportedAsync()
-        => await VerifyAsync(
+    public Task PropertyAccessorLocalWalkedTwiceIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -441,9 +461,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies an indexer's index parameter is not reported, because accessors rebind it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerParameterIsNotReportedAsync()
-        => await VerifyAsync(
+    public Task IndexerParameterIsNotReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -463,9 +484,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies a lazy local declared inside a local function is reported exactly once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalFunctionLocalIsReportedOnceAsync()
-        => await VerifyAsync(
+    public Task LocalFunctionLocalIsReportedOnceAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -488,9 +510,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies two lazy parameters walked twice in one member are both reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoCandidatesInOneMemberAreBothReportedAsync()
-        => await VerifyAsync(
+    public Task TwoCandidatesInOneMemberAreBothReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -517,9 +540,10 @@ public class MultipleEnumerationAnalyzerUnitTest
 
     /// <summary>Verifies disqualifying one candidate does not stop the scan for another.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteToOneCandidateLeavesTheOtherReportedAsync()
-        => await VerifyAsync(
+    public Task WriteToOneCandidateLeavesTheOtherReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
             using System.Linq;
@@ -545,11 +569,7 @@ public class MultipleEnumerationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

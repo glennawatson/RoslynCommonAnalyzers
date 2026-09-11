@@ -14,7 +14,7 @@ internal static class NamespaceFolderBenchmarkSource
     /// <param name="members">The number of namespace blocks to emit.</param>
     /// <param name="violating">Whether to emit a namespace that does not match the folder path.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
+    internal static string Generate(int members, bool violating)
     {
         var namespaceName = violating ? "MyApp.Wrong" : "MyApp.Models";
         return BenchmarkSourceText.JoinBlocks(

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDoc = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.DocumentationHeaderSpacingAnalyzer,
     StyleSharp.Analyzers.DocumentationHeaderSpacingCodeFixProvider>;
@@ -112,9 +113,10 @@ public class LayoutDocHeaderUnitTest
 
     /// <summary>Verifies a correctly spaced documentation header is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WellSpacedHeaderIsCleanAsync()
-        => await VerifyDoc.VerifyAnalyzerAsync(
+    public Task WellSpacedHeaderIsCleanAsync() =>
+        VerifyDoc.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -127,9 +129,10 @@ public class LayoutDocHeaderUnitTest
 
     /// <summary>Verifies a preprocessor directive between the header and its element is not mistaken for a blank line.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DirectiveBetweenHeaderAndElementIsCleanAsync()
-        => await VerifyDoc.VerifyAnalyzerAsync(
+    public Task DirectiveBetweenHeaderAndElementIsCleanAsync() =>
+        VerifyDoc.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -146,9 +149,10 @@ public class LayoutDocHeaderUnitTest
 
     /// <summary>Verifies a real blank line is still reported even when a directive also sits between the header and element.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineWithDirectiveStillReportedAsync()
-        => await VerifyDoc.VerifyAnalyzerAsync(
+    public Task BlankLineWithDirectiveStillReportedAsync() =>
+        VerifyDoc.VerifyAnalyzerAsync(
             """
             internal class C
             {

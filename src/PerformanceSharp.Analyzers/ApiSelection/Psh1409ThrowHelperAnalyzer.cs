@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -54,19 +56,19 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     internal enum GuardKind
     {
         /// <summary>A reference null check throwing ArgumentNullException.</summary>
-        NullCheck,
+        NullCheck = 0,
 
         /// <summary>A string.IsNullOrEmpty guard.</summary>
-        NullOrEmpty,
+        NullOrEmpty = 1,
 
         /// <summary>A string.IsNullOrWhiteSpace guard.</summary>
-        NullOrWhiteSpace,
+        NullOrWhiteSpace = 2,
 
         /// <summary>A disposal guard throwing ObjectDisposedException.</summary>
-        Disposed,
+        Disposed = 3,
 
         /// <summary>A numeric comparison guard throwing ArgumentOutOfRangeException.</summary>
-        Comparison,
+        Comparison = 4,
     }
 
     /// <inheritdoc/>
@@ -103,16 +105,11 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Classifies a guard clause, before any binding.</summary>
     /// <param name="ifStatement">The if statement to classify.</param>
     /// <returns>The guard shape, or <see langword="null"/> when no helper applies.</returns>
-    internal static GuardShape? TryClassify(IfStatementSyntax ifStatement)
-    {
-        if (ifStatement.Else is not null
+    internal static GuardShape? TryClassify(IfStatementSyntax ifStatement) => ifStatement.Else is not null
             || TryGetThrownCreation(ifStatement.Statement) is not { } creation
-            || GetRightmostName(creation.Type) is not { } exceptionName)
-        {
-            return null;
-        }
-
-        return exceptionName.Identifier.ValueText switch
+            || GetRightmostName(creation.Type) is not { } exceptionName
+        ? null
+        : exceptionName.Identifier.ValueText switch
         {
             nameof(ArgumentNullException) => TryClassifyNullGuard(ifStatement.Condition, creation, allowNullCheck: true),
             nameof(ArgumentException) => TryClassifyNullGuard(ifStatement.Condition, creation, allowNullCheck: false),
@@ -120,7 +117,6 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
             nameof(ArgumentOutOfRangeException) => TryClassifyComparisonGuard(ifStatement.Condition, creation),
             _ => null,
         };
-    }
 
     /// <summary>Returns the exception index of a guard shape's exception simple name.</summary>
     /// <param name="creation">The thrown creation.</param>
@@ -214,8 +210,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the rightmost simple name of a type syntax.</summary>
     /// <param name="type">The type syntax.</param>
     /// <returns>The simple name, or <see langword="null"/>.</returns>
-    private static SimpleNameSyntax? GetRightmostName(TypeSyntax type)
-        => type switch
+    private static SimpleNameSyntax? GetRightmostName(TypeSyntax type) =>
+        type switch
         {
             SimpleNameSyntax simple => simple,
             QualifiedNameSyntax qualified => qualified.Right,
@@ -252,8 +248,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the identifier compared against null in a guard condition.</summary>
     /// <param name="condition">The guard condition.</param>
     /// <returns>The checked identifier, or <see langword="null"/>.</returns>
-    private static IdentifierNameSyntax? TryGetNullCheckedIdentifier(ExpressionSyntax condition)
-        => condition switch
+    private static IdentifierNameSyntax? TryGetNullCheckedIdentifier(ExpressionSyntax condition) =>
+        condition switch
         {
             IsPatternExpressionSyntax { Expression: IdentifierNameSyntax value, Pattern: ConstantPatternSyntax constant }
                 when constant.Expression.IsKind(SyntaxKind.NullLiteralExpression) => value,
@@ -267,37 +263,32 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the parts of a <c>string.IsNullOrEmpty(x)</c>-style condition.</summary>
     /// <param name="condition">The guard condition.</param>
     /// <returns>The probe method name and checked identifier, or <see langword="null"/>.</returns>
-    private static (string MethodName, IdentifierNameSyntax Value)? TryGetStringProbe(ExpressionSyntax condition)
-    {
-        if (condition is not InvocationExpressionSyntax { ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax value }] } invocation
+    private static (string MethodName, IdentifierNameSyntax Value)? TryGetStringProbe(ExpressionSyntax condition) =>
+        condition is not InvocationExpressionSyntax { ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax value }] } invocation
             || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText is not ("IsNullOrEmpty" or "IsNullOrWhiteSpace"))
-        {
-            return null;
-        }
-
-        return (access.Name.Identifier.ValueText, value);
-    }
+            || access.Name.Identifier.ValueText is not ("IsNullOrEmpty" or "IsNullOrWhiteSpace")
+            ? null
+            : (access.Name.Identifier.ValueText, value);
 
     /// <summary>Classifies disposal guards whose thrown name comes from the type.</summary>
     /// <param name="condition">The guard condition.</param>
     /// <param name="creation">The thrown creation.</param>
     /// <returns>The guard shape, or <see langword="null"/>.</returns>
-    private static GuardShape? TryClassifyDisposedGuard(ExpressionSyntax condition, ObjectCreationExpressionSyntax creation)
-        => creation.ArgumentList is { Arguments: [{ Expression: var name }] } && IsTypeNameExpression(name)
+    private static GuardShape? TryClassifyDisposedGuard(ExpressionSyntax condition, ObjectCreationExpressionSyntax creation) =>
+        creation.ArgumentList is { Arguments: [{ Expression: var name }] } && IsTypeNameExpression(name)
             ? new GuardShape(GuardKind.Disposed, GuardShape.DisposedHelperName, condition, null, creation)
             : null;
 
     /// <summary>Returns whether an expression produces the containing type's name.</summary>
     /// <param name="expression">The objectName argument.</param>
     /// <returns><see langword="true"/> for nameof, GetType, and typeof shapes.</returns>
-    private static bool IsTypeNameExpression(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsTypeNameExpression(ExpressionSyntax expression) =>
+        expression switch
         {
-            InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } } => true,
-            MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "GetType" } } } => true,
-            MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "GetType" } } } => true,
-            MemberAccessExpressionSyntax { Expression: TypeOfExpressionSyntax } => true,
+            InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } }
+                or MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "GetType" } } }
+                or MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "GetType" } } }
+                or MemberAccessExpressionSyntax { Expression: TypeOfExpressionSyntax } => true,
             _ => false,
         };
 
@@ -329,8 +320,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <returns>The oriented parts, or <see langword="null"/> when neither side names the parameter.</returns>
     private static (IdentifierNameSyntax Value, ExpressionSyntax Operand, SyntaxKind Kind)? TryOrientComparison(
         BinaryExpressionSyntax binary,
-        string paramName)
-        => binary switch
+        string paramName) =>
+        binary switch
         {
             { Left: IdentifierNameSyntax left } when left.Identifier.ValueText == paramName
                 => (left, binary.Right, binary.Kind()),
@@ -342,8 +333,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
     /// <param name="kind">The original comparison kind.</param>
     /// <returns>The kind with the value on the left.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind)
-        => kind switch
+    private static SyntaxKind Mirror(SyntaxKind kind) =>
+        kind switch
         {
             SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
             SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
@@ -360,8 +351,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
         "Critical Code Smell",
         "S1541:Methods and properties should not be too complex",
         Justification = "A flat operator-to-helper switch is the whole mapping; splitting it would hide the table.")]
-    private static string? MapComparisonHelper(SyntaxKind kind, bool comparesToZero)
-        => kind switch
+    private static string? MapComparisonHelper(SyntaxKind kind, bool comparesToZero) =>
+        kind switch
         {
             SyntaxKind.LessThanExpression => comparesToZero ? "ThrowIfNegative" : "ThrowIfLessThan",
             SyntaxKind.LessThanOrEqualExpression => comparesToZero ? "ThrowIfNegativeOrZero" : "ThrowIfLessThanOrEqual",
@@ -375,8 +366,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the integer literal zero.</summary>
     /// <param name="expression">The operand.</param>
     /// <returns><see langword="true"/> for <c>0</c>.</returns>
-    private static bool IsZeroLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression } literal
             && literal.Token.ValueText == "0";
 
     /// <summary>Returns whether the creation's first argument names the checked value.</summary>
@@ -384,23 +375,17 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="valueName">The checked value's name.</param>
     /// <param name="maximumArguments">The most constructor arguments the helper can absorb.</param>
     /// <returns><see langword="true"/> when the parameter name matches.</returns>
-    private static bool MatchesParamName(ObjectCreationExpressionSyntax creation, string valueName, int maximumArguments)
-        => TryGetParamName(creation, maximumArguments) == valueName;
+    private static bool MatchesParamName(ObjectCreationExpressionSyntax creation, string valueName, int maximumArguments) =>
+        TryGetParamName(creation, maximumArguments) == valueName;
 
     /// <summary>Returns the parameter name spelled by the creation's first argument.</summary>
     /// <param name="creation">The thrown creation.</param>
     /// <param name="maximumArguments">The most constructor arguments the helper can absorb.</param>
     /// <returns>The parameter name, or <see langword="null"/>.</returns>
-    private static string? TryGetParamName(ObjectCreationExpressionSyntax creation, int maximumArguments)
-    {
-        if (creation.ArgumentList is not { Arguments.Count: >= 1 } argumentList
-            || argumentList.Arguments.Count > maximumArguments)
-        {
-            return null;
-        }
-
-        return TryGetNameText(argumentList.Arguments[0].Expression);
-    }
+    private static string? TryGetParamName(ObjectCreationExpressionSyntax creation, int maximumArguments) => creation.ArgumentList is not { Arguments.Count: >= 1 } argumentList
+            || argumentList.Arguments.Count > maximumArguments
+        ? null
+        : TryGetNameText(argumentList.Arguments[0].Expression);
 
     /// <summary>Returns whether any creation argument names the checked value.</summary>
     /// <param name="creation">The thrown creation.</param>
@@ -427,8 +412,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the name text of a nameof expression or string literal.</summary>
     /// <param name="expression">The argument expression.</param>
     /// <returns>The name text, or <see langword="null"/>.</returns>
-    private static string? TryGetNameText(ExpressionSyntax expression)
-        => expression switch
+    private static string? TryGetNameText(ExpressionSyntax expression) =>
+        expression switch
         {
             InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" }, ArgumentList.Arguments: [{ Expression: IdentifierNameSyntax name }] }
                 => name.Identifier.ValueText,
@@ -439,8 +424,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the alias names probed for a guard kind.</summary>
     /// <param name="kind">The guard kind.</param>
     /// <returns>The candidate alias names.</returns>
-    private static string[] GetAliasCandidates(GuardKind kind)
-        => kind switch
+    private static string[] GetAliasCandidates(GuardKind kind) =>
+        kind switch
         {
             GuardKind.NullCheck => NullCheckAliases,
             GuardKind.NullOrEmpty or GuardKind.NullOrWhiteSpace => EmptinessAliases,
@@ -486,7 +471,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1409 for a guard whose helper exists and whose shape binds correctly.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="exceptionTypes">The resolved exception types, indexed like the name tables.</param>
-    private static void AnalyzeIf(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] exceptionTypes)
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] exceptionTypes)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
         if (TryClassify(ifStatement) is not { } shape)
@@ -507,7 +492,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.UseThrowHelpers,
             ifStatement.SyntaxTree,
             ifStatement.Span,
-            receiver + "." + shape.HelperName));
+            $"{receiver}.{shape.HelperName}"));
     }
 
     /// <summary>Verifies a classified guard's semantics: real exception and suitable value type.</summary>
@@ -515,7 +500,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="shape">The classified guard.</param>
     /// <param name="thrownType">The expected thrown exception type.</param>
     /// <returns><see langword="true"/> when the guard should be reported.</returns>
-    private static bool IsBoundGuard(SyntaxNodeAnalysisContext context, GuardShape shape, INamedTypeSymbol thrownType)
+    private static bool IsBoundGuard(in SyntaxNodeAnalysisContext context, in GuardShape shape, INamedTypeSymbol thrownType)
     {
         var model = context.SemanticModel;
         if (model.GetTypeInfo(shape.Creation, context.CancellationToken).Type is not INamedTypeSymbol created
@@ -541,23 +526,34 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// there is wrong: the helper's <c>object?</c> parameter forces a conversion the compiler rejects with CS9216
     /// (a <c>Lock</c> widened to <c>object</c> would silently fall back to monitor-based locking).
     /// </returns>
-    private static bool IsSystemThreadingLock(Compilation compilation, ITypeSymbol type)
-        => SymbolEqualityComparer.Default.Equals(type, compilation.GetTypeByMetadataName("System.Threading.Lock"));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsSystemThreadingLock(Compilation compilation, ITypeSymbol type) =>
+        SymbolEqualityComparer.Default.Equals(type, compilation.GetTypeByMetadataName("System.Threading.Lock"));
 
     /// <summary>Returns whether a type is one of the built-in numeric types the helpers accept.</summary>
     /// <param name="type">The checked value's type.</param>
     /// <returns><see langword="true"/> for the primitive numeric set and decimal.</returns>
-    [SuppressMessage(
-        "Critical Code Smell",
-        "S1541:Methods and properties should not be too complex",
-        Justification = "A flat SpecialType list mirrors the helper constraints explicitly instead of relying on enum-value adjacency.")]
-    private static bool IsNumericType(ITypeSymbol? type)
-        => type?.SpecialType is SpecialType.System_SByte or SpecialType.System_Byte
+    /// <remarks>
+    /// The members are listed rather than tested as a <see cref="SpecialType"/> range, so the set stays tied to
+    /// what the throw helpers actually overload for instead of to the enum's ordering.
+    /// </remarks>
+    private static bool IsNumericType(ITypeSymbol? type) =>
+        type is not null && (IsIntegralType(type.SpecialType) || IsRealType(type.SpecialType));
+
+    /// <summary>Returns whether a special type is one of the built-in integral types.</summary>
+    /// <param name="specialType">The type's special type.</param>
+    /// <returns><see langword="true"/> for the signed and unsigned integers.</returns>
+    private static bool IsIntegralType(SpecialType specialType) =>
+        specialType is SpecialType.System_SByte or SpecialType.System_Byte
             or SpecialType.System_Int16 or SpecialType.System_UInt16
             or SpecialType.System_Int32 or SpecialType.System_UInt32
-            or SpecialType.System_Int64 or SpecialType.System_UInt64
-            or SpecialType.System_Single or SpecialType.System_Double
-            or SpecialType.System_Decimal;
+            or SpecialType.System_Int64 or SpecialType.System_UInt64;
+
+    /// <summary>Returns whether a special type is one of the built-in types that carry a fractional part.</summary>
+    /// <param name="specialType">The type's special type.</param>
+    /// <returns><see langword="true"/> for the floating-point types and decimal.</returns>
+    private static bool IsRealType(SpecialType specialType) =>
+        specialType is SpecialType.System_Single or SpecialType.System_Double or SpecialType.System_Decimal;
 
     /// <summary>A classified guard clause.</summary>
     /// <param name="Kind">The guard kind.</param>

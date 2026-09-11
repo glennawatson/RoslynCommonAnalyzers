@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLambdaBody = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2257SimplifyLambdaBodyAnalyzer,
     StyleSharp.Analyzers.Sst2257SimplifyLambdaBodyCodeFixProvider>;
@@ -61,9 +62,10 @@ public class SimplifyLambdaBodyAnalyzerUnitTest
 
     /// <summary>Verifies a lambda that already has an expression body is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedLambdaIsCleanAsync()
-        => await VerifyLambdaBody.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedLambdaIsCleanAsync() =>
+        VerifyLambdaBody.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -75,9 +77,10 @@ public class SimplifyLambdaBodyAnalyzerUnitTest
 
     /// <summary>Verifies a lambda whose block has more than one statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiStatementBlockIsCleanAsync()
-        => await VerifyLambdaBody.VerifyAnalyzerAsync(
+    public Task MultiStatementBlockIsCleanAsync() =>
+        VerifyLambdaBody.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -93,9 +96,10 @@ public class SimplifyLambdaBodyAnalyzerUnitTest
 
     /// <summary>Verifies a void lambda whose block is a single expression statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VoidExpressionStatementBlockIsCleanAsync()
-        => await VerifyLambdaBody.VerifyAnalyzerAsync(
+    public Task VoidExpressionStatementBlockIsCleanAsync() =>
+        VerifyLambdaBody.VerifyAnalyzerAsync(
             """
             using System;
 

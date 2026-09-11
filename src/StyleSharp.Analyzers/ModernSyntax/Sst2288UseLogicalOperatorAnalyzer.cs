@@ -19,8 +19,8 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.UseLogicalOperatorOverConditional);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -132,7 +132,7 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
                 {
                     var flipped = pattern.Pattern is UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
                         ? negated.Pattern.WithoutTrivia().ToString()
-                        : "not " + pattern.Pattern.WithoutTrivia();
+                        : $"not {pattern.Pattern.WithoutTrivia()}";
                     return $"{pattern.Expression.WithoutTrivia()} is {flipped}";
                 }
 
@@ -142,6 +142,6 @@ public sealed class Sst2288UseLogicalOperatorAnalyzer : DiagnosticAnalyzer
         }
 
         var text = inner.WithoutTrivia().ToString();
-        return PrimaryExpressionClassification.IsPrimary(inner) ? "!" + text : "!(" + text + ")";
+        return PrimaryExpressionClassification.IsPrimary(inner) ? $"!{text}" : $"!({text})";
     }
 }

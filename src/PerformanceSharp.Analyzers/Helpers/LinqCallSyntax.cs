@@ -15,7 +15,7 @@ internal static class LinqCallSyntax
     /// <param name="invocation">The invocation expression.</param>
     /// <param name="lambda">The lambda argument.</param>
     /// <returns><see langword="true"/> when the only argument is a lambda with exactly one parameter.</returns>
-    public static bool TryGetOneParameterLambda(InvocationExpressionSyntax invocation, out LambdaExpressionSyntax lambda)
+    internal static bool TryGetOneParameterLambda(InvocationExpressionSyntax invocation, out LambdaExpressionSyntax lambda)
     {
         lambda = null!;
         if (invocation.ArgumentList.Arguments.Count != 1)
@@ -49,7 +49,7 @@ internal static class LinqCallSyntax
     /// <param name="parameterName">The lambda parameter name.</param>
     /// <param name="expressionBody">The lambda expression body, or <see langword="null"/> for statement bodies.</param>
     /// <returns><see langword="true"/> when the argument is a one-parameter lambda.</returns>
-    public static bool TryGetPredicateLambda(ExpressionSyntax argument, out string parameterName, out ExpressionSyntax? expressionBody)
+    internal static bool TryGetPredicateLambda(ExpressionSyntax argument, out string parameterName, out ExpressionSyntax? expressionBody)
     {
         switch (argument)
         {
@@ -81,7 +81,7 @@ internal static class LinqCallSyntax
     /// <param name="parameterName">The lambda parameter name.</param>
     /// <param name="value">The compared value expression.</param>
     /// <returns><see langword="true"/> when one side is exactly the lambda parameter.</returns>
-    public static bool TryGetComparedValue(BinaryExpressionSyntax equality, string parameterName, out ExpressionSyntax value)
+    internal static bool TryGetComparedValue(BinaryExpressionSyntax equality, string parameterName, out ExpressionSyntax value)
     {
         if (equality.Left is IdentifierNameSyntax left && left.Identifier.ValueText == parameterName)
         {
@@ -102,6 +102,6 @@ internal static class LinqCallSyntax
     /// <summary>Returns whether the method name is a LINQ sort operator.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for the four LINQ sort operators.</returns>
-    public static bool IsSortMethodName(string name)
-        => name is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending";
+    internal static bool IsSortMethodName(string name) =>
+        name is "OrderBy" or "OrderByDescending" or "ThenBy" or "ThenByDescending";
 }

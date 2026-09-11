@@ -17,7 +17,7 @@ internal static class PragmaWarningHelper
     /// <summary>Returns whether a pragma error code identifies a compiler warning.</summary>
     /// <param name="code">The error-code expression from a pragma directive.</param>
     /// <returns><see langword="true"/> for a numeric literal or a <c>CS####</c> identifier.</returns>
-    public static bool IsCompilerWarningCode(ExpressionSyntax code) =>
+    internal static bool IsCompilerWarningCode(ExpressionSyntax code) =>
         code switch
         {
             LiteralExpressionSyntax literal => literal.IsKind(SyntaxKind.NumericLiteralExpression),
@@ -28,7 +28,7 @@ internal static class PragmaWarningHelper
     /// <summary>Returns the source text of a pragma error code.</summary>
     /// <param name="code">The error-code expression.</param>
     /// <returns>The identifier or literal text.</returns>
-    public static string CodeText(ExpressionSyntax code) =>
+    internal static string CodeText(ExpressionSyntax code) =>
         code is IdentifierNameSyntax identifier ? identifier.Identifier.ValueText : code.ToString();
 
     /// <summary>
@@ -37,7 +37,7 @@ internal static class PragmaWarningHelper
     /// </summary>
     /// <param name="directive">The pragma warning directive.</param>
     /// <returns>The joined suppressible codes, or <see langword="null"/> when there are none.</returns>
-    public static string? GetSuppressibleCodeList(PragmaWarningDirectiveTriviaSyntax directive)
+    internal static string? GetSuppressibleCodeList(PragmaWarningDirectiveTriviaSyntax directive)
     {
         var codes = directive.ErrorCodes;
         string? single = null;
@@ -58,7 +58,7 @@ internal static class PragmaWarningHelper
             else
             {
                 builder ??= new StringBuilder(single);
-                builder.Append(", ").Append(text);
+                _ = builder.Append(", ").Append(text);
             }
         }
 

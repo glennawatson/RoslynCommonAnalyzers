@@ -104,8 +104,7 @@ public sealed class Sst1137ElementIndentationCodeFixProvider : CodeFixProvider
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
         var lines = text.Lines;
         var first = lines.GetLineFromPosition(element.SpanStart);
-        var current = element.SpanStart - first.Start;
-        var delta = reference - current;
+        var delta = reference - (element.SpanStart - first.Start);
         if (delta == 0)
         {
             return document;
@@ -124,14 +123,14 @@ public sealed class Sst1137ElementIndentationCodeFixProvider : CodeFixProvider
 
             if (delta > 0)
             {
-                changes.Add(new TextChange(new TextSpan(line.Start, 0), new string(' ', delta)));
+                changes.Add(new(new TextSpan(line.Start, 0), new string(' ', delta)));
                 continue;
             }
 
             var removable = Math.Min(-delta, indent);
             if (removable > 0)
             {
-                changes.Add(new TextChange(new TextSpan(line.Start, removable), string.Empty));
+                changes.Add(new(new TextSpan(line.Start, removable), string.Empty));
             }
         }
 

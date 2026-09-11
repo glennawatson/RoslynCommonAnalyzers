@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for floating-point-equality analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("FloatingPointEqualityBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class FloatingPointEqualityBenchmarks
@@ -24,11 +26,13 @@ public class FloatingPointEqualityBenchmarks
 
     /// <summary>Benchmarks the clean floating-point-equality path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> FloatingPointEquality_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating floating-point-equality path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> FloatingPointEquality_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

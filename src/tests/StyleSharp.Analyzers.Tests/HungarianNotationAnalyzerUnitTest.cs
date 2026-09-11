@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyHungarian = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1305HungarianNotationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class HungarianNotationAnalyzerUnitTest
 {
     /// <summary>Verifies a Hungarian-notation parameter is reported (SST1305).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HungarianParameterReportedAsync()
-        => await VerifyHungarian.VerifyAnalyzerAsync(
+    public Task HungarianParameterReportedAsync() =>
+        VerifyHungarian.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -26,9 +28,10 @@ public class HungarianNotationAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary camelCase parameter is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CamelCaseParameterIsCleanAsync()
-        => await VerifyHungarian.VerifyAnalyzerAsync(
+    public Task CamelCaseParameterIsCleanAsync() =>
+        VerifyHungarian.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -42,13 +45,14 @@ public class HungarianNotationAnalyzerUnitTest
     /// <param name="name">The parameter name under test.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks><c>jsRuntime</c> says which runtime it is, the way <c>dbContext</c> says which context.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
     [Arguments("jsRuntime")]
     [Arguments("efQueryable")]
     [Arguments("gcType")]
     [Arguments("msTest")]
-    public async Task AbbreviatedTechnologyNameIsCleanAsync(string name)
-        => await VerifyHungarian.VerifyAnalyzerAsync(
+    public Task AbbreviatedTechnologyNameIsCleanAsync(string name) =>
+        VerifyHungarian.VerifyAnalyzerAsync(
             $$"""
             internal class C
             {
@@ -60,9 +64,10 @@ public class HungarianNotationAnalyzerUnitTest
 
     /// <summary>Verifies a prefix outside the built-in allow-list is reported when not configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnconfiguredPrefixReportedAsync()
-        => await VerifyHungarian.VerifyAnalyzerAsync(
+    public Task UnconfiguredPrefixReportedAsync() =>
+        VerifyHungarian.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -82,7 +87,7 @@ public class HungarianNotationAnalyzerUnitTest
                        {
                            private int vmCount;
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
@@ -108,7 +113,7 @@ public class HungarianNotationAnalyzerUnitTest
                        {
                            private int vmCount;
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(

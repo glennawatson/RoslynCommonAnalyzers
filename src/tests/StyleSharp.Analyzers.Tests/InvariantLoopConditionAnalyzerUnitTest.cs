@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInvariantLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.LoopConditionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 {
     /// <summary>Verifies a while loop whose counter is never advanced is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WhileWithoutAnAdvanceIsReportedAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task WhileWithoutAnAdvanceIsReportedAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -36,9 +38,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
     /// A for loop that declares its own counter is SST2411's shape; here the counter is declared outside the
     /// loop, so the invariant-condition rule is the one that applies.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForWithoutAnIncrementorIsReportedAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task ForWithoutAnIncrementorIsReportedAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -57,9 +60,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a flag the body never sets is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsetFlagIsReportedAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task UnsetFlagIsReportedAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -78,9 +82,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a condition the body advances is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdvancedConditionIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task AdvancedConditionIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -105,9 +110,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a condition written through an <c>out</c> argument is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionWrittenByReferenceIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task ConditionWrittenByReferenceIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -129,9 +135,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a loop with a real way out is clean, however fixed its condition is.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EarlyExitIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task EarlyExitIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -171,9 +178,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a condition that calls something is clean: the call may answer differently each time.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionWithACallIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task ConditionWithACallIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -193,9 +201,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a condition reading a field is clean: another thread, or a call, may write it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionReadingAFieldIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task ConditionReadingAFieldIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -215,9 +224,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a deliberate infinite loop is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeliberateInfiniteLoopIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task DeliberateInfiniteLoopIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -235,9 +245,10 @@ public class InvariantLoopConditionAnalyzerUnitTest
 
     /// <summary>Verifies a body whose lambda could write the variable is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyWithALambdaIsCleanAsync()
-        => await VerifyInvariantLoop.VerifyAnalyzerAsync(
+    public Task BodyWithALambdaIsCleanAsync() =>
+        VerifyInvariantLoop.VerifyAnalyzerAsync(
             """
             using System;
 

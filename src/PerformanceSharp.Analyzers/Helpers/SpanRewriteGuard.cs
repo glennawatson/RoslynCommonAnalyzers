@@ -22,7 +22,7 @@ internal static class SpanRewriteGuard
     /// turns a query's lambdas into trees whose translation depends on the exact call shape. Neither
     /// is a place to change a call behind the author's back.
     /// </remarks>
-    public static bool IsInsideExpressionTree(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
+    internal static bool IsInsideExpressionTree(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
@@ -45,10 +45,7 @@ internal static class SpanRewriteGuard
         return false;
     }
 
-    /// <summary>
-    /// Returns whether an expression can be evaluated twice, or dropped, without changing what the
-    /// program does.
-    /// </summary>
+    /// <summary>Returns whether an expression can be evaluated twice, or dropped, without changing what the program does.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the expression is a literal or a plain name path.</returns>
     /// <remarks>
@@ -59,8 +56,8 @@ internal static class SpanRewriteGuard
     /// anything else that could do work. <c>GetText().Substring(i, GetText().Length - i)</c> is left
     /// alone precisely because dropping the second call is not a no-op.
     /// </remarks>
-    public static bool IsRepeatable(ExpressionSyntax expression)
-        => expression switch
+    internal static bool IsRepeatable(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax or ThisExpressionSyntax or BaseExpressionSyntax or PredefinedTypeSyntax or LiteralExpressionSyntax => true,
             MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access => IsRepeatable(access.Expression),
@@ -71,8 +68,8 @@ internal static class SpanRewriteGuard
     /// <summary>Returns whether a type is <see cref="StringComparison"/>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <c>System.StringComparison</c>.</returns>
-    public static bool IsStringComparison(ITypeSymbol? type)
-        => type is INamedTypeSymbol
+    internal static bool IsStringComparison(ITypeSymbol? type) =>
+        type is INamedTypeSymbol
         {
             Name: nameof(StringComparison),
             TypeKind: TypeKind.Enum,
@@ -84,7 +81,7 @@ internal static class SpanRewriteGuard
     /// <param name="position">The lookup position.</param>
     /// <param name="name">The simple type name.</param>
     /// <returns><see langword="true"/> when the unqualified spelling binds to the System type.</returns>
-    public static bool ResolvesInSystem(SemanticModel model, int position, string name)
+    internal static bool ResolvesInSystem(SemanticModel model, int position, string name)
     {
         foreach (var candidate in model.LookupNamespacesAndTypes(position, name: name))
         {
@@ -100,8 +97,8 @@ internal static class SpanRewriteGuard
     /// <summary>Returns whether a converted type is <c>System.Linq.Expressions.Expression</c>.</summary>
     /// <param name="type">The lambda's converted type.</param>
     /// <returns><see langword="true"/> when the lambda becomes an expression tree.</returns>
-    private static bool IsExpressionTreeType(ITypeSymbol? type)
-        => type is INamedTypeSymbol
+    private static bool IsExpressionTreeType(ITypeSymbol? type) =>
+        type is INamedTypeSymbol
         {
             Name: "Expression",
             ContainingNamespace:

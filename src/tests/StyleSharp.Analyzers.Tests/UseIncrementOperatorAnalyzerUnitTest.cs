@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyUseIncrementOperator = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -205,9 +206,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a type that overloads addition but not incrementing keeps the compound form.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeWithoutIncrementOperatorIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task TypeWithoutIncrementOperatorIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal struct Money
             {
@@ -225,9 +227,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a dynamic target is left alone, because the operator is not known until run time.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DynamicTargetIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task DynamicTargetIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -240,9 +243,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies an assignment whose value is consumed is left alone; the two forms differ there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsumedAssignmentValueIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task ConsumedAssignmentValueIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -255,9 +259,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a step of something other than one is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StepOtherThanOneIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task StepOtherThanOneIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -270,9 +275,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies an indexed target is left alone; the rule only rewrites plain names.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexedTargetIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task IndexedTargetIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -285,9 +291,10 @@ public class UseIncrementOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a string built by appending is left alone; concatenation is not a step.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringAppendIsCleanAsync()
-        => await VerifyUseIncrementOperator.VerifyAnalyzerAsync(
+    public Task StringAppendIsCleanAsync() =>
+        VerifyUseIncrementOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -304,11 +311,7 @@ public class UseIncrementOperatorAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunUnsafeAsync(string source, string fixedSource)
     {
-        var test = new VerifyUseIncrementOperator.Test
-        {
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyUseIncrementOperator.Test { TestCode = source, FixedCode = fixedSource };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var compilationOptions = (CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!;

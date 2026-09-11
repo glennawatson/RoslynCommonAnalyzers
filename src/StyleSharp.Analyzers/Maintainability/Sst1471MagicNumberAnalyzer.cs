@@ -73,7 +73,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <param name="settingsByTree">The per-tree settings cache.</param>
     /// <param name="positionalTypes">The well-known positional constructor types.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree,
         Lazy<PositionalConstructorTypes> positionalTypes)
     {
@@ -102,7 +102,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="settingsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
-    private static MagicNumberSettings GetSettings(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree)
+    private static MagicNumberSettings GetSettings(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree)
     {
         var tree = context.Node.SyntaxTree;
         if (settingsByTree.TryGetValue(tree, out var settings))
@@ -111,8 +111,8 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         }
 
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
-        settings = new MagicNumberSettings(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
-        settingsByTree.TryAdd(tree, settings);
+        settings = new(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
+        _ = settingsByTree.TryAdd(tree, settings);
         return settings;
     }
 
@@ -124,7 +124,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// The parameter is matched by name off the bound constructor, so this covers the collections and the
     /// text builders without a list of types to keep current. Only consulted when a project opts in.
     /// </remarks>
-    private static bool IsCapacityArgument(ExpressionSyntax node, SyntaxNodeAnalysisContext context)
+    private static bool IsCapacityArgument(ExpressionSyntax node, in SyntaxNodeAnalysisContext context)
     {
         if (node.Parent is not ArgumentSyntax argument
             || argument.Parent is not ArgumentListSyntax list
@@ -143,8 +143,8 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a literal is written as a hexadecimal or binary bit pattern.</summary>
     /// <param name="text">The literal's source text.</param>
     /// <returns><see langword="true"/> for a bit pattern, which states its own meaning.</returns>
-    private static bool IsBitPattern(string text)
-        => text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
+    private static bool IsBitPattern(string text) =>
+        text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
 
     /// <summary>Walks out through the wrappers that do not change a literal's meaning.</summary>
     /// <param name="literal">The numeric literal.</param>
@@ -265,7 +265,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
 
         if (converted is not { } result)
         {
-            value = 0m;
+            value = 0M;
             return false;
         }
 
@@ -280,7 +280,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the value is finite and representable.</returns>
     private static bool TryConvertReal(double number, bool negated, out decimal value)
     {
-        value = 0m;
+        value = 0M;
         if (double.IsNaN(number) || double.IsInfinity(number) || number < DecimalMinimum || number > DecimalMaximum)
         {
             return false;
@@ -315,8 +315,8 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// positional shape as an array rank, which is exempt for the same reason: naming it can only produce a
     /// constant that restates the number it holds.
     /// </remarks>
-    private static bool IsLabelledOrIndexArgument(ArgumentSyntax argument)
-        => argument.NameColon is not null || argument.Parent is BracketedArgumentListSyntax;
+    private static bool IsLabelledOrIndexArgument(ArgumentSyntax argument) =>
+        argument.NameColon is not null || argument.Parent is BracketedArgumentListSyntax;
 
     /// <summary>Returns whether the literal is an element of a collection that is itself a named declaration's whole value.</summary>
     /// <param name="node">The unwrapped literal.</param>
@@ -360,16 +360,16 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// Only a bare literal qualifies. <c>var timeout = 500;</c> names the number; <c>var task = Delay(500);</c>
     /// names the task, and leaves 500 unexplained.
     /// </remarks>
-    private static bool IsNamedStorageInitializer(EqualsValueClauseSyntax initializer, ExpressionSyntax node)
-        => ReferenceEquals(initializer.Value, node)
+    private static bool IsNamedStorageInitializer(EqualsValueClauseSyntax initializer, ExpressionSyntax node) =>
+        ReferenceEquals(initializer.Value, node)
             && initializer.Parent is VariableDeclaratorSyntax or PropertyDeclarationSyntax;
 
     /// <summary>Returns whether the literal is the distance of a shift operator.</summary>
     /// <param name="binary">The binary expression.</param>
     /// <param name="node">The unwrapped literal.</param>
     /// <returns><see langword="true"/> for a shift distance, which is a bit position.</returns>
-    private static bool IsShiftDistance(BinaryExpressionSyntax binary, ExpressionSyntax node)
-        => ReferenceEquals(binary.Right, node)
+    private static bool IsShiftDistance(BinaryExpressionSyntax binary, ExpressionSyntax node) =>
+        ReferenceEquals(binary.Right, node)
             && binary.Kind() is SyntaxKind.LeftShiftExpression
                 or SyntaxKind.RightShiftExpression
                 or SyntaxKind.UnsignedRightShiftExpression;
@@ -378,8 +378,8 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <param name="assignment">The assignment expression.</param>
     /// <param name="node">The unwrapped literal.</param>
     /// <returns><see langword="true"/> for a shift distance.</returns>
-    private static bool IsShiftAssignmentDistance(AssignmentExpressionSyntax assignment, ExpressionSyntax node)
-        => ReferenceEquals(assignment.Right, node)
+    private static bool IsShiftAssignmentDistance(AssignmentExpressionSyntax assignment, ExpressionSyntax node) =>
+        ReferenceEquals(assignment.Right, node)
             && assignment.Kind() is SyntaxKind.LeftShiftAssignmentExpression
                 or SyntaxKind.RightShiftAssignmentExpression
                 or SyntaxKind.UnsignedRightShiftAssignmentExpression;
@@ -426,8 +426,8 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name denotes a cardinality.</summary>
     /// <param name="name">The member name.</param>
     /// <returns><see langword="true"/> for a count, length or rank.</returns>
-    private static bool IsCardinalityName(string name)
-        => name is "Count" or "Length" or "LongLength" or "Rank";
+    private static bool IsCardinalityName(string name) =>
+        name is "Count" or "Length" or "LongLength" or "Rank";
 
     /// <summary>Returns whether the literal sits at a declaration that gives it a name.</summary>
     /// <param name="node">The unwrapped literal.</param>
@@ -446,13 +446,9 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         {
             switch (current)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
-                case BaseTypeDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or BaseTypeDeclarationSyntax:
                     return false;
-                case EnumMemberDeclarationSyntax:
-                case AttributeArgumentSyntax:
-                case ParameterSyntax:
+                case EnumMemberDeclarationSyntax or AttributeArgumentSyntax or ParameterSyntax:
                     return true;
                 case FieldDeclarationSyntax field
                     when ModifierListHelper.ContainsEither(field.Modifiers, SyntaxKind.ConstKeyword, SyntaxKind.ReadOnlyKeyword):
@@ -475,9 +471,9 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <remarks>The syntactic shape and the bind are both checked before the well-known types are resolved.</remarks>
     private static bool IsPositionalConstructorArgument(
         ExpressionSyntax node,
-        SyntaxNodeAnalysisContext context,
-        Lazy<PositionalConstructorTypes> positionalTypes)
-        => node.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: BaseObjectCreationExpressionSyntax creation } }
+        in SyntaxNodeAnalysisContext context,
+        Lazy<PositionalConstructorTypes> positionalTypes) =>
+        node.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: BaseObjectCreationExpressionSyntax creation } }
             && context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol constructor
             && positionalTypes.Value.Contains(constructor.ContainingType);
 }

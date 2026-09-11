@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
@@ -11,6 +12,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the collection native-method code-fix paths (PSH1110, PSH1111).</summary>
+[System.Diagnostics.DebuggerDisplay("CollectionNativeMethodCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
@@ -49,7 +51,7 @@ public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             CollectionNativeMethodBenchmarkSource.GenerateCodeFix(Nodes, CurrentShape));
@@ -58,6 +60,7 @@ public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -92,8 +95,8 @@ public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates the representative diagnostic for the selected shape.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateDiagnostic()
-        => CurrentShape switch
+    private Diagnostic CreateDiagnostic() =>
+        CurrentShape switch
         {
             CollectionNativeMethodBenchmarkShape.ListPredicate => CreateNativePredicateDiagnostic("FirstOrDefault", "Find"),
             CollectionNativeMethodBenchmarkShape.ArrayPredicate => CreateNativePredicateDiagnostic("Any", "Array.Exists"),
@@ -113,8 +116,9 @@ public class CollectionNativeMethodCodeFixBenchmarks : IDisposable
 
     /// <summary>Creates a PSH1111 membership diagnostic.</summary>
     /// <returns>The diagnostic.</returns>
-    private Diagnostic CreateMembershipDiagnostic()
-        => Diagnostic.Create(CollectionRules.UseContainsForMembership, FindInvokedName("Any").GetLocation());
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Diagnostic CreateMembershipDiagnostic() =>
+        Diagnostic.Create(CollectionRules.UseContainsForMembership, FindInvokedName("Any").GetLocation());
 
     /// <summary>Locates the middle invocation's method name within the benchmark corpus.</summary>
     /// <param name="invokedName">The invoked LINQ method name to locate.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOverride = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.RedundantOverrideCodeFixProvider>;
@@ -42,9 +43,10 @@ public class RedundantOverrideAnalyzerUnitTest
 
     /// <summary>Verifies a property override that only forwards each accessor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardingPropertyReportedAsync()
-        => await VerifyOverride.VerifyAnalyzerAsync(
+    public Task ForwardingPropertyReportedAsync() =>
+        VerifyOverride.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -98,9 +100,10 @@ public class RedundantOverrideAnalyzerUnitTest
 
     /// <summary>Verifies a sealed override, an override that adds work, and one that reorders arguments are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MeaningfulOverridesAreCleanAsync()
-        => await VerifyOverride.VerifyAnalyzerAsync(
+    public Task MeaningfulOverridesAreCleanAsync() =>
+        VerifyOverride.VerifyAnalyzerAsync(
             """
             public class B
             {

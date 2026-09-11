@@ -64,7 +64,7 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
     {
         foreach (var diagnostic in context.Diagnostics)
         {
-            diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
+            _ = diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
             var id = diagnostic.Id;
             var span = diagnostic.Location.SourceSpan;
             context.RegisterCodeFix(
@@ -81,7 +81,7 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
     /// <inheritdoc/>
     void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
+        _ = diagnostic.Properties.TryGetValue(SpacingAnalyzer.ActionKey, out var action);
         changes.Add(BuildChange(diagnostic.Id, diagnostic.Location.SourceSpan, action, text));
     }
 
@@ -104,8 +104,8 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
     /// <param name="action">The stashed punctuation fix action, when present.</param>
     /// <param name="text">The source text.</param>
     /// <returns>The text change to apply.</returns>
-    private static TextChange BuildChange(string id, TextSpan span, string? action, SourceText text)
-        => action is null ? TriviaChange(id, span, text) : PunctuationChange(action, span, text);
+    private static TextChange BuildChange(string id, TextSpan span, string? action, SourceText text) =>
+        action is null ? TriviaChange(id, span, text) : PunctuationChange(action, span, text);
 
     /// <summary>Computes the text change for a trivia spacing diagnostic.</summary>
     /// <param name="id">The diagnostic id.</param>
@@ -124,13 +124,7 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
             return new(span, " ");
         }
 
-        if (id == SpacingRules.UseSpacesNotTabs.Id)
-        {
-            return new(span, text.ToString(span).Replace("\t", new(' ', TabWidth)));
-        }
-
-        var insertAt = span.Start + CommentOpenerLength;
-        return new(new(insertAt, 0), " ");
+        return id == SpacingRules.UseSpacesNotTabs.Id ? new(span, text.ToString(span).Replace("\t", new(' ', TabWidth))) : new(new(span.Start + CommentOpenerLength, 0), " ");
     }
 
     /// <summary>Computes the text change for a comma/semicolon spacing diagnostic.</summary>

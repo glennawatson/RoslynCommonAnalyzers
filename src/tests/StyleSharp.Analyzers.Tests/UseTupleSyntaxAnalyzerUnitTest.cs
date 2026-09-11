@@ -101,13 +101,7 @@ public class UseTupleSyntaxAnalyzerUnitTest
                                             public ((int, string), (bool, bool)) M() => default;
                                         }
                                         """;
-        var test = new VerifyTuple.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource,
-            BatchFixedCode = BatchFixedSource
-        };
+        var test = new VerifyTuple.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource, BatchFixedCode = BatchFixedSource };
         await test.RunAsync(CancellationToken.None);
     }
 

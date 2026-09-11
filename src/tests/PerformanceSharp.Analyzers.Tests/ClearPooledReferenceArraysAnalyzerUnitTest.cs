@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1010ClearPooledReferenceArraysAnalyzer,
     PerformanceSharp.Analyzers.Psh1010ClearPooledReferenceArraysCodeFixProvider>;
@@ -43,9 +44,10 @@ public class ClearPooledReferenceArraysAnalyzerUnitTest
 
     /// <summary>Verifies an already-cleared return is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClearedReturnIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClearedReturnIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Buffers;
 
@@ -90,9 +92,10 @@ public class ClearPooledReferenceArraysAnalyzerUnitTest
 
     /// <summary>Verifies unmanaged element types are clean; nothing is kept alive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnmanagedElementTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnmanagedElementTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Buffers;
 
@@ -107,9 +110,10 @@ public class ClearPooledReferenceArraysAnalyzerUnitTest
 
     /// <summary>Verifies a struct holding a reference field is flagged like a reference type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceCarryingStructIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReferenceCarryingStructIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Buffers;
 
@@ -129,9 +133,10 @@ public class ClearPooledReferenceArraysAnalyzerUnitTest
 
     /// <summary>Verifies an unconstrained type parameter stays clean; the element may be unmanaged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnconstrainedTypeParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnconstrainedTypeParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Buffers;
 
@@ -146,9 +151,10 @@ public class ClearPooledReferenceArraysAnalyzerUnitTest
 
     /// <summary>Verifies a class-constrained type parameter is flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassConstrainedTypeParameterIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassConstrainedTypeParameterIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Buffers;
 

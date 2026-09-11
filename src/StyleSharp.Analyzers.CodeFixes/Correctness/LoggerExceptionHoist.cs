@@ -18,7 +18,7 @@ internal static class LoggerExceptionHoist
     /// <param name="removeIndex">The value argument to drop, or -1 to keep every value.</param>
     /// <param name="tailStart">The first value argument's position.</param>
     /// <returns>The rewritten call, or <see langword="null"/> when the shape no longer matches.</returns>
-    public static InvocationExpressionSyntax? Rewrite(
+    internal static InvocationExpressionSyntax? Rewrite(
         InvocationExpressionSyntax invocation,
         ExpressionSyntax exception,
         int insertIndex,

@@ -378,12 +378,7 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyPrimaryConstructorStorage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new VerifyPrimaryConstructorStorage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -393,12 +388,12 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
     }
 
     /// <summary>Verifies a constructor a primary constructor would have to widen is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>
     /// A primary constructor is <c>public</c> on a concrete class — the language does not let it be
     /// anything else. Rewriting a non-public constructor into one therefore adds a new way to construct
     /// the type from outside, which is an API change rather than a formatting one.
     /// </remarks>
-    /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
     public async Task ConstructorThatWouldBeWidenedIsNotReportedAsync()
     {
@@ -424,12 +419,7 @@ public class PrimaryConstructorStorageAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task VerifyCodeFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyPrimaryConstructorStorage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyPrimaryConstructorStorage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

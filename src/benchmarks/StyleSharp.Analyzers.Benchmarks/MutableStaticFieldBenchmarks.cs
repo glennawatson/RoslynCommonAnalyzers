@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for mutable-static-field analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("MutableStaticFieldBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class MutableStaticFieldBenchmarks
@@ -24,11 +26,13 @@ public class MutableStaticFieldBenchmarks
 
     /// <summary>Benchmarks the clean mutable-static-field path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> MutableStaticField_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating mutable-static-field path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> MutableStaticField_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

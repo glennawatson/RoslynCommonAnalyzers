@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeKeys = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -61,9 +62,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persisting to the file system off <c>AddDataProtection()</c> with no protection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistToFileSystemViaAddDataProtectionReportedAsync()
-        => await VerifyAsync(
+    public Task PersistToFileSystemViaAddDataProtectionReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
             using Microsoft.Extensions.DependencyInjection;
@@ -77,9 +79,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persisting to a database context with no protection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistToDbContextReportedAsync()
-        => await VerifyAsync(
+    public Task PersistToDbContextReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -92,9 +95,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persisting to the registry with no protection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistToRegistryReportedAsync()
-        => await VerifyAsync(
+    public Task PersistToRegistryReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -107,9 +111,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a multi-line persistence chain with no protection call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiLinePersistOnlyChainReportedAsync()
-        => await VerifyAsync(
+    public Task MultiLinePersistOnlyChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
             using Microsoft.Extensions.DependencyInjection;
@@ -127,9 +132,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a persistence call in a configuration block lambda with no protection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistInsideBlockLambdaWithoutProtectionReportedAsync()
-        => await VerifyAsync(
+    public Task PersistInsideBlockLambdaWithoutProtectionReportedAsync() =>
+        VerifyAsync(
             """
             using System;
             using Microsoft.AspNetCore.DataProtection;
@@ -148,9 +154,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a null-conditional persistence call is reported (a member-binding callee).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessPersistReportedAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessPersistReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -163,9 +170,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies the persistence extension invoked as a static call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticExtensionPersistCallReportedAsync()
-        => await VerifyAsync(
+    public Task StaticExtensionPersistCallReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -178,9 +186,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persistence followed by certificate protection in one chain is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistThenProtectSameChainIsCleanAsync()
-        => await VerifyAsync(
+    public Task PersistThenProtectSameChainIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
             using Microsoft.Extensions.DependencyInjection;
@@ -194,9 +203,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a reversed chain (protection before persistence) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectThenPersistSameChainIsCleanAsync()
-        => await VerifyAsync(
+    public Task ProtectThenPersistSameChainIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -209,9 +219,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persistence and protection as the whole expression-lambda body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistThenProtectExpressionLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task PersistThenProtectExpressionLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using Microsoft.AspNetCore.DataProtection;
@@ -227,9 +238,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies persistence and protection as separate statements of one configuration lambda are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistAndProtectSeparateStatementsInLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task PersistAndProtectSeparateStatementsInLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using Microsoft.AspNetCore.DataProtection;
@@ -249,9 +261,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a bare persistence-free Data Protection setup (and a non-member call) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoPersistenceCallIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoPersistenceCallIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
             using Microsoft.Extensions.DependencyInjection;
@@ -272,9 +285,10 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
 
     /// <summary>Verifies a same-named persistence method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PersistOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task PersistOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.DataProtection;
 
@@ -312,11 +326,7 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeKeys.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeKeys.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -326,11 +336,7 @@ public class UnprotectedDataProtectionKeysAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeKeys.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + DataProtectionStubs
-        };
+        var test = new AnalyzeKeys.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + DataProtectionStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

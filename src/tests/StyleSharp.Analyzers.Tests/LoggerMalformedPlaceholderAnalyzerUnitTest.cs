@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.LoggerCallAnalyzer>;
 
@@ -12,9 +13,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 {
     /// <summary>Verifies an empty placeholder is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyPlaceholderIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task EmptyPlaceholderIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -24,9 +26,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a whitespace-only placeholder is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WhitespacePlaceholderIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task WhitespacePlaceholderIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -36,9 +39,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a placeholder whose name has a space is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpacedNameIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task SpacedNameIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -48,9 +52,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a well-formed named placeholder is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedPlaceholderIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task NamedPlaceholderIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -60,9 +65,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a formatted or destructured named placeholder is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FormattedAndDestructuredPlaceholdersAreCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task FormattedAndDestructuredPlaceholdersAreCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -73,9 +79,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a numeric placeholder is left to the rule that owns positional placeholders.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericPlaceholderIsNotReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task NumericPlaceholderIsNotReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -85,9 +92,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies escaped braces are not read as a placeholder.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EscapedBracesAreCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task EscapedBracesAreCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -97,9 +105,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant template is left to the concern that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedTemplateIsNotReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task InterpolatedTemplateIsNotReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -109,9 +118,10 @@ public class LoggerMalformedPlaceholderAnalyzerUnitTest
 
     /// <summary>Verifies a malformed placeholder in a scope template is reported too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BeginScopeTemplateIsReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task BeginScopeTemplateIsReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

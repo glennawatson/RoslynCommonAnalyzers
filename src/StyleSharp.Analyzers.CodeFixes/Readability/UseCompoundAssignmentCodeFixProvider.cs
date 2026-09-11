@@ -68,7 +68,7 @@ public sealed class UseCompoundAssignmentCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, AssignmentExpressionSyntax assignment, BinaryExpressionSyntax binary)
     {
-        CompoundAssignmentOperators.TryMap(binary.Kind(), out var assignmentKind, out var operatorToken, out _);
+        _ = CompoundAssignmentOperators.TryMap(binary.Kind(), out var assignmentKind, out var operatorToken, out _);
 
         // Reuse the original '=' spacing for the compound operator so 'x = ...' becomes 'x op= ...'.
         var equals = assignment.OperatorToken;

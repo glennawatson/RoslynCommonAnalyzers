@@ -11,21 +11,17 @@ internal static class Sst1517FileStartBlankLinesBenchmarkSource
     /// <param name="members">The number of synthetic members used to scale the file size.</param>
     /// <param name="violating">Whether to prefix the file with blank lines.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
+    internal static string Generate(int members, bool violating)
     {
         var lead = violating ? "\n\n" : string.Empty;
-        return lead
-            + "namespace Bench;\n\n"
-            + "internal sealed class FileStartBlankLinesBench\n{\n"
-            + BenchmarkSourceText.JoinBlocks(members, GenerateMethod)
-            + "\n}\n";
+        return $"{lead}namespace Bench;\n\ninternal sealed class FileStartBlankLinesBench\n{{\n{BenchmarkSourceText.JoinBlocks(members, GenerateMethod)}\n}}\n";
     }
 
     /// <summary>Builds one simple method body used to scale the benchmark file size.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMethod(int index)
-        => $$"""
+    private static string GenerateMethod(int index) =>
+        $$"""
            private static int M{{index}}()
            {
                return {{index}};

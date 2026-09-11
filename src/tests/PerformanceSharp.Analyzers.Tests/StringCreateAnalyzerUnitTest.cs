@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class StringCreateAnalyzerUnitTest
 {
     /// <summary>Verifies the copy-mutate-rebuild shape is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CopyMutateRebuildIsReportedAsync()
-        => await VerifyAsync(
+    public Task CopyMutateRebuildIsReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -35,9 +37,10 @@ public class StringCreateAnalyzerUnitTest
 
     /// <summary>Verifies a copied buffer that is only read stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadOnlyBufferIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReadOnlyBufferIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -51,9 +54,10 @@ public class StringCreateAnalyzerUnitTest
 
     /// <summary>Verifies a mutated buffer that never rebuilds a string stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutatedWithoutRebuildIsCleanAsync()
-        => await VerifyAsync(
+    public Task MutatedWithoutRebuildIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -71,11 +75,7 @@ public class StringCreateAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         await test.RunAsync(CancellationToken.None);
     }
 }

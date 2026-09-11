@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEnumSwitchStatementMapping = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -22,9 +23,10 @@ public class EnumSwitchStatementMappingAnalyzerUnitTest
     /// the rule re-report both values, the fix wrote them back as duplicates, and the merge and the pattern
     /// rewrite turned that into a loop no run could finish.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValuesNamedByAnOrPatternAreCoveredAsync()
-        => await VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
+    public Task ValuesNamedByAnOrPatternAreCoveredAsync() =>
+        VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
             """
             public enum Level
             {
@@ -53,9 +55,10 @@ public class EnumSwitchStatementMappingAnalyzerUnitTest
     /// <summary>Verifies a guarded label does not count as covering its value.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The guard decides whether the section runs, so the value is not handled outright.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedLabelDoesNotCoverItsValueAsync()
-        => await VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
+    public Task GuardedLabelDoesNotCoverItsValueAsync() =>
+        VerifyEnumSwitchStatementMapping.VerifyAnalyzerAsync(
             """
             public enum Level
             {

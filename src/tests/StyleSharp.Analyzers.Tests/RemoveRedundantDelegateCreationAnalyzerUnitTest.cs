@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDelegateCreation = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2258RemoveRedundantDelegateCreationAnalyzer,
     StyleSharp.Analyzers.Sst2258RemoveRedundantDelegateCreationCodeFixProvider>;
@@ -103,9 +104,10 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 
     /// <summary>Verifies a wrapper in an argument position is left alone; a method group is not always re-bindable there.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentWrapperIsCleanAsync()
-        => await VerifyDelegateCreation.VerifyAnalyzerAsync(
+    public Task ArgumentWrapperIsCleanAsync() =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -128,9 +130,10 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 
     /// <summary>Verifies a wrapper on the right of an operand of delegate combination is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateCombinationOperandIsCleanAsync()
-        => await VerifyDelegateCreation.VerifyAnalyzerAsync(
+    public Task DelegateCombinationOperandIsCleanAsync() =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -149,9 +152,10 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 
     /// <summary>Verifies a wrapper around a lambda, not a method group, is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaWrapperIsCleanAsync()
-        => await VerifyDelegateCreation.VerifyAnalyzerAsync(
+    public Task LambdaWrapperIsCleanAsync() =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -167,9 +171,10 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 
     /// <summary>Verifies a non-delegate object creation is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDelegateCreationIsCleanAsync()
-        => await VerifyDelegateCreation.VerifyAnalyzerAsync(
+    public Task NonDelegateCreationIsCleanAsync() =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -181,9 +186,10 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
 
     /// <summary>Verifies a wrapper around an existing delegate value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateValueWrapperIsCleanAsync()
-        => await VerifyDelegateCreation.VerifyAnalyzerAsync(
+    public Task DelegateValueWrapperIsCleanAsync() =>
+        VerifyDelegateCreation.VerifyAnalyzerAsync(
             """
             using System;
 

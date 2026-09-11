@@ -99,14 +99,14 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
         }
 
         var state = default(CallScanState);
-        DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, CallScanState>(expression, ref state, VisitCall);
+        _ = DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, CallScanState>(expression, ref state, VisitCall);
         return state.Found;
     }
 
     /// <summary>Reports PSH1417 for each expensive argument of a <c>Debug.Assert</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="debugType">The <c>System.Diagnostics.Debug</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsDebugAssertShape(invocation)
@@ -163,14 +163,14 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
     /// <summary>Returns whether the framework defers an interpolated assertion message until the check fails.</summary>
     /// <param name="debugType">The <c>System.Diagnostics.Debug</c> type in the current compilation.</param>
     /// <returns><see langword="true"/> when the interpolated-handler overload is present.</returns>
-    private static bool DefersInterpolation(INamedTypeSymbol debugType)
-        => debugType.GetTypeMembers(AssertHandlerTypeName).Length > 0;
+    private static bool DefersInterpolation(INamedTypeSymbol debugType) =>
+        !debugType.GetTypeMembers(AssertHandlerTypeName).IsEmpty;
 
     /// <summary>Returns whether a node is itself a call or an object creation.</summary>
     /// <param name="node">The node to classify.</param>
     /// <returns><see langword="true"/> when evaluating the node runs code.</returns>
-    private static bool IsCall(SyntaxNode node)
-        => node is InvocationExpressionSyntax
+    private static bool IsCall(SyntaxNode node) =>
+        node is InvocationExpressionSyntax
             or ObjectCreationExpressionSyntax
             or ImplicitObjectCreationExpressionSyntax;
 

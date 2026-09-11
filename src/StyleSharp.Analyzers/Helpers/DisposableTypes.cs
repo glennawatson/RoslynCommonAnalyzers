@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,41 +23,12 @@ internal readonly record struct DisposableTypes(
     /// <summary>Resolves the disposal types for a compilation, or nothing when the framework has no <see cref="System.IDisposable"/>.</summary>
     /// <param name="compilation">The compilation to resolve against.</param>
     /// <returns>The resolved types, or <see langword="null"/> when disposal cannot be reasoned about at all.</returns>
-    public static DisposableTypes? Create(Compilation compilation)
-    {
-        if (compilation.GetTypeByMetadataName("System.IDisposable") is not { } disposable)
-        {
-            return null;
-        }
-
-        return new DisposableTypes(
+    internal static DisposableTypes? Create(Compilation compilation) => compilation.GetTypeByMetadataName("System.IDisposable") is not { } disposable
+        ? null
+        : new DisposableTypes(
             disposable,
             compilation.GetTypeByMetadataName("System.IAsyncDisposable"),
             compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
-    }
-
-    /// <summary>Returns whether a created type is one a caller is expected to dispose.</summary>
-    /// <param name="created">The type of the object that was created.</param>
-    /// <returns><see langword="true"/> for a disposable reference type that is not a task.</returns>
-    public bool IsOwnedDisposable(ITypeSymbol created)
-        => !created.IsValueType && ImplementsDisposable(created) && !IsTask(created);
-
-    /// <summary>Returns whether a type implements either disposal interface, or is one.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <returns><see langword="true"/> when the type is disposable.</returns>
-    public bool ImplementsDisposable(ITypeSymbol type)
-        => Implements(type, Disposable) || (AsyncDisposable is not null && Implements(type, AsyncDisposable));
-
-    /// <summary>Returns whether a type implements <see cref="System.IDisposable"/>, or is it.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <returns><see langword="true"/> when the type is synchronously disposable.</returns>
-    public bool ImplementsSyncDisposable(ITypeSymbol type) => Implements(type, Disposable);
-
-    /// <summary>Returns whether a type implements <c>IAsyncDisposable</c>, or is it.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <returns><see langword="true"/> when the type is asynchronously disposable.</returns>
-    public bool ImplementsAsyncDisposable(ITypeSymbol type)
-        => AsyncDisposable is not null && Implements(type, AsyncDisposable);
 
     /// <summary>Returns whether a type is, or implements, the supplied interface.</summary>
     /// <param name="type">The type to test.</param>
@@ -66,7 +39,7 @@ internal readonly record struct DisposableTypes(
     /// directly as well. It matters where a member is declared to hand back the interface rather than a
     /// concrete type — <c>IDisposable Start()</c> — which is the usual shape for a subscription.
     /// </remarks>
-    public static bool Implements(ITypeSymbol type, INamedTypeSymbol interfaceType)
+    internal static bool Implements(ITypeSymbol type, INamedTypeSymbol interfaceType)
     {
         if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
         {
@@ -85,10 +58,34 @@ internal readonly record struct DisposableTypes(
         return false;
     }
 
+    /// <summary>Returns whether a created type is one a caller is expected to dispose.</summary>
+    /// <param name="created">The type of the object that was created.</param>
+    /// <returns><see langword="true"/> for a disposable reference type that is not a task.</returns>
+    internal bool IsOwnedDisposable(ITypeSymbol created) =>
+        !created.IsValueType && ImplementsDisposable(created) && !IsTask(created);
+
+    /// <summary>Returns whether a type implements either disposal interface, or is one.</summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is disposable.</returns>
+    internal bool ImplementsDisposable(ITypeSymbol type) =>
+        Implements(type, Disposable) || (AsyncDisposable is not null && Implements(type, AsyncDisposable));
+
+    /// <summary>Returns whether a type implements <see cref="System.IDisposable"/>, or is it.</summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is synchronously disposable.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool ImplementsSyncDisposable(ITypeSymbol type) => Implements(type, Disposable);
+
+    /// <summary>Returns whether a type implements <c>IAsyncDisposable</c>, or is it.</summary>
+    /// <param name="type">The type to test.</param>
+    /// <returns><see langword="true"/> when the type is asynchronously disposable.</returns>
+    internal bool ImplementsAsyncDisposable(ITypeSymbol type) =>
+        AsyncDisposable is not null && Implements(type, AsyncDisposable);
+
     /// <summary>Returns whether a type is a task, which implements the interface but is not meant to be disposed.</summary>
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> for <c>Task</c> and anything deriving from it, including <c>Task&lt;T&gt;</c>.</returns>
-    public bool IsTask(ITypeSymbol type)
+    internal bool IsTask(ITypeSymbol type)
     {
         if (Task is null)
         {

@@ -49,8 +49,8 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
     /// <c>A</c> is a <c>T</c>, and <c>{ A.B: v }</c> does not, so that shape is left alone. So is a
     /// clause holding more than one subpattern, which no single path can carry.
     /// </remarks>
-    private static bool IsPropertyOnlyPattern(RecursivePatternSyntax pattern)
-        => pattern.Type is null
+    private static bool IsPropertyOnlyPattern(RecursivePatternSyntax pattern) =>
+        pattern.Type is null
             && pattern.PositionalPatternClause is null
             && pattern.PropertyPatternClause is { Subpatterns.Count: 1 }
             && pattern.PropertyPatternClause.Subpatterns[0].NameColon is not null
@@ -60,6 +60,6 @@ public sealed class Sst2238NestedPropertyPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

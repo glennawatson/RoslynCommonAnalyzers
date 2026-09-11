@@ -47,6 +47,6 @@ public sealed class ShortCircuitOperatorRewriteUnitTest
     /// <summary>Parses an expression as a binary expression.</summary>
     /// <param name="expression">The expression source.</param>
     /// <returns>The parsed binary expression.</returns>
-    private static BinaryExpressionSyntax ParseBinary(string expression)
-        => (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+    private static BinaryExpressionSyntax ParseBinary(string expression) =>
+        (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(expression);
 }

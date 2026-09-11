@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeCallback = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 {
     /// <summary>Verifies an expression lambda that always returns true is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionLambdaAlwaysTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task ExpressionLambdaAlwaysTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -33,9 +35,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies a block lambda whose only result is <c>return true;</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockLambdaAlwaysTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task BlockLambdaAlwaysTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -55,9 +58,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies an always-true callback set through an object initializer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerAlwaysTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task ObjectInitializerAlwaysTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -76,9 +80,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies a method group to a source method that always returns true is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupAlwaysTrueReportedAsync()
-        => await VerifyNet90Async(
+    public Task MethodGroupAlwaysTrueReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Net.Security;
@@ -99,9 +104,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies a callback that actually inspects the certificate errors is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RealValidationCallbackIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RealValidationCallbackIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Net.Security;
@@ -120,9 +126,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies a method group to a source method that really validates is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RealMethodGroupIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RealMethodGroupIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Net.Security;
@@ -144,9 +151,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies the built-in accept-any sentinel is not reported here — its own rule owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuiltInSentinelIsNotReportedHereAsync()
-        => await VerifyNet90Async(
+    public Task BuiltInSentinelIsNotReportedHereAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
 
@@ -163,9 +171,10 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
 
     /// <summary>Verifies a same-named callback property on an unrelated type is not reported (binding, not text).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -189,11 +198,7 @@ public class AlwaysTrueServerCertificateValidationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeCallback.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeCallback.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

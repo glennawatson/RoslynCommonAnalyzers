@@ -42,7 +42,7 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(static start =>
         {
             var processType = start.Compilation.GetTypeByMetadataName(ProcessMetadataName);
-            if (processType is null || processType.GetMembers(WaitForExitStatusName).Length == 0)
+            if (processType is null || processType.GetMembers(WaitForExitStatusName).IsEmpty)
             {
                 return;
             }
@@ -56,7 +56,7 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one ambiguous exit-code read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="processType">The resolved process type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (access.Name.Identifier.ValueText != ExitCodeName)
@@ -86,7 +86,7 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
     private static bool WaitsForExit(MemberDeclarationSyntax member)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, bool>(member, ref found, Visit);
+        _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, bool>(member, ref found, Visit);
         return found;
     }
 
@@ -103,7 +103,7 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
             _ => null,
         };
 
-        if (name is not (WaitForExitName or WaitForExitName + "Async"))
+        if (name is not (WaitForExitName or $"{WaitForExitName}Async"))
         {
             return true;
         }

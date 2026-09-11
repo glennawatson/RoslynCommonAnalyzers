@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -127,8 +129,9 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a property or indexer accessor list collapses to a whole-member expression body.</summary>
     /// <param name="accessorList">The accessor list of a property or indexer.</param>
     /// <returns><see langword="true"/> when the list is a single block-bodied <c>get</c> that SST2279 or SST2280 reports.</returns>
-    internal static bool AccessorListCollapsesToExpressionBody(AccessorListSyntax? accessorList)
-        => TryGetSoleGetAccessorExpression(accessorList, out _);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool AccessorListCollapsesToExpressionBody(AccessorListSyntax? accessorList) =>
+        TryGetSoleGetAccessorExpression(accessorList, out _);
 
     /// <summary>Reports a single-statement method that can use an expression body.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -260,8 +263,8 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// <param name="body">The block body.</param>
     /// <param name="expression">The single expression.</param>
     /// <returns><see langword="true"/> when the block is one <c>return expr;</c> or one expression statement.</returns>
-    private static bool TryGetReturnedOrEvaluated(BlockSyntax? body, out ExpressionSyntax expression)
-        => TryGetReturned(body, out expression) || TryGetEvaluated(body, out expression);
+    private static bool TryGetReturnedOrEvaluated(BlockSyntax? body, out ExpressionSyntax expression) =>
+        TryGetReturned(body, out expression) || TryGetEvaluated(body, out expression);
 
     /// <summary>Gets the single value a block body returns.</summary>
     /// <param name="body">The block body.</param>
@@ -385,8 +388,8 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a trivia kind is a comment that carries meaning worth preserving.</summary>
     /// <param name="kind">The trivia kind.</param>
     /// <returns><see langword="true"/> for single-line, multi-line, and documentation comments.</returns>
-    private static bool IsComment(SyntaxKind kind)
-        => kind is SyntaxKind.SingleLineCommentTrivia
+    private static bool IsComment(SyntaxKind kind) =>
+        kind is SyntaxKind.SingleLineCommentTrivia
             or SyntaxKind.MultiLineCommentTrivia
             or SyntaxKind.SingleLineDocumentationCommentTrivia
             or SyntaxKind.MultiLineDocumentationCommentTrivia;
@@ -395,6 +398,6 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A node in the tree under analysis.</param>
     /// <param name="minimum">The minimum language version that allows the member kind's expression body.</param>
     /// <returns><see langword="true"/> when the tree parses at or above <paramref name="minimum"/>.</returns>
-    private static bool SupportsExpressionBody(SyntaxNode node, LanguageVersion minimum)
-        => node.SyntaxTree.Options is CSharpParseOptions { } options && options.LanguageVersion >= minimum;
+    private static bool SupportsExpressionBody(SyntaxNode node, LanguageVersion minimum) =>
+        node.SyntaxTree.Options is CSharpParseOptions { } options && options.LanguageVersion >= minimum;
 }

@@ -61,7 +61,7 @@ public sealed class Sst2319UnreachableOptionalDefaultAnalyzer : DiagnosticAnalyz
             }
 
             var parameter = method.Parameters[firstOptional];
-            if (parameter.Locations.Length == 0)
+            if (parameter.Locations.IsEmpty)
             {
                 continue;
             }
@@ -159,10 +159,10 @@ public sealed class Sst2319UnreachableOptionalDefaultAnalyzer : DiagnosticAnalyz
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(parameters[i].Type.ToDisplayString());
+            _ = builder.Append(parameters[i].Type.ToDisplayString());
         }
 
         return builder.ToString();

@@ -109,8 +109,8 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     /// <param name="start">The content start.</param>
     /// <param name="end">The content end.</param>
     /// <returns><see langword="true"/> when a marker is present.</returns>
-    private static bool StartsWithMarker(SourceText text, int start, int end)
-        => StartsWith(text, start, end, "TODO".AsSpan())
+    private static bool StartsWithMarker(SourceText text, int start, int end) =>
+        StartsWith(text, start, end, "TODO".AsSpan())
             || StartsWith(text, start, end, "HACK".AsSpan())
             || StartsWith(text, start, end, "http".AsSpan())
             || text[start] is '-' or '=' or '*';
@@ -149,8 +149,8 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     /// <param name="start">The content start.</param>
     /// <param name="end">The content end.</param>
     /// <returns><see langword="true"/> when a recognized keyword is present.</returns>
-    private static bool StartsWithCodeKeyword(SourceText text, int start, int end)
-        => StartsWith(text, start, end, "return ".AsSpan())
+    private static bool StartsWithCodeKeyword(SourceText text, int start, int end) =>
+        StartsWith(text, start, end, "return ".AsSpan())
             || StartsWith(text, start, end, "throw ".AsSpan())
             || StartsWith(text, start, end, "var ".AsSpan())
             || StartsWithControlKeyword(text, start, end);
@@ -160,8 +160,8 @@ public sealed class Sst1148CommentedOutCodeAnalyzer : DiagnosticAnalyzer
     /// <param name="start">The content start.</param>
     /// <param name="end">The content end.</param>
     /// <returns><see langword="true"/> when a recognized keyword is present.</returns>
-    private static bool StartsWithControlKeyword(SourceText text, int start, int end)
-        => StartsWith(text, start, end, "if (".AsSpan())
+    private static bool StartsWithControlKeyword(SourceText text, int start, int end) =>
+        StartsWith(text, start, end, "if (".AsSpan())
             || StartsWith(text, start, end, "for (".AsSpan())
             || StartsWith(text, start, end, "while (".AsSpan());
 }

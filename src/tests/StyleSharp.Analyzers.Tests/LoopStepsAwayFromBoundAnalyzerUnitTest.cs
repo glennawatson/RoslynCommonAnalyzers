@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LoopConditionAnalyzer,
     StyleSharp.Analyzers.Sst2412LoopStepsAwayFromBoundCodeFixProvider>;
@@ -78,9 +79,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies an ascending step paired with a greater-than test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AscendingStepWithGreaterThanIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task AscendingStepWithGreaterThanIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -98,9 +100,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies the reverse-index typo (descending step, less-than test) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DescendingStepWithLessThanIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task DescendingStepWithLessThanIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -118,9 +121,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies the bound may sit on the left of the comparison.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundOnTheLeftIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BoundOnTheLeftIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -138,9 +142,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies an ascending loop toward its bound is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AscendingTowardBoundIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task AscendingTowardBoundIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -158,9 +163,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies a descending loop toward its bound is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DescendingTowardBoundIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task DescendingTowardBoundIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -178,9 +184,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies a not-equal condition is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NotEqualConditionIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task NotEqualConditionIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -198,9 +205,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies a body that also re-steps the counter is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyRestepsCounterIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BodyRestepsCounterIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -219,9 +227,10 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant step is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantStepIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task NonConstantStepIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -239,13 +248,15 @@ public class LoopStepsAwayFromBoundAnalyzerUnitTest
 
     /// <summary>Verifies the fix flips an ascending greater-than comparison to less-than-or-equal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixFlipsAscendingComparisonAsync()
-        => await VerifyFix.VerifyCodeFixAsync(AscendingSource, AscendingFixed);
+    public Task FixFlipsAscendingComparisonAsync() =>
+        VerifyFix.VerifyCodeFixAsync(AscendingSource, AscendingFixed);
 
     /// <summary>Verifies the fix flips the reverse-index typo to greater-than-or-equal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixFlipsReverseIndexTypoAsync()
-        => await VerifyFix.VerifyCodeFixAsync(ReverseIndexSource, ReverseIndexFixed);
+    public Task FixFlipsReverseIndexTypoAsync() =>
+        VerifyFix.VerifyCodeFixAsync(ReverseIndexSource, ReverseIndexFixed);
 }

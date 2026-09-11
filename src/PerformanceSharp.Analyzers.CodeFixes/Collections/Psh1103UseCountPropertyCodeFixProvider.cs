@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -101,8 +103,9 @@ public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IB
     /// <param name="expressionKind">The binary expression kind.</param>
     /// <param name="operatorKind">The binary operator token kind.</param>
     /// <returns>The comparison expression.</returns>
-    private static BinaryExpressionSyntax CreateComparison(ExpressionSyntax propertyAccess, SyntaxKind expressionKind, SyntaxKind operatorKind)
-        => SyntaxFactory.BinaryExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BinaryExpressionSyntax CreateComparison(ExpressionSyntax propertyAccess, SyntaxKind expressionKind, SyntaxKind operatorKind) =>
+        SyntaxFactory.BinaryExpression(
             expressionKind,
             propertyAccess.WithoutTrivia(),
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), operatorKind, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
@@ -112,14 +115,14 @@ public sealed class Psh1103UseCountPropertyCodeFixProvider : CodeFixProvider, IB
     /// <param name="comparison">The replacement comparison.</param>
     /// <param name="target">The node being replaced.</param>
     /// <returns>The comparison, parenthesized when the target's parent is an expression.</returns>
-    private static ExpressionSyntax ParenthesizeInsideExpression(ExpressionSyntax comparison, SyntaxNode target)
-        => target.Parent is ExpressionSyntax ? SyntaxFactory.ParenthesizedExpression(comparison) : comparison;
+    private static ExpressionSyntax ParenthesizeInsideExpression(ExpressionSyntax comparison, SyntaxNode target) =>
+        target.Parent is ExpressionSyntax ? SyntaxFactory.ParenthesizedExpression(comparison) : comparison;
 
     /// <summary>Reads the analyzer's suggested count property name from the diagnostic.</summary>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The suggested property name.</returns>
-    private static string GetPropertyName(Diagnostic diagnostic)
-        => diagnostic.Properties.TryGetValue(Psh1103UseCountPropertyAnalyzer.PropertyNameKey, out var name) && name is not null
+    private static string GetPropertyName(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Psh1103UseCountPropertyAnalyzer.PropertyNameKey, out var name) && name is not null
             ? name
             : "Count";
 }

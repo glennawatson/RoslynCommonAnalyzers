@@ -56,7 +56,7 @@ public sealed class Sst2712SetterlessInjectedPropertyAnalyzer : DiagnosticAnalyz
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="inject">The resolved injection attribute type, if present.</param>
     /// <param name="cascading">The resolved cascading-parameter attribute type, if present.</param>
-    private static void AnalyzeProperty(SymbolAnalysisContext context, INamedTypeSymbol? inject, INamedTypeSymbol? cascading)
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, INamedTypeSymbol? inject, INamedTypeSymbol? cascading)
     {
         var property = (IPropertySymbol)context.Symbol;
         if (property.SetMethod is not null || property.IsIndexer || property.IsStatic)

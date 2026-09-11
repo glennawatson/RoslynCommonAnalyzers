@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.Operations;
 
@@ -85,7 +86,7 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
     /// <param name="bindingFlagsType">The resolved <c>System.Reflection.BindingFlags</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeType, INamedTypeSymbol? bindingFlagsType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeType, INamedTypeSymbol? bindingFlagsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -109,12 +110,13 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
             SecurityRules.NonPublicReflection,
             invocation.SyntaxTree,
             invocation.Span,
-            "Type." + call.TargetMethod.Name));
+            $"Type.{call.TargetMethod.Name}"));
     }
 
     /// <summary>Returns whether a simple method name is one of <c>System.Type</c>'s member-lookup methods.</summary>
     /// <param name="name">The invoked simple method name.</param>
     /// <returns><see langword="true"/> when the name is a candidate lookup for binding.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsMemberLookupName(string name) => MemberLookupNames.Contains(name);
 
     /// <summary>Returns whether the call's <c>BindingFlags</c> argument is a constant that includes the <c>NonPublic</c> bit.</summary>

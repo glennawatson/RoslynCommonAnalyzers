@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces a non-short-circuiting boolean <c>&amp;</c> / <c>|</c> with <c>&amp;&amp;</c> / <c>||</c> (SST1468).</summary>
@@ -49,7 +51,7 @@ public sealed class Sst1468UseShortCircuitOperatorCodeFixProvider : CodeFixProvi
             return;
         }
 
-        editor.ReplaceNode(binary, (current, _) => ShortCircuitOperatorRewrite.Rewrite((BinaryExpressionSyntax)current));
+        editor.ReplaceNode(binary, static (current, _) => ShortCircuitOperatorRewrite.Rewrite((BinaryExpressionSyntax)current));
     }
 
     /// <summary>Replaces the eager operator with its short-circuiting form.</summary>
@@ -57,6 +59,7 @@ public sealed class Sst1468UseShortCircuitOperatorCodeFixProvider : CodeFixProvi
     /// <param name="root">The syntax root.</param>
     /// <param name="binary">The reported <c>&amp;</c> / <c>|</c> expression.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary)
-        => document.WithSyntaxRoot(root.ReplaceNode(binary, ShortCircuitOperatorRewrite.Rewrite(binary)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary) =>
+        document.WithSyntaxRoot(root.ReplaceNode(binary, ShortCircuitOperatorRewrite.Rewrite(binary)));
 }

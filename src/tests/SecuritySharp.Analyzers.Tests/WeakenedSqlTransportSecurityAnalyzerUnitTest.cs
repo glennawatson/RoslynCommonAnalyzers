@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSqlTransport = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -66,9 +67,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a literal <c>TrustServerCertificate=true</c> passed to a modern SqlConnection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralTrustServerCertificateToConnectionReportedAsync()
-        => await VerifyAsync(
+    public Task LiteralTrustServerCertificateToConnectionReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -81,9 +83,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a literal <c>Encrypt=false</c> passed to a legacy SqlConnection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralEncryptFalseToLegacyConnectionReportedAsync()
-        => await VerifyAsync(
+    public Task LiteralEncryptFalseToLegacyConnectionReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -96,9 +99,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a literal <c>Encrypt=Optional</c> passed to a builder constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralEncryptOptionalToBuilderReportedAsync()
-        => await VerifyAsync(
+    public Task LiteralEncryptOptionalToBuilderReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -111,9 +115,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a weakening literal assigned to the <c>ConnectionString</c> property is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralAssignedToConnectionStringReportedAsync()
-        => await VerifyAsync(
+    public Task LiteralAssignedToConnectionStringReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -127,9 +132,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a weakening literal with spaces around the keyword is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralWithSpacesAndMixedCaseReportedAsync()
-        => await VerifyAsync(
+    public Task LiteralWithSpacesAndMixedCaseReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -142,9 +148,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a weakening literal passed by the named constructor argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedConnectionStringArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task NamedConnectionStringArgumentReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -157,9 +164,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a builder initializer that sets <c>TrustServerCertificate = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderInitializerTrustServerCertificateReportedAsync()
-        => await VerifyAsync(
+    public Task BuilderInitializerTrustServerCertificateReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -176,9 +184,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a builder initializer that sets <c>Encrypt = false</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderInitializerEncryptFalseReportedAsync()
-        => await VerifyAsync(
+    public Task BuilderInitializerEncryptFalseReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -194,9 +203,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a builder initializer that sets <c>Encrypt = SqlConnectionEncryptOption.Optional</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderInitializerEncryptOptionalReportedAsync()
-        => await VerifyAsync(
+    public Task BuilderInitializerEncryptOptionalReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -212,9 +222,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a builder property assignment statement setting <c>TrustServerCertificate = true</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderPropertyAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task BuilderPropertyAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -228,9 +239,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a secure literal (encryption on, certificate validated) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task SecureLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -243,9 +255,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a builder set to <c>Encrypt = SqlConnectionEncryptOption.Strict</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BuilderStrictEncryptIsCleanAsync()
-        => await VerifyAsync(
+    public Task BuilderStrictEncryptIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -261,9 +274,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>TrustServerCertificate</c> value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantTrustServerCertificateIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantTrustServerCertificateIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -277,9 +291,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies a connection string held in a variable (not a literal at the call site) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConnectionStringFromVariableIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConnectionStringFromVariableIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -293,9 +308,10 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated type carrying same-named members is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTypeMembersAreCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedTypeMembersAreCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class FakeOptions
             {
@@ -336,11 +352,7 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeSqlTransport.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzeSqlTransport.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -350,11 +362,7 @@ public class WeakenedSqlTransportSecurityAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string body)
     {
-        var test = new AnalyzeSqlTransport.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = SqlClientStubs + body,
-        };
+        var test = new AnalyzeSqlTransport.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = SqlClientStubs + body, };
 
         await test.RunAsync(CancellationToken.None);
     }

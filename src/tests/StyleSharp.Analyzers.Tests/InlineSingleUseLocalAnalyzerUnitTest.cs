@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInlineSingleUseLocal = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2266InlineSingleUseLocalAnalyzer,
     StyleSharp.Analyzers.Sst2266InlineSingleUseLocalCodeFixProvider>;
@@ -540,20 +541,23 @@ public class InlineSingleUseLocalAnalyzerUnitTest
 
     /// <summary>Verifies an initializer wider than the default threshold is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LongInitializerIsCleanByDefaultAsync() => await VerifyCleanAsync(LongInitializerSource);
+    public Task LongInitializerIsCleanByDefaultAsync() => VerifyCleanAsync(LongInitializerSource);
 
     /// <summary>Verifies a raised rule-specific threshold reports an initializer the default would keep.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConfiguredThresholdReportsALongInitializerAsync()
-        => await RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.SST2266.max_initializer_length = 80");
+    public Task ConfiguredThresholdReportsALongInitializerAsync() =>
+        RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.SST2266.max_initializer_length = 80");
 
     /// <summary>Verifies the project-wide threshold key is honoured when the rule-specific one is unset.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProjectWideThresholdReportsALongInitializerAsync()
-        => await RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.max_initializer_length = 80");
+    public Task ProjectWideThresholdReportsALongInitializerAsync() =>
+        RunAsync(LongInitializerMarkup, LongInitializerFixed, "stylesharp.max_initializer_length = 80");
 
     /// <summary>Verifies the rule-specific threshold wins over the project-wide one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -569,9 +573,10 @@ public class InlineSingleUseLocalAnalyzerUnitTest
 
     /// <summary>Verifies a non-numeric threshold keeps the default rather than disabling the rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNumericThresholdKeepsTheDefaultAsync()
-        => await VerifyCleanAsync(LongInitializerSource, "stylesharp.SST2266.max_initializer_length = wide");
+    public Task NonNumericThresholdKeepsTheDefaultAsync() =>
+        VerifyCleanAsync(LongInitializerSource, "stylesharp.SST2266.max_initializer_length = wide");
 
     /// <summary>Verifies a non-positive threshold keeps the default rather than silencing every declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -723,10 +728,7 @@ public class InlineSingleUseLocalAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyInlineSingleUseLocal.Test CreateTest(string source, string? options)
     {
-        var test = new VerifyInlineSingleUseLocal.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyInlineSingleUseLocal.Test { TestCode = source, };
 
         var config = $"""
                       root = true

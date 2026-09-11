@@ -5,84 +5,92 @@
 namespace StyleSharp.Analyzers;
 
 /// <summary>Helper methods for reformatting parameter and argument lists so each entry is on its own line.</summary>
-internal static class UniqueLineCodeFixerHelper
+internal static class UniqueLineCodeFixerHelperExtensions
 {
     /// <summary>The spaces a split list entry is indented past the declaration or expression that owns it.</summary>
     private const int IndentationSpacesPerLevel = 4;
 
-    /// <summary>Returns the end-of-line trivia matching the line-ending convention of the supplied node's source text.</summary>
+    /// <summary>Extends a syntax node with the line-ending lookup the list-splitting rewrites use to match the source they edit.</summary>
     /// <param name="node">The node whose source text to inspect.</param>
-    /// <param name="elastic">
-    /// If true, returns elastic trivia (suitable for the formatter to normalize); if false, returns
-    /// non-elastic trivia (suitable for syntax forms the formatter would otherwise collapse, e.g. generic
-    /// angle-bracket lists).
-    /// </param>
-    /// <returns>An end-of-line <see cref="SyntaxTrivia"/> using <c>\r\n</c> when the source contains a CRLF break, else <c>\n</c>.</returns>
-    public static SyntaxTrivia GetEndOfLine(SyntaxNode node, bool elastic)
+    extension(SyntaxNode node)
     {
-        var text = node.SyntaxTree?.GetText();
-        if (text is null)
+        /// <summary>Returns the end-of-line trivia matching the line-ending convention of the supplied node's source text.</summary>
+        /// <param name="elastic">
+        /// If <see langword="true"/>, returns elastic trivia (suitable for the formatter to normalize); if
+        /// <see langword="false"/>, returns non-elastic trivia (suitable for syntax forms the formatter would
+        /// otherwise collapse, e.g. generic angle-bracket lists).
+        /// </param>
+        /// <returns>An end-of-line <see cref="SyntaxTrivia"/> using <c>\r\n</c> when the source contains a CRLF break, else <c>\n</c>.</returns>
+        internal SyntaxTrivia GetEndOfLine(bool elastic)
         {
-            return elastic ? SyntaxFactory.ElasticEndOfLine("\n") : SyntaxFactory.EndOfLine("\n");
-        }
-
-        var s = "\n";
-        for (var i = 0; i < text.Length; i++)
-        {
-            if (text[i] != '\n')
+            var text = node.SyntaxTree?.GetText();
+            if (text is null)
             {
-                continue;
+                return elastic ? SyntaxFactory.ElasticEndOfLine("\n") : SyntaxFactory.EndOfLine("\n");
             }
 
-            s = i > 0 && text[i - 1] == '\r' ? "\r\n" : "\n";
-            break;
-        }
+            var s = "\n";
+            for (var i = 0; i < text.Length; i++)
+            {
+                if (text[i] != '\n')
+                {
+                    continue;
+                }
 
-        return elastic ? SyntaxFactory.ElasticEndOfLine(s) : SyntaxFactory.EndOfLine(s);
+                s = i > 0 && text[i - 1] == '\r' ? "\r\n" : "\n";
+                break;
+            }
+
+            return elastic ? SyntaxFactory.ElasticEndOfLine(s) : SyntaxFactory.EndOfLine(s);
+        }
     }
 
-    /// <summary>Rewrites the node with each list entry placed on its own indented line, or returns <see langword="null"/> if no change is needed.</summary>
-    /// <typeparam name="T">The type of syntax node owning the list.</typeparam>
-    /// <typeparam name="TParam">The type of the list entries.</typeparam>
-    /// <param name="node">The node whose list should be reformatted.</param>
-    /// <param name="converterToList">A function that extracts the separated list from the node.</param>
-    /// <param name="addParameters">A function that produces a new node with the supplied separated list.</param>
-    /// <returns>The rewritten node, or <see langword="null"/> if the list is absent or already spans a single line.</returns>
-    public static T? ConvertNodeIfAble<T, TParam>(
-        this T node,
-        Func<T, SeparatedSyntaxList<TParam>?> converterToList,
-        Func<T, SeparatedSyntaxList<TParam>, T> addParameters)
+    /// <summary>Extends a syntax node with the rewrite that splits a separated list it owns onto one indented line per entry.</summary>
+    /// <typeparam name="T">The type of the node owning the list, preserved so the rewrite returns the same node type.</typeparam>
+    /// <param name="node">The node whose list is split and whose indentation the entries are aligned against.</param>
+    extension<T>(T node)
         where T : SyntaxNode
-        where TParam : SyntaxNode
     {
-        var list = converterToList(node);
 
-        if (list is null)
+        /// <summary>Rewrites the node with each list entry placed on its own indented line, or returns <see langword="null"/> if no change is needed.</summary>
+        /// <typeparam name="TParam">The type of the list entries.</typeparam>
+        /// <param name="converterToList">A function that extracts the separated list from the node.</param>
+        /// <param name="addParameters">A function that produces a new node with the supplied separated list.</param>
+        /// <returns>The rewritten node, or <see langword="null"/> if the list is absent or already spans a single line.</returns>
+        internal T? ConvertNodeIfAble<TParam>(
+            Func<T, SeparatedSyntaxList<TParam>?> converterToList,
+            Func<T, SeparatedSyntaxList<TParam>, T> addParameters)
+            where TParam : SyntaxNode
         {
-            return null;
+            var list = converterToList(node);
+
+            if (list is null)
+            {
+                return null;
+            }
+
+            var entries = list.Value;
+            if (entries.Count <= 1 || node.SyntaxTree is not { } tree)
+            {
+                return null;
+            }
+
+            // Start positions are monotonic, so the last entry tells us whether the list stayed on one line.
+            var startLine = tree.GetLineSpan(node.Span).StartLinePosition.Line;
+            if (tree.GetLineSpan(entries[entries.Count - 1].Span).StartLinePosition.Line == startLine)
+            {
+                return null;
+            }
+
+            var endOfLine = GetEndOfLine(node, elastic: true);
+
+            // Indent each entry one level deeper than the owning declaration/expression.
+            var leadingSpaces = GetLeadingSpaces(node) + IndentationSpacesPerLevel;
+            var indentedEntries = IndentEntries(entries, leadingSpaces);
+            var separators = CreateSeparators(indentedEntries.Length, endOfLine);
+
+            return addParameters(node, SyntaxFactory.SeparatedList(indentedEntries, separators));
         }
-
-        var entries = list.Value;
-        if (entries.Count <= 1 || node.SyntaxTree is not { } tree)
-        {
-            return null;
-        }
-
-        // Start positions are monotonic, so the last entry tells us whether the list stayed on one line.
-        var startLine = tree.GetLineSpan(node.Span).StartLinePosition.Line;
-        if (tree.GetLineSpan(entries[entries.Count - 1].Span).StartLinePosition.Line == startLine)
-        {
-            return null;
-        }
-
-        var endOfLine = GetEndOfLine(node, elastic: true);
-
-        // Indent each entry one level deeper than the owning declaration/expression.
-        var leadingSpaces = GetLeadingSpaces(node) + IndentationSpacesPerLevel;
-        var indentedEntries = IndentEntries(entries, leadingSpaces);
-        var separators = CreateSeparators(indentedEntries.Length, endOfLine);
-
-        return addParameters(node, SyntaxFactory.SeparatedList(indentedEntries, separators));
     }
 
     /// <summary>Rewrites a separated list so each entry sits on its own indented line, or returns <see langword="null"/> if no change is needed.</summary>
@@ -90,7 +98,7 @@ internal static class UniqueLineCodeFixerHelper
     /// <param name="ownerNode">The list node (such as a type parameter or type argument list) owning the entries.</param>
     /// <param name="list">The separated list of entries to reformat.</param>
     /// <returns>The reformatted separated list, or <see langword="null"/> if the list has a single entry or already spans a single line.</returns>
-    public static SeparatedSyntaxList<TParam>? SplitEntriesOntoOwnLines<TParam>(SyntaxNode ownerNode, SeparatedSyntaxList<TParam> list)
+    internal static SeparatedSyntaxList<TParam>? SplitEntriesOntoOwnLines<TParam>(SyntaxNode ownerNode, SeparatedSyntaxList<TParam> list)
         where TParam : SyntaxNode
     {
         if (list.Count <= 1 || ownerNode.SyntaxTree is not { } tree)
@@ -119,7 +127,7 @@ internal static class UniqueLineCodeFixerHelper
     /// <param name="getParameterList">Reads the parenthesized parameter list from the node.</param>
     /// <param name="withParameterList">Produces a copy of the node carrying the supplied parameter list.</param>
     /// <returns>The rewritten node, or the original when it has no parameter list or already spans one line per parameter.</returns>
-    public static T SplitParametersOntoOwnLines<T>(
+    internal static T SplitParametersOntoOwnLines<T>(
         T node,
         Func<T, ParameterListSyntax?> getParameterList,
         Func<T, ParameterListSyntax, T> withParameterList)
@@ -141,7 +149,7 @@ internal static class UniqueLineCodeFixerHelper
     /// <param name="getArgumentList">Reads the parenthesized argument list from the node.</param>
     /// <param name="withArgumentList">Produces a copy of the node carrying the supplied argument list.</param>
     /// <returns>The rewritten node, or the original when it has no argument list or already spans one line per argument.</returns>
-    public static T SplitArgumentsOntoOwnLines<T>(
+    internal static T SplitArgumentsOntoOwnLines<T>(
         T node,
         Func<T, ArgumentListSyntax?> getArgumentList,
         Func<T, ArgumentListSyntax, T> withArgumentList)
@@ -164,7 +172,7 @@ internal static class UniqueLineCodeFixerHelper
     /// <param name="entries">The separated list of entries the node owns.</param>
     /// <param name="rebuild">Builds the reformatted node from the split entries and the owner's end-of-line trivia.</param>
     /// <returns>The rewritten node, or the original when it has a single entry or already spans a single line.</returns>
-    public static T SplitAngleBracketedListOntoOwnLines<T, TParam>(
+    internal static T SplitAngleBracketedListOntoOwnLines<T, TParam>(
         T node,
         SeparatedSyntaxList<TParam> entries,
         Func<SeparatedSyntaxList<TParam>, SyntaxTrivia, T> rebuild)
@@ -231,7 +239,7 @@ internal static class UniqueLineCodeFixerHelper
     /// <param name="entryCount">The number of entries in the separated list.</param>
     /// <param name="endOfLine">The end-of-line trivia to apply after each comma.</param>
     /// <returns>An array of separators sized for the entry count.</returns>
-    private static SyntaxToken[] CreateSeparators(int entryCount, SyntaxTrivia endOfLine)
+    private static SyntaxToken[] CreateSeparators(int entryCount, in SyntaxTrivia endOfLine)
     {
         if (entryCount <= 1)
         {

@@ -2,15 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="LinqCallSyntax"/>, the syntactic recognizers shared between the
-/// Collections analyzers and their code fixes.
-/// </summary>
+/// <summary>Direct tests for <see cref="LinqCallSyntax"/>, the syntactic recognizers shared between the Collections analyzers and their code fixes.</summary>
 public class LinqCallSyntaxUnitTest
 {
     /// <summary>Verifies a single one-parameter lambda argument is accepted in both lambda shapes.</summary>
@@ -78,18 +76,19 @@ public class LinqCallSyntaxUnitTest
     /// <summary>Parses an invocation expression.</summary>
     /// <param name="text">The expression source.</param>
     /// <returns>The parsed invocation.</returns>
-    private static InvocationExpressionSyntax Invocation(string text)
-        => (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(text);
+    private static InvocationExpressionSyntax Invocation(string text) =>
+        (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(text);
 
     /// <summary>Parses an expression fragment.</summary>
     /// <param name="text">The expression source.</param>
     /// <returns>The parsed expression.</returns>
-    private static ExpressionSyntax Expression(string text)
-        => SyntaxFactory.ParseExpression(text);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax Expression(string text) =>
+        SyntaxFactory.ParseExpression(text);
 
     /// <summary>Parses a binary equality expression.</summary>
     /// <param name="text">The expression source.</param>
     /// <returns>The parsed binary expression.</returns>
-    private static BinaryExpressionSyntax Equality(string text)
-        => (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(text);
+    private static BinaryExpressionSyntax Equality(string text) =>
+        (BinaryExpressionSyntax)SyntaxFactory.ParseExpression(text);
 }

@@ -2,12 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a class that implements <c>IDisposable</c> but builds only half of the disposal pattern
-/// (SST2300).
-/// </summary>
+/// <summary>Reports a class that implements <c>IDisposable</c> but builds only half of the disposal pattern (SST2300).</summary>
 /// <remarks>
 /// <para>
 /// On the type that first signs the contract, four things are checked, in this order, and the first one
@@ -148,31 +147,33 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// virtual base <c>Dispose()</c>) is correct and not reported; nor is an explicit
     /// <c>IDisposable.Dispose</c>, which does not shadow the public member.
     /// </remarks>
-    private static void ReportHiddenDispose(SymbolAnalysisContext context, INamedTypeSymbol type)
+    private static void ReportHiddenDispose(in SymbolAnalysisContext context, INamedTypeSymbol type)
     {
         var members = type.GetMembers(DisposeName);
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is IMethodSymbol method && HidesBaseDispose(method))
+            if (members[i] is not IMethodSymbol method || !HidesBaseDispose(method))
             {
-                Report(
-                    context,
-                    method.Locations[0],
-                    type,
-                    "hides the base type's 'Dispose()' with a new one; a 'using' on the base type calls the base's, not this one",
-                    null);
-                return;
+                continue;
             }
+
+            Report(
+                context,
+                method.Locations[0],
+                type,
+                "hides the base type's 'Dispose()' with a new one; a 'using' on the base type calls the base's, not this one",
+                null);
+            return;
         }
     }
 
     /// <summary>Returns whether a method is a new parameterless <c>Dispose()</c> that hides the base's.</summary>
     /// <param name="method">A member named <c>Dispose</c>.</param>
     /// <returns><see langword="true"/> for a public, non-override, non-explicit, parameterless <c>Dispose()</c> declared in source.</returns>
-    private static bool HidesBaseDispose(IMethodSymbol method)
-        => method is { IsOverride: false, IsStatic: false, ReturnsVoid: true, DeclaredAccessibility: Accessibility.Public, Parameters.Length: 0 }
-            && method.ExplicitInterfaceImplementations.Length == 0
-            && method.Locations.Length > 0
+    private static bool HidesBaseDispose(IMethodSymbol method) =>
+        method is { IsOverride: false, IsStatic: false, ReturnsVoid: true, DeclaredAccessibility: Accessibility.Public, Parameters.Length: 0 }
+            && method.ExplicitInterfaceImplementations.IsEmpty
+            && !method.Locations.IsEmpty
             && method.Locations[0].IsInSource;
 
     /// <summary>Reads what the type's <c>Dispose()</c> body does and reports the first thing it omits.</summary>
@@ -183,7 +184,7 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// A <c>Dispose()</c> with no body — an abstract declaration, or one that lives in metadata — states
     /// nothing to disagree with, so nothing is reported for it.
     /// </remarks>
-    private static void AnalyzeDisposeBody(SymbolAnalysisContext context, INamedTypeSymbol type, in DisposeMembers members)
+    private static void AnalyzeDisposeBody(in SymbolAnalysisContext context, INamedTypeSymbol type, in DisposeMembers members)
     {
         if (members.Dispose is null
             || GetDeclaration(members.Dispose, context.CancellationToken) is not { } declaration
@@ -240,9 +241,9 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The disposable type.</param>
     /// <param name="disposeBool">The public <c>Dispose(bool)</c> overload.</param>
-    private static void ReportPublicDisposeBool(SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol disposeBool)
+    private static void ReportPublicDisposeBool(in SymbolAnalysisContext context, INamedTypeSymbol type, IMethodSymbol disposeBool)
     {
-        if (disposeBool.Locations.Length == 0 || !disposeBool.Locations[0].IsInSource)
+        if (disposeBool.Locations.IsEmpty || !disposeBool.Locations[0].IsInSource)
         {
             return;
         }
@@ -261,9 +262,9 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The disposable type.</param>
     /// <param name="clause">The clause the type fails.</param>
-    private static void ReportOnType(SymbolAnalysisContext context, INamedTypeSymbol type, string clause)
+    private static void ReportOnType(in SymbolAnalysisContext context, INamedTypeSymbol type, string clause)
     {
-        if (type.Locations.Length == 0 || !type.Locations[0].IsInSource)
+        if (type.Locations.IsEmpty || !type.Locations[0].IsInSource)
         {
             return;
         }
@@ -277,13 +278,14 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The disposable type.</param>
     /// <param name="clause">The clause the type fails.</param>
     /// <param name="properties">The properties a code fix reads, when the clause has one.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Report(
-        SymbolAnalysisContext context,
+        in SymbolAnalysisContext context,
         Location location,
         INamedTypeSymbol type,
         string clause,
-        ImmutableDictionary<string, string?>? properties)
-        => context.ReportDiagnostic(Diagnostic.Create(
+        ImmutableDictionary<string, string?>? properties) =>
+        context.ReportDiagnostic(Diagnostic.Create(
             DesignRules.DisposePattern,
             location,
             properties,
@@ -343,14 +345,14 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return new DisposeMembers(dispose, disposeBool, hasFinalizer);
+        return new(dispose, disposeBool, hasFinalizer);
     }
 
     /// <summary>Returns whether a method is the <c>IDisposable.Dispose()</c> implementation.</summary>
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for a parameterless <c>Dispose()</c>, explicit or not.</returns>
-    private static bool IsDispose(IMethodSymbol method)
-        => method.Parameters.Length == 0
+    private static bool IsDispose(IMethodSymbol method) =>
+        method.Parameters.IsEmpty
             && method.ReturnsVoid
             && (string.Equals(method.Name, DisposeName, StringComparison.Ordinal)
                 || method.Name.EndsWith(ExplicitDisposeSuffix, StringComparison.Ordinal));
@@ -358,8 +360,8 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method is the pattern's <c>Dispose(bool)</c> overload.</summary>
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for a <c>Dispose(bool)</c>.</returns>
-    private static bool IsDisposeOverload(IMethodSymbol method)
-        => method.Parameters.Length == 1
+    private static bool IsDisposeOverload(IMethodSymbol method) =>
+        method.Parameters.Length == 1
             && method.ReturnsVoid
             && string.Equals(method.Name, DisposeName, StringComparison.Ordinal)
             && method.Parameters[0].Type.SpecialType == SpecialType.System_Boolean;
@@ -371,7 +373,7 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     private static MethodDeclarationSyntax? GetDeclaration(IMethodSymbol method, CancellationToken cancellationToken)
     {
         var references = method.DeclaringSyntaxReferences;
-        return references.Length == 0
+        return references.IsEmpty
             ? null
             : references[0].GetSyntax(cancellationToken) as MethodDeclarationSyntax;
     }
@@ -387,7 +389,7 @@ public sealed class Sst2300DisposePatternAnalyzer : DiagnosticAnalyzer
     private static DisposeCalls FindDisposeCalls(MethodDeclarationSyntax declaration)
     {
         var calls = default(DisposeCalls);
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, DisposeCalls>(declaration, ref calls, MatchDisposeCall);
+        _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, DisposeCalls>(declaration, ref calls, MatchDisposeCall);
         return calls;
     }
 

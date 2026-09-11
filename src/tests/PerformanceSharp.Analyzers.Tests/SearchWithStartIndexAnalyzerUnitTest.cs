@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -197,9 +198,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a culture-sensitive search is not reported — a span search is ordinal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CultureSensitiveIndexOfIsCleanAsync()
-        => await VerifyAsync(
+    public Task CultureSensitiveIndexOfIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -211,9 +213,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a culture-sensitive StartsWith is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CultureSensitiveStartsWithIsCleanAsync()
-        => await VerifyAsync(
+    public Task CultureSensitiveStartsWithIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -225,9 +228,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a bounded substring is not reported — only the open-ended tail slice is rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundedSubstringIsCleanAsync()
-        => await VerifyAsync(
+    public Task BoundedSubstringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -239,9 +243,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a substring used for more than the search is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReusedSubstringIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReusedSubstringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -257,9 +262,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a search inside an expression tree is not reported — a tree cannot hold a span.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SearchInsideExpressionTreeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SearchInsideExpressionTreeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Linq.Expressions;
@@ -272,9 +278,10 @@ public class SearchWithStartIndexAnalyzerUnitTest
 
     /// <summary>Verifies a search reached through a conditional access is not reported — rebinding the detached slice would orphan its member binding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessSearchIsLeftAloneAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessSearchIsLeftAloneAsync() =>
+        VerifyAsync(
             """
             public sealed class C
             {
@@ -293,11 +300,7 @@ public class SearchWithStartIndexAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

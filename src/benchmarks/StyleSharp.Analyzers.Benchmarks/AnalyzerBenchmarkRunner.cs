@@ -20,7 +20,7 @@ internal static class AnalyzerBenchmarkRunner
     /// floor is hundreds of megabytes, to swamp the difference a rule actually makes. Single-threaded costs
     /// wall-clock and buys a figure that can be A/B'd.
     /// </remarks>
-    public static Task<int> GetDiagnosticCountAsync(in AnalyzerBenchmarkScenario scenario, ImmutableArray<DiagnosticAnalyzer> analyzers)
+    internal static Task<int> GetDiagnosticCountAsync(in AnalyzerBenchmarkScenario scenario, ImmutableArray<DiagnosticAnalyzer> analyzers)
     {
         var analyzerOptions = scenario.OptionsProvider is { } provider
             ? new AnalyzerOptions([], provider)
@@ -43,6 +43,6 @@ internal static class AnalyzerBenchmarkRunner
     /// A benchmark iteration has no token to flow: the harness owns the run and cancelling half of one
     /// would report a measurement of nothing. The opt-out is written explicitly rather than left implicit.
     /// </remarks>
-    private static async Task<int> GetDiagnosticCountAsync(CompilationWithAnalyzers withAnalyzers)
-        => (await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None).ConfigureAwait(false)).Length;
+    private static async Task<int> GetDiagnosticCountAsync(CompilationWithAnalyzers withAnalyzers) =>
+        (await withAnalyzers.GetAnalyzerDiagnosticsAsync(CancellationToken.None).ConfigureAwait(false)).Length;
 }

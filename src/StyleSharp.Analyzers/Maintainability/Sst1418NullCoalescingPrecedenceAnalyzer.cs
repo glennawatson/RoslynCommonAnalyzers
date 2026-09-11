@@ -47,7 +47,7 @@ public sealed class Sst1418NullCoalescingPrecedenceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an operand when it is an un-parenthesized binary expression other than <c>??</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="operand">A <c>??</c> operand.</param>
-    private static void ReportOperand(SyntaxNodeAnalysisContext context, ExpressionSyntax operand)
+    private static void ReportOperand(in SyntaxNodeAnalysisContext context, ExpressionSyntax operand)
     {
         if (operand is not BinaryExpressionSyntax binary
             || binary.IsKind(SyntaxKind.CoalesceExpression)

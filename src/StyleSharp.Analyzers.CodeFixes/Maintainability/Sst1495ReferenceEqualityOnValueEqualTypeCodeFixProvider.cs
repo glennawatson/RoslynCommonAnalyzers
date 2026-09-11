@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -38,8 +40,8 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     private const int StaticEqualsParameterCount = 2;
 
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(MaintainabilityRules.ReferenceEqualityOnValueEqualType.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(MaintainabilityRules.ReferenceEqualityOnValueEqualType.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
@@ -86,8 +88,9 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The reported comparison.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison)
-        => document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildEqualsCall(comparison)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax comparison) =>
+        document.WithSyntaxRoot(root.ReplaceNode(comparison, BuildEqualsCall(comparison)));
 
     /// <summary>Resolves the diagnostic to a comparison whose rewrite provably calls the framework's Equals.</summary>
     /// <param name="root">The syntax root.</param>
@@ -156,7 +159,7 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     /// <returns>The invocation, which is also what gets bound speculatively.</returns>
     private static InvocationExpressionSyntax BuildInvocation(BinaryExpressionSyntax comparison)
     {
-        var arguments = SyntaxFactory.SeparatedList<ArgumentSyntax>(
+        var arguments = SyntaxFactory.SeparatedList(
             [SyntaxFactory.Argument(Bare(comparison.Left)), SyntaxFactory.Argument(Bare(comparison.Right))],
             [SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))]);
 
@@ -171,5 +174,6 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     /// <summary>Strips the trivia an operand carried around the operator it no longer sits beside.</summary>
     /// <param name="operand">The comparison operand.</param>
     /// <returns>The operand with no surrounding trivia.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExpressionSyntax Bare(ExpressionSyntax operand) => operand.WithoutLeadingTrivia().WithoutTrailingTrivia();
 }

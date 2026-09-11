@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSecret = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -10,6 +12,7 @@ using AnalyzeSecret = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
 namespace SecuritySharp.Analyzers.Tests;
 
 /// <summary>Unit tests for SES1201 (a string literal must not hard-code a recognisable secret).</summary>
+[SuppressMessage("Security", "SES1201:Do not hard-code a secret in a string literal", Justification = "The credential shapes are the fixture this rule is measured against; reporting them would mean the rule cannot be tested.")]
 public class HardcodedSecretAnalyzerUnitTest
 {
     /// <summary>Verifies each recognised credential shape is classified with the expected kind label.</summary>
@@ -34,8 +37,8 @@ public class HardcodedSecretAnalyzerUnitTest
     [Arguments("Data Source=.;Initial Catalog=Sales;Integrated Security=false;Pwd=W1nter2024Rocks;", HardcodedSecretClassifier.ConnectionStringPassword)]
     [Arguments("Host=db.example.com;Username=admin;Password=SuperHost99Pass", HardcodedSecretClassifier.ConnectionStringPassword)]
     [Arguments("Initial Catalog=Store;Password=Cat4logPass99", HardcodedSecretClassifier.ConnectionStringPassword)]
-    public async Task ClassifiesRecognisedSecretAsync(string value, string expectedKind)
-        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
+    public async Task ClassifiesRecognisedSecretAsync(string value, string expectedKind) =>
+        await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
 
     /// <summary>Verifies a key carrying a vendor's sample marker is still classified by default.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -49,8 +52,8 @@ public class HardcodedSecretAnalyzerUnitTest
     [Arguments("AKIAIOSFODNN7EXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
     [Arguments("AKIAI44QH8DHBEXAMPLE", HardcodedSecretClassifier.AwsAccessKeyId)]
     [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqrs", HardcodedSecretClassifier.GitHubToken)]
-    public async Task DocumentationExampleIsClassifiedByDefaultAsync(string value, string expectedKind)
-        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
+    public async Task DocumentationExampleIsClassifiedByDefaultAsync(string value, string expectedKind) =>
+        await Assert.That(HardcodedSecretClassifier.Classify(value)).IsEqualTo(expectedKind);
 
     /// <summary>Verifies a project can opt into accepting a vendor's published sample key.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -59,8 +62,8 @@ public class HardcodedSecretAnalyzerUnitTest
     [Arguments("AKIAIOSFODNN7EXAMPLE")]
     [Arguments("AKIAI44QH8DHBEXAMPLE")]
     [Arguments("ghp_0123456789abcdefghijEXAMPLEklmnopqrs")]
-    public async Task DocumentationExampleIsAcceptedWhenAllowedAsync(string value)
-        => await Assert.That(HardcodedSecretClassifier.Classify(value, new SecretScanningSettings(AllowDocumentationExamples: true, AllowedExamples: null))).IsNull();
+    public async Task DocumentationExampleIsAcceptedWhenAllowedAsync(string value) =>
+        await Assert.That(HardcodedSecretClassifier.Classify(value, new(AllowDocumentationExamples: true, AllowedExamples: null))).IsNull();
 
     /// <summary>Verifies a project can name the exact sample values it accepts.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
@@ -83,8 +86,8 @@ public class HardcodedSecretAnalyzerUnitTest
     [Test]
     [Arguments("xoxb-", "123456789012-1234567890123456-abcdEFGHijklMNOP")]
     [Arguments("xoxp-", "987654321098-0192837465019-ZYXWvutsRQPOnmlk")]
-    public async Task ClassifiesSlackTokenAsync(string prefix, string body)
-        => await Assert.That(HardcodedSecretClassifier.Classify(prefix + body)).IsEqualTo(HardcodedSecretClassifier.SlackToken);
+    public async Task ClassifiesSlackTokenAsync(string prefix, string body) =>
+        await Assert.That(HardcodedSecretClassifier.Classify(prefix + body)).IsEqualTo(HardcodedSecretClassifier.SlackToken);
 
     /// <summary>Verifies ordinary text, placeholders, and near-misses are not classified as secrets.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -118,20 +121,21 @@ public class HardcodedSecretAnalyzerUnitTest
     [Arguments("Server=localhost;Database=db;Password=xxxxxx")]
     [Arguments("Note Password=Hidden123Value written in prose")]
     [Arguments("PRIVATE KEY----- appears before -----BEGIN in this note")]
-    public async Task LeavesNonSecretsUnclassifiedAsync(string value)
-        => await Assert.That(HardcodedSecretClassifier.Classify(value)).IsNull();
+    public async Task LeavesNonSecretsUnclassifiedAsync(string value) =>
+        await Assert.That(HardcodedSecretClassifier.Classify(value)).IsNull();
 
     /// <summary>Verifies a non-ASCII character following a prefix stops the class scan without a match.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task StopsClassScanAtNonAsciiCharacterAsync()
-        => await Assert.That(HardcodedSecretClassifier.Classify("sk-abéghijklmnopqrstuvwxyz012345")).IsNull();
+    public async Task StopsClassScanAtNonAsciiCharacterAsync() =>
+        await Assert.That(HardcodedSecretClassifier.Classify("sk-abéghijklmnopqrstuvwxyz012345")).IsNull();
 
     /// <summary>Verifies the analyzer reports a hard-coded key literal in real source.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReportsHardcodedKeyLiteralAsync()
-        => await VerifyAsync(
+    public Task ReportsHardcodedKeyLiteralAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -141,9 +145,10 @@ public class HardcodedSecretAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer reports a hard-coded connection-string password literal.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReportsHardcodedConnectionStringAsync()
-        => await VerifyAsync(
+    public Task ReportsHardcodedConnectionStringAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -153,9 +158,10 @@ public class HardcodedSecretAnalyzerUnitTest
 
     /// <summary>Verifies the analyzer stays silent on ordinary string literals.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LeavesOrdinaryLiteralAloneAsync()
-        => await VerifyAsync(
+    public Task LeavesOrdinaryLiteralAloneAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -168,11 +174,7 @@ public class HardcodedSecretAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeSecret.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeSecret.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

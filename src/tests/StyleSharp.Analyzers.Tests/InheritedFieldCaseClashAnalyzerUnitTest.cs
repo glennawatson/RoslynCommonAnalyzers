@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2463InheritedFieldCaseClashAnalyzer>;
 
@@ -12,9 +13,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 {
     /// <summary>Verifies a derived field that case-clashes with a protected inherited field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedInheritedCaseClashIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedInheritedCaseClashIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -31,9 +33,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a public inherited case-clash is reported (the shape the framework's same-scope rule misses).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicInheritedCaseClashIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicInheritedCaseClashIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -48,9 +51,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies an internal inherited case-clash is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalInheritedCaseClashIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InternalInheritedCaseClashIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -65,9 +69,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a case-clash with a field two levels up the base chain is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GrandparentInheritedCaseClashIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GrandparentInheritedCaseClashIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Root
             {
@@ -88,9 +93,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a private base field, invisible to the derived type, is never matched.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateBaseFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateBaseFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -109,9 +115,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies an exactly matching inherited name (deliberate hiding) is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalInheritedNameIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalInheritedNameIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -128,9 +135,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies names that differ by more than case are two ordinary fields and are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamesDifferingByMoreThanCaseAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NamesDifferingByMoreThanCaseAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -147,9 +155,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies two fields case-clashing within one type (no inheritance) are not this rule's concern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameTypeCaseClashIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SameTypeCaseClashIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -162,9 +171,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a static base field is not matched against a derived instance field.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticBaseFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticBaseFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -181,9 +191,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a derived static field is not reported even when it case-clashes with an inherited instance field.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedStaticFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DerivedStaticFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -200,9 +211,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies an inherited auto-property's implicit backing field never produces a false positive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedAutoPropertyBackingFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InheritedAutoPropertyBackingFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -219,9 +231,10 @@ public class InheritedFieldCaseClashAnalyzerUnitTest
 
     /// <summary>Verifies a class deriving directly from object is not inspected.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassDerivingFromObjectIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassDerivingFromObjectIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {

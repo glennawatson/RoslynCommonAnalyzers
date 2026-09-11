@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeLimit = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -42,9 +43,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies <c>[DisableRequestSizeLimit]</c> on a controller class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisableAttributeOnClassReportedAsync()
-        => await VerifyAsync(
+    public Task DisableAttributeOnClassReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -56,9 +58,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies <c>[DisableRequestSizeLimit]</c> on an action method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisableAttributeOnMethodReportedAsync()
-        => await VerifyAsync(
+    public Task DisableAttributeOnMethodReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -73,9 +76,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies the full <c>DisableRequestSizeLimitAttribute</c> spelling is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisableAttributeLongSpellingReportedAsync()
-        => await VerifyAsync(
+    public Task DisableAttributeLongSpellingReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -87,9 +91,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>KestrelServerLimits.MaxRequestBodySize</c> to null is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KestrelLimitAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task KestrelLimitAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -104,9 +109,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form on KestrelServerLimits is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KestrelLimitObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task KestrelLimitObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -119,9 +125,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>IHttpMaxRequestBodySizeFeature.MaxRequestBodySize</c> to null is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FeatureLimitAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task FeatureLimitAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http.Features;
 
@@ -136,9 +143,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies setting a finite numeric cap is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FiniteLimitIsCleanAsync()
-        => await VerifyAsync(
+    public Task FiniteLimitIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -153,9 +161,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedAttributeOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedAttributeOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using MyAttrs;
 
@@ -175,9 +184,10 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
 
     /// <summary>Verifies a same-named property on an unrelated type set to null is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyLimits
             {
@@ -219,11 +229,7 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeLimit.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeLimit.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -233,11 +239,7 @@ public class RequestBodySizeLimitRemovalAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeLimit.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetStubs
-        };
+        var test = new AnalyzeLimit.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

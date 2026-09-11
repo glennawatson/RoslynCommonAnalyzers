@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeComponentAuthorization = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -44,9 +45,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies [Authorize] on a non-routable component reports the attribute.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AuthorizeOnNonRoutableComponentReportedAsync()
-        => await VerifyAsync(
+    public Task AuthorizeOnNonRoutableComponentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
             using Microsoft.AspNetCore.Components;
@@ -59,9 +61,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies the marker is matched by symbol, not written text (fully qualified spelling).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedAuthorizeReportedAsync()
-        => await VerifyAsync(
+    public Task FullyQualifiedAuthorizeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -73,9 +76,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a subclass of AuthorizeAttribute on a non-routable component is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedAuthorizeAttributeReportedAsync()
-        => await VerifyAsync(
+    public Task DerivedAuthorizeAttributeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
             using Microsoft.AspNetCore.Components;
@@ -92,9 +96,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a routable component ([Route] present) with [Authorize] is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RoutableComponentNotReportedAsync()
-        => await VerifyAsync(
+    public Task RoutableComponentNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
             using Microsoft.AspNetCore.Components;
@@ -108,9 +113,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies an abstract component with [Authorize] is exempt.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractComponentNotReportedAsync()
-        => await VerifyAsync(
+    public Task AbstractComponentNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
             using Microsoft.AspNetCore.Components;
@@ -123,9 +129,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a layout component (deriving from LayoutComponentBase) with [Authorize] is exempt.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LayoutComponentNotReportedAsync()
-        => await VerifyAsync(
+    public Task LayoutComponentNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
             using Microsoft.AspNetCore.Components;
@@ -138,9 +145,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies [Authorize] on a non-component type (matched only by symbol) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonComponentTypeNotReportedAsync()
-        => await VerifyAsync(
+    public Task NonComponentTypeNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authorization;
 
@@ -152,9 +160,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a component without [Authorize] is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComponentWithoutAuthorizeNotReportedAsync()
-        => await VerifyAsync(
+    public Task ComponentWithoutAuthorizeNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -165,9 +174,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a component with only an unrelated attribute is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComponentWithUnrelatedAttributeNotReportedAsync()
-        => await VerifyAsync(
+    public Task ComponentWithUnrelatedAttributeNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -263,9 +273,10 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
 
     /// <summary>Verifies a project without the Blazor markers registers nothing (the rule is gated off).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoBlazorReferencesNotReportedAsync()
-        => await VerifyAsync(
+    public Task NoBlazorReferencesNotReportedAsync() =>
+        VerifyAsync(
             """
             [MyApp.Authorize]
             public class Widget
@@ -285,11 +296,7 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeComponentAuthorization.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeComponentAuthorization.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -300,11 +307,7 @@ public class NonRoutableComponentAuthorizationAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithConfigAsync(string source, string editorConfig)
     {
-        var test = new AnalyzeComponentAuthorization.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeComponentAuthorization.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", editorConfig));
 

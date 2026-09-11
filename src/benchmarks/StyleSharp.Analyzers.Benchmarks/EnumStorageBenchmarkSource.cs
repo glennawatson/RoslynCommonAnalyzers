@@ -15,8 +15,8 @@ internal static class EnumStorageBenchmarkSource
     /// No analyzer-config options are supplied, so the rule runs on its default allowed list of <c>int</c>
     /// alone — which is what the violating corpus is measured against.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -28,8 +28,8 @@ internal static class EnumStorageBenchmarkSource
     /// <param name="index">The synthetic enum index.</param>
     /// <param name="violating">Whether to emit a violating enum.</param>
     /// <returns>The generated enum block.</returns>
-    private static string GenerateEnum(int index, bool violating)
-        => violating ? GenerateViolatingEnum(index) : GenerateCleanEnum(index);
+    private static string GenerateEnum(int index, bool violating) =>
+        violating ? GenerateViolatingEnum(index) : GenerateCleanEnum(index);
 
     /// <summary>Builds one enum stored as an int, with and without saying so.</summary>
     /// <param name="index">The synthetic enum index.</param>
@@ -39,8 +39,8 @@ internal static class EnumStorageBenchmarkSource
     /// on the base list rejects them without a bind or an option read. The explicit <c>: int</c> is the case
     /// that does pay for both, so the corpus carries some of each.
     /// </remarks>
-    private static string GenerateCleanEnum(int index)
-        => $$"""
+    private static string GenerateCleanEnum(int index) =>
+        $$"""
            public enum Level{{index}}
            {
                Low = 0,
@@ -65,8 +65,8 @@ internal static class EnumStorageBenchmarkSource
     /// <summary>Builds one enum stored as something other than an int.</summary>
     /// <param name="index">The synthetic enum index.</param>
     /// <returns>The generated enum block.</returns>
-    private static string GenerateViolatingEnum(int index)
-        => $$"""
+    private static string GenerateViolatingEnum(int index) =>
+        $$"""
            public enum Packed{{index}} : byte
            {
                Low = 0,

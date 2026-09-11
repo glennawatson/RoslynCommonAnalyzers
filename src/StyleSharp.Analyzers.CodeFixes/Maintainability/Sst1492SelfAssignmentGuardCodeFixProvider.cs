@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -61,8 +63,8 @@ public sealed class Sst1492SelfAssignmentGuardCodeFixProvider : CodeFixProvider,
     /// <param name="root">The syntax root.</param>
     /// <param name="ifStatement">The guard to unwrap.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement)
-        => Sst1492SelfAssignmentGuardAnalyzer.TryGetGuardedAssignment(ifStatement) is { } assignment
+    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax ifStatement) =>
+        Sst1492SelfAssignmentGuardAnalyzer.TryGetGuardedAssignment(ifStatement) is { } assignment
             ? document.WithSyntaxRoot(root.ReplaceNode(ifStatement, Unwrap(ifStatement, assignment)))
             : document;
 
@@ -70,15 +72,16 @@ public sealed class Sst1492SelfAssignmentGuardCodeFixProvider : CodeFixProvider,
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The reported guard, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static IfStatementSyntax? TryGetGuard(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan)?.Parent as IfStatementSyntax;
+    private static IfStatementSyntax? TryGetGuard(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.Parent as IfStatementSyntax;
 
     /// <summary>Builds the assignment statement that takes the guard's place.</summary>
     /// <param name="ifStatement">The guard being removed.</param>
     /// <param name="assignment">The assignment the guard wrapped.</param>
     /// <returns>The replacement statement, carrying the guard's own trivia.</returns>
-    private static ExpressionStatementSyntax Unwrap(IfStatementSyntax ifStatement, ExpressionStatementSyntax assignment)
-        => assignment
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionStatementSyntax Unwrap(IfStatementSyntax ifStatement, ExpressionStatementSyntax assignment) =>
+        assignment
             .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
             .WithTrailingTrivia(ifStatement.GetTrailingTrivia())
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);

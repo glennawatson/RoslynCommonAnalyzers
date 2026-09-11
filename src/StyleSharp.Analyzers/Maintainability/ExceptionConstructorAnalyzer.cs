@@ -70,7 +70,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one type, reporting both rules when it is an exception.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="state">The lazily-resolved per-compilation state.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, ExceptionTypeState state)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, ExceptionTypeState state)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class || type.IsStatic || !state.IsException(type))
@@ -91,7 +91,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The exception type.</param>
     /// <param name="tree">The tree the type is declared in, used to read its settings.</param>
-    private static void ReportMissingConstructors(SymbolAnalysisContext context, INamedTypeSymbol type, SyntaxTree tree)
+    private static void ReportMissingConstructors(in SymbolAnalysisContext context, INamedTypeSymbol type, SyntaxTree tree)
     {
         var options = ExceptionConstructorOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
         if (!options.IncludeNonPublicTypes && !IsExternallyVisible(type))
@@ -194,7 +194,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     private static StandardExceptionConstructors Classify(IMethodSymbol constructor)
     {
         var parameters = constructor.Parameters;
-        if (parameters.Length == 0)
+        if (parameters.IsEmpty)
         {
             return StandardExceptionConstructors.Parameterless;
         }
@@ -217,8 +217,8 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a parameter's type is <c>System.Exception</c> itself.</summary>
     /// <param name="type">The parameter type.</param>
     /// <returns><see langword="true"/> when the constructor can wrap any cause.</returns>
-    private static bool IsExceptionType(ITypeSymbol type)
-        => type is INamedTypeSymbol { Name: nameof(Exception), ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
+    private static bool IsExceptionType(ITypeSymbol type) =>
+        type is INamedTypeSymbol { Name: nameof(Exception), ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
 
     /// <summary>Returns whether the people who can see the type can also call the constructor.</summary>
     /// <param name="constructor">The declared constructor.</param>
@@ -237,12 +237,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (type.IsAbstract)
-        {
-            return accessibility is Accessibility.Protected or Accessibility.ProtectedOrInternal;
-        }
-
-        return accessibility == Accessibility.Internal && !IsExternallyVisible(type);
+        return type.IsAbstract ? accessibility is Accessibility.Protected or Accessibility.ProtectedOrInternal : accessibility == Accessibility.Internal && !IsExternallyVisible(type);
     }
 
     /// <summary>Returns whether the type can be seen from outside the assembly.</summary>
@@ -300,7 +295,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
         var builder = new System.Text.StringBuilder(parts[0]);
         for (var i = 1; i < parts.Count; i++)
         {
-            builder.Append(i == parts.Count - 1 ? " and " : ", ").Append(parts[i]);
+            _ = builder.Append(i == parts.Count - 1 ? " and " : ", ").Append(parts[i]);
         }
 
         return builder.ToString();
@@ -310,7 +305,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The exception type.</param>
     /// <param name="state">The per-compilation state, which knows whether the members are obsolete.</param>
-    private static void ReportSerializationMembers(SymbolAnalysisContext context, INamedTypeSymbol type, ExceptionTypeState state)
+    private static void ReportSerializationMembers(in SymbolAnalysisContext context, INamedTypeSymbol type, ExceptionTypeState state)
     {
         if (!state.SerializationIsObsolete)
         {
@@ -332,7 +327,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             }
 
             var member = method.MethodKind == MethodKind.Constructor
-                ? type.Name + "(SerializationInfo, StreamingContext)"
+                ? $"{type.Name}(SerializationInfo, StreamingContext)"
                 : GetObjectDataName;
 
             context.ReportDiagnostic(Diagnostic.Create(
@@ -346,6 +341,7 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     /// The per-compilation facts both rules need: what <c>System.Exception</c> is, whether the framework
     /// has obsoleted its serialization members, and what the serialization parameter types are.
     /// </summary>
+    /// <param name="compilation">The compilation the exception and serialization types are resolved against.</param>
     /// <remarks>
     /// Everything is resolved on first use, behind the base-type check — a compilation that declares no
     /// exception never pays a metadata lookup at all.

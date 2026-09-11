@@ -224,11 +224,11 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
         {
             if (byDocument[i].Id == document.Id)
             {
-                return new ValueTask<DocumentCallSites?>(byDocument[i]);
+                return new(byDocument[i]);
             }
         }
 
-        return new ValueTask<DocumentCallSites?>(AddAsync(byDocument, document, cancellationToken));
+        return new(AddAsync(byDocument, document, cancellationToken));
     }
 
     /// <summary>Adds a document's rewrite entry, reading its syntax root.</summary>
@@ -269,8 +269,8 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
         return called?.Parent is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 0 } invocation
             && invocation.Expression == called
             && invocation.Parent is not ExpressionStatementSyntax
-                ? invocation
-                : null;
+            ? invocation
+            : null;
     }
 
     /// <summary>The call sites to rewrite in one document.</summary>
@@ -283,7 +283,7 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
         {
             Id = id;
             Root = root;
-            Invocations = new List<InvocationExpressionSyntax>(1);
+            Invocations = new(1);
         }
 
         /// <summary>Gets the document's id.</summary>

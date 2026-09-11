@@ -49,8 +49,8 @@ public sealed class Sst2456RedeclaredFieldLikeEventAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.RedeclaredFieldLikeEvent);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -102,7 +102,7 @@ public sealed class Sst2456RedeclaredFieldLikeEventAnalyzer : DiagnosticAnalyzer
     /// An <c>abstract</c> event — including an <c>abstract override</c> that re-abstracts — declares no
     /// backing field, so it ends the analysis before anything binds.
     /// </remarks>
-    private static bool IsRedeclarationCandidate(SyntaxTokenList modifiers, out bool hasNew)
+    private static bool IsRedeclarationCandidate(in SyntaxTokenList modifiers, out bool hasNew)
     {
         hasNew = false;
         var hasOverride = false;

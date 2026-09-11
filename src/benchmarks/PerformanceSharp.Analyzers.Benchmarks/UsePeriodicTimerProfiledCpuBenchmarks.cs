@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for delay-paced polling loops analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UsePeriodicTimerProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class UsePeriodicTimerProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class UsePeriodicTimerProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean delay-paced polling loops path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UsePeriodicTimer_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating delay-paced polling loops path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UsePeriodicTimer_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

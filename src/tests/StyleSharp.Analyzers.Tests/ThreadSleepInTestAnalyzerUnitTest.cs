@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2506ThreadSleepInTestAnalyzer>;
@@ -13,9 +14,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 {
     /// <summary>Verifies a fully-qualified <c>Thread.Sleep</c> in an xUnit fact is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadSleepInXunitFactIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ThreadSleepInXunitFactIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -33,9 +35,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Thread.Sleep</c> nested inside an <c>if</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadSleepNestedInIfIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ThreadSleepNestedInIfIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Threading;
             using Xunit;
@@ -57,9 +60,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Sleep</c> reached through <c>using static Thread</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStaticSleepIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UsingStaticSleepIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using static System.Threading.Thread;
             using Xunit;
@@ -78,9 +82,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Thread.Sleep</c> in an NUnit test is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadSleepInNUnitTestIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ThreadSleepInNUnitTestIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -98,9 +103,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies an attribute keeping a known spelling but deriving from a marker is treated as a test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedTestAttributeIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task DerivedTestAttributeIsFlaggedAsync() =>
+        VerifyAsync(
             """
             namespace Xunit { using System; public class FactAttribute : Attribute { } }
 
@@ -118,9 +124,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a test method with no sleep is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TestWithoutSleepIsCleanAsync()
-        => await VerifyAsync(
+    public Task TestWithoutSleepIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -138,9 +145,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Thread.Sleep</c> outside any test method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadSleepInNonTestMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task ThreadSleepInNonTestMethodIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace Xunit { using System; public sealed class FactAttribute : Attribute { } }
 
@@ -155,9 +163,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a same-named user <c>Sleep</c> method called from a test is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedSleepInTestIsCleanAsync()
-        => await VerifyAsync(
+    public Task UserDefinedSleepInTestIsCleanAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -177,9 +186,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies a same-named user attribute that is not a marker leaves a test's sleep alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedUserFactAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedUserFactAttributeIsCleanAsync() =>
+        VerifyAsync(
             """
             namespace Xunit { using System; public sealed class FactAttribute : Attribute { } }
 
@@ -197,9 +207,10 @@ public class ThreadSleepInTestAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported when no test framework is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoTestFrameworkIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoTestFrameworkIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -215,11 +226,7 @@ public class ThreadSleepInTestAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -47,7 +47,7 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one conversion for array covariance.</summary>
     /// <param name="context">The operation analysis context.</param>
     /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
-    private static void Analyze(OperationAnalysisContext context, bool readOnlySpanResolves)
+    private static void Analyze(in OperationAnalysisContext context, bool readOnlySpanResolves)
     {
         var conversion = (IConversionOperation)context.Operation;
         if (!conversion.Conversion.IsReference
@@ -71,10 +71,10 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
 
         var sourceDisplay = source.ToDisplayString();
         var elementDisplay = sourceElement.ToDisplayString();
-        var advice = "use IReadOnlyList<" + elementDisplay + "> for read-only access, or keep the array typed '" + sourceDisplay + "'";
+        var advice = $"use IReadOnlyList<{elementDisplay}> for read-only access, or keep the array typed '{sourceDisplay}'";
         if (readOnlySpanResolves)
         {
-            advice += ", or ReadOnlySpan<" + elementDisplay + ">";
+            advice += $", or ReadOnlySpan<{elementDisplay}>";
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(

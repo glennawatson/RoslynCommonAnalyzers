@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.CodeAnalysis.Text;
 
@@ -25,16 +26,17 @@ internal static class SummaryCollapse
     /// <param name="text">The source text.</param>
     /// <param name="innerSpan">The raw span between the summary tags.</param>
     /// <returns>The number of characters the collapsed text occupies.</returns>
-    public static int CollapsedLength(SourceText text, TextSpan innerSpan) => Render(text, innerSpan, builder: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int CollapsedLength(SourceText text, TextSpan innerSpan) => Render(text, innerSpan, builder: null);
 
     /// <summary>Returns the collapsed inner text.</summary>
     /// <param name="text">The source text.</param>
     /// <param name="innerSpan">The raw span between the summary tags.</param>
     /// <returns>The single-line inner text.</returns>
-    public static string Collapse(SourceText text, TextSpan innerSpan)
+    internal static string Collapse(SourceText text, TextSpan innerSpan)
     {
         var builder = new StringBuilder(innerSpan.Length);
-        Render(text, innerSpan, builder);
+        _ = Render(text, innerSpan, builder);
         return builder.ToString();
     }
 

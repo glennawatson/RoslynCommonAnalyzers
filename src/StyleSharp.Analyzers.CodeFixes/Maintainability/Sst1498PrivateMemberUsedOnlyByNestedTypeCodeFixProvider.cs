@@ -100,7 +100,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
 
         if (ClosesTheGap(move) is { } follower)
         {
-            editor.ReplaceNode(follower, (current, _) => WithoutLeadingBlankLine((MemberDeclarationSyntax)current));
+            editor.ReplaceNode(follower, static (current, _) => WithoutLeadingBlankLine((MemberDeclarationSyntax)current));
         }
     }
 
@@ -182,8 +182,8 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
     /// <param name="node">The current nested type, including any nested batch edits.</param>
     /// <param name="member">The member to append.</param>
     /// <returns>The nested type with the member added.</returns>
-    private static SyntaxNode Append(SyntaxNode node, MemberDeclarationSyntax member)
-        => node is TypeDeclarationSyntax type ? type.WithMembers(type.Members.Add(member)) : node;
+    private static SyntaxNode Append(SyntaxNode node, MemberDeclarationSyntax member) =>
+        node is TypeDeclarationSyntax type ? type.WithMembers(type.Members.Add(member)) : node;
 
     /// <summary>Prepares the member for its new home, one level deeper in the file.</summary>
     /// <param name="member">The member being moved.</param>
@@ -215,14 +215,14 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
     /// <summary>Returns whether a trivia is only layout — whitespace or a line break.</summary>
     /// <param name="trivia">The trivia to classify.</param>
     /// <returns><see langword="true"/> when it carries nothing the author wrote.</returns>
-    private static bool IsLayout(SyntaxTrivia trivia)
-        => trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia);
+    private static bool IsLayout(in SyntaxTrivia trivia) =>
+        trivia.IsKind(SyntaxKind.WhitespaceTrivia) || trivia.IsKind(SyntaxKind.EndOfLineTrivia);
 
     /// <summary>Gets the trivia from an index onwards.</summary>
     /// <param name="trivia">The trivia list.</param>
     /// <param name="start">The first index to keep.</param>
     /// <returns>The kept trivia.</returns>
-    private static List<SyntaxTrivia> GetRange(SyntaxTriviaList trivia, int start)
+    private static List<SyntaxTrivia> GetRange(in SyntaxTriviaList trivia, int start)
     {
         var kept = new List<SyntaxTrivia>(trivia.Count - start);
         for (var i = start; i < trivia.Count; i++)
@@ -261,8 +261,8 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
 
         return FindMember(reported, candidate) is { NestedUsesAreUnqualified: true, NestedUser: TypeDeclarationSyntax nested }
             && CanHost(model, nested, outer, name, cancellationToken)
-                ? new MemberMove(outer, nested, candidate)
-                : null;
+            ? new MemberMove(outer, nested, candidate)
+            : null;
     }
 
     /// <summary>Gets the name a member declares, when the member is one this fix relocates.</summary>
@@ -298,14 +298,11 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
         TypeDeclarationSyntax nested,
         TypeDeclarationSyntax outer,
         string name,
-        CancellationToken cancellationToken)
-    {
-        return nested is not InterfaceDeclarationSyntax
+        CancellationToken cancellationToken) => nested is not InterfaceDeclarationSyntax
             && !ModifierListHelper.Contains(nested.Modifiers, SyntaxKind.PartialKeyword)
             && CountMembersNamed(outer, name) == 1
             && CountMembersNamed(nested, name) == 0
             && HasNoBaseType(model, nested, cancellationToken);
-    }
 
     /// <summary>Returns whether a nested type inherits nothing that the moved method could collide with.</summary>
     /// <param name="model">The semantic model.</param>
@@ -317,8 +314,8 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeCodeFixProvider : Co
     /// family from every unqualified call in that type. Counting the names the nested type writes down is
     /// therefore not enough: a base class it never mentions could be where that name lives today.
     /// </remarks>
-    private static bool HasNoBaseType(SemanticModel model, TypeDeclarationSyntax nested, CancellationToken cancellationToken)
-        => model.GetDeclaredSymbol(nested, cancellationToken) is { } symbol
+    private static bool HasNoBaseType(SemanticModel model, TypeDeclarationSyntax nested, CancellationToken cancellationToken) =>
+        model.GetDeclaredSymbol(nested, cancellationToken) is { } symbol
             && symbol.BaseType is null or { SpecialType: SpecialType.System_Object or SpecialType.System_ValueType };
 
     /// <summary>Finds the reported member that matches one declaration.</summary>

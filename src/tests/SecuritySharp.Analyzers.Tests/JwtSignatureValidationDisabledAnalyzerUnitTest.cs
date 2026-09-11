@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSignature = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -34,9 +35,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a plain <c>RequireSignedTokens = false</c> assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireSignedTokensAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task RequireSignedTokensAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -51,9 +53,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a plain <c>ValidateIssuerSigningKey = false</c> assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidateIssuerSigningKeyAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task ValidateIssuerSigningKeyAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -68,9 +71,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form of <c>RequireSignedTokens = false</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireSignedTokensObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task RequireSignedTokensObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -83,9 +87,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form of <c>ValidateIssuerSigningKey = false</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidateIssuerSigningKeyObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task ValidateIssuerSigningKeyObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -98,9 +103,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>RequireSignedTokens</c> to true is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireSignedTokensSetToTrueIsCleanAsync()
-        => await VerifyAsync(
+    public Task RequireSignedTokensSetToTrueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -115,9 +121,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies <c>ValidateIssuer = false</c> is not reported (a separate concern handled elsewhere).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidateIssuerIsCleanAsync()
-        => await VerifyAsync(
+    public Task ValidateIssuerIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -132,9 +139,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies <c>ValidateAudience = false</c> and <c>ValidateLifetime = false</c> are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidateAudienceAndLifetimeAreCleanAsync()
-        => await VerifyAsync(
+    public Task ValidateAudienceAndLifetimeAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Tokens;
 
@@ -150,9 +158,10 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a same-named property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyOptions
             {
@@ -194,11 +203,7 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeSignature.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeSignature.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -208,11 +213,7 @@ public class JwtSignatureValidationDisabledAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeSignature.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + TokenValidationStub
-        };
+        var test = new AnalyzeSignature.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + TokenValidationStub };
 
         await test.RunAsync(CancellationToken.None);
     }

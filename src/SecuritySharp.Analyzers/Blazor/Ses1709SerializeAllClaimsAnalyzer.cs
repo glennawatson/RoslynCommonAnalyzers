@@ -50,7 +50,7 @@ public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1709 for <c>SerializeAllClaims = true</c> on the gated serialization-options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="serializationOptions">The gated <c>AuthenticationStateSerializationOptions</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol serializationOptions)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol serializationOptions)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 

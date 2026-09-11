@@ -76,12 +76,7 @@ public class Psh1007PassLargeReadonlyStructByInCodeFixUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource)
     {
-        var test = new VerifyInParameterFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + Structs,
-            FixedCode = fixedSource + Structs,
-        };
+        var test = new VerifyInParameterFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + Structs, FixedCode = fixedSource + Structs, };
 
         await test.RunAsync(CancellationToken.None);
     }

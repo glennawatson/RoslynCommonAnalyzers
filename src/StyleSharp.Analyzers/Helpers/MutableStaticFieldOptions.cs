@@ -25,8 +25,8 @@ internal readonly record struct MutableStaticFieldOptions(bool IncludeInternal)
     /// not a boundary between threads, and a static field the whole assembly can reassign is exactly as
     /// shared as a public one. An unset or unparsable value keeps that default.
     /// </remarks>
-    public static MutableStaticFieldOptions Read(AnalyzerConfigOptions options)
-        => new(ReadBool(options, IncludeInternalRuleKey, IncludeInternalGeneralKey, DefaultIncludeInternal));
+    internal static MutableStaticFieldOptions Read(AnalyzerConfigOptions options) =>
+        new(ReadBool(options, IncludeInternalRuleKey, IncludeInternalGeneralKey, DefaultIncludeInternal));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -85,16 +86,17 @@ public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, 
     /// <summary>Adds <c>readonly</c> to the declaration unless an earlier edit in the batch already did.</summary>
     /// <param name="node">The current field declaration, including any edits already batched.</param>
     /// <returns>The declaration with the keyword.</returns>
-    private static SyntaxNode AddReadonly(SyntaxNode node)
-        => node is FieldDeclarationSyntax field && !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ReadOnlyKeyword)
+    private static SyntaxNode AddReadonly(SyntaxNode node) =>
+        node is FieldDeclarationSyntax field && !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ReadOnlyKeyword)
             ? WithReadonly(field)
             : node;
 
     /// <summary>Adds <c>readonly</c> after the modifiers the field already declares.</summary>
     /// <param name="field">The field declaration.</param>
     /// <returns>The updated declaration.</returns>
-    private static FieldDeclarationSyntax WithReadonly(FieldDeclarationSyntax field)
-        => field.WithModifiers(field.Modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static FieldDeclarationSyntax WithReadonly(FieldDeclarationSyntax field) =>
+        field.WithModifiers(field.Modifiers.Add(SyntaxFactory.Token(SyntaxKind.ReadOnlyKeyword)));
 
     /// <summary>Resolves a diagnostic to a field that can take the <c>readonly</c> keyword as it stands.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -129,8 +131,8 @@ public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, 
     /// A <c>readonly</c> field that is reported is the collection half of the rule, which this fix does not
     /// answer. <c>volatile readonly</c> is not legal C#, and a <c>const</c> is not a field to begin with.
     /// </remarks>
-    private static bool CanTakeTheKeyword(SyntaxTokenList modifiers)
-        => !ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword)
+    private static bool CanTakeTheKeyword(in SyntaxTokenList modifiers) =>
+        !ModifierListHelper.Contains(modifiers, SyntaxKind.ReadOnlyKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.ConstKeyword)
             && !ModifierListHelper.Contains(modifiers, SyntaxKind.VolatileKeyword);
 
@@ -171,8 +173,8 @@ public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, 
     /// place take the fix: a reference type (whose <em>object</em> stays mutable, which the keyword never
     /// claimed otherwise), a primitive, an enum, or a struct the compiler itself has marked readonly.
     /// </remarks>
-    private static bool CanHoldReadonly(ITypeSymbol type)
-        => type.IsReferenceType
+    private static bool CanHoldReadonly(ITypeSymbol type) =>
+        type.IsReferenceType
             || type.SpecialType != SpecialType.None
             || type.TypeKind == TypeKind.Enum
             || type is INamedTypeSymbol { IsReadOnly: true };
@@ -247,8 +249,8 @@ public sealed class Sst1499MutableStaticFieldCodeFixProvider : CodeFixProvider, 
     /// <summary>Returns whether an expression sits where the value it names is written rather than read.</summary>
     /// <param name="expression">The expression to classify.</param>
     /// <returns><see langword="true"/> when the expression is assigned, incremented, or passed by reference.</returns>
-    private static bool IsWritePosition(ExpressionSyntax expression)
-        => expression.Parent switch
+    private static bool IsWritePosition(ExpressionSyntax expression) =>
+        expression.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == expression,
             PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),

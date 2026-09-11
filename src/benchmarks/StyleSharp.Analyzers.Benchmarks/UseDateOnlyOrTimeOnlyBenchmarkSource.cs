@@ -11,8 +11,8 @@ internal static class UseDateOnlyOrTimeOnlyBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class UseDateOnlyOrTimeOnlyBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type that already says what it means.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -36,8 +36,8 @@ internal static class UseDateOnlyOrTimeOnlyBenchmarkSource
     /// one string comparison; a clock receiver, which SST2010 owns; and the same two members read from a
     /// <c>DateTimeOffset</c>, which is the case that actually pays for the bind before being rejected.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public DateOnly Day(DateTime value) => DateOnly.FromDateTime(value);
@@ -57,8 +57,8 @@ internal static class UseDateOnlyOrTimeOnlyBenchmarkSource
     /// <summary>Builds one type that keeps a whole <c>DateTime</c> where it only ever meant half of one.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public DateTime Day(DateTime value) => value.Date;

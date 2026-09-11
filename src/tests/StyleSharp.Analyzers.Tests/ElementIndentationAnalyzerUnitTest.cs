@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyIndentation = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1137ElementIndentationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ElementIndentationAnalyzerUnitTest
 {
     /// <summary>Verifies a statement indented differently from its siblings is reported (SST1137).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MisalignedStatementReportedAsync()
-        => await VerifyIndentation.VerifyAnalyzerAsync(
+    public Task MisalignedStatementReportedAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -29,9 +31,10 @@ public class ElementIndentationAnalyzerUnitTest
 
     /// <summary>Verifies a member indented differently from its siblings is reported (SST1137).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MisalignedMemberReportedAsync()
-        => await VerifyIndentation.VerifyAnalyzerAsync(
+    public Task MisalignedMemberReportedAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -43,9 +46,10 @@ public class ElementIndentationAnalyzerUnitTest
 
     /// <summary>Verifies consistently indented siblings are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsistentIndentationIsCleanAsync()
-        => await VerifyIndentation.VerifyAnalyzerAsync(
+    public Task ConsistentIndentationIsCleanAsync() =>
+        VerifyIndentation.VerifyAnalyzerAsync(
             """
             internal class C
             {

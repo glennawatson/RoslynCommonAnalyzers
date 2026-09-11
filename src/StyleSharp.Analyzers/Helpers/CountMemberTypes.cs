@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -24,7 +26,7 @@ internal readonly record struct CountMemberTypes(
     /// <summary>Resolves the well-known types once per compilation.</summary>
     /// <param name="compilation">The compilation.</param>
     /// <returns>The resolved symbols; any may be <see langword="null"/>.</returns>
-    public static CountMemberTypes Create(Compilation compilation) => new(
+    internal static CountMemberTypes Create(Compilation compilation) => new(
         compilation.GetTypeByMetadataName("System.Span`1"),
         compilation.GetTypeByMetadataName("System.ReadOnlySpan`1"),
         compilation.GetTypeByMetadataName("System.Linq.Enumerable"));
@@ -32,7 +34,7 @@ internal readonly record struct CountMemberTypes(
     /// <summary>Returns whether a type is <c>Span&lt;T&gt;</c> or <c>ReadOnlySpan&lt;T&gt;</c>.</summary>
     /// <param name="type">The type that declares the member.</param>
     /// <returns><see langword="true"/> when the type's <c>Length</c> counts elements of a span.</returns>
-    public bool IsSpan(INamedTypeSymbol type)
+    internal bool IsSpan(INamedTypeSymbol type)
     {
         var definition = type.OriginalDefinition;
         return SymbolEqualityComparer.Default.Equals(definition, Span)
@@ -42,6 +44,7 @@ internal readonly record struct CountMemberTypes(
     /// <summary>Returns whether a type is <c>System.Linq.Enumerable</c>.</summary>
     /// <param name="type">The type that declares the member.</param>
     /// <returns><see langword="true"/> when the type declares the LINQ counting operators.</returns>
-    public bool IsEnumerable(INamedTypeSymbol type)
-        => SymbolEqualityComparer.Default.Equals(type, Enumerable);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool IsEnumerable(INamedTypeSymbol type) =>
+        SymbolEqualityComparer.Default.Equals(type, Enumerable);
 }

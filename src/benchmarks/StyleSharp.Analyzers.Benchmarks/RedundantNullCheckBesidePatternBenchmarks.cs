@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for redundant-null-check-beside-pattern analysis (SST2018).</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantNullCheckBesidePatternBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RedundantNullCheckBesidePatternBenchmarks
@@ -24,11 +26,13 @@ public class RedundantNullCheckBesidePatternBenchmarks
 
     /// <summary>Benchmarks the clean redundant-null-check-beside-pattern path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantNullCheckBesidePattern_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating redundant-null-check-beside-pattern path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantNullCheckBesidePattern_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

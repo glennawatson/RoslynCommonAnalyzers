@@ -60,8 +60,8 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <param name="siblings">The per-compilation cache of resolved async siblings.</param>
     private static void AnalyzeInvocation(
-        SyntaxNodeAnalysisContext context,
-        AsyncSiblingResolver.TaskTypes tasks,
+        in SyntaxNodeAnalysisContext context,
+        in AsyncSiblingResolver.TaskTypes tasks,
         ConcurrentDictionary<ISymbol, IMethodSymbol?> siblings)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
@@ -75,7 +75,7 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
         if (!siblings.TryGetValue(sync, out var sibling))
         {
             sibling = AsyncSiblingResolver.TryResolveAsyncSibling(sync, tasks);
-            siblings.TryAdd(sync, sibling);
+            _ = siblings.TryAdd(sync, sibling);
         }
 
         if (sibling is null)

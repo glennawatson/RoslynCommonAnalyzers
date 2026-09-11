@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,12 +23,13 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported local and builds its using-declaration replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -58,8 +61,8 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
             && statement.UsingKeyword.IsKind(SyntaxKind.None)
             && statement.Modifiers.Count == 0
             && statement.Declaration.Variables.Count == 1
-                ? statement
-                : null;
+            ? statement
+            : null;
     }
 
     /// <summary>Decides which disposal keyword the local needs, if one compiles here at all.</summary>

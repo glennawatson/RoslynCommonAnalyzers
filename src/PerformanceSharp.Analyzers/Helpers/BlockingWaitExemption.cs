@@ -35,8 +35,8 @@ internal static class BlockingWaitExemption
     /// <param name="notifyCompletion">The awaiter marker interface, when the framework has one.</param>
     /// <param name="entryPoint">The compilation's entry point, when it has one.</param>
     /// <returns><see langword="true"/> when the wait must not be reported.</returns>
-    public static bool IsExempt(
-        SyntaxNodeAnalysisContext context,
+    internal static bool IsExempt(
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode blocking,
         INamedTypeSymbol? notifyCompletion,
         IMethodSymbol? entryPoint)
@@ -75,9 +75,7 @@ internal static class BlockingWaitExemption
         {
             switch (current)
             {
-                case GlobalStatementSyntax:
-                case BaseTypeDeclarationSyntax:
-                case CompilationUnitSyntax:
+                case GlobalStatementSyntax or BaseTypeDeclarationSyntax or CompilationUnitSyntax:
                     return null;
                 case MemberDeclarationSyntax member:
                     return member;

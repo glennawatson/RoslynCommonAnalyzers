@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -35,9 +36,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a discarded <c>Task.Run</c> whose lambda captures <c>HttpContext</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FireAndForgetCapturingHttpContextIsReportedAsync()
-        => await VerifyAsync(
+    public Task FireAndForgetCapturingHttpContextIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -53,9 +55,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies the anonymous-method delegate form is also reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousMethodCapturingHttpContextIsReportedAsync()
-        => await VerifyAsync(
+    public Task AnonymousMethodCapturingHttpContextIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -71,9 +74,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a <c>_ = Task.Run(...)</c> discard assignment capturing <c>HttpContext</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DiscardAssignmentCapturingHttpContextIsReportedAsync()
-        => await VerifyAsync(
+    public Task DiscardAssignmentCapturingHttpContextIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -89,9 +93,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies an awaited <c>Task.Run</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitedTaskRunIsCleanAsync()
-        => await VerifyAsync(
+    public Task AwaitedTaskRunIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -107,9 +112,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a returned <c>Task.Run</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedTaskRunIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReturnedTaskRunIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -125,9 +131,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Task.Run</c> assigned to a real target (not a discard) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignedTaskRunIsCleanAsync()
-        => await VerifyAsync(
+    public Task AssignedTaskRunIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -145,9 +152,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a discarded <c>Task.Run</c> that does not touch <c>HttpContext</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TaskRunWithoutHttpContextIsCleanAsync()
-        => await VerifyAsync(
+    public Task TaskRunWithoutHttpContextIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -167,9 +175,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies the same capture outside a controller (no <c>ControllerBase</c> ancestor) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FireAndForgetOutsideControllerIsCleanAsync()
-        => await VerifyAsync(
+    public Task FireAndForgetOutsideControllerIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Http;
@@ -186,9 +195,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
     /// <summary>Verifies a discarded call to a same-named non-Task helper is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Exercises the simple-lambda and zero-argument shapes and the non-<c>Task.Run</c> binding rejection.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomRunHelperIsCleanAsync()
-        => await VerifyAsync(
+    public Task CustomRunHelperIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -212,9 +222,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a discarded <c>Task.Run</c> passed a method group (not an inline delegate) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupTaskRunIsCleanAsync()
-        => await VerifyAsync(
+    public Task MethodGroupTaskRunIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
             using Microsoft.AspNetCore.Mvc;
@@ -234,9 +245,10 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a discarded invocation whose callee is not a simple name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvokedExpressionWithoutSimpleNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task InvokedExpressionWithoutSimpleNameIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -281,11 +293,7 @@ public class Sst2707FireAndForgetHttpContextAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetCoreStub,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetCoreStub, };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the blank-line-removal code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("BlankLineRemovalCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class BlankLineRemovalCodeFixBenchmarks
@@ -23,13 +25,14 @@ public class BlankLineRemovalCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative opening brace.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             LayoutTriviaCodeFixBenchmarkSource.GenerateBlankLineRemoval,
             static (_, root, index) => Task.FromResult(FindBraceSpan(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -46,6 +49,7 @@ public class BlankLineRemovalCodeFixBenchmarks
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based method index to select.</param>
     /// <returns>The selected opening-brace span.</returns>
-    private static TextSpan FindBraceSpan(CompilationUnitSyntax root, int index)
-        => CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(root, index).Body!.OpenBraceToken.Span;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static TextSpan FindBraceSpan(CompilationUnitSyntax root, int index) =>
+        CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(root, index).Body!.OpenBraceToken.Span;
 }

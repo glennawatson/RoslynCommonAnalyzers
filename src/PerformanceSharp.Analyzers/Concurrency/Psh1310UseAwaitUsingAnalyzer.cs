@@ -49,7 +49,7 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1310 for a synchronous using statement over async-disposable resources in an async function.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="asyncDisposableType">The async disposable interface.</param>
-    private static void AnalyzeUsingStatement(SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
+    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
     {
         var usingStatement = (UsingStatementSyntax)context.Node;
         if (!usingStatement.AwaitKeyword.IsKind(SyntaxKind.None)
@@ -69,7 +69,7 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1310 for a synchronous using declaration over async-disposable resources in an async function.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="asyncDisposableType">The async disposable interface.</param>
-    private static void AnalyzeUsingDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
+    private static void AnalyzeUsingDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
     {
         var declarationStatement = (LocalDeclarationStatementSyntax)context.Node;
         if (!declarationStatement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
@@ -94,17 +94,11 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when every declared or used resource implements the interface.</returns>
     private static bool UsingStatementResourcesAreAsyncDisposable(
         UsingStatementSyntax usingStatement,
-        SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol asyncDisposableType)
-    {
-        if (usingStatement.Declaration is { } declaration)
-        {
-            return AllDeclaratorsAreAsyncDisposable(declaration, context, asyncDisposableType);
-        }
-
-        return usingStatement.Expression is { } expression
+        in SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol asyncDisposableType) => usingStatement.Declaration is { } declaration
+            ? AllDeclaratorsAreAsyncDisposable(declaration, context, asyncDisposableType)
+            : usingStatement.Expression is { } expression
             && ExpressionIsAsyncDisposable(expression, context, asyncDisposableType);
-    }
 
     /// <summary>Returns whether every declarator's initializer produces an asynchronously disposable value.</summary>
     /// <param name="declaration">The variable declaration to inspect.</param>
@@ -113,7 +107,7 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when every declarator qualifies; a declarator without an initializer disqualifies.</returns>
     private static bool AllDeclaratorsAreAsyncDisposable(
         VariableDeclarationSyntax declaration,
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol asyncDisposableType)
     {
         var variables = declaration.Variables;
@@ -141,9 +135,9 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression type is or implements the interface.</returns>
     private static bool ExpressionIsAsyncDisposable(
         ExpressionSyntax expression,
-        SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol asyncDisposableType)
-        => context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is { } type
+        in SyntaxNodeAnalysisContext context,
+        INamedTypeSymbol asyncDisposableType) =>
+        context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is { } type
             && ImplementsAsyncDisposable(type, asyncDisposableType);
 
     /// <summary>Returns whether a type is or implements the async disposable interface.</summary>
@@ -173,6 +167,6 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

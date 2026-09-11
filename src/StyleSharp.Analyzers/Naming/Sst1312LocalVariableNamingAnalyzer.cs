@@ -50,7 +50,7 @@ public sealed class Sst1312LocalVariableNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1312 when <paramref name="identifier"/> does not begin with a lower-case letter.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The identifier token to check.</param>
-    private static void CheckCamelCase(SyntaxNodeAnalysisContext context, SyntaxToken identifier)
+    private static void CheckCamelCase(in SyntaxNodeAnalysisContext context, SyntaxToken identifier)
     {
         var name = identifier.ValueText;
         if (NamingHelper.IsAllUnderscores(name) || NamingHelper.BeginsWithLowerCase(name))

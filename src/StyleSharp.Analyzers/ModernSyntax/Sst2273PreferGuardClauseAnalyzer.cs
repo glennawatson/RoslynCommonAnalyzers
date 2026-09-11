@@ -68,8 +68,8 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <summary>Counts the statements the trailing <c>if</c> wraps.</summary>
     /// <param name="ifStatement">The trailing <c>if</c>.</param>
     /// <returns>The block statement count, or 1 for a single embedded statement.</returns>
-    internal static int WrappedStatementCount(IfStatementSyntax ifStatement)
-        => ifStatement.Statement is BlockSyntax block ? block.Statements.Count : 1;
+    internal static int WrappedStatementCount(IfStatementSyntax ifStatement) =>
+        ifStatement.Statement is BlockSyntax block ? block.Statements.Count : 1;
 
     /// <summary>Returns whether unwrapping the guard would carry a declared name into a scope that already has one.</summary>
     /// <param name="ifStatement">The trailing <c>if</c> whose body would be unwrapped.</param>
@@ -122,7 +122,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
             var current = pending.Pop();
             if (DeclaredName(current) is { Length: > 0 } name)
             {
-                names.Add(name);
+                _ = names.Add(name);
             }
 
             foreach (var child in current.ChildNodes())
@@ -188,7 +188,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a trailing <c>if</c> that could become a guard once it wraps enough work.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, TrailingGuardOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, TrailingGuardOptions> optionsByTree)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
 
@@ -211,7 +211,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
-    private static TrailingGuardOptions GetOptions(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, TrailingGuardOptions> optionsByTree)
+    private static TrailingGuardOptions GetOptions(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, TrailingGuardOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
         if (optionsByTree.TryGetValue(tree, out var options))
@@ -220,7 +220,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
         }
 
         options = TrailingGuardOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -282,7 +282,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="returnType">The declared return type.</param>
     /// <param name="modifiers">The member's modifiers.</param>
     /// <returns><see langword="true"/> for a <c>void</c> member or an async non-generic <c>Task</c>/<c>ValueTask</c>.</returns>
-    private static bool ReturnsVoidOrAsyncTask(TypeSyntax returnType, SyntaxTokenList modifiers)
+    private static bool ReturnsVoidOrAsyncTask(TypeSyntax returnType, in SyntaxTokenList modifiers)
     {
         if (returnType is PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.VoidKeyword })
         {

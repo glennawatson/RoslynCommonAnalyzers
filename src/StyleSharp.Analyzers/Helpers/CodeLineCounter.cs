@@ -26,10 +26,10 @@ internal static class CodeLineCounter
     /// <param name="text">The source text that owns the node.</param>
     /// <param name="node">The node to measure.</param>
     /// <returns>The number of distinct lines that carry code.</returns>
-    public static int Count(SourceText text, SyntaxNode node)
+    internal static int Count(SourceText text, SyntaxNode node)
     {
         var state = new LineTally(text);
-        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, AddToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, AddToken);
         return state.CountedLines;
     }
 
@@ -37,7 +37,7 @@ internal static class CodeLineCounter
     /// <param name="text">The source text that owns the span.</param>
     /// <param name="span">The span to measure.</param>
     /// <returns>The inclusive line count of the span.</returns>
-    public static int SpannedLines(SourceText text, TextSpan span)
+    internal static int SpannedLines(SourceText text, TextSpan span)
     {
         var startLine = LayoutHelpers.LineOf(text, span.Start);
         var endLine = span.End > span.Start ? LayoutHelpers.LineOf(text, span.End - 1) : startLine;

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for never-raised-event analysis (SST2407).</summary>
+[System.Diagnostics.DebuggerDisplay("EventNeverRaisedBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class EventNeverRaisedBenchmarks
@@ -24,11 +26,13 @@ public class EventNeverRaisedBenchmarks
 
     /// <summary>Benchmarks the clean never-raised-event path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EventNeverRaised_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating never-raised-event path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EventNeverRaised_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

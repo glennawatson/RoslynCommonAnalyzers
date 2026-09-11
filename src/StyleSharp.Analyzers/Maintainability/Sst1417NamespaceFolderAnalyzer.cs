@@ -123,10 +123,10 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
 
                 if (builder.Length > 0)
                 {
-                    builder.Append('.');
+                    _ = builder.Append('.');
                 }
 
-                builder.Append(segments[i]);
+                _ = builder.Append(segments[i]);
             }
         }
 
@@ -137,7 +137,7 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="global">The global analyzer config options.</param>
     /// <returns>The configured root namespace, or the empty string.</returns>
-    private static string ReadRootNamespace(SyntaxNodeAnalysisContext context, AnalyzerConfigOptions global)
+    private static string ReadRootNamespace(in SyntaxNodeAnalysisContext context, AnalyzerConfigOptions global)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         if (options.TryGetValue(RootNamespaceSpecificKey, out var specific) && specific.Length > 0)
@@ -150,12 +150,7 @@ public sealed class Sst1417NamespaceFolderAnalyzer : DiagnosticAnalyzer
             return general;
         }
 
-        if (global.TryGetValue(RootNamespaceBuildKey, out var build))
-        {
-            return build;
-        }
-
-        return string.Empty;
+        return global.TryGetValue(RootNamespaceBuildKey, out var build) ? build : string.Empty;
     }
 
     /// <summary>Returns whether a folder name is a valid C# identifier (and so usable as a namespace part).</summary>

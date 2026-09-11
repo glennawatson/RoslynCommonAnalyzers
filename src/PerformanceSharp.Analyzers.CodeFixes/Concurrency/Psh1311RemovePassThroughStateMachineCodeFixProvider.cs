@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,20 +24,21 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies the pass-through rewrite to one method declaration.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="method">The async pass-through method to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, MethodDeclarationSyntax method)
-        => Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(method, out _, out _, out _)
+    internal static Document Apply(Document document, SyntaxNode root, MethodDeclarationSyntax method) =>
+        Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(method, out _, out _, out _)
             ? document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method)))
             : document;
 
@@ -46,12 +49,9 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        if (!Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(node, out _, out _, out _))
-        {
-            return null;
-        }
-
-        return node switch
+        return !Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(node, out _, out _, out _)
+            ? null
+            : node switch
         {
             MethodDeclarationSyntax method => new NodeReplacement(method, Rewrite(method)),
             LocalFunctionStatementSyntax localFunction => new NodeReplacement(localFunction, Rewrite(localFunction)),
@@ -91,7 +91,7 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <param name="returnType">The declaration's return type, updated when the async keyword was the only modifier.</param>
     /// <returns>The modifiers without the async keyword.</returns>
-    private static SyntaxTokenList RemoveAsyncModifier(SyntaxTokenList modifiers, ref TypeSyntax returnType)
+    private static SyntaxTokenList RemoveAsyncModifier(in SyntaxTokenList modifiers, ref TypeSyntax returnType)
     {
         var index = modifiers.IndexOf(SyntaxKind.AsyncKeyword);
         var asyncToken = modifiers[index];
@@ -113,8 +113,9 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     /// <summary>Unwraps an arrow body's <c>await X</c> to the bare forwarded task.</summary>
     /// <param name="arrow">The expression body whose expression is the reported await.</param>
     /// <returns>The arrow clause forwarding the task directly.</returns>
-    private static ArrowExpressionClauseSyntax RewriteArrow(ArrowExpressionClauseSyntax arrow)
-        => arrow.WithExpression(UnwrapForwardedTask((AwaitExpressionSyntax)arrow.Expression));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArrowExpressionClauseSyntax RewriteArrow(ArrowExpressionClauseSyntax arrow) =>
+        arrow.WithExpression(UnwrapForwardedTask((AwaitExpressionSyntax)arrow.Expression));
 
     /// <summary>Rewrites a single-statement body's <c>return await X;</c> or <c>await X;</c> to <c>return X;</c>.</summary>
     /// <param name="body">The block whose one statement is the reported await.</param>
@@ -139,6 +140,7 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     /// <summary>Builds the forwarded task expression for a reported await, stripping a trailing ConfigureAwait.</summary>
     /// <param name="awaitExpression">The reported await expression.</param>
     /// <returns>The bare task expression carrying the await expression's trivia.</returns>
-    private static ExpressionSyntax UnwrapForwardedTask(AwaitExpressionSyntax awaitExpression)
-        => Psh1311RemovePassThroughStateMachineAnalyzer.UnwrapConfigureAwait(awaitExpression.Expression).WithTriviaFrom(awaitExpression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax UnwrapForwardedTask(AwaitExpressionSyntax awaitExpression) =>
+        Psh1311RemovePassThroughStateMachineAnalyzer.UnwrapConfigureAwait(awaitExpression.Expression).WithTriviaFrom(awaitExpression);
 }

@@ -86,14 +86,14 @@ public sealed class Sst2327SelfTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the tested type of an <c>is</c>/<c>as</c> whose operand is <c>this</c>, or <see langword="null"/>.</summary>
     /// <param name="binary">The <c>is</c> or <c>as</c> expression.</param>
     /// <returns>The right-hand type when the left operand is <c>this</c>; otherwise <see langword="null"/>.</returns>
-    private static TypeSyntax? SelfTestOperandType(BinaryExpressionSyntax binary)
-        => binary.Left is ThisExpressionSyntax ? binary.Right as TypeSyntax : null;
+    private static TypeSyntax? SelfTestOperandType(BinaryExpressionSyntax binary) =>
+        binary.Left is ThisExpressionSyntax ? binary.Right as TypeSyntax : null;
 
     /// <summary>Returns the tested type of a <c>this.GetType() == typeof(T)</c> comparison, in either order, or <see langword="null"/>.</summary>
     /// <param name="binary">The equality or inequality expression.</param>
     /// <returns>The <c>typeof</c> operand's type when the other side is <c>this.GetType()</c>; otherwise <see langword="null"/>.</returns>
-    private static TypeSyntax? SelfGetTypeComparisonType(BinaryExpressionSyntax binary)
-        => (TypeOfOperandType(binary.Left), TypeOfOperandType(binary.Right)) switch
+    private static TypeSyntax? SelfGetTypeComparisonType(BinaryExpressionSyntax binary) =>
+        (TypeOfOperandType(binary.Left), TypeOfOperandType(binary.Right)) switch
         {
             ({ } leftType, _) when IsThisGetTypeCall(binary.Right) => leftType,
             (_, { } rightType) when IsThisGetTypeCall(binary.Left) => rightType,
@@ -103,14 +103,14 @@ public sealed class Sst2327SelfTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the operand type of a <c>typeof(...)</c> expression, or <see langword="null"/> when the node is not one.</summary>
     /// <param name="expression">The candidate <c>typeof</c> expression.</param>
     /// <returns>The type inside <c>typeof(...)</c>, or <see langword="null"/>.</returns>
-    private static TypeSyntax? TypeOfOperandType(ExpressionSyntax expression)
-        => expression is TypeOfExpressionSyntax typeOf ? typeOf.Type : null;
+    private static TypeSyntax? TypeOfOperandType(ExpressionSyntax expression) =>
+        expression is TypeOfExpressionSyntax typeOf ? typeOf.Type : null;
 
     /// <summary>Returns whether an expression is a zero-argument <c>this.GetType()</c> call.</summary>
     /// <param name="expression">The candidate invocation.</param>
     /// <returns><see langword="true"/> for <c>this.GetType()</c> with an explicit <c>this</c> receiver and no arguments.</returns>
-    private static bool IsThisGetTypeCall(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax
+    private static bool IsThisGetTypeCall(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax
         {
             Expression: MemberAccessExpressionSyntax
             {
@@ -123,7 +123,7 @@ public sealed class Sst2327SelfTypeCheckAnalyzer : DiagnosticAnalyzer
     /// <summary>Binds the tested type and reports the enclosing expression when it names a class.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="testedType">The syntactic type the instance is tested against.</param>
-    private static void ReportIfNamedClass(SyntaxNodeAnalysisContext context, TypeSyntax testedType)
+    private static void ReportIfNamedClass(in SyntaxNodeAnalysisContext context, TypeSyntax testedType)
     {
         // Bind only now, on the rare node that syntactically tests 'this' against a named type. An interface
         // (capability check), a struct, a type parameter, and an unresolved name are all left alone.

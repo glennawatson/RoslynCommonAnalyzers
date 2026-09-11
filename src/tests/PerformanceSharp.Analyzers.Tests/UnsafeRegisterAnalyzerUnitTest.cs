@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -51,9 +52,10 @@ public class UnsafeRegisterAnalyzerUnitTest
 
     /// <summary>Verifies the parameterless-callback Register overload stays clean; it has no UnsafeRegister twin.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegisterWithoutStateIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task RegisterWithoutStateIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System;
             using System.Threading;
@@ -68,8 +70,8 @@ public class UnsafeRegisterAnalyzerUnitTest
     /// <summary>Verifies the rule ships disabled by default; skipping the context capture changes AsyncLocal visibility.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task RuleIsOffByDefaultAsync()
-        => await Assert.That(ConcurrencyRules.UseUnsafeRegister.IsEnabledByDefault).IsFalse();
+    public async Task RuleIsOffByDefaultAsync() =>
+        await Assert.That(ConcurrencyRules.UseUnsafeRegister.IsEnabledByDefault).IsFalse();
 
     /// <summary>Runs an opted-in verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
@@ -77,11 +79,7 @@ public class UnsafeRegisterAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOptInAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         if (fixedSource is not null)
         {

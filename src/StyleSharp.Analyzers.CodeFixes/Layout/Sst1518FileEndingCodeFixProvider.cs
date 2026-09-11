@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.Text;
 
@@ -36,8 +37,9 @@ public sealed class Sst1518FileEndingCodeFixProvider : CodeFixProvider, ITextCha
     }
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => changes.Add(new TextChange(diagnostic.Location.SourceSpan, LayoutFixHelpers.DetectNewLine(text)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.Add(new(diagnostic.Location.SourceSpan, LayoutFixHelpers.DetectNewLine(text)));
 
     /// <summary>Replaces the trailing whitespace span with a single newline.</summary>
     /// <param name="document">The document to fix.</param>

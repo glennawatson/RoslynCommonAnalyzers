@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -170,9 +171,10 @@ public class EmptyStringComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a user-defined equality operator against <c>""</c> on a non-string operand is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedOperatorIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task UserDefinedOperatorIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class Wrapper
             {
@@ -193,9 +195,10 @@ public class EmptyStringComparisonAnalyzerUnitTest
 
     /// <summary>Verifies a comparison inside a lambda converted to an expression tree is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeLambdaIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task ExpressionTreeLambdaIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -219,11 +222,7 @@ public class EmptyStringComparisonAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzerVerifyEmptyComparison.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzerVerifyEmptyComparison.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -559,12 +558,7 @@ public class EmptyStringComparisonAnalyzerUnitTest
                                    }
                                    """;
 
-        var test = new VerifyEmptyComparison.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyEmptyComparison.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, FixedCode = FixedSource };
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig(LengthStyleSetting)));
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
@@ -582,12 +576,7 @@ public class EmptyStringComparisonAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90WithConfigAsync(string source, string fixedSource, string setting)
     {
-        var test = new VerifyEmptyComparison.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyEmptyComparison.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig(setting)));
         await test.RunAsync(CancellationToken.None);
@@ -596,8 +585,8 @@ public class EmptyStringComparisonAnalyzerUnitTest
     /// <summary>Builds an editorconfig file carrying one or more settings.</summary>
     /// <param name="setting">The editorconfig lines to apply.</param>
     /// <returns>The file content.</returns>
-    private static string BuildConfig(string setting)
-        => $"""
+    private static string BuildConfig(string setting) =>
+        $"""
             root = true
             [*.cs]
             {setting}
@@ -610,12 +599,7 @@ public class EmptyStringComparisonAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyEmptyComparison.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyEmptyComparison.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -623,6 +607,7 @@ public class EmptyStringComparisonAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -78,9 +79,10 @@ public class Utf8LiteralAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant argument stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -92,9 +94,10 @@ public class Utf8LiteralAnalyzerUnitTest
 
     /// <summary>Verifies an ASCII receiver with a non-ASCII constant stays clean; the bytes would change.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsciiEncodingWithNonAsciiConstantIsCleanAsync()
-        => await VerifyAsync(
+    public Task AsciiEncodingWithNonAsciiConstantIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -132,11 +135,7 @@ public class Utf8LiteralAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

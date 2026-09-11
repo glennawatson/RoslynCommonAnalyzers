@@ -79,12 +79,9 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         }
 
         var first = invocation.ArgumentList.Arguments[0];
-        if (!first.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword))
-        {
-            return null;
-        }
-
-        return first.Expression switch
+        return !first.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword)
+            ? null
+            : first.Expression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax { Name: IdentifierNameSyntax name } => name.Identifier.ValueText,
@@ -95,8 +92,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Classifies a plain access as a read or write for the fix and message.</summary>
     /// <param name="usage">The full usage expression.</param>
     /// <returns><see langword="true"/> for assignment targets and increments.</returns>
-    internal static bool IsWriteAccess(ExpressionSyntax usage)
-        => usage.Parent switch
+    internal static bool IsWriteAccess(ExpressionSyntax usage) =>
+        usage.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == usage,
             PrefixUnaryExpressionSyntax prefix => prefix.IsKind(SyntaxKind.PreIncrementExpression) || prefix.IsKind(SyntaxKind.PreDecrementExpression),
@@ -124,11 +121,11 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Scans one type for interlocked targets and reports their plain accesses.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="interlockedType">The interlocked type.</param>
-    private static void AnalyzeType(SyntaxNodeAnalysisContext context, INamedTypeSymbol interlockedType)
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol interlockedType)
     {
         var containingType = (TypeDeclarationSyntax)context.Node;
         var seeds = new SeedScan(containingType);
-        DescendantTraversalHelper.VisitDescendantTokens(containingType, ref seeds, static (in SyntaxToken token, ref SeedScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref seeds, static (in SyntaxToken token, ref SeedScan state) => state.Visit(in token));
         if (seeds.Calls is not { } calls)
         {
             return;
@@ -140,11 +137,11 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         var candidates = new HashSet<string>(StringComparer.Ordinal);
         foreach (var call in calls)
         {
-            candidates.Add(TryGetInterlockedTargetName(call)!);
+            _ = candidates.Add(TryGetInterlockedTargetName(call)!);
         }
 
         var scan = new AccessScan(candidates, containingType);
-        DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref AccessScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref AccessScan state) => state.Visit(in token));
         if (scan.Usages is not { } usages || VerifyTargets(context, calls, interlockedType) is not { } targets)
         {
             return;
@@ -158,18 +155,19 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="calls">The interlocked-shaped calls.</param>
     /// <param name="interlockedType">The interlocked type.</param>
     /// <returns>The verified names, or <see langword="null"/> when no call binds to the runtime's Interlocked.</returns>
-    private static HashSet<string>? VerifyTargets(SyntaxNodeAnalysisContext context, List<InvocationExpressionSyntax> calls, INamedTypeSymbol interlockedType)
+    private static HashSet<string>? VerifyTargets(in SyntaxNodeAnalysisContext context, List<InvocationExpressionSyntax> calls, INamedTypeSymbol interlockedType)
     {
         HashSet<string>? targets = null;
         foreach (var call in calls)
         {
             var receiver = ((MemberAccessExpressionSyntax)call.Expression).Expression;
-            if (context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol is INamedTypeSymbol bound
-                && SymbolEqualityComparer.Default.Equals(bound, interlockedType))
+            if (context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol is not INamedTypeSymbol bound || !SymbolEqualityComparer.Default.Equals(bound, interlockedType))
             {
-                targets ??= new HashSet<string>(StringComparer.Ordinal);
-                targets.Add(TryGetInterlockedTargetName(call)!);
+                continue;
             }
+
+            targets ??= new HashSet<string>(StringComparer.Ordinal);
+            _ = targets.Add(TryGetInterlockedTargetName(call)!);
         }
 
         return targets;
@@ -178,8 +176,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the field name an access spells.</summary>
     /// <param name="usage">The usage expression.</param>
     /// <returns>The identifier text.</returns>
-    private static string GetUsageName(ExpressionSyntax usage)
-        => usage is MemberAccessExpressionSyntax qualified
+    private static string GetUsageName(ExpressionSyntax usage) =>
+        usage is MemberAccessExpressionSyntax qualified
             ? qualified.Name.Identifier.ValueText
             : ((IdentifierNameSyntax)usage).Identifier.ValueText;
 
@@ -224,7 +222,7 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="usages">The collected plain accesses.</param>
     /// <param name="targets">The verified interlocked-targeted field names.</param>
     private static void ReportPlainAccesses(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax containingType,
         List<ExpressionSyntax> usages,
         HashSet<string> targets)
@@ -261,24 +259,37 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// A field declared <c>volatile</c> already reads and writes with acquire/release semantics, so wrapping
     /// its accesses in <c>Volatile.Read</c>/<c>Volatile.Write</c> changes nothing and the suggestion is noise.
     /// </remarks>
-    private static bool IsReportableField(IFieldSymbol field, INamedTypeSymbol typeSymbol)
-        => SymbolEqualityComparer.Default.Equals(field.ContainingType, typeSymbol)
+    private static bool IsReportableField(IFieldSymbol field, INamedTypeSymbol typeSymbol) =>
+        SymbolEqualityComparer.Default.Equals(field.ContainingType, typeSymbol)
             && !field.IsVolatile
             && HasVolatileOverload(field.Type);
 
     /// <summary>Returns whether a field type has a matching Volatile.Read/Write overload.</summary>
     /// <param name="type">The field type.</param>
     /// <returns><see langword="true"/> for the primitive overload set and reference types.</returns>
-    [SuppressMessage(
-        "Critical Code Smell",
-        "S1541:Methods and properties should not be too complex",
-        Justification = "A flat SpecialType list mirrors the Volatile overload set explicitly instead of relying on enum-value adjacency.")]
-    private static bool HasVolatileOverload(ITypeSymbol type)
-        => type.IsReferenceType || type.SpecialType is SpecialType.System_Boolean
-            or SpecialType.System_Byte or SpecialType.System_SByte
+    /// <remarks>
+    /// The members are listed rather than tested as a <see cref="SpecialType"/> range, so the set stays tied to
+    /// the overloads the accessors actually declare instead of to the enum's ordering.
+    /// </remarks>
+    private static bool HasVolatileOverload(ITypeSymbol type) =>
+        type.IsReferenceType
+            || HasIntegerVolatileOverload(type.SpecialType)
+            || HasNonIntegerVolatileOverload(type.SpecialType);
+
+    /// <summary>Returns whether a special type is one of the integer overloads the accessors declare.</summary>
+    /// <param name="specialType">The field type's special type.</param>
+    /// <returns><see langword="true"/> for the signed and unsigned integers.</returns>
+    private static bool HasIntegerVolatileOverload(SpecialType specialType) =>
+        specialType is SpecialType.System_Byte or SpecialType.System_SByte
             or SpecialType.System_Int16 or SpecialType.System_UInt16
             or SpecialType.System_Int32 or SpecialType.System_UInt32
-            or SpecialType.System_Int64 or SpecialType.System_UInt64
+            or SpecialType.System_Int64 or SpecialType.System_UInt64;
+
+    /// <summary>Returns whether a special type is one of the remaining value overloads the accessors declare.</summary>
+    /// <param name="specialType">The field type's special type.</param>
+    /// <returns><see langword="true"/> for boolean, the floating-point types, and the native-sized integers.</returns>
+    private static bool HasNonIntegerVolatileOverload(SpecialType specialType) =>
+        specialType is SpecialType.System_Boolean
             or SpecialType.System_Single or SpecialType.System_Double
             or SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
 
@@ -318,22 +329,15 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>Token-visitor state that finds plain accesses of the targeted fields.</summary>
-    private sealed class AccessScan
+    /// <param name="targets">The targeted field names.</param>
+    /// <param name="containingType">The scanned type declaration.</param>
+    private sealed class AccessScan(HashSet<string> targets, TypeDeclarationSyntax containingType)
     {
         /// <summary>The interlocked-targeted field names.</summary>
-        private readonly HashSet<string> _targets;
+        private readonly HashSet<string> _targets = targets;
 
         /// <summary>The type bounding lock-ancestry walks; nested types are excluded.</summary>
-        private readonly TypeDeclarationSyntax _containingType;
-
-        /// <summary>Initializes a new instance of the <see cref="AccessScan"/> class.</summary>
-        /// <param name="targets">The targeted field names.</param>
-        /// <param name="containingType">The scanned type declaration.</param>
-        public AccessScan(HashSet<string> targets, TypeDeclarationSyntax containingType)
-        {
-            _targets = targets;
-            _containingType = containingType;
-        }
+        private readonly TypeDeclarationSyntax _containingType = containingType;
 
         /// <summary>Gets the plain accesses to report, or <see langword="null"/> when there are none.</summary>
         public List<ExpressionSyntax>? Usages { get; private set; }
@@ -373,19 +377,14 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
-            if (usage.Parent is ArgumentSyntax argument)
-            {
-                return argument.RefOrOutKeyword.IsKind(SyntaxKind.None) && !IsNameOfArgument(argument);
-            }
-
-            return usage.Parent is not MemberAccessExpressionSyntax;
+            return usage.Parent is ArgumentSyntax argument ? argument.RefOrOutKeyword.IsKind(SyntaxKind.None) && !IsNameOfArgument(argument) : usage.Parent is not MemberAccessExpressionSyntax;
         }
 
         /// <summary>Returns whether an argument feeds a <c>nameof</c> expression.</summary>
         /// <param name="argument">The argument to inspect.</param>
         /// <returns><see langword="true"/> for nameof operands.</returns>
-        private static bool IsNameOfArgument(ArgumentSyntax argument)
-            => argument.Parent is ArgumentListSyntax
+        private static bool IsNameOfArgument(ArgumentSyntax argument) =>
+            argument.Parent is ArgumentListSyntax
             {
                 Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } },
             };

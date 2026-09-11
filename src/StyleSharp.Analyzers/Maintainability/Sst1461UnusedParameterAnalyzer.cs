@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
@@ -77,7 +78,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <param name="methodGroupNamesByType">The per-type method-group name cache.</param>
     private static void AnalyzeMember(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnreadParameterOptions> optionsByTree,
         ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>> methodGroupNamesByType)
     {
@@ -105,8 +106,8 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when the declaration should not be reported at all.</returns>
     /// <remarks>Syntactic only, so the common no-diagnostic path never touches the semantic model.</remarks>
-    private static bool HasExemptShape(BaseMethodDeclarationSyntax member)
-        => (member.Body is null && member.ExpressionBody is null)
+    private static bool HasExemptShape(BaseMethodDeclarationSyntax member) =>
+        (member.Body is null && member.ExpressionBody is null)
             || member.AttributeLists.Count > 0
             || HasArityOrDispatchModifier(member.Modifiers)
             || member.Parent is InterfaceDeclarationSyntax
@@ -142,7 +143,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The declaring member, or <see langword="null"/> for a local function.</param>
     /// <param name="methodGroupNamesByType">The per-type method-group name cache, or <see langword="null"/>.</param>
     private static void AnalyzeParameters(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ParameterListSyntax parameterList,
         SyntaxNode body,
         ConstructorInitializerSyntax? initializer,
@@ -156,12 +157,12 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         var state = new ParameterScanState(parameters, parameterList.Span);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref state, static (in SyntaxToken token, ref ParameterScanState scan) => scan.Observe(token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref state, static (in SyntaxToken token, ref ParameterScanState scan) => scan.Observe(token));
 
         // A constructor may read its parameters in the base or this initializer, which is outside the body.
         if (initializer is not null)
         {
-            DescendantTraversalHelper.VisitDescendantTokens(initializer, ref state, static (in SyntaxToken token, ref ParameterScanState scan) => scan.Observe(token));
+            _ = DescendantTraversalHelper.VisitDescendantTokens(initializer, ref state, static (in SyntaxToken token, ref ParameterScanState scan) => scan.Observe(token));
         }
 
         var contractChecked = false;
@@ -199,15 +200,15 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     private static bool IsSignatureFixedElsewhere(
         SyntaxNode node,
         IMethodSymbol? member,
-        ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>? cache)
-        => member is not null && (IsBoundByAContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
+        ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>? cache) =>
+        member is not null && (IsBoundByAContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
 
     /// <summary>Reads the settings for the member's tree, parsing each tree's options at most once.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static UnreadParameterOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnreadParameterOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -217,15 +218,15 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         options = UnreadParameterOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
     /// <summary>Returns whether a method shape should not have parameters removed locally.</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
     /// <returns><see langword="true"/> when the signature may be consumed indirectly.</returns>
-    private static bool HasArityOrDispatchModifier(SyntaxTokenList modifiers)
-        => ModifierListHelper.Contains(modifiers, SyntaxKind.PartialKeyword)
+    private static bool HasArityOrDispatchModifier(in SyntaxTokenList modifiers) =>
+        ModifierListHelper.Contains(modifiers, SyntaxKind.PartialKeyword)
             || ModifierListHelper.Contains(modifiers, SyntaxKind.VirtualKeyword)
             || ModifierListHelper.Contains(modifiers, SyntaxKind.AbstractKeyword)
             || ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword)
@@ -234,21 +235,22 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a declaration names the interface member it implements.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when an explicit interface specifier is present.</returns>
-    private static bool ImplementsAnInterfaceExplicitly(BaseMethodDeclarationSyntax member)
-        => member is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null };
+    private static bool ImplementsAnInterfaceExplicitly(BaseMethodDeclarationSyntax member) =>
+        member is MethodDeclarationSyntax { ExplicitInterfaceSpecifier: not null };
 
     /// <summary>Returns whether a member's body does nothing but throw, which is a deliberate stub.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> for a body whose only statement is a throw.</returns>
-    private static bool OnlyThrows(BaseMethodDeclarationSyntax member)
-        => OnlyThrowsBody(member.Body, member.ExpressionBody);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool OnlyThrows(BaseMethodDeclarationSyntax member) =>
+        OnlyThrowsBody(member.Body, member.ExpressionBody);
 
     /// <summary>Returns whether a block or expression body does nothing but throw.</summary>
     /// <param name="body">The block body, when present.</param>
     /// <param name="expressionBody">The expression body, when present.</param>
     /// <returns><see langword="true"/> for a body whose only statement is a throw.</returns>
-    private static bool OnlyThrowsBody(BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody)
-        => body is { Statements: [ThrowStatementSyntax] }
+    private static bool OnlyThrowsBody(BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody) =>
+        body is { Statements: [ThrowStatementSyntax] }
             || expressionBody is { Expression: ThrowExpressionSyntax };
 
     /// <summary>Returns whether a parameter list is a framework callback shape rather than one the author chose.</summary>
@@ -305,7 +307,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The member declaration.</param>
     /// <param name="context">The syntax node context supplying the semantic model.</param>
     /// <returns><see langword="true"/> for a two-parameter <c>(object, EventArgs)</c> method whose parameters the delegate fixes.</returns>
-    private static bool IsEventHandler(BaseMethodDeclarationSyntax member, SyntaxNodeAnalysisContext context)
+    private static bool IsEventHandler(BaseMethodDeclarationSyntax member, in SyntaxNodeAnalysisContext context)
     {
         var parameters = member.ParameterList.Parameters;
         if (parameters.Count != 2 || !IsObjectType(parameters[0].Type) || parameters[1].Type is not { } secondType)
@@ -441,7 +443,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return cache.GetOrAdd(declaringType, static type => CollectMethodGroupNames(type)).Contains(memberName);
+        return cache.GetOrAdd(declaringType, CollectMethodGroupNames).Contains(memberName);
     }
 
     /// <summary>Collects every name a type hands on as a method group rather than calling.</summary>
@@ -450,7 +452,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     private static HashSet<string> CollectMethodGroupNames(TypeDeclarationSyntax declaringType)
     {
         var scan = new MethodGroupScan(new HashSet<string>(StringComparer.Ordinal));
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, MethodGroupScan>(declaringType, ref scan, VisitMethodGroup);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, MethodGroupScan>(declaringType, ref scan, VisitMethodGroup);
         return scan.Names;
     }
 
@@ -472,7 +474,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        state.Names.Add(identifier.Identifier.ValueText);
+        _ = state.Names.Add(identifier.Identifier.ValueText);
         return true;
     }
 
@@ -481,7 +483,11 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
     private readonly record struct MethodGroupScan(HashSet<string> Names);
 
     /// <summary>Tracks parameters read by identifier token.</summary>
-    private struct ParameterScanState : IEquatable<ParameterScanState>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct ParameterScanState
     {
         /// <summary>The parameter list.</summary>
         private readonly SeparatedSyntaxList<ParameterSyntax> _parameters;
@@ -511,17 +517,6 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when the parameter is seen.</returns>
         public readonly bool IsSeen(int index) => (_seenMask & (1UL << index)) != 0;
 
-        /// <summary>Returns whether two scan states are equivalent.</summary>
-        /// <param name="other">The other state.</param>
-        /// <returns><see langword="true"/> when the tracked state is equal.</returns>
-        public readonly bool Equals(ParameterScanState other) => _seenMask == other._seenMask && _remaining == other._remaining;
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is ParameterScanState other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => unchecked(((int)_seenMask * 397) ^ _remaining);
-
         /// <summary>Observes one token and returns whether scanning should continue.</summary>
         /// <param name="token">The token.</param>
         /// <returns><see langword="false"/> once every parameter has been seen.</returns>
@@ -535,12 +530,14 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
             var text = token.ValueText;
             for (var i = 0; i < _parameters.Count; i++)
             {
-                if (!IsSeen(i) && _parameters[i].Identifier.ValueText == text)
+                if (IsSeen(i) || _parameters[i].Identifier.ValueText != text)
                 {
-                    _seenMask |= 1UL << i;
-                    _remaining--;
-                    break;
+                    continue;
                 }
+
+                _seenMask |= 1UL << i;
+                _remaining--;
+                break;
             }
 
             return _remaining > 0;

@@ -11,8 +11,8 @@ internal static class PreferConstOverStaticReadonlyBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit prefer-const rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -27,8 +27,8 @@ internal static class PreferConstOverStaticReadonlyBenchmarkSource
     /// (two diagnostics per type); the clean variant declares both as <c>const</c> and keeps a
     /// reassigned, non-constant local to exercise the analyzer's local reject paths.
     /// </remarks>
-    private static string GenerateType(int index, bool violating)
-        => violating
+    private static string GenerateType(int index, bool violating) =>
+        violating
             ? $$"""
               public sealed class C{{index}}
               {

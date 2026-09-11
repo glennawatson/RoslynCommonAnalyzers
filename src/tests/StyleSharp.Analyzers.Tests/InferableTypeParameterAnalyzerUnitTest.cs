@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInferableTypeParameter = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2307InferableTypeParameterAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class InferableTypeParameterAnalyzerUnitTest
 {
     /// <summary>Verifies a type parameter used by no parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterInNoParameterIsReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task TypeParameterInNoParameterIsReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             public static class Registry
             {
@@ -26,9 +28,10 @@ public class InferableTypeParameterAnalyzerUnitTest
     /// <summary>Verifies a type parameter that only appears in the return type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>C# does not infer a method's type arguments from its return type, so the caller still names it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterOnlyInReturnTypeIsReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task TypeParameterOnlyInReturnTypeIsReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             public static class Factory
             {
@@ -39,9 +42,10 @@ public class InferableTypeParameterAnalyzerUnitTest
     /// <summary>Verifies a type parameter reachable only through another's constraint is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Inference does not walk constraints, so naming TItem there does not let a caller omit it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterOnlyInConstraintIsReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task TypeParameterOnlyInConstraintIsReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -56,9 +60,10 @@ public class InferableTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies a type parameter a parameter pins down is not reported, however deeply it is nested.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterNestedInAParameterIsNotReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task TypeParameterNestedInAParameterIsNotReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -102,9 +107,10 @@ public class InferableTypeParameterAnalyzerUnitTest
     /// a change that cannot be made without breaking the contract; the declarations that set the shape carry
     /// the diagnostic instead.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodThatCannotChangeItsSignatureIsNotReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task MethodThatCannotChangeItsSignatureIsNotReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             public interface IRegistry
             {
@@ -134,9 +140,10 @@ public class InferableTypeParameterAnalyzerUnitTest
     /// <summary>Verifies a method that is not externally visible is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Its callers all live in the assembly that can change the signature freely.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodThatIsNotExternallyVisibleIsNotReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task MethodThatIsNotExternallyVisibleIsNotReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             internal static class InternalRegistry
             {
@@ -166,9 +173,10 @@ public class InferableTypeParameterAnalyzerUnitTest
     /// <summary>Verifies a type's own type parameter is not reported against its methods.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>A caller names the type's argument once, when they construct it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterOfTheContainingTypeIsNotReportedAsync()
-        => await VerifyInferableTypeParameter.VerifyAnalyzerAsync(
+    public Task TypeParameterOfTheContainingTypeIsNotReportedAsync() =>
+        VerifyInferableTypeParameter.VerifyAnalyzerAsync(
             """
             public sealed class Cache<T>
             {

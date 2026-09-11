@@ -8,11 +8,11 @@ namespace StyleSharp.Analyzers;
 internal enum ArrayCreationTypeStyle
 {
     /// <summary>Always name the element type: <c>new T[] { ... }</c>.</summary>
-    Explicit,
+    Explicit = 0,
 
     /// <summary>Always infer the element type: <c>new[] { ... }</c>.</summary>
-    Implicit,
+    Implicit = 1,
 
     /// <summary>Infer the element type only when the elements make it obvious.</summary>
-    ImplicitWhenObvious
+    ImplicitWhenObvious = 2,
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyTest = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2505ParameterizedTestWithoutDataSourceAnalyzer>;
@@ -67,9 +68,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies a TUnit test whose only parameter is an injected <c>CancellationToken</c> is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TUnitTestWithInjectedCancellationTokenIsCleanAsync()
-        => await VerifyAsync(
+    public Task TUnitTestWithInjectedCancellationTokenIsCleanAsync() =>
+        VerifyAsync(
             TUnitStubs + """
 
             public class Tests
@@ -81,9 +83,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies a data parameter alongside an injected <c>CancellationToken</c> is still reported when no data source is present.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TUnitTestWithDataParameterAndCancellationTokenIsReportedAsync()
-        => await VerifyAsync(
+    public Task TUnitTestWithDataParameterAndCancellationTokenIsReportedAsync() =>
+        VerifyAsync(
             TUnitStubs + """
 
             public class Tests
@@ -95,9 +98,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit theory with a parameter and no data attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitTheoryWithoutDataIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitTheoryWithoutDataIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -109,9 +113,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit fact that mistakenly declares a parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitFactWithParameterIsReportedAsync()
-        => await VerifyAsync(
+    public Task XunitFactWithParameterIsReportedAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -123,9 +128,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit theory that supplies inline data is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitTheoryWithInlineDataIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitTheoryWithInlineDataIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -138,9 +144,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit theory that supplies member data is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitTheoryWithMemberDataIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitTheoryWithMemberDataIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -153,9 +160,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless xUnit fact is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XunitParameterlessFactIsCleanAsync()
-        => await VerifyAsync(
+    public Task XunitParameterlessFactIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -167,9 +175,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit test with a parameter and no data source is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitTestWithoutDataIsReportedAsync()
-        => await VerifyAsync(
+    public Task NUnitTestWithoutDataIsReportedAsync() =>
+        VerifyAsync(
             NUnitStubs + """
 
             public class Tests
@@ -181,9 +190,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit test case supplying arguments on the method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitTestCaseIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitTestCaseIsCleanAsync() =>
+        VerifyAsync(
             NUnitStubs + """
 
             public class Tests
@@ -195,9 +205,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit test whose parameter carries a per-parameter source is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitPerParameterValuesIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitPerParameterValuesIsCleanAsync() =>
+        VerifyAsync(
             NUnitStubs + """
 
             public class Tests
@@ -209,9 +220,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest data test method with a parameter and no row source is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MsTestDataTestMethodWithoutRowIsReportedAsync()
-        => await VerifyAsync(
+    public Task MsTestDataTestMethodWithoutRowIsReportedAsync() =>
+        VerifyAsync(
             MsTestStubs + """
 
             public class Tests
@@ -223,9 +235,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies a plain MSTest test method with a parameter and no row source is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MsTestMethodWithParameterIsReportedAsync()
-        => await VerifyAsync(
+    public Task MsTestMethodWithParameterIsReportedAsync() =>
+        VerifyAsync(
             MsTestStubs + """
 
             public class Tests
@@ -237,9 +250,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest data test method with a data row is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MsTestDataRowIsCleanAsync()
-        => await VerifyAsync(
+    public Task MsTestDataRowIsCleanAsync() =>
+        VerifyAsync(
             MsTestStubs + """
 
             public class Tests
@@ -252,9 +266,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary (non-test) method with parameters is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTestMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonTestMethodIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public class Tests
@@ -265,9 +280,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies a same-named attribute from an unrelated namespace is never treated as a test.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookalikeTestAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task LookalikeTestAttributeIsCleanAsync() =>
+        VerifyAsync(
             XunitStubs + """
 
             public sealed class TheoryAttribute : System.Attribute { }
@@ -281,9 +297,10 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported when no test framework is referenced at all.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoFrameworkReferencedIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoFrameworkReferencedIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -301,11 +318,7 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyTest.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyTest.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

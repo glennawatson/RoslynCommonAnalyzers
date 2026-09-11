@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySelfAssign = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.SelfAssignmentCodeFixProvider>;
@@ -79,9 +80,10 @@ public class SelfAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a genuine assignment and a constructor field assignment are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenuineAssignmentsAreCleanAsync()
-        => await VerifySelfAssign.VerifyAnalyzerAsync(
+    public Task GenuineAssignmentsAreCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -100,9 +102,10 @@ public class SelfAssignmentAnalyzerUnitTest
     /// side reads this instance's, so the two identical-looking names are different members of different
     /// objects.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerCopyingThisInstanceIsCleanAsync()
-        => await VerifySelfAssign.VerifyAnalyzerAsync(
+    public Task ObjectInitializerCopyingThisInstanceIsCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -118,9 +121,10 @@ public class SelfAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a <c>with</c> initializer copying a member of this instance is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WithInitializerCopyingThisInstanceIsCleanAsync()
-        => await VerifySelfAssign.VerifyAnalyzerAsync(
+    public Task WithInitializerCopyingThisInstanceIsCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
             """
             public record R(string Name)
             {
@@ -130,9 +134,10 @@ public class SelfAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a nested object initializer is not reported either.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedObjectInitializerIsCleanAsync()
-        => await VerifySelfAssign.VerifyAnalyzerAsync(
+    public Task NestedObjectInitializerIsCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
             """
             public class Inner
             {

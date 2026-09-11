@@ -28,7 +28,7 @@ internal sealed class CollectionExpressionArgumentTargets
     /// <summary>Resolves the symbols against a compilation.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>
     /// <returns>The resolved targets, or <see langword="null"/> when no supported collection is referenced.</returns>
-    public static CollectionExpressionArgumentTargets? Resolve(Compilation compilation)
+    internal static CollectionExpressionArgumentTargets? Resolve(Compilation compilation)
     {
         var collections = new[]
         {
@@ -40,11 +40,13 @@ internal sealed class CollectionExpressionArgumentTargets
         var any = false;
         for (var i = 0; i < collections.Length; i++)
         {
-            if (collections[i] is not null)
+            if (collections[i] is null)
             {
-                any = true;
-                break;
+                continue;
             }
+
+            any = true;
+            break;
         }
 
         if (!any)
@@ -58,13 +60,13 @@ internal sealed class CollectionExpressionArgumentTargets
             compilation.GetTypeByMetadataName("System.Collections.Generic.IComparer`1"),
         };
 
-        return new CollectionExpressionArgumentTargets(collections, comparers);
+        return new(collections, comparers);
     }
 
     /// <summary>Gets whether a created type is one of the supported collections.</summary>
     /// <param name="type">The constructed type.</param>
     /// <returns><see langword="true"/> when the type's definition is supported.</returns>
-    public bool IsSupportedCollection(INamedTypeSymbol type)
+    internal bool IsSupportedCollection(INamedTypeSymbol type)
     {
         var definition = type.OriginalDefinition;
         foreach (var candidate in _collections)
@@ -81,7 +83,7 @@ internal sealed class CollectionExpressionArgumentTargets
     /// <summary>Gets whether a constructor parameter configures the collection rather than filling it.</summary>
     /// <param name="type">The parameter type.</param>
     /// <returns><see langword="true"/> for a capacity or a comparer.</returns>
-    public bool IsConfigurationParameter(ITypeSymbol type)
+    internal bool IsConfigurationParameter(ITypeSymbol type)
     {
         if (type.SpecialType == SpecialType.System_Int32)
         {

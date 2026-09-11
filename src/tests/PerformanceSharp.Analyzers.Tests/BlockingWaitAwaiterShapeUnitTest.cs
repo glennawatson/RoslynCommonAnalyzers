@@ -141,11 +141,7 @@ public class BlockingWaitAwaiterShapeUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerAsync(string source)
     {
-        var test = new VerifyBlocking.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new VerifyBlocking.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

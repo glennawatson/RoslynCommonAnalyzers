@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyThrow = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1485UnexpectedThrowAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 {
     /// <summary>Verifies the equality, hashing, formatting and disposal members are all measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitlyInvokedMembersAreReportedAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task ImplicitlyInvokedMembersAreReportedAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Values
             {
@@ -37,9 +39,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 
     /// <summary>Verifies a typed <c>Equals</c> overload is measured like the object one.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypedEqualsIsReportedAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task TypedEqualsIsReportedAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Values : System.IEquatable<Values>
             {
@@ -57,9 +60,10 @@ public class UnexpectedThrowAnalyzerUnitTest
     /// <summary>Verifies a static constructor, a finalizer and an implicit conversion are measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>An explicit conversion is written by the caller, so its failure is visible and it is not measured.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuntimeInvokedMembersAreReportedAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task RuntimeInvokedMembersAreReportedAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Config
             {
@@ -92,9 +96,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 
     /// <summary>Verifies the equality and ordering operators are measured, and an arithmetic operator is not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComparisonOperatorsAreReportedAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task ComparisonOperatorsAreReportedAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public struct Amount
             {
@@ -117,9 +122,10 @@ public class UnexpectedThrowAnalyzerUnitTest
     /// <summary>Verifies the two exceptions that mark a member as deliberately absent are allowed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A type that derives from one of them says the same thing, and is recognized through the bind.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeliberateAbsenceIsCleanAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task DeliberateAbsenceIsCleanAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Placeholder
             {
@@ -140,9 +146,10 @@ public class UnexpectedThrowAnalyzerUnitTest
     /// <summary>Verifies a throw inside a nested lambda or local function is not attributed to the member.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The delegate runs when it is invoked, which need not be during the member that declares it.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedFunctionsAreCleanAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task NestedFunctionsAreCleanAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Deferred
             {
@@ -170,9 +177,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 
     /// <summary>Verifies a rethrow propagates rather than originates, and a new exception in the same catch does not.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowIsCleanButANewExceptionIsNotAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task RethrowIsCleanButANewExceptionIsNotAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Propagating
             {
@@ -215,9 +223,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary member may throw, and that arity is part of a measured member's identity.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrdinaryMembersAreCleanAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task OrdinaryMembersAreCleanAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Resource
             {
@@ -245,9 +254,10 @@ public class UnexpectedThrowAnalyzerUnitTest
 
     /// <summary>Verifies an abstract or interface member with no body is not measured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MembersWithoutBodiesAreCleanAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task MembersWithoutBodiesAreCleanAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public interface IResource
             {
@@ -331,9 +341,10 @@ public class UnexpectedThrowAnalyzerUnitTest
     /// <summary>Verifies a throw that is not written as an object creation is still bound and reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The syntactic allow-list is only a shortcut; a factory call has to be bound to be judged.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrownExpressionIsBoundWhenItIsNotAnObjectCreationAsync()
-        => await VerifyThrow.VerifyAnalyzerAsync(
+    public Task ThrownExpressionIsBoundWhenItIsNotAnObjectCreationAsync() =>
+        VerifyThrow.VerifyAnalyzerAsync(
             """
             public class Factories
             {

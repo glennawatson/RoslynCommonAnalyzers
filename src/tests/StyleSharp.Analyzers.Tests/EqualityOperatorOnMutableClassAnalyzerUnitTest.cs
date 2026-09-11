@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2464EqualityOperatorOnMutableClassAnalyzer>;
@@ -13,9 +14,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 {
     /// <summary>Verifies a class with a settable field and an <c>operator ==</c> is reported once, on the operator.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SettableFieldIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task SettableFieldIsReportedAsync() =>
+        VerifyReportAsync(
             """
             public class C
             {
@@ -27,9 +29,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a class made mutable only by a settable property is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SettablePropertyIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task SettablePropertyIsReportedAsync() =>
+        VerifyReportAsync(
             """
             public class C
             {
@@ -41,9 +44,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies mutable state declared in a different partial part than the operator is still seen after binding.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MutableStateInOtherPartialIsReportedAsync()
-        => await VerifyReportAsync(
+    public Task MutableStateInOtherPartialIsReportedAsync() =>
+        VerifyReportAsync(
             """
             public partial class C
             {
@@ -59,9 +63,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies an immutable class — readonly fields, get-only properties — with an <c>operator ==</c> is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImmutableClassIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ImmutableClassIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -74,9 +79,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a class whose only settable-looking member is an init-only property is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitOnlyPropertyIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InitOnlyPropertyIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -88,9 +94,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a class whose mutable-looking members are all static is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticStateIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StaticStateIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -103,9 +110,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a mutable struct with an <c>operator ==</c> is silent — a value type is copied, not keyed by reference.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StructIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public struct S
             {
@@ -117,9 +125,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a record with settable state is silent — records own their value equality by design.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task RecordIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public record R
             {
@@ -129,9 +138,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a record struct with settable state is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordStructIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task RecordStructIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public record struct R
             {
@@ -141,9 +151,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies an operator other than <c>==</c> on a mutable class is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEqualityOperatorIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonEqualityOperatorIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -154,9 +165,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies an identity-equality operator (<c>ReferenceEquals</c> expression body) on a mutable class is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceEqualsExpressionBodyIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ReferenceEqualsExpressionBodyIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -168,9 +180,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies an identity-equality operator with a block body and a single <c>return ReferenceEquals</c> is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceEqualsBlockBodyIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ReferenceEqualsBlockBodyIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -182,9 +195,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies an identity-equality operator written as <c>(object)a == (object)b</c> is silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectCastEqualityIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ObjectCastEqualityIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class C
             {
@@ -196,9 +210,10 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
 
     /// <summary>Verifies a genuine value-equality operator on a mutable class is still reported after the identity exemption.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueEqualityOperatorIsStillReportedAsync()
-        => await VerifyReportAsync(
+    public Task ValueEqualityOperatorIsStillReportedAsync() =>
+        VerifyReportAsync(
             """
             public class C
             {
@@ -213,11 +228,7 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyReportAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -225,5 +236,6 @@ public class EqualityOperatorOnMutableClassAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyCleanAsync(string source) => await VerifyReportAsync(source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyCleanAsync(string source) => VerifyReportAsync(source);
 }

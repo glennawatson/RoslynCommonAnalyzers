@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2484DangerousGetHandleAnalyzer>;
 
@@ -22,9 +23,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a member-access call to the accessor on a safe handle is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessOnSafeHandleIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberAccessOnSafeHandleIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             $$"""
             using System;
             using System.Runtime.InteropServices;
@@ -39,9 +41,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a call through the abstract base safe handle type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallThroughBaseSafeHandleIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CallThroughBaseSafeHandleIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -54,9 +57,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a null-conditional call to the accessor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConditionalAccessIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             $$"""
             using System;
             using System.Runtime.InteropServices;
@@ -71,9 +75,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies an unqualified call to the inherited accessor from within a derived handle is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnqualifiedInheritedCallIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnqualifiedInheritedCallIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -90,9 +95,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a <c>this</c>-qualified call to the inherited accessor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisQualifiedInheritedCallIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ThisQualifiedInheritedCallIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.InteropServices;
@@ -109,9 +115,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on an unrelated type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnUnrelatedTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SameNamedMethodOnUnrelatedTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -128,9 +135,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method that takes an argument is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodWithArgumentIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SameNamedMethodWithArgumentIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -147,9 +155,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies another method on a safe handle is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherSafeHandleMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OtherSafeHandleMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             $$"""
             using System;
             using System.Runtime.InteropServices;
@@ -164,9 +173,10 @@ public class DangerousGetHandleAnalyzerUnitTest
 
     /// <summary>Verifies a delegate invocation with no simple member name is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateInvocationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DelegateInvocationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

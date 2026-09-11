@@ -4,16 +4,14 @@
 
 namespace RoslynCommon.Analyzers;
 
-/// <summary>
-/// Small allocation-free scans over modifier lists for hot analyzer paths.
-/// </summary>
+/// <summary>Small allocation-free scans over modifier lists for hot analyzer paths.</summary>
 internal static class ModifierListHelper
 {
     /// <summary>Returns whether <paramref name="modifiers"/> contains <paramref name="kind"/>.</summary>
     /// <param name="modifiers">The modifier list.</param>
     /// <param name="kind">The modifier kind to find.</param>
     /// <returns><see langword="true"/> when present.</returns>
-    public static bool Contains(SyntaxTokenList modifiers, SyntaxKind kind)
+    internal static bool Contains(in SyntaxTokenList modifiers, SyntaxKind kind)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -31,7 +29,7 @@ internal static class ModifierListHelper
     /// <param name="first">The first modifier kind to find.</param>
     /// <param name="second">The second modifier kind to find.</param>
     /// <returns><see langword="true"/> when either modifier is present.</returns>
-    public static bool ContainsEither(SyntaxTokenList modifiers, SyntaxKind first, SyntaxKind second)
+    internal static bool ContainsEither(in SyntaxTokenList modifiers, SyntaxKind first, SyntaxKind second)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

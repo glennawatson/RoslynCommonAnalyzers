@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -74,12 +75,7 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         var sections = switchStatement.Sections;
         var duplicateIndex = sections.IndexOf(duplicate);
         var partnerIndex = FindPartner(sections, duplicateIndex);
-        if (partnerIndex < 0)
-        {
-            return null;
-        }
-
-        return new NodeReplacement(switchStatement, Merge(switchStatement, partnerIndex, duplicateIndex));
+        return partnerIndex < 0 ? null : new NodeReplacement(switchStatement, Merge(switchStatement, partnerIndex, duplicateIndex));
     }
 
     /// <summary>Joins a duplicated switch-expression arm into the earlier arm that produces the same value.</summary>
@@ -147,8 +143,8 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     /// <param name="pattern">The pattern to lay out.</param>
     /// <param name="operatorLeading">The trivia each <c>or</c> keyword leads with.</param>
     /// <returns>The pattern with its alternatives spaced alike.</returns>
-    private static PatternSyntax Respace(PatternSyntax pattern, SyntaxTriviaList operatorLeading)
-        => pattern is BinaryPatternSyntax { RawKind: (int)SyntaxKind.OrPattern } alternatives
+    private static PatternSyntax Respace(PatternSyntax pattern, in SyntaxTriviaList operatorLeading) =>
+        pattern is BinaryPatternSyntax { RawKind: (int)SyntaxKind.OrPattern } alternatives
             ? SyntaxFactory.BinaryPattern(
                 SyntaxKind.OrPattern,
                 Respace(alternatives.Left, operatorLeading),
@@ -159,8 +155,9 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
     /// <summary>Builds an <c>or</c> keyword that keeps a single trailing space.</summary>
     /// <param name="leading">The trivia the keyword leads with.</param>
     /// <returns>The keyword token.</returns>
-    private static SyntaxToken OrKeyword(SyntaxTriviaList leading)
-        => SyntaxFactory.Token(leading, SyntaxKind.OrKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken OrKeyword(in SyntaxTriviaList leading) =>
+        SyntaxFactory.Token(leading, SyntaxKind.OrKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
     /// <summary>Finds the earlier section whose body matches the duplicate's.</summary>
     /// <param name="sections">The switch's sections.</param>

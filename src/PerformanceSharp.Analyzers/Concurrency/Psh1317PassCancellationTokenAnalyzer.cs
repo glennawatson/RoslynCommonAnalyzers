@@ -59,7 +59,7 @@ public sealed class Psh1317PassCancellationTokenAnalyzer : DiagnosticAnalyzer
     /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
     /// <param name="targets">The per-compilation cache of resolved token targets.</param>
     private static void AnalyzeInvocation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol tokenType,
         ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?> targets)
     {

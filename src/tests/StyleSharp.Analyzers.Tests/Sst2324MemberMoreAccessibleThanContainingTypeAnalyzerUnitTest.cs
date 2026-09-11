@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 {
     /// <summary>Verifies a <c>public</c> method inside an <c>internal</c> class is reported on its modifier.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMethodInInternalTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicMethodInInternalTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -25,9 +27,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> nested type inside an <c>internal</c> class is reported on its modifier.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNestedTypeInInternalTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNestedTypeInInternalTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -39,9 +42,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> member of a <c>public</c> type nested in an <c>internal</c> type is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMemberOfPublicTypeNestedInInternalTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicMemberOfPublicTypeNestedInInternalTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Outer
             {
@@ -61,9 +65,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
     /// contract of every serializer and binder picks data members by exactly that. Narrowing one does not
     /// remove dead surface; it removes the member from every payload while still compiling.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicDataMemberInInternalTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicDataMemberInInternalTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -75,9 +80,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>protected internal</c> member inside an <c>internal</c> class is reported, its cross-assembly derived reach being dead.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedInternalMemberInInternalTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedInternalMemberInInternalTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -89,9 +95,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member declared exactly as accessible as its container is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberMatchingContainerAccessibilityIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberMatchingContainerAccessibilityIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -103,9 +110,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a member less accessible than its container is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberLessAccessibleThanContainerIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberLessAccessibleThanContainerIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Container
             {
@@ -117,9 +125,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> member of a <c>public</c> type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMemberOfPublicTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicMemberOfPublicTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Container
             {
@@ -131,9 +140,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>protected</c> member inside an <c>internal</c> class is not reported: neither reach is a superset of the other.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedMemberInInternalTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedMemberInInternalTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class Container
             {
@@ -145,9 +155,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies an explicit interface implementation, which has no accessibility modifier, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceImplementationIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceImplementationIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IThing
             {
@@ -164,9 +175,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> implicit interface implementation, whose accessibility the contract fixes, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitInterfaceImplementationIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ImplicitInterfaceImplementationIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IThing
             {
@@ -183,9 +195,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> override, whose accessibility its base fixes, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicOverrideInInternalTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicOverrideInInternalTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Base
             {
@@ -202,9 +215,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> member of a top-level <c>public</c> type is untouched even when it has a nested internal type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNestedTypeInPublicTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNestedTypeInPublicTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Container
             {
@@ -216,9 +230,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies an <c>internal</c> member of a <c>private</c> nested type used by the enclosing type is not reported — it cannot be narrowed to <c>private</c> without CS0122.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalMemberOfPrivateNestedTypeUsedOutsideIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InternalMemberOfPrivateNestedTypeUsedOutsideIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Outer
             {
@@ -235,9 +250,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies an <c>internal</c> member of a <c>private</c> nested type that nothing outside the type uses is reported — making it <c>private</c> would compile.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedInternalMemberOfPrivateNestedTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnusedInternalMemberOfPrivateNestedTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Outer
             {
@@ -250,9 +266,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a <c>public</c> TUnit lifecycle hook in an <c>internal</c> type is not reported — TUnit rejects narrowing it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicFrameworkHookInInternalTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicFrameworkHookInInternalTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace TUnit.Core
             {
@@ -272,9 +289,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a same-named hook attribute from an unrelated namespace does not exempt the member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicLookalikeHookInInternalTypeIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicLookalikeHookInInternalTypeIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class BeforeAttribute : System.Attribute
             {
@@ -291,9 +309,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies an inherited member a derived type uses to implement an interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedInterfaceImplementationIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InheritedInterfaceImplementationIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal interface IWork
             {
@@ -314,9 +333,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a sibling public member of the same base, used by no interface, is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicMemberOfBaseNotUsedForInterfaceIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicMemberOfBaseNotUsedForInterfaceIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal interface IWork
             {
@@ -341,9 +361,10 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 
     /// <summary>Verifies a Blazor <c>[Parameter]</c> property, which the framework requires be public, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlazorParameterInPrivateTypeIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BlazorParameterInPrivateTypeIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             namespace Microsoft.AspNetCore.Components
             {

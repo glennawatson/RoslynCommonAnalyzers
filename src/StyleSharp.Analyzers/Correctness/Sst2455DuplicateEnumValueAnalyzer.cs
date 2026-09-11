@@ -22,8 +22,8 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DuplicateEnumValue);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -54,7 +54,7 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (EnumDeclarationSyntax Declaration, bool Found)>(
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (EnumDeclarationSyntax Declaration, bool Found)>(
             initializer.Value,
             ref state,
             static (node, ref current) =>

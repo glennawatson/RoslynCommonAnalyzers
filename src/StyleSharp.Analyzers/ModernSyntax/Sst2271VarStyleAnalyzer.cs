@@ -50,10 +50,7 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for a <c>new T(...)</c>, <c>new T[]</c>, cast, <c>default(T)</c>, or a typed literal.</returns>
     internal static bool IsObviousInitializer(ExpressionSyntax expression) => expression switch
     {
-        ObjectCreationExpressionSyntax => true,
-        ArrayCreationExpressionSyntax => true,
-        CastExpressionSyntax => true,
-        DefaultExpressionSyntax => true,
+        ObjectCreationExpressionSyntax or ArrayCreationExpressionSyntax or CastExpressionSyntax or DefaultExpressionSyntax => true,
         LiteralExpressionSyntax literal => !literal.IsKind(SyntaxKind.NullLiteralExpression) && !literal.IsKind(SyntaxKind.DefaultLiteralExpression),
         _ => false,
     };
@@ -104,8 +101,7 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
     {
         switch (expression)
         {
-            case StackAllocArrayCreationExpressionSyntax:
-            case ImplicitStackAllocArrayCreationExpressionSyntax:
+            case StackAllocArrayCreationExpressionSyntax or ImplicitStackAllocArrayCreationExpressionSyntax:
                 return true;
             case ParenthesizedExpressionSyntax parenthesized:
                 return IsTargetTypedStackAlloc(parenthesized.Expression);
@@ -202,7 +198,7 @@ public sealed class Sst2271VarStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="toVar">Whether the target style is <c>var</c>.</param>
     /// <param name="resolvedType">The declared type of the variable.</param>
     /// <param name="initializer">The initializer, when the declaration has one.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax, bool toVar, ITypeSymbol resolvedType, ExpressionSyntax? initializer)
+    private static void Report(in SyntaxNodeAnalysisContext context, TypeSyntax typeSyntax, bool toVar, ITypeSymbol resolvedType, ExpressionSyntax? initializer)
     {
         if (toVar)
         {

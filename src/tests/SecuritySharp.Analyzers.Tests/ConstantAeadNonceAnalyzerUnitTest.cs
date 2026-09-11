@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeNonce = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 {
     /// <summary>Verifies an inline all-zero <c>new byte[N]</c> nonce to AesGcm.Encrypt is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineZeroNonceToAesGcmReportedAsync()
-        => await VerifyNet90Async(
+    public Task InlineZeroNonceToAesGcmReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -32,9 +34,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a literal constant byte array nonce to AesCcm.Encrypt is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralNonceToAesCcmReportedAsync()
-        => await VerifyNet90Async(
+    public Task LiteralNonceToAesCcmReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -50,9 +53,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a shared <c>static readonly</c> field nonce to ChaCha20Poly1305.Encrypt is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyFieldNonceToChaChaReportedAsync()
-        => await VerifyNet90Async(
+    public Task StaticReadonlyFieldNonceToChaChaReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -70,9 +74,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies the nonce passed by name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedNonceArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedNonceArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -88,9 +93,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a fresh random nonce held in a local is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreshRandomNonceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task FreshRandomNonceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -107,9 +113,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a nonce produced by a call per encryption is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineRandomNonceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InlineRandomNonceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -125,9 +132,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a per-instance readonly field nonce is not reported (only shared static fields are).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceReadonlyFieldNonceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InstanceReadonlyFieldNonceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -147,9 +155,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies an inline array with a non-constant element is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantArrayNonceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantArrayNonceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Security.Cryptography;
 
@@ -165,9 +174,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a constant nonce passed to an unrelated Encrypt method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAeadEncryptIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonAeadEncryptIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class FakeCipher
             {
@@ -193,9 +203,10 @@ public class ConstantAeadNonceAnalyzerUnitTest
 
     /// <summary>Verifies a named non-nonce first argument on an unrelated Encrypt method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedNonNonceArgumentIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NamedNonNonceArgumentIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class FakeCipher
             {
@@ -241,11 +252,7 @@ public class ConstantAeadNonceAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeNonce.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeNonce.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -255,11 +262,7 @@ public class ConstantAeadNonceAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeNonce.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeNonce.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

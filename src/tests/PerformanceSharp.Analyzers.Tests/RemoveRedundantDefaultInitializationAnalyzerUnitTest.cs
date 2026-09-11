@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantDefault = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1403RemoveRedundantDefaultInitializationAnalyzer,
     PerformanceSharp.Analyzers.Psh1403RemoveRedundantDefaultInitializationCodeFixProvider>;
@@ -229,9 +230,10 @@ public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 
     /// <summary>Verifies a null-forgiving initializer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullForgivingInitializerIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NullForgivingInitializerIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             #nullable enable
             public class C
@@ -242,9 +244,10 @@ public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 
     /// <summary>Verifies an object-creation initializer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewObjectInitializerIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NewObjectInitializerIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -254,9 +257,10 @@ public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 
     /// <summary>Verifies a non-default value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDefaultValueIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NonDefaultValueIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -266,9 +270,10 @@ public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 
     /// <summary>Verifies a negative floating-point zero is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegativeZeroIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task NegativeZeroIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -278,9 +283,10 @@ public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 
     /// <summary>Verifies struct instance fields with initializers are skipped entirely.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructFieldInitializerIsCleanAsync()
-        => await VerifyRedundantDefault.VerifyAnalyzerAsync(
+    public Task StructFieldInitializerIsCleanAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync(
             """
             public struct S
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2318DuplicateMemberBodyAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 {
     /// <summary>Verifies the second of two methods with identical multi-statement bodies is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalMultiStatementBodiesReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalMultiStatementBodiesReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -33,9 +35,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies two identical non-trivial expression bodies are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalExpressionBodiesReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalExpressionBodiesReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -47,9 +50,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies two methods whose bodies differ are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferingBodiesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferingBodiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -69,9 +73,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies two trivial expression-bodied methods are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrivialBodiesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TrivialBodiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -83,9 +88,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies identical bodies in different types are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalBodiesInDifferentTypesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalBodiesInDifferentTypesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class First
             {
@@ -108,9 +114,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies abstract methods, which have no body, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractMethodsAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AbstractMethodsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class C
             {
@@ -122,9 +129,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies identical bodies are not reported when the parameter types differ.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalBodiesWithDifferentParameterTypesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalBodiesWithDifferentParameterTypesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class Left
             {
@@ -150,9 +158,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies identical bodies are still reported when only the parameter names differ.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalBodiesWithDifferentParameterNamesReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalBodiesWithDifferentParameterNamesReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -174,9 +183,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies identical bodies are not reported when one parameter is passed by reference.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalBodiesWithDifferingParameterModifiersAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalBodiesWithDifferingParameterModifiersAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -198,9 +208,10 @@ public class Sst2318DuplicateMemberBodyAnalyzerUnitTest
 
     /// <summary>Verifies a single-throw body counts as trivial and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleThrowBodiesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleThrowBodiesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

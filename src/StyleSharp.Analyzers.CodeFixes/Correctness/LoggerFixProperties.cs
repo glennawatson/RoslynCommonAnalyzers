@@ -12,7 +12,7 @@ internal static class LoggerFixProperties
     /// <param name="key">The property key.</param>
     /// <param name="value">The parsed value.</param>
     /// <returns><see langword="true"/> when the property is present and parses.</returns>
-    public static bool TryGetIndex(Diagnostic diagnostic, string key, out int value)
+    internal static bool TryGetIndex(Diagnostic diagnostic, string key, out int value)
     {
         value = -1;
         return diagnostic.Properties.TryGetValue(key, out var text)

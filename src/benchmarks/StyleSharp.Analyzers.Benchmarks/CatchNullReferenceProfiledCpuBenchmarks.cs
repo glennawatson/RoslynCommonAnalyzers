@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for caught-null-reference analysis (SST2401).</summary>
+[System.Diagnostics.DebuggerDisplay("CatchNullReferenceProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class CatchNullReferenceProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class CatchNullReferenceProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean caught-null-reference path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> CatchNullReference_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating caught-null-reference path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> CatchNullReference_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

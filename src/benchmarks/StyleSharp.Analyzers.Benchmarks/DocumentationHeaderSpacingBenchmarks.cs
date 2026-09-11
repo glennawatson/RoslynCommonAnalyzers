@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for documentation-header-spacing analysis (SST1514).</summary>
+[System.Diagnostics.DebuggerDisplay("DocumentationHeaderSpacingBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DocumentationHeaderSpacingBenchmarks
@@ -24,11 +26,13 @@ public class DocumentationHeaderSpacingBenchmarks
 
     /// <summary>Benchmarks the clean documentation-header path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DocumentationHeaderSpacing_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating documentation-header path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DocumentationHeaderSpacing_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

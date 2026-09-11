@@ -16,11 +16,11 @@ internal enum StandardExceptionConstructors
     None = 0,
 
     /// <summary>The constructor that takes nothing.</summary>
-    Parameterless = 1,
+    Parameterless = 1 << 0,
 
     /// <summary>The constructor that takes the message.</summary>
-    Message = 2,
+    Message = 1 << 1,
 
     /// <summary>The constructor that takes the message and the exception that caused it.</summary>
-    MessageAndInner = 4,
+    MessageAndInner = 1 << 2,
 }

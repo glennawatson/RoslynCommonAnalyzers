@@ -89,8 +89,8 @@ public sealed class Sst2240ConditionalDelegateInvocationAnalyzer : DiagnosticAna
     /// <summary>Returns whether a pattern is <c>not null</c>.</summary>
     /// <param name="pattern">The pattern.</param>
     /// <returns><see langword="true"/> for the not-null pattern shape.</returns>
-    private static bool IsNotNullPattern(PatternSyntax pattern)
-        => pattern is UnaryPatternSyntax
+    private static bool IsNotNullPattern(PatternSyntax pattern) =>
+        pattern is UnaryPatternSyntax
         {
             OperatorToken.RawKind: (int)SyntaxKind.NotKeyword,
             Pattern: ConstantPatternSyntax { Expression.RawKind: (int)SyntaxKind.NullLiteralExpression }

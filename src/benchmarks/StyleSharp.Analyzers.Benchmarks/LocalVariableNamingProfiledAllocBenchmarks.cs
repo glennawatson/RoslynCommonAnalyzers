@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for local-variable naming analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("LocalVariableNamingProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class LocalVariableNamingProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class LocalVariableNamingProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean local-variable naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LocalVariableNaming_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating local-variable naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> LocalVariableNaming_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

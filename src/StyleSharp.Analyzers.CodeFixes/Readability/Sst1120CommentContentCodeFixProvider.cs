@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -43,8 +44,9 @@ public sealed class Sst1120CommentContentCodeFixProvider : CodeFixProvider, ITex
     }
 
     /// <inheritdoc/>
-    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
-        => changes.Add(new TextChange(CommentRemovalHelper.ComputeRemoval(text, diagnostic.Location.SourceSpan), string.Empty));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes) =>
+        changes.Add(new(CommentRemovalHelper.ComputeRemoval(text, diagnostic.Location.SourceSpan), string.Empty));
 
     /// <summary>Computes and applies the removal of the empty comment.</summary>
     /// <param name="document">The document to fix.</param>

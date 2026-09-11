@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -30,8 +32,9 @@ public sealed class Sst1135UsingDirectiveQualifiedAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the fully qualified name of the symbol without the <c>global::</c> prefix.</summary>
     /// <param name="symbol">The namespace or type symbol.</param>
     /// <returns>The fully qualified name.</returns>
-    internal static string QualifiedName(ISymbol symbol)
-        => StripGlobal(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string QualifiedName(ISymbol symbol) =>
+        StripGlobal(symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
 
     /// <summary>Reports a using directive whose name is not fully qualified.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -62,6 +65,6 @@ public sealed class Sst1135UsingDirectiveQualifiedAnalyzer : DiagnosticAnalyzer
     /// <summary>Removes a leading <c>global::</c> alias qualifier.</summary>
     /// <param name="name">The name to strip.</param>
     /// <returns>The name without the <c>global::</c> prefix.</returns>
-    private static string StripGlobal(string name)
-        => name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
+    private static string StripGlobal(string name) =>
+        name.StartsWith("global::", StringComparison.Ordinal) ? name["global::".Length..] : name;
 }

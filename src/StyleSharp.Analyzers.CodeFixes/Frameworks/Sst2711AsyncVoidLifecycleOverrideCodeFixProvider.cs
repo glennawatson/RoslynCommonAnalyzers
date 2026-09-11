@@ -66,24 +66,19 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixPr
             return;
         }
 
-        editor.ReplaceNode(method, (current, _) => Rewrite((MethodDeclarationSyntax)current));
+        editor.ReplaceNode(method, static (current, _) => Rewrite((MethodDeclarationSyntax)current));
     }
 
     /// <summary>Resolves the reported method, or <see langword="null"/> when the rewrite would not be safe.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The method to rewrite, or <see langword="null"/> when no fix is offered.</returns>
-    private static MethodDeclarationSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { ExplicitInterfaceSpecifier: null } method
+    private static MethodDeclarationSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { ExplicitInterfaceSpecifier: null } method
             || method.Parent is not TypeDeclarationSyntax type
-            || DeclaresMember(type, method.Identifier.ValueText + AsyncSuffix))
-        {
-            return null;
-        }
-
-        return method;
-    }
+            || DeclaresMember(type, method.Identifier.ValueText + AsyncSuffix)
+            ? null
+            : method;
 
     /// <summary>Returns whether a type already declares a method or property with a given name.</summary>
     /// <param name="type">The enclosing type declaration.</param>

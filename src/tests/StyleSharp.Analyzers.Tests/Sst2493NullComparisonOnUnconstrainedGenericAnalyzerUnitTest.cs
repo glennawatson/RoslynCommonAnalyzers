@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2493NullComparisonOnUnconstrainedGenericAnalyzer,
     StyleSharp.Analyzers.Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider>;
@@ -73,9 +74,10 @@ public class Sst2493NullComparisonOnUnconstrainedGenericAnalyzerUnitTest
 
     /// <summary>Verifies a class-constrained parameter and a non-generic operand are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstrainedAndNonGenericAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConstrainedAndNonGenericAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -87,9 +89,10 @@ public class Sst2493NullComparisonOnUnconstrainedGenericAnalyzerUnitTest
 
     /// <summary>Verifies a base-class constraint pins the parameter to a reference type and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseClassConstraintIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseClassConstraintIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.IO;
 

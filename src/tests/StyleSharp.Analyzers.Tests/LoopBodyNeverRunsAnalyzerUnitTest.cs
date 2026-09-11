@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.LoopConditionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 {
     /// <summary>Verifies an ascending loop whose start is past its bound is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StartPastBoundIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task StartPastBoundIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -31,9 +33,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 
     /// <summary>Verifies a descending loop whose start is below its bound is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DescendingStartBelowBoundIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task DescendingStartBelowBoundIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -51,9 +54,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 
     /// <summary>Verifies an inclusive bound that still folds false is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InclusiveBoundThatFoldsFalseIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task InclusiveBoundThatFoldsFalseIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -71,9 +75,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 
     /// <summary>Verifies a loop whose condition holds at the start is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionTrueAtStartIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task ConditionTrueAtStartIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -91,9 +96,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 
     /// <summary>Verifies a bound that is a collection count is clean: an empty collection is not a bug.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CollectionCountBoundIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CollectionCountBoundIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -112,9 +118,10 @@ public class LoopBodyNeverRunsAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant bound is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantBoundIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task NonConstantBoundIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 

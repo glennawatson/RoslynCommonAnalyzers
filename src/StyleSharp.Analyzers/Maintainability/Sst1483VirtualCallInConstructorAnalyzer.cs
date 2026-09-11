@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a constructor that calls a member a derived type can still override (SST1483).
-/// </summary>
+/// <summary>Reports a constructor that calls a member a derived type can still override (SST1483).</summary>
 /// <remarks>
 /// <para>
 /// Construction runs base-first: the base constructor finishes before a single derived field initializer has
@@ -107,8 +105,8 @@ public sealed class Sst1483VirtualCallInConstructorAnalyzer : DiagnosticAnalyzer
     /// evaluated before <c>this</c> exists, so the compiler rejects any instance member there (CS0120) and it
     /// cannot contain a virtual call to find.
     /// </remarks>
-    private static SyntaxNode? GetBody(ConstructorDeclarationSyntax constructor)
-        => (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody?.Expression;
+    private static SyntaxNode? GetBody(ConstructorDeclarationSyntax constructor) =>
+        (SyntaxNode?)constructor.Body ?? constructor.ExpressionBody?.Expression;
 
     /// <summary>Visits a constructor body, binding only the names that could dispatch on <c>this</c>.</summary>
     /// <param name="node">The node to visit.</param>
@@ -246,8 +244,8 @@ public sealed class Sst1483VirtualCallInConstructorAnalyzer : DiagnosticAnalyzer
     /// can override it again. <c>sealed</c> is what closes it. A <c>private</c> or non-virtual member is never
     /// any of these, so it never reaches the report.
     /// </remarks>
-    private static bool IsOverridable(ISymbol symbol)
-        => !symbol.IsStatic
+    private static bool IsOverridable(ISymbol symbol) =>
+        !symbol.IsStatic
             && !symbol.IsSealed
             && (symbol.IsVirtual || symbol.IsAbstract || symbol.IsOverride);
 
@@ -261,8 +259,8 @@ public sealed class Sst1483VirtualCallInConstructorAnalyzer : DiagnosticAnalyzer
     /// something later invokes it, which is not during construction. A property is the opposite — every read
     /// and every write runs an accessor, so naming it at all is the call.
     /// </remarks>
-    private static bool RunsDuringConstruction(ISymbol symbol, SimpleNameSyntax name, INamedTypeSymbol containingType)
-        => symbol switch
+    private static bool RunsDuringConstruction(ISymbol symbol, SimpleNameSyntax name, INamedTypeSymbol containingType) =>
+        symbol switch
         {
             IMethodSymbol => IsInvoked(name),
             IPropertySymbol => true,
@@ -273,23 +271,23 @@ public sealed class Sst1483VirtualCallInConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a name is the target of a call rather than a method group.</summary>
     /// <param name="name">The name that referenced the member.</param>
     /// <returns><see langword="true"/> when the member is invoked here.</returns>
-    private static bool IsInvoked(SimpleNameSyntax name)
-        => GetReferencingExpression(name) is { Parent: InvocationExpressionSyntax invocation } expression
+    private static bool IsInvoked(SimpleNameSyntax name) =>
+        GetReferencingExpression(name) is { Parent: InvocationExpressionSyntax invocation } expression
             && ReferenceEquals(invocation.Expression, expression);
 
     /// <summary>Returns whether a name is the target of an event subscription.</summary>
     /// <param name="name">The name that referenced the member.</param>
     /// <returns><see langword="true"/> when a handler is added to or removed from the event here.</returns>
-    private static bool IsSubscription(SimpleNameSyntax name)
-        => GetReferencingExpression(name) is { Parent: AssignmentExpressionSyntax assignment } expression
+    private static bool IsSubscription(SimpleNameSyntax name) =>
+        GetReferencingExpression(name) is { Parent: AssignmentExpressionSyntax assignment } expression
             && ReferenceEquals(assignment.Left, expression)
             && (assignment.IsKind(SyntaxKind.AddAssignmentExpression) || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression));
 
     /// <summary>Gets the expression a member name forms, which is the access when the name is qualified.</summary>
     /// <param name="name">The name that referenced the member.</param>
     /// <returns>The enclosing member access, or the name itself.</returns>
-    private static ExpressionSyntax GetReferencingExpression(SimpleNameSyntax name)
-        => name.Parent is MemberAccessExpressionSyntax memberAccess && ReferenceEquals(memberAccess.Name, name)
+    private static ExpressionSyntax GetReferencingExpression(SimpleNameSyntax name) =>
+        name.Parent is MemberAccessExpressionSyntax memberAccess && ReferenceEquals(memberAccess.Name, name)
             ? memberAccess
             : name;
 
@@ -303,15 +301,15 @@ public sealed class Sst1483VirtualCallInConstructorAnalyzer : DiagnosticAnalyzer
     /// An abstract event has no field, and an event with hand-written accessors is not field-like, so both of
     /// those really do dispatch — as does any event inherited from a base type.
     /// </remarks>
-    private static bool IsBackingFieldAccess(IEventSymbol @event, INamedTypeSymbol containingType)
-        => !@event.IsAbstract
+    private static bool IsBackingFieldAccess(IEventSymbol @event, INamedTypeSymbol containingType) =>
+        !@event.IsAbstract
             && @event.AddMethod is { IsImplicitlyDeclared: true }
             && SymbolEqualityComparer.Default.Equals(@event.ContainingType, containingType);
 
     /// <summary>Returns whether an initializer assigns members of the object being built.</summary>
     /// <param name="initializer">The initializer.</param>
     /// <returns><see langword="true"/> for an object initializer or a <c>with</c> initializer.</returns>
-    private static bool IsMemberInitializer(InitializerExpressionSyntax initializer)
-        => initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
+    private static bool IsMemberInitializer(InitializerExpressionSyntax initializer) =>
+        initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
             || initializer.IsKind(SyntaxKind.WithInitializerExpression);
 }

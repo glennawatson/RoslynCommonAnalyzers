@@ -27,8 +27,8 @@ public sealed class Sst2329FlagsEnumMissingZeroValueAnalyzer : DiagnosticAnalyze
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.FlagsEnumMissingZeroValue);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -45,7 +45,7 @@ public sealed class Sst2329FlagsEnumMissingZeroValueAnalyzer : DiagnosticAnalyze
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Enum
             || !EnumFlagValues.HasFlagsAttribute(type)
-            || type.Locations.Length == 0
+            || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource)
         {
             return;

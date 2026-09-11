@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDefaultInit = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.MemberInitializedToDefaultCodeFixProvider>;
@@ -69,9 +70,10 @@ public class MemberInitializedToDefaultAnalyzerUnitTest
 
     /// <summary>Verifies non-default initializers and const fields are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDefaultAndConstAreCleanAsync()
-        => await VerifyDefaultInit.VerifyAnalyzerAsync(
+    public Task NonDefaultAndConstAreCleanAsync() =>
+        VerifyDefaultInit.VerifyAnalyzerAsync(
             """
             public class C
             {

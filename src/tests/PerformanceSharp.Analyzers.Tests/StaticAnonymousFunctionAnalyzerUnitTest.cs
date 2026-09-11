@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -187,9 +188,10 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a lambda capturing a local variable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaCapturingLocalIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task LambdaCapturingLocalIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -203,9 +205,10 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a lambda capturing an enclosing method parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaCapturingParameterIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task LambdaCapturingParameterIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -215,9 +218,10 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a lambda calling an instance method (capturing <c>this</c>) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaCallingInstanceMethodIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task LambdaCallingInstanceMethodIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -229,9 +233,10 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous function that is already static is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlreadyStaticLambdaIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task AlreadyStaticLambdaIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -241,9 +246,10 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
 
     /// <summary>Verifies a lambda converted to an expression tree is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeLambdaIsCleanAsync()
-        => await VerifyNet90CleanAsync(
+    public Task ExpressionTreeLambdaIsCleanAsync() =>
+        VerifyNet90CleanAsync(
             """
             public class C
             {
@@ -263,12 +269,7 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyStaticFunction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-            FixedCode = Source
-        };
+        var test = new VerifyStaticFunction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, FixedCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -279,12 +280,12 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
     }
 
     /// <summary>Verifies a capture-free lambda is still reported when a sibling lambda captures.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// A neighbour's capture is not this lambda's. Reading <c>Captured</c> — which folds in what the other
     /// lambdas in the method closed over — made one capturing lambda hide every capture-free sibling beside
     /// it, so the rule went quiet on exactly the lambdas it exists to find.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
     public async Task CaptureFreeLambdaBesideACapturingSiblingIsReportedAsync()
     {
@@ -327,12 +328,7 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyStaticFunction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyStaticFunction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -340,6 +336,7 @@ public class StaticAnonymousFunctionAnalyzerUnitTest
     /// <summary>Runs a no-diagnostic verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source expected to produce no diagnostics.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyNet90CleanAsync(string source)
-        => await VerifyNet90Async(source, source);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyNet90CleanAsync(string source) =>
+        VerifyNet90Async(source, source);
 }

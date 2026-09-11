@@ -11,8 +11,8 @@ internal static class RedundantGetTypeBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class RedundantGetTypeBenchmarkSource
     /// <summary>Builds one type whose GetType call is on an ordinary object.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public Type Run(object value) => value.GetType();
@@ -34,8 +34,8 @@ internal static class RedundantGetTypeBenchmarkSource
     /// <summary>Builds one type whose GetType call is on a value already typed as Type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public Type Run(Type value) => value.GetType();

@@ -11,8 +11,8 @@ internal static class IteratorValidationBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
 
@@ -29,8 +29,8 @@ internal static class IteratorValidationBenchmarkSource
     /// is not an iterator at all — the last of which is the shape the cheap first-statement check must reject
     /// before the walk that looks for a yield.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public IEnumerable<int> Split(int[] values)
@@ -74,8 +74,8 @@ internal static class IteratorValidationBenchmarkSource
     /// <summary>Builds one type whose iterator guards its arguments too late.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public IEnumerable<int> Doubled(int[] values)

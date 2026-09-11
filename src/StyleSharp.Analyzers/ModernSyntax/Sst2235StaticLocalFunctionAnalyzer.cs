@@ -53,7 +53,7 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        SyntaxNode? body = localFunction.Body ?? (SyntaxNode?)localFunction.ExpressionBody?.Expression;
+        var body = localFunction.Body ?? (SyntaxNode?)localFunction.ExpressionBody?.Expression;
         if (body is null)
         {
             return false;
@@ -69,8 +69,7 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
             cancellationToken.ThrowIfCancellationRequested();
             switch (node)
             {
-                case ThisExpressionSyntax:
-                case BaseExpressionSyntax:
+                case ThisExpressionSyntax or BaseExpressionSyntax:
                     return false;
                 case IdentifierNameSyntax identifier when IsCaptureFreeSyntax(identifier, localFunction):
                     break;
@@ -114,8 +113,8 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an identifier is the selected member name rather than the capturing receiver.</summary>
     /// <param name="identifier">The identifier.</param>
     /// <returns><see langword="true"/> when capture analysis belongs to the receiver expression.</returns>
-    private static bool IsMemberName(IdentifierNameSyntax identifier)
-        => identifier.Parent switch
+    private static bool IsMemberName(IdentifierNameSyntax identifier) =>
+        identifier.Parent switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name == identifier,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name == identifier,
@@ -136,15 +135,11 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-        if (symbol is ILocalSymbol or IParameterSymbol)
+        return symbol is ILocalSymbol or IParameterSymbol
+            ? !IsDeclaredInside(symbol, localFunction)
+            : symbol switch
         {
-            return !IsDeclaredInside(symbol, localFunction);
-        }
-
-        return symbol switch
-        {
-            IFieldSymbol or IPropertySymbol or IEventSymbol => true,
-            IMethodSymbol { IsStatic: false, MethodKind: MethodKind.Ordinary } => true,
+            IFieldSymbol or IPropertySymbol or IEventSymbol or IMethodSymbol { IsStatic: false, MethodKind: MethodKind.Ordinary } => true,
             _ => false
         };
     }
@@ -156,7 +151,7 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
     private static bool IsDeclaredInside(ISymbol symbol, LocalFunctionStatementSyntax localFunction)
     {
         var references = symbol.DeclaringSyntaxReferences;
-        if (references.Length == 0)
+        if (references.IsEmpty)
         {
             return false;
         }
@@ -176,6 +171,6 @@ public sealed class Sst2235StaticLocalFunctionAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The syntax node.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 }

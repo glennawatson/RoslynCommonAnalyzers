@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2321LibraryProcessTerminationAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2321LibraryProcessTerminationAnalyzerUnitTest
 {
     /// <summary>Verifies <c>Environment.Exit</c> in a library is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnvironmentExitInLibraryIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EnvironmentExitInLibraryIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -30,9 +32,10 @@ public class Sst2321LibraryProcessTerminationAnalyzerUnitTest
 
     /// <summary>Verifies <c>Environment.FailFast</c> in a library is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnvironmentFailFastInLibraryIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EnvironmentFailFastInLibraryIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -47,9 +50,10 @@ public class Sst2321LibraryProcessTerminationAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified terminating call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedTerminationIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task FullyQualifiedTerminationIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -94,9 +98,10 @@ public class Sst2321LibraryProcessTerminationAnalyzerUnitTest
 
     /// <summary>Verifies an <c>Exit</c> method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExitOnUnrelatedTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExitOnUnrelatedTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class Gate
             {

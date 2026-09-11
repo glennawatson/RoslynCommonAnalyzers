@@ -27,8 +27,8 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.FlagsCombinationLiteralShouldNameMembers);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -65,7 +65,7 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="member">The candidate member.</param>
     /// <param name="singleBits">The enum's single-bit members in declaration order.</param>
-    private static void AnalyzeMember(SymbolAnalysisContext context, ISymbol member, List<SingleBitMember> singleBits)
+    private static void AnalyzeMember(in SymbolAnalysisContext context, ISymbol member, List<SingleBitMember> singleBits)
     {
         if (!EnumFlagValues.TryGetValue(member, out var value)
             || value == 0
@@ -80,11 +80,13 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < singleBits.Count; i++)
         {
             var bit = singleBits[i];
-            if ((bit.Value & value) == bit.Value)
+            if ((bit.Value & value) != bit.Value)
             {
-                combined |= bit.Value;
-                names.Add(bit.Name);
+                continue;
             }
+
+            combined |= bit.Value;
+            names.Add(bit.Name);
         }
 
         if (names.Count < 2 || combined != value)
@@ -112,7 +114,7 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
         {
             if (EnumFlagValues.TryGetValue(members[i], out var value) && EnumFlagValues.IsSingleBit(value))
             {
-                singleBits.Add(new SingleBitMember(members[i].Name, value));
+                singleBits.Add(new(members[i].Name, value));
             }
         }
 
@@ -126,15 +128,12 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
     private static LiteralExpressionSyntax? GetLiteralInitializer(ISymbol member, CancellationToken cancellationToken)
     {
         var references = member.DeclaringSyntaxReferences;
-        if (references.Length == 0
+        return references.IsEmpty
             || references[0].GetSyntax(cancellationToken) is not EnumMemberDeclarationSyntax { EqualsValue.Value: { } value }
             || value is not LiteralExpressionSyntax literal
-            || !literal.IsKind(SyntaxKind.NumericLiteralExpression))
-        {
-            return null;
-        }
-
-        return literal;
+            || !literal.IsKind(SyntaxKind.NumericLiteralExpression)
+            ? null
+            : literal;
     }
 
     /// <summary>One single-bit member of a flags enum.</summary>

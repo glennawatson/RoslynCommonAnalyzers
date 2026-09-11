@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using RoslynCommon.Analyzers.Tests;
 using VerifyKeyWrap = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 {
     /// <summary>Verifies the integrity check value written as one constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SixtyFourBitConstantReportedAsync()
-        => await RunAsync(
+    public Task SixtyFourBitConstantReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -28,9 +30,10 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 
     /// <summary>Verifies the integrity check value written as its eight bytes is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ByteArrayReportedAsync()
-        => await RunAsync(
+    public Task ByteArrayReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -42,9 +45,10 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 
     /// <summary>Verifies a shorter run of the same byte is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShorterByteRunIsCleanAsync()
-        => await RunAsync(
+    public Task ShorterByteRunIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -56,9 +60,10 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated 64-bit constant is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedConstantIsCleanAsync()
-        => await RunAsync(
+    public Task UnrelatedConstantIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -70,9 +75,10 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported on a framework without the key-wrap API.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WithoutKeyWrapApiIsCleanAsync()
-        => await RunAsync(
+    public Task WithoutKeyWrapApiIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -89,11 +95,7 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, ReferenceAssemblies? referenceAssemblies = null)
     {
-        var test = new VerifyKeyWrap.Test
-        {
-            ReferenceAssemblies = referenceAssemblies ?? DotNet11ReferenceAssemblies.Net110,
-            TestCode = source,
-        };
+        var test = new VerifyKeyWrap.Test { ReferenceAssemblies = referenceAssemblies ?? DotNet11ReferenceAssemblies.Net110, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

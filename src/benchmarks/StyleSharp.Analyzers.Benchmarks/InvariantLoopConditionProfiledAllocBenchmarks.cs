@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for invariant-loop-condition analysis (SST2406).</summary>
+[System.Diagnostics.DebuggerDisplay("InvariantLoopConditionProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class InvariantLoopConditionProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class InvariantLoopConditionProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean invariant-loop-condition path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InvariantLoopCondition_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating invariant-loop-condition path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> InvariantLoopCondition_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

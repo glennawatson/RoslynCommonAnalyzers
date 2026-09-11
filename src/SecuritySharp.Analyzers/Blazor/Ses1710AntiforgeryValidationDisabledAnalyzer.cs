@@ -55,7 +55,7 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
     /// <summary>Reports SES1710 for a <c>[RequireAntiforgeryToken(required: false)]</c> application.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="attributeType">The gated <c>RequireAntiforgeryTokenAttribute</c> type.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
     {
         var attribute = (AttributeSyntax)context.Node;
 
@@ -128,8 +128,8 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
     /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
     /// <param name="name">The attribute's name syntax.</param>
     /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name)
-        => name switch
+    private static string? GetAttributeSimpleName(NameSyntax name) =>
+        name switch
         {
             SimpleNameSyntax simple => simple.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,

@@ -85,7 +85,7 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1706 for an <c>OpenReadStream</c> call whose size limit is unbounded or client-derived.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="browserFile">The resolved <c>IBrowserFile</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol browserFile)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol browserFile)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -127,7 +127,7 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <param name="sizeArgument">The <c>maxAllowedSize</c> argument expression.</param>
     /// <param name="browserFile">The resolved <c>IBrowserFile</c> type used to recognise its <c>Size</c> property.</param>
     /// <returns>The message display for the offending size, or <see langword="null"/> when the size is bounded and server-chosen.</returns>
-    private static string? ClassifyUnsafeSize(SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile)
+    private static string? ClassifyUnsafeSize(in SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile)
     {
         var constant = context.SemanticModel.GetConstantValue(sizeArgument, context.CancellationToken);
         if (constant.HasValue && TryGetLong(constant.Value, out var size))
@@ -151,8 +151,8 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <param name="sizeArgument">The <c>maxAllowedSize</c> argument expression.</param>
     /// <param name="browserFile">The resolved <c>IBrowserFile</c> type.</param>
     /// <returns><see langword="true"/> when the argument binds to the <c>Size</c> property of an <c>IBrowserFile</c>.</returns>
-    private static bool IsClientReportedSize(SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile)
-        => context.SemanticModel.GetSymbolInfo(sizeArgument, context.CancellationToken).Symbol is IPropertySymbol { Name: SizePropertyName } property
+    private static bool IsClientReportedSize(in SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile) =>
+        context.SemanticModel.GetSymbolInfo(sizeArgument, context.CancellationToken).Symbol is IPropertySymbol { Name: SizePropertyName } property
             && IsOrImplements(property.ContainingType, browserFile);
 
     /// <summary>Reads the byte ceiling, preferring the rule-specific key over the project-wide key.</summary>

@@ -52,6 +52,6 @@ public sealed class Sst1503RequireBracesAnalyzer : DiagnosticAnalyzer
     /// for exactly the nesting the shape exists to avoid, and there is no flatter rewrite to offer: a using
     /// declaration only replaces the resource form, and it changes the scope the block was pinning.
     /// </remarks>
-    private static bool IsStackedUsing(SyntaxNode node, StatementSyntax child)
-        => node is UsingStatementSyntax && child is UsingStatementSyntax;
+    private static bool IsStackedUsing(SyntaxNode node, StatementSyntax child) =>
+        node is UsingStatementSyntax && child is UsingStatementSyntax;
 }

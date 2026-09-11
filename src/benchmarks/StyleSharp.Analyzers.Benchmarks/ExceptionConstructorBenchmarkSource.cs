@@ -11,8 +11,8 @@ internal static class ExceptionConstructorBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit exception types that are missing constructors.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class ExceptionConstructorBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type the rule never reports.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class ExceptionConstructorBenchmarkSource
     /// The exception beside it declares all three constructors, so it exercises the full scan and still
     /// reports nothing.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class Widget{{index}}
            {
                public int Value { get; set; }
@@ -63,8 +63,8 @@ internal static class ExceptionConstructorBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
     /// <remarks>Yields exactly one SST1488 per type; the plain class beside it is never reported.</remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class Widget{{index}}
            {
                public int Value { get; set; }

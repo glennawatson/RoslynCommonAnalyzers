@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyBool = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1143BooleanLiteralComparisonAnalyzer,
     StyleSharp.Analyzers.Sst1143BooleanLiteralComparisonCodeFixProvider>;
@@ -98,9 +99,10 @@ public class BooleanLiteralComparisonAnalyzerUnitTest
 
     /// <summary>Verifies comparisons between two non-literal operands are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralComparisonIsCleanAsync()
-        => await VerifyBool.VerifyAnalyzerAsync(
+    public Task NonLiteralComparisonIsCleanAsync() =>
+        VerifyBool.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -110,9 +112,10 @@ public class BooleanLiteralComparisonAnalyzerUnitTest
 
     /// <summary>Verifies comparing a nullable boolean to a literal is not reported (it is not redundant).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableBooleanComparisonIsCleanAsync()
-        => await VerifyBool.VerifyAnalyzerAsync(
+    public Task NullableBooleanComparisonIsCleanAsync() =>
+        VerifyBool.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2234NullableShorthandAnalyzer,
     StyleSharp.Analyzers.Sst2234NullableShorthandCodeFixProvider>;
@@ -53,15 +54,17 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies an explicit Nullable&lt;T&gt; spelling is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitNullableSpellingIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(ExplicitFieldSource);
+    public Task ExplicitNullableSpellingIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(ExplicitFieldSource);
 
     /// <summary>Verifies the shorthand itself is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShorthandIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ShorthandIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -73,9 +76,10 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies an unbound generic typeof is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnboundTypeofIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnboundTypeofIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -87,9 +91,10 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies nameof operands are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameofOperandIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NameofOperandIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -101,9 +106,10 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies the non-generic Nullable helper class is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableHelperClassIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NullableHelperClassIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -115,9 +121,10 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies a nested type-argument spelling is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedTypeArgumentIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NestedTypeArgumentIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -131,9 +138,10 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
     /// <summary>Verifies a spelling inside a documentation reference is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>A <c>cref</c> has no <c>?</c> shorthand, so the long spelling is the only one that binds.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CrefSpellingIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CrefSpellingIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -147,13 +155,15 @@ public class Sst2234NullableShorthandAnalyzerUnitTest
 
     /// <summary>Verifies the fix rewrites a plain spelling.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRewritesPlainSpellingAsync()
-        => await Verify.VerifyCodeFixAsync(ExplicitFieldSource, ExplicitFieldFixed);
+    public Task FixRewritesPlainSpellingAsync() =>
+        Verify.VerifyCodeFixAsync(ExplicitFieldSource, ExplicitFieldFixed);
 
     /// <summary>Verifies the fix rewrites a qualified spelling without leaving the qualifier.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRewritesQualifiedSpellingAsync()
-        => await Verify.VerifyCodeFixAsync(QualifiedSource, QualifiedFixed);
+    public Task FixRewritesQualifiedSpellingAsync() =>
+        Verify.VerifyCodeFixAsync(QualifiedSource, QualifiedFixed);
 }

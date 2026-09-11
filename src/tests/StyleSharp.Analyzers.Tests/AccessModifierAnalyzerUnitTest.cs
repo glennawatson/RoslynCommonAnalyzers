@@ -11,9 +11,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Helper-level tests for access-modifier analysis fast paths.</summary>
 public sealed class AccessModifierAnalyzerUnitTest
 {
-    /// <summary>A method nested in a class with no access modifier — the shape the rule reports.</summary>
-    private const string MethodWithoutModifierSource = "class C { void M() { } }";
-
     /// <summary>Verifies the access-modifier scan recognizes ordinary accessibility keywords.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -59,7 +56,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     [Test]
     public async Task RequiresModifierKeepsOrdinaryMethodsAsync()
     {
-        var method = ParseMember<MethodDeclarationSyntax>(MethodWithoutModifierSource, SyntaxKind.MethodDeclaration);
+        var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
 
         await Assert.That(Sst1400AccessModifierAnalyzer.RequiresModifierFast(method)).IsTrue();
     }
@@ -81,7 +78,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     [Test]
     public async Task ModifierPropertiesReusePrivateCacheAsync()
     {
-        var method = ParseMember<MethodDeclarationSyntax>(MethodWithoutModifierSource, SyntaxKind.MethodDeclaration);
+        var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
         var first = Sst1400AccessModifierAnalyzer.ModifierProperties(method);
         var second = Sst1400AccessModifierAnalyzer.ModifierProperties(method);
 
@@ -103,7 +100,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     [Test]
     public async Task TopLevelDeclarationHelperRejectsNestedMembersAsync()
     {
-        var method = ParseMember<MethodDeclarationSyntax>(MethodWithoutModifierSource, SyntaxKind.MethodDeclaration);
+        var method = ParseMember<MethodDeclarationSyntax>("class C { void M() { } }", SyntaxKind.MethodDeclaration);
 
         await Assert.That(Sst1400AccessModifierAnalyzer.IsTopLevelDeclaration(method)).IsFalse();
     }
@@ -113,6 +110,7 @@ public sealed class AccessModifierAnalyzerUnitTest
     /// <param name="source">The source containing the target member.</param>
     /// <param name="kind">The syntax kind to select.</param>
     /// <returns>The parsed member declaration.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="source"/> declares no <typeparamref name="TMember"/> of <paramref name="kind"/>, either at the top level or nested one type deep.</exception>
     private static TMember ParseMember<TMember>(string source, SyntaxKind kind)
         where TMember : MemberDeclarationSyntax
     {

@@ -53,6 +53,6 @@ public sealed class Sst2415NonShortCircuitGuardCodeFixProvider : CodeFixProvider
             return;
         }
 
-        editor.ReplaceNode(binary, (current, _) => ShortCircuitOperatorRewrite.Rewrite((BinaryExpressionSyntax)current));
+        editor.ReplaceNode(binary, static (current, _) => ShortCircuitOperatorRewrite.Rewrite((BinaryExpressionSyntax)current));
     }
 }

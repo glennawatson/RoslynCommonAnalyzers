@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantCast = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ExpressionSimplificationAnalyzer,
     StyleSharp.Analyzers.RedundantCastCodeFixProvider>;
@@ -61,9 +62,10 @@ public class RedundantCastAnalyzerUnitTest
 
     /// <summary>Verifies a cast that widens to a different type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideningCastIsCleanAsync()
-        => await VerifyRedundantCast.VerifyAnalyzerAsync(
+    public Task WideningCastIsCleanAsync() =>
+        VerifyRedundantCast.VerifyAnalyzerAsync(
             """
             public class C
             {

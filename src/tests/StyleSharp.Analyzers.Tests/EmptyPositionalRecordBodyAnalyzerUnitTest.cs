@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyRecordBody = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RecordAnalyzer,
     StyleSharp.Analyzers.Sst1804EmptyPositionalRecordBodyCodeFixProvider>;
@@ -17,31 +18,35 @@ public class EmptyPositionalRecordBodyAnalyzerUnitTest
 
     /// <summary>Verifies a positional record with an empty body is reported and rewritten to a semicolon.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyBodyRewrittenToSemicolonAsync()
-        => await VerifyEmptyRecordBody.VerifyCodeFixAsync(
-            "public sealed record Point(int X, int Y) {|SST1804:{ }|}" + IsExternalInit,
-            "public sealed record Point(int X, int Y);" + IsExternalInit);
+    public Task EmptyBodyRewrittenToSemicolonAsync() =>
+        VerifyEmptyRecordBody.VerifyCodeFixAsync(
+            $"public sealed record Point(int X, int Y) {{|SST1804:{{ }}|}}{IsExternalInit}",
+            $"public sealed record Point(int X, int Y);{IsExternalInit}");
 
     /// <summary>Verifies a positional record struct with an empty body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyStructBodyRewrittenToSemicolonAsync()
-        => await VerifyEmptyRecordBody.VerifyCodeFixAsync(
-            "public readonly record struct Size(int W, int H) {|SST1804:{ }|}" + IsExternalInit,
-            "public readonly record struct Size(int W, int H);" + IsExternalInit);
+    public Task EmptyStructBodyRewrittenToSemicolonAsync() =>
+        VerifyEmptyRecordBody.VerifyCodeFixAsync(
+            $"public readonly record struct Size(int W, int H) {{|SST1804:{{ }}|}}{IsExternalInit}",
+            $"public readonly record struct Size(int W, int H);{IsExternalInit}");
 
     /// <summary>Verifies a semicolon-terminated positional record is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemicolonRecordIsCleanAsync()
-        => await VerifyEmptyRecordBody.VerifyAnalyzerAsync("public sealed record Point(int X, int Y);" + IsExternalInit);
+    public Task SemicolonRecordIsCleanAsync() =>
+        VerifyEmptyRecordBody.VerifyAnalyzerAsync($"public sealed record Point(int X, int Y);{IsExternalInit}");
 
     /// <summary>Verifies a positional record whose body has members is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordWithMembersIsCleanAsync()
-        => await VerifyEmptyRecordBody.VerifyAnalyzerAsync(
+    public Task RecordWithMembersIsCleanAsync() =>
+        VerifyEmptyRecordBody.VerifyAnalyzerAsync(
             """
             public sealed record Point(int X, int Y)
             {
@@ -51,7 +56,8 @@ public class EmptyPositionalRecordBodyAnalyzerUnitTest
 
     /// <summary>Verifies a non-positional record with an empty body is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPositionalRecordIsCleanAsync()
-        => await VerifyEmptyRecordBody.VerifyAnalyzerAsync("public sealed record Empty { }");
+    public Task NonPositionalRecordIsCleanAsync() =>
+        VerifyEmptyRecordBody.VerifyAnalyzerAsync("public sealed record Empty { }");
 }

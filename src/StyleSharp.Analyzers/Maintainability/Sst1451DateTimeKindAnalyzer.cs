@@ -81,8 +81,8 @@ public sealed class Sst1451DateTimeKindAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a creation's type syntax spells <c>DateTime</c>.</summary>
     /// <param name="type">The created type syntax.</param>
     /// <returns><see langword="true"/> when the rightmost identifier is DateTime.</returns>
-    private static bool TypeNameIsDateTime(TypeSyntax type)
-        => type switch
+    private static bool TypeNameIsDateTime(TypeSyntax type) =>
+        type switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText == DateTimeTypeName,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText == DateTimeTypeName,

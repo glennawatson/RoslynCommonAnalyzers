@@ -15,8 +15,8 @@ internal static class EventNeverRaisedBenchmarkSource
     /// Each type's event is given its own name. The compilation-wide index of names is name-based, so a
     /// shared name would let one type's raise silence every other type's event and make the corpus lie.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -27,8 +27,8 @@ internal static class EventNeverRaisedBenchmarkSource
     /// <summary>Builds one type that raises the event it declares.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public event EventHandler Started{{index}};
@@ -48,8 +48,8 @@ internal static class EventNeverRaisedBenchmarkSource
     /// <summary>Builds one type whose event nothing raises.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public event EventHandler Started{{index}};

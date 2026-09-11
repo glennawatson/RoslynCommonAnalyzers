@@ -58,7 +58,7 @@ public sealed class Sst1400AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the modifier list already declares accessibility (including <c>file</c>).</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
     /// <returns><see langword="true"/> when an access modifier is present.</returns>
-    internal static bool HasAccessModifierFast(SyntaxTokenList modifiers)
+    internal static bool HasAccessModifierFast(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -92,14 +92,14 @@ public sealed class Sst1400AccessModifierAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the declaration is top-level and therefore defaults to <c>internal</c>.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> for compilation-unit and namespace children.</returns>
-    internal static bool IsTopLevelDeclaration(MemberDeclarationSyntax member)
-        => member.Parent is BaseNamespaceDeclarationSyntax or CompilationUnitSyntax;
+    internal static bool IsTopLevelDeclaration(MemberDeclarationSyntax member) =>
+        member.Parent is BaseNamespaceDeclarationSyntax or CompilationUnitSyntax;
 
     /// <summary>Returns the cached diagnostic properties for the member's implicit default access modifier.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The cached diagnostic properties dictionary.</returns>
-    internal static ImmutableDictionary<string, string?> ModifierProperties(MemberDeclarationSyntax member)
-        => IsTopLevelDeclaration(member) ? InternalModifierProperties : PrivateModifierProperties;
+    internal static ImmutableDictionary<string, string?> ModifierProperties(MemberDeclarationSyntax member) =>
+        IsTopLevelDeclaration(member) ? InternalModifierProperties : PrivateModifierProperties;
 
     /// <summary>Reports a declaration that omits an access modifier where one is allowed.</summary>
     /// <param name="context">The syntax node analysis context.</param>

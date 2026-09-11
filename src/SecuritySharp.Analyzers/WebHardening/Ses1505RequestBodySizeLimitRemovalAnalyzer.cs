@@ -75,7 +75,7 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
     /// <summary>Reports SES1505 for a <c>[DisableRequestSizeLimit]</c> application.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="attributeType">The gated <c>DisableRequestSizeLimitAttribute</c> type.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
     {
         var attribute = (AttributeSyntax)context.Node;
 
@@ -101,7 +101,7 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
     /// <summary>Reports SES1505 for a <c>MaxRequestBodySize = null</c> assignment on a gated limits type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="limitsTypes">The gated body-size-limit types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] limitsTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] limitsTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -128,8 +128,8 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
     /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
     /// <param name="name">The attribute's name syntax.</param>
     /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name)
-        => name switch
+    private static string? GetAttributeSimpleName(NameSyntax name) =>
+        name switch
         {
             SimpleNameSyntax simple => simple.Identifier.ValueText,
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
@@ -140,14 +140,11 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
     /// <summary>Returns the assignment's left expression when it names <c>MaxRequestBodySize</c>.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The left expression to bind, or <see langword="null"/> when it is not the guarded member.</returns>
-    private static ExpressionSyntax? GetMaxRequestBodySizeTarget(ExpressionSyntax left)
-        => left switch
+    private static ExpressionSyntax? GetMaxRequestBodySizeTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'limits.MaxRequestBodySize = null'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: MaxRequestBodySizePropertyName } => left,
-
-            // 'new KestrelServerLimits { MaxRequestBodySize = null }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: MaxRequestBodySizePropertyName } => left,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: MaxRequestBodySizePropertyName } or IdentifierNameSyntax { Identifier.ValueText: MaxRequestBodySizePropertyName } => left,
 
             _ => null,
         };
@@ -177,11 +174,13 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < LimitsMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(LimitsMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(LimitsMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[LimitsMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[LimitsMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

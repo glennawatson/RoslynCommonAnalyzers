@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRequireBraces = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1503RequireBracesAnalyzer,
     StyleSharp.Analyzers.Sst1503RequireBracesCodeFixProvider>;
@@ -84,9 +85,10 @@ public class LayoutRequireBracesUnitTest
     /// Stacking is how the language opens several resources over one body, and the braces belong on the
     /// innermost statement. Reporting the outer one asks for exactly the nesting the shape exists to avoid.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StackedUsingIsCleanAsync()
-        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+    public Task StackedUsingIsCleanAsync() =>
+        VerifyRequireBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -102,9 +104,10 @@ public class LayoutRequireBracesUnitTest
 
     /// <summary>Verifies the innermost statement of a stacked using still has to be braced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StackedUsingWithUnbracedBodyIsReportedAsync()
-        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+    public Task StackedUsingWithUnbracedBodyIsReportedAsync() =>
+        VerifyRequireBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -119,9 +122,10 @@ public class LayoutRequireBracesUnitTest
     /// <summary>Verifies a non-using statement carrying a using child is still flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The exemption is for the stacked-using idiom alone, not for any statement whose child is a using.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingChildOfAnotherStatementIsReportedAsync()
-        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+    public Task UsingChildOfAnotherStatementIsReportedAsync() =>
+        VerifyRequireBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -137,9 +141,10 @@ public class LayoutRequireBracesUnitTest
 
     /// <summary>Verifies a braced child is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BracedChildIsCleanAsync()
-        => await VerifyRequireBraces.VerifyAnalyzerAsync(
+    public Task BracedChildIsCleanAsync() =>
+        VerifyRequireBraces.VerifyAnalyzerAsync(
             """
             internal class C
             {

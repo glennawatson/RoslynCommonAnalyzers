@@ -14,9 +14,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class ArrayCreationTypeStyleAnalyzerUnitTest
 {
-    /// <summary>The <c>array_creation_type_style</c> value that asks for implicitly typed arrays.</summary>
-    private const string ImplicitStyle = "implicit";
-
     /// <summary>Verifies an implicit array gains its element type when the style is <c>explicit</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -54,7 +51,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                        public int[] Make() => new[] { 1, 2 };
                                    }
                                    """;
-        await RunAsync(Source, FixedSource, style: ImplicitStyle);
+        await RunAsync(Source, FixedSource, style: "implicit");
     }
 
     /// <summary>Verifies an obvious explicit array drops its element type under the default style.</summary>
@@ -104,7 +101,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public int[] Make() => new[] { 1, 2 };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: ImplicitStyle);
+        await VerifyCleanAsync(Source, style: "implicit");
     }
 
     /// <summary>Verifies an array with an explicit size is never converted.</summary>
@@ -118,7 +115,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public int[] Make() => new int[2] { 1, 2 };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: ImplicitStyle);
+        await VerifyCleanAsync(Source, style: "implicit");
     }
 
     /// <summary>Verifies an explicit array with no single best element type is never converted.</summary>
@@ -132,7 +129,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
                                   public object[] Make() => new object[] { 1, "text" };
                               }
                               """;
-        await VerifyCleanAsync(Source, style: ImplicitStyle);
+        await VerifyCleanAsync(Source, style: "implicit");
     }
 
     /// <summary>Runs a code-fix verification with the disabled rule enabled and the given style option.</summary>
@@ -163,10 +160,7 @@ public class ArrayCreationTypeStyleAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyArrayCreationTypeStyle.Test CreateTest(string source, string? style)
     {
-        var test = new VerifyArrayCreationTypeStyle.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyArrayCreationTypeStyle.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST2270.severity = warning\n";
         if (style is not null)

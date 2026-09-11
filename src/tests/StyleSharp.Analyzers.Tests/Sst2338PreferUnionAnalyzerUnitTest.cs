@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyUnion = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2338PreferUnionAnalyzer>;
@@ -20,9 +21,10 @@ public class Sst2338PreferUnionAnalyzerUnitTest
 
     /// <summary>Verifies a tag beside two differently typed payloads is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TagWithTwoPayloadsReportedAsync()
-        => await RunAsync(Marker + """
+    public Task TagWithTwoPayloadsReportedAsync() =>
+        RunAsync(Marker + """
             public enum PayloadKind
             {
                 Text,
@@ -41,9 +43,10 @@ public class Sst2338PreferUnionAnalyzerUnitTest
 
     /// <summary>Verifies a tag beside a single payload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SinglePayloadIsCleanAsync()
-        => await RunAsync(Marker + """
+    public Task SinglePayloadIsCleanAsync() =>
+        RunAsync(Marker + """
             public enum PayloadKind
             {
                 Text,
@@ -59,9 +62,10 @@ public class Sst2338PreferUnionAnalyzerUnitTest
 
     /// <summary>Verifies payloads with no discriminator are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoDiscriminatorIsCleanAsync()
-        => await RunAsync(Marker + """
+    public Task NoDiscriminatorIsCleanAsync() =>
+        RunAsync(Marker + """
             public sealed class Payload
             {
                 public string? Text { get; set; }
@@ -72,9 +76,10 @@ public class Sst2338PreferUnionAnalyzerUnitTest
 
     /// <summary>Verifies a type that is already a union is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExistingUnionIsCleanAsync()
-        => await RunAsync(Marker + """
+    public Task ExistingUnionIsCleanAsync() =>
+        RunAsync(Marker + """
             public enum PayloadKind
             {
                 Text,
@@ -93,9 +98,10 @@ public class Sst2338PreferUnionAnalyzerUnitTest
 
     /// <summary>Verifies nothing is reported when the runtime has no union support.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoMarkerIsCleanAsync()
-        => await RunAsync("""
+    public Task NoMarkerIsCleanAsync() =>
+        RunAsync("""
             #nullable enable
             public enum PayloadKind
             {
@@ -119,10 +125,7 @@ public class Sst2338PreferUnionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
     {
-        var test = new VerifyUnion.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyUnion.Test { TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

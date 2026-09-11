@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -26,16 +28,16 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     private enum InnerCallShape
     {
         /// <summary>The argument is not a rewritable inner call.</summary>
-        None,
+        None = 0,
 
         /// <summary>The argument is a <c>string.Format(...)</c> call.</summary>
-        Format,
+        Format = 1,
 
         /// <summary>The argument is a parameterless <c>x.ToString()</c> call.</summary>
-        ToString,
+        ToString = 2,
 
         /// <summary>The argument is an <c>s.Substring(...)</c> call on a simple receiver.</summary>
-        Substring,
+        Substring = 3,
     }
 
     /// <inheritdoc/>
@@ -45,27 +47,29 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported Append invocation with its direct-formatting form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The reported Append invocation.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
 
     /// <summary>Resolves the reported Append invocation and builds its direct-formatting replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => TryGetInvocation(root, diagnostic, out var invocation)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic, out var invocation)
             ? new NodeReplacement(invocation!, Rewrite(invocation!))
             : null;
 
@@ -120,8 +124,8 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <param name="innerArgumentCount">The inner call's argument count.</param>
     /// <param name="innerAccess">The inner call's member access.</param>
     /// <returns>The syntactic shape of the inner call, or <see cref="InnerCallShape.None"/>.</returns>
-    private static InnerCallShape ClassifyInnerName(string innerName, int innerArgumentCount, MemberAccessExpressionSyntax innerAccess)
-        => innerName switch
+    private static InnerCallShape ClassifyInnerName(string innerName, int innerArgumentCount, MemberAccessExpressionSyntax innerAccess) =>
+        innerName switch
         {
             "Format" => InnerCallShape.Format,
             "ToString" when innerArgumentCount == 0 => InnerCallShape.ToString,
@@ -133,8 +137,8 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <summary>Builds the direct-formatting invocation that replaces the reported one.</summary>
     /// <param name="invocation">The reported Append invocation.</param>
     /// <returns>The replacement invocation.</returns>
-    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
-        => Classify(invocation, out var inner, out var innerAccess) switch
+    private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation) =>
+        Classify(invocation, out var inner, out var innerAccess) switch
         {
             InnerCallShape.Format => RewriteFormat(invocation, inner!),
             InnerCallShape.ToString => RewriteToString(invocation, inner!, innerAccess!),
@@ -159,11 +163,12 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <param name="inner">The <c>ToString</c> call.</param>
     /// <param name="innerAccess">The <c>ToString</c> call's member access.</param>
     /// <returns>The replacement invocation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static InvocationExpressionSyntax RewriteToString(
         InvocationExpressionSyntax invocation,
         InvocationExpressionSyntax inner,
-        MemberAccessExpressionSyntax innerAccess)
-        => invocation.ReplaceNode(inner, innerAccess.Expression.WithTriviaFrom(inner));
+        MemberAccessExpressionSyntax innerAccess) =>
+        invocation.ReplaceNode(inner, innerAccess.Expression.WithTriviaFrom(inner));
 
     /// <summary>Rewrites <c>Append(s.Substring(i[, n]))</c> to <c>Append(s, i, n)</c>.</summary>
     /// <param name="invocation">The reported Append invocation.</param>
@@ -197,8 +202,9 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <param name="receiver">The Substring receiver, stripped of trivia.</param>
     /// <param name="start">The start index expression, stripped of trivia.</param>
     /// <returns>The count expression.</returns>
-    private static BinaryExpressionSyntax RemainingLength(ExpressionSyntax receiver, ExpressionSyntax start)
-        => SyntaxFactory.BinaryExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static BinaryExpressionSyntax RemainingLength(ExpressionSyntax receiver, ExpressionSyntax start) =>
+        SyntaxFactory.BinaryExpression(
             SyntaxKind.SubtractExpression,
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
@@ -210,8 +216,8 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     /// <summary>Parenthesizes a start expression that would not bind as a subtraction operand.</summary>
     /// <param name="start">The start index expression.</param>
     /// <returns>The expression, wrapped in parentheses unless it is already primary.</returns>
-    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax start)
-        => start switch
+    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax start) =>
+        start switch
         {
             IdentifierNameSyntax
                 or LiteralExpressionSyntax

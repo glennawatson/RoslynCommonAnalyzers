@@ -10,7 +10,7 @@ internal static class TriviaLineBreakHelper
     /// <summary>Returns whether the trivia list contains an end-of-line marker.</summary>
     /// <param name="trivia">The trivia list to inspect.</param>
     /// <returns><see langword="true"/> when the trivia includes a line break.</returns>
-    public static bool HasLineBreak(SyntaxTriviaList trivia)
+    internal static bool HasLineBreak(in SyntaxTriviaList trivia)
     {
         for (var i = 0; i < trivia.Count; i++)
         {

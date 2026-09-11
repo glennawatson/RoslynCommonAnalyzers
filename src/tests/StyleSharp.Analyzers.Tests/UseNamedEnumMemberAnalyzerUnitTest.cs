@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNamedEnum = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2264UseNamedEnumMemberAnalyzer,
     StyleSharp.Analyzers.Sst2264UseNamedEnumMemberCodeFixProvider>;
@@ -105,9 +106,10 @@ public class UseNamedEnumMemberAnalyzerUnitTest
 
     /// <summary>Verifies a value shared by two aliased members is left alone; the name is ambiguous.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AmbiguousAliasIsCleanAsync()
-        => await VerifyNamedEnum.VerifyAnalyzerAsync(
+    public Task AmbiguousAliasIsCleanAsync() =>
+        VerifyNamedEnum.VerifyAnalyzerAsync(
             """
             internal enum Color
             {
@@ -124,9 +126,10 @@ public class UseNamedEnumMemberAnalyzerUnitTest
 
     /// <summary>Verifies a value that combines members names none is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CombinationValueIsCleanAsync()
-        => await VerifyNamedEnum.VerifyAnalyzerAsync(
+    public Task CombinationValueIsCleanAsync() =>
+        VerifyNamedEnum.VerifyAnalyzerAsync(
             """
             internal enum Color
             {
@@ -144,9 +147,10 @@ public class UseNamedEnumMemberAnalyzerUnitTest
 
     /// <summary>Verifies a value that matches no member is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnmatchedValueIsCleanAsync()
-        => await VerifyNamedEnum.VerifyAnalyzerAsync(
+    public Task UnmatchedValueIsCleanAsync() =>
+        VerifyNamedEnum.VerifyAnalyzerAsync(
             """
             internal enum Color
             {
@@ -164,9 +168,10 @@ public class UseNamedEnumMemberAnalyzerUnitTest
 
     /// <summary>Verifies a cast of a non-literal expression is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralCastIsCleanAsync()
-        => await VerifyNamedEnum.VerifyAnalyzerAsync(
+    public Task NonLiteralCastIsCleanAsync() =>
+        VerifyNamedEnum.VerifyAnalyzerAsync(
             """
             internal enum Color
             {

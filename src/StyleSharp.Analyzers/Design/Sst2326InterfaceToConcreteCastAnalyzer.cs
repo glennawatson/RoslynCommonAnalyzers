@@ -69,7 +69,7 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one narrowing of an interface reference to a concrete implementation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="currentAssembly">The assembly being compiled, whose own concrete types are not coupling.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, IAssemblySymbol currentAssembly)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, IAssemblySymbol currentAssembly)
     {
         if (!TryGetOperandAndTarget(context.Node, out var operand, out var targetType))
         {
@@ -131,7 +131,7 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// the type is spelt at the use site. This runs only for a cross-assembly candidate that has already passed every
     /// other check, so the parse and lookups stay off the clean path.
     /// </remarks>
-    private static bool IsAllowedType(SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType)
+    private static bool IsAllowedType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         if (!options.TryGetValue(AllowedTypesOptionKey, out var value) || value.Length == 0)

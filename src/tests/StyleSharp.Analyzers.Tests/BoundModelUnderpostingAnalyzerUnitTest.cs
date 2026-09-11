@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyUnderposting = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -39,9 +40,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies the under-postable value members of a body-bound model are reported and the marked or nullable ones are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyBoundValueMembersReportedAsync()
-        => await VerifyAsync(
+    public Task BodyBoundValueMembersReportedAsync() =>
+        VerifyAsync(
             """
             using System.ComponentModel.DataAnnotations;
             using Microsoft.AspNetCore.Mvc;
@@ -87,9 +89,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>[FromBody]</c> parameter is treated as a body-bound model.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitFromBodyReportedAsync()
-        => await VerifyAsync(
+    public Task ExplicitFromBodyReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -107,9 +110,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies a model bound from the query string is out of scope.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QueryBoundModelIsCleanAsync()
-        => await VerifyAsync(
+    public Task QueryBoundModelIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -127,9 +131,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies a simple-type parameter is not a bound model.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SimpleParameterIsCleanAsync()
-        => await VerifyAsync(
+    public Task SimpleParameterIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -142,9 +147,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies a body-bound model with no under-postable members is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReferenceAndNullableMembersAreCleanAsync()
-        => await VerifyAsync(
+    public Task ReferenceAndNullableMembersAreCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Mvc;
 
@@ -164,9 +170,10 @@ public class BoundModelUnderpostingAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the ASP.NET Core MVC types are absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenMvcTypesAbsentAsync()
-        => await VerifyAsync(
+    public Task SilentWhenMvcTypesAbsentAsync() =>
+        VerifyAsync(
             """
             public sealed class ApiControllerAttribute : System.Attribute { }
 
@@ -189,11 +196,7 @@ public class BoundModelUnderpostingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyUnderposting.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + BindingStubs
-        };
+        var test = new VerifyUnderposting.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + BindingStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

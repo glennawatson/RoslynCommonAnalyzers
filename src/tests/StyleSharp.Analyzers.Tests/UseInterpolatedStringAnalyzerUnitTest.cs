@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -95,7 +96,7 @@ public class UseInterpolatedStringAnalyzerUnitTest
                             public string Describe(string customer, string reference, string status)
                                 => $"Order for customer {customer} with reference {reference} is currently {status} and cannot be modified until it is released.";
                         }
-                        """
+                        """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
@@ -246,9 +247,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a composite format that passes an explicit provider is left alone so its culture is not dropped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitProviderFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ExplicitProviderFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             using System.Globalization;
 
@@ -260,9 +262,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a format whose format string is not a literal is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task NonLiteralFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -272,9 +275,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation used as a structured-logging message template is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenationInLoggingTemplateIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatenationInLoggingTemplateIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             LoggingStubs + """
 
             public sealed class C
@@ -285,9 +289,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a composite format used as a structured-logging message template is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompositeFormatInLoggingTemplateIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task CompositeFormatInLoggingTemplateIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             LoggingStubs + """
 
             public sealed class C
@@ -298,9 +303,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation passed among a log call's format arguments — not the template — is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenationInLoggingValueArgumentIsReportedAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatenationInLoggingValueArgumentIsReportedAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             LoggingStubs + """
 
             public sealed class C
@@ -311,9 +317,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation argument to a non-logging call is still reported when logging is referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenationInNonLoggingCallIsReportedAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatenationInNonLoggingCallIsReportedAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             LoggingStubs + """
 
             public sealed class C
@@ -325,9 +332,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a chain whose leading operands add as numbers is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericFoldConcatenationIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task NumericFoldConcatenationIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -337,9 +345,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation with no string literal is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenationWithoutLiteralIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatenationWithoutLiteralIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -349,9 +358,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a lone array handed to the params parameter is left alone, because it is spread not printed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleArrayArgumentIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task SingleArrayArgumentIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -361,9 +371,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a repeated placeholder index is left alone, so a value is never evaluated twice.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedPlaceholderIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task RepeatedPlaceholderIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -373,9 +384,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a placeholder set with a gap is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GappedPlaceholderIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task GappedPlaceholderIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -385,9 +397,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a call to a same-named method that is not string.Format is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignFormatMethodIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ForeignFormatMethodIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -459,9 +472,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a verbatim format string is left alone, keeping the escaping simple.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerbatimFormatStringIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task VerbatimFormatStringIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -471,9 +485,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a verbatim string operand in a concatenation is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerbatimConcatenationOperandIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task VerbatimConcatenationOperandIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -483,9 +498,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a call with named arguments is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedArgumentFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task NamedArgumentFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -539,9 +555,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Format</c> call on a non-string receiver is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringReceiverFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task NonStringReceiverFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -556,9 +573,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a format string with an unescaped closing brace is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoneClosingBraceFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task LoneClosingBraceFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -568,9 +586,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies an unterminated placeholder is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnterminatedPlaceholderFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task UnterminatedPlaceholderFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -580,9 +599,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies an alignment clause with no digits is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyAlignmentFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task EmptyAlignmentFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -592,9 +612,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies an unterminated format specifier is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnterminatedSpecifierFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task UnterminatedSpecifierFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -604,9 +625,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a format specifier that opens a brace is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BraceInSpecifierFormatIsSilentAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task BraceInSpecifierFormatIsSilentAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -628,11 +650,7 @@ public class UseInterpolatedStringAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyUseInterpolatedString.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyUseInterpolatedString.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -683,9 +701,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies a string.Concat call with no literal is left alone; interpolation says no more.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatWithoutLiteralIsCleanAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatWithoutLiteralIsCleanAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -695,9 +714,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies the object overload of string.Concat is left alone; its conversion is not an interpolation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatObjectOverloadIsCleanAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatObjectOverloadIsCleanAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -707,9 +727,10 @@ public class UseInterpolatedStringAnalyzerUnitTest
 
     /// <summary>Verifies the sequence overload of string.Concat is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatSequenceOverloadIsCleanAsync()
-        => await VerifyUseInterpolatedString.VerifyAnalyzerAsync(
+    public Task ConcatSequenceOverloadIsCleanAsync() =>
+        VerifyUseInterpolatedString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

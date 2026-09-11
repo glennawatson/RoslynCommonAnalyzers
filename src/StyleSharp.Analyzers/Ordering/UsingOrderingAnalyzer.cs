@@ -88,23 +88,22 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier directive.</param>
     /// <param name="current">The later directive.</param>
     /// <returns><see langword="true"/> when an <c>#if</c>/<c>#elif</c>/<c>#else</c>/<c>#endif</c> lies between them.</returns>
-    private static bool ConditionalDirectiveBetween(UsingDirectiveSyntax previous, UsingDirectiveSyntax current)
-        => HasConditionalDirective(previous.GetTrailingTrivia()) || HasConditionalDirective(current.GetLeadingTrivia());
+    private static bool ConditionalDirectiveBetween(UsingDirectiveSyntax previous, UsingDirectiveSyntax current) =>
+        HasConditionalDirective(previous.GetTrailingTrivia()) || HasConditionalDirective(current.GetLeadingTrivia());
 
     /// <summary>Returns whether a trivia list contains a conditional compilation directive.</summary>
     /// <param name="trivia">The trivia list to scan.</param>
     /// <returns><see langword="true"/> when a conditional directive is present.</returns>
-    private static bool HasConditionalDirective(SyntaxTriviaList trivia)
+    private static bool HasConditionalDirective(in SyntaxTriviaList trivia)
     {
         for (var index = 0; index < trivia.Count; index++)
         {
             switch (trivia[index].Kind())
             {
-                case SyntaxKind.IfDirectiveTrivia:
-                case SyntaxKind.ElifDirectiveTrivia:
-                case SyntaxKind.ElseDirectiveTrivia:
-                case SyntaxKind.EndIfDirectiveTrivia:
+                case SyntaxKind.IfDirectiveTrivia or SyntaxKind.ElifDirectiveTrivia or SyntaxKind.ElseDirectiveTrivia or SyntaxKind.EndIfDirectiveTrivia:
                     return true;
+                default:
+                    break;
             }
         }
 
@@ -135,7 +134,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="previous">The earlier directive.</param>
     /// <param name="current">The later directive.</param>
-    private static void CheckPair(SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, in UsingDirectiveData current)
+    private static void CheckPair(in SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, in UsingDirectiveData current)
     {
         var previousGroup = previous.Group;
         var currentGroup = current.Group;
@@ -167,7 +166,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="previous">The earlier directive.</param>
     /// <param name="previousGroup">The earlier directive's group.</param>
     /// <param name="currentGroup">The later directive's group.</param>
-    private static void CheckGroupOrder(SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, int previousGroup, int currentGroup)
+    private static void CheckGroupOrder(in SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, int previousGroup, int currentGroup)
     {
         if (previousGroup <= currentGroup)
         {
@@ -184,7 +183,7 @@ public sealed class UsingOrderingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="previous">The earlier directive.</param>
     /// <param name="current">The later directive.</param>
-    private static void CheckRegular(SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, in UsingDirectiveData current)
+    private static void CheckRegular(in SyntaxNodeAnalysisContext context, in UsingDirectiveData previous, in UsingDirectiveData current)
     {
         var previousSystem = previous.IsSystem;
         var currentSystem = current.IsSystem;

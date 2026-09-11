@@ -45,7 +45,7 @@ internal static class DocumentationOptions
     /// </summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) coverage scope.</returns>
-    public static DocumentationCoverage ReadCoverage(AnalyzerConfigOptions options) =>
+    internal static DocumentationCoverage ReadCoverage(AnalyzerConfigOptions options) =>
         new(
             ReadBool(options, DocumentExposedElementsKey, defaultValue: true),
             ReadBool(options, DocumentInternalElementsKey, defaultValue: true),
@@ -56,7 +56,7 @@ internal static class DocumentationOptions
     /// <summary>Reads the single-line summary length limit, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options for the relevant syntax tree.</param>
     /// <returns>The configured (or default) maximum length.</returns>
-    public static int ReadSummaryMaxLength(AnalyzerConfigOptions options) =>
+    internal static int ReadSummaryMaxLength(AnalyzerConfigOptions options) =>
         TryReadPositiveInt(options, SummaryMaxLengthSpecificKey, out var value)
         || TryReadPositiveInt(options, SummaryMaxLengthGeneralKey, out value)
             ? value
@@ -86,19 +86,13 @@ internal static class DocumentationOptions
     /// <summary>Reads the interface documentation mode, accepting <c>all</c>/<c>exposed</c>/<c>none</c> (or <c>true</c>/<c>false</c>).</summary>
     /// <param name="options">The analyzer config options.</param>
     /// <returns>The configured mode, or <see cref="DocumentationInterfaceMode.All"/> by default.</returns>
-    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(DocumentInterfacesKey, out var text))
-        {
-            return DocumentationInterfaceMode.All;
-        }
-
-        return text.ToLowerInvariant() switch
+    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options) => !options.TryGetValue(DocumentInterfacesKey, out var text)
+        ? DocumentationInterfaceMode.All
+        : text.ToLowerInvariant() switch
         {
             "all" or "true" => DocumentationInterfaceMode.All,
             "exposed" => DocumentationInterfaceMode.Exposed,
             "none" or "false" => DocumentationInterfaceMode.None,
             _ => DocumentationInterfaceMode.All,
         };
-    }
 }

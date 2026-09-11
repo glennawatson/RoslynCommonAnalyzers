@@ -75,8 +75,8 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
     /// <param name="entryPoint">The lazily resolved entry point.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
-        AsyncSiblingResolver.TaskTypes tasks,
+        in SyntaxNodeAnalysisContext context,
+        in AsyncSiblingResolver.TaskTypes tasks,
         Lazy<INamedTypeSymbol?> notifyCompletion,
         Lazy<IMethodSymbol?> entryPoint)
     {
@@ -136,8 +136,8 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// <param name="site">The matched blocking wait.</param>
     /// <returns>The task, or the tasks a combinator was handed, as the source spells them.</returns>
     /// <remarks>Only reached once a diagnostic is being reported, so the rendering never costs a clean file.</remarks>
-    private static string DescribeBlockedOn(SyntaxNode node, in BlockingWait.Site site)
-        => site.Kind == BlockingWait.Kind.SingleTask
+    private static string DescribeBlockedOn(SyntaxNode node, in BlockingWait.Site site) =>
+        site.Kind == BlockingWait.Kind.SingleTask
             ? site.GuardTarget.ToString()
             : ((InvocationExpressionSyntax)node).ArgumentList.Arguments.ToString();
 
@@ -152,10 +152,10 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// member it belongs to never matters.
     /// </remarks>
     private static bool IsUnactionable(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode node,
         Lazy<INamedTypeSymbol?> notifyCompletion,
-        Lazy<IMethodSymbol?> entryPoint)
-        => !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node)
+        Lazy<IMethodSymbol?> entryPoint) =>
+        !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node)
             && BlockingWaitExemption.IsExempt(context, node, notifyCompletion.Value, entryPoint.Value);
 }

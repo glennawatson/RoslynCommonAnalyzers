@@ -16,7 +16,7 @@ internal static class SwappedArgumentCodeFix
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="swapWithKey">The diagnostic property key carrying the partner position.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    public static NodeReplacement? TryBuildSwap(SyntaxNode root, Diagnostic diagnostic, string swapWithKey)
+    internal static NodeReplacement? TryBuildSwap(SyntaxNode root, Diagnostic diagnostic, string swapWithKey)
     {
         if (!TryGetPartner(diagnostic, swapWithKey, out var partner)
             || root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is not { } argument
@@ -26,12 +26,7 @@ internal static class SwappedArgumentCodeFix
         }
 
         var index = list.Arguments.IndexOf(argument);
-        if (!IsSwappablePair(list, index, partner))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(list, Swap(list, index, partner), current => Reapply(current, index, partner));
+        return !IsSwappablePair(list, index, partner) ? null : new NodeReplacement(list, Swap(list, index, partner), current => Reapply(current, index, partner));
     }
 
     /// <summary>Returns whether both positions still exist in the list and are distinct.</summary>
@@ -39,8 +34,8 @@ internal static class SwappedArgumentCodeFix
     /// <param name="index">The reported argument's position.</param>
     /// <param name="partner">The position it belongs in.</param>
     /// <returns><see langword="true"/> when the swap can be applied.</returns>
-    public static bool IsSwappablePair(ArgumentListSyntax list, int index, int partner)
-        => index >= 0
+    internal static bool IsSwappablePair(ArgumentListSyntax list, int index, int partner) =>
+        index >= 0
             && partner >= 0
             && index != partner
             && index < list.Arguments.Count
@@ -51,7 +46,7 @@ internal static class SwappedArgumentCodeFix
     /// <param name="index">The reported argument's position.</param>
     /// <param name="partner">The position it belongs in.</param>
     /// <returns>The reordered argument list.</returns>
-    public static ArgumentListSyntax Swap(ArgumentListSyntax list, int index, int partner)
+    internal static ArgumentListSyntax Swap(ArgumentListSyntax list, int index, int partner)
     {
         var arguments = list.Arguments;
         var first = arguments[index];
@@ -71,8 +66,8 @@ internal static class SwappedArgumentCodeFix
     /// <param name="index">The reported argument's position.</param>
     /// <param name="partner">The position it belongs in.</param>
     /// <returns>The reordered list, or the node unchanged when it no longer matches.</returns>
-    private static SyntaxNode Reapply(SyntaxNode current, int index, int partner)
-        => current is ArgumentListSyntax list && IsSwappablePair(list, index, partner)
+    private static SyntaxNode Reapply(SyntaxNode current, int index, int partner) =>
+        current is ArgumentListSyntax list && IsSwappablePair(list, index, partner)
             ? Swap(list, index, partner)
             : current;
 

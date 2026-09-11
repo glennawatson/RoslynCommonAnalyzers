@@ -58,13 +58,13 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
     private enum IdentifierClass
     {
         /// <summary>Not an eval-class identifier.</summary>
-        None,
+        None = 0,
 
         /// <summary>Always evaluates forwarded arguments as script.</summary>
-        AlwaysEvaluating,
+        AlwaysEvaluating = 1,
 
         /// <summary>Evaluates a script only when the next argument is a string body.</summary>
-        StringBody,
+        StringBody = 2,
     }
 
     /// <inheritdoc/>
@@ -93,7 +93,7 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="jsRuntime">The gated <c>IJSRuntime</c> type resolved for the compilation.</param>
     /// <param name="jsObjectReference">The optional <c>IJSObjectReference</c> type; <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol jsRuntime, INamedTypeSymbol? jsObjectReference)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol jsRuntime, INamedTypeSymbol? jsObjectReference)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -125,7 +125,7 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
     /// <param name="identifierArgument">The function-identifier argument expression.</param>
     /// <param name="identifier">The matched constant identifier, when reportable.</param>
     /// <returns><see langword="true"/> when the identifier is eval-class and (for string-body identifiers) is followed by a string body.</returns>
-    private static bool IsReportableEvalIdentifier(SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, ExpressionSyntax identifierArgument, out string identifier)
+    private static bool IsReportableEvalIdentifier(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, ExpressionSyntax identifierArgument, out string identifier)
     {
         identifier = string.Empty;
 
@@ -153,15 +153,15 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
     /// <param name="jsRuntime">The gated <c>IJSRuntime</c> type.</param>
     /// <param name="jsObjectReference">The optional <c>IJSObjectReference</c> type.</param>
     /// <returns><see langword="true"/> when the invocation resolves to an interop invoke method on one of the interfaces.</returns>
-    private static bool ResolvesToInteropInvoke(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol jsRuntime, INamedTypeSymbol? jsObjectReference)
-        => context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
+    private static bool ResolvesToInteropInvoke(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol jsRuntime, INamedTypeSymbol? jsObjectReference) =>
+        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
             && TargetsJsInterop(method, jsRuntime, jsObjectReference);
 
     /// <summary>Returns whether a name is one of the interop invoke methods.</summary>
     /// <param name="name">The candidate method name.</param>
     /// <returns><see langword="true"/> when the name is <c>InvokeAsync</c> or <c>InvokeVoidAsync</c>.</returns>
-    private static bool IsInvokeMethodName(string name)
-        => string.Equals(name, InvokeAsyncMethodName, StringComparison.Ordinal)
+    private static bool IsInvokeMethodName(string name) =>
+        string.Equals(name, InvokeAsyncMethodName, StringComparison.Ordinal)
             || string.Equals(name, InvokeVoidAsyncMethodName, StringComparison.Ordinal);
 
     /// <summary>Classifies a constant identifier into the eval-class hazard it represents.</summary>
@@ -192,8 +192,8 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="argumentList">The interop call's argument list.</param>
     /// <returns><see langword="true"/> when a body argument exists and its type is <c>string</c>.</returns>
-    private static bool NextArgumentIsString(SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList)
-        => argumentList.Arguments.Count > BodyArgumentPosition
+    private static bool NextArgumentIsString(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList) =>
+        argumentList.Arguments.Count > BodyArgumentPosition
             && context.SemanticModel.GetTypeInfo(argumentList.Arguments[BodyArgumentPosition].Expression, context.CancellationToken).Type?.SpecialType == SpecialType.System_String;
 
     /// <summary>Returns whether a bound interop method is invoked on <c>IJSRuntime</c> or <c>IJSObjectReference</c>.</summary>

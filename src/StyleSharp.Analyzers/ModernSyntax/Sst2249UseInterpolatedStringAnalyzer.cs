@@ -56,7 +56,7 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a composite <c>string.Format</c> call that can be an interpolated string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="loggerExtensions">The resolved logging-extensions type, or <see langword="null"/> when it is not referenced.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!SupportsInterpolation(invocation.SyntaxTree))
@@ -90,7 +90,7 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a literal-plus-value concatenation that can be an interpolated string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="loggerExtensions">The resolved logging-extensions type, or <see langword="null"/> when it is not referenced.</param>
-    private static void AnalyzeConcatenation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
+    private static void AnalyzeConcatenation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? loggerExtensions)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!SupportsInterpolation(binary.SyntaxTree)
@@ -117,7 +117,7 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// before the chain, the interpolated string, and what follows the chain.
     /// </remarks>
     private static bool RewrittenLineFits(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ExpressionSyntax original,
         InterpolatedStringExpressionSyntax converted)
     {
@@ -186,6 +186,6 @@ public sealed class Sst2249UseInterpolatedStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax tree is parsed at a language version that has interpolated strings.</summary>
     /// <param name="tree">The syntax tree.</param>
     /// <returns><see langword="true"/> for C# 6 or later.</returns>
-    private static bool SupportsInterpolation(SyntaxTree tree)
-        => tree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp6;
+    private static bool SupportsInterpolation(SyntaxTree tree) =>
+        tree.Options is CSharpParseOptions options && options.LanguageVersion >= CSharp6;
 }

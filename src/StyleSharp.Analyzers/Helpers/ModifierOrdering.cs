@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -46,7 +47,7 @@ internal static class ModifierOrdering
     /// <summary>Returns the modifier list of a node that carries modifiers, or an empty list.</summary>
     /// <param name="node">The declaration node.</param>
     /// <returns>The node's modifiers.</returns>
-    public static SyntaxTokenList Modifiers(SyntaxNode node) => node switch
+    internal static SyntaxTokenList Modifiers(SyntaxNode node) => node switch
     {
         MemberDeclarationSyntax member => member.Modifiers,
         AccessorDeclarationSyntax accessor => accessor.Modifiers,
@@ -57,12 +58,12 @@ internal static class ModifierOrdering
     /// <summary>Returns whether a modifier token is an access modifier.</summary>
     /// <param name="token">The modifier token.</param>
     /// <returns><see langword="true"/> when the token is an access modifier.</returns>
-    public static bool IsAccess(SyntaxToken token) => Array.IndexOf(AccessOrder, token.Kind()) >= 0;
+    internal static bool IsAccess(SyntaxToken token) => Array.IndexOf(AccessOrder, token.Kind()) >= 0;
 
     /// <summary>Returns whether the modifier list declares any access modifier.</summary>
     /// <param name="modifiers">The modifier list.</param>
     /// <returns><see langword="true"/> when an access modifier is present.</returns>
-    public static bool HasAccess(SyntaxTokenList modifiers)
+    internal static bool HasAccess(in SyntaxTokenList modifiers)
     {
         foreach (var modifier in modifiers)
         {
@@ -78,7 +79,7 @@ internal static class ModifierOrdering
     /// <summary>Returns the canonical rank of a modifier (access modifiers share rank 0).</summary>
     /// <param name="token">The modifier token.</param>
     /// <returns>The rank used to order modifiers.</returns>
-    public static int Rank(SyntaxToken token)
+    internal static int Rank(SyntaxToken token)
     {
         if (IsAccess(token))
         {
@@ -92,5 +93,6 @@ internal static class ModifierOrdering
     /// <summary>Returns the relative rank of an access modifier (private &lt; protected &lt; internal).</summary>
     /// <param name="token">The access modifier token.</param>
     /// <returns>The access sub-rank, or -1 when the token is not an access modifier.</returns>
-    public static int AccessRank(SyntaxToken token) => Array.IndexOf(AccessOrder, token.Kind());
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static int AccessRank(SyntaxToken token) => Array.IndexOf(AccessOrder, token.Kind());
 }

@@ -99,7 +99,7 @@ public sealed class Sst1531InitializerOnSingleLineCodeFixProvider : CodeFixProvi
 
             if (hasLineBreak)
             {
-                pending.Add(new TextChange(TextSpan.FromBounds(token.Span.End, next.SpanStart), next.IsKind(SyntaxKind.CommaToken) ? string.Empty : " "));
+                pending.Add(new(TextSpan.FromBounds(token.Span.End, next.SpanStart), next.IsKind(SyntaxKind.CommaToken) ? string.Empty : " "));
             }
 
             if (next.Equals(close))

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyInitOnly = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RecordAnalyzer,
     StyleSharp.Analyzers.RecordInitOnlyCodeFixProvider>;
@@ -69,9 +70,10 @@ public class RecordInitOnlyCodeFixProviderUnitTest
 
     /// <summary>Verifies init-only and get-only record properties, and a static settable property, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitGetOnlyAndStaticPropertiesAreCleanAsync()
-        => await VerifyInitOnly.VerifyAnalyzerAsync(
+    public Task InitGetOnlyAndStaticPropertiesAreCleanAsync() =>
+        VerifyInitOnly.VerifyAnalyzerAsync(
             """
             public sealed record Person
             {

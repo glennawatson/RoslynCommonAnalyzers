@@ -69,7 +69,7 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="pathType">The resolved <c>System.IO.Path</c> type gating the containing-type check.</param>
     /// <param name="suggestion">The replacement guidance resolved once for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol pathType, string suggestion)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol pathType, string suggestion)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -97,8 +97,8 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the simple invoked name from a member access or bare identifier expression.</summary>
     /// <param name="expression">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when the callee is neither a member access nor an identifier.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetInvokedName(ExpressionSyntax expression) =>
+        expression switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
@@ -108,8 +108,8 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
     /// <summary>Chooses the replacement guidance, naming the isolated-directory API only when it resolves.</summary>
     /// <param name="compilation">The compilation to probe for the .NET 7+ replacement.</param>
     /// <returns>The suggestion text embedded in the diagnostic message.</returns>
-    private static string BuildSuggestion(Compilation compilation)
-        => compilation.GetTypeByMetadataName(DirectoryMetadataName) is { } directoryType && HasCreateTempSubdirectory(directoryType)
+    private static string BuildSuggestion(Compilation compilation) =>
+        compilation.GetTypeByMetadataName(DirectoryMetadataName) is { } directoryType && HasCreateTempSubdirectory(directoryType)
             ? RandomNameOrSubdirectorySuggestion
             : RandomNameSuggestion;
 

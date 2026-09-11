@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLambdaSyntax = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1130UseLambdaSyntaxAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UseLambdaSyntaxAnalyzerUnitTest
 {
     /// <summary>Verifies an anonymous delegate is reported (SST1130).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousDelegateReportedAsync()
-        => await VerifyLambdaSyntax.VerifyAnalyzerAsync(
+    public Task AnonymousDelegateReportedAsync() =>
+        VerifyLambdaSyntax.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -26,9 +28,10 @@ public class UseLambdaSyntaxAnalyzerUnitTest
 
     /// <summary>Verifies a lambda expression is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaIsCleanAsync()
-        => await VerifyLambdaSyntax.VerifyAnalyzerAsync(
+    public Task LambdaIsCleanAsync() =>
+        VerifyLambdaSyntax.VerifyAnalyzerAsync(
             """
             using System;
 

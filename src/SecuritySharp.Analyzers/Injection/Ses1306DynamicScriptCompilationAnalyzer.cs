@@ -63,7 +63,7 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1306 for a gated scripting call whose <c>code</c> argument is not a constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="scriptType">The gated <c>CSharpScript</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol scriptType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol scriptType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -94,8 +94,8 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a method name is one of the gated scripting entry points.</summary>
     /// <param name="name">The invoked simple method name.</param>
     /// <returns><see langword="true"/> when the name is <c>EvaluateAsync</c>, <c>RunAsync</c>, or <c>Create</c>.</returns>
-    private static bool IsGatedMethodName(string name)
-        => name is EvaluateAsyncMethodName or RunAsyncMethodName or CreateMethodName;
+    private static bool IsGatedMethodName(string name) =>
+        name is EvaluateAsyncMethodName or RunAsyncMethodName or CreateMethodName;
 
     /// <summary>Returns the syntax of the string <c>code</c> argument when it is not a compile-time constant.</summary>
     /// <param name="operation">The bound scripting invocation.</param>

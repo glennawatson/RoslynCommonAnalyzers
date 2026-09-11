@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeProtections = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -41,9 +42,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>UsePkce = false</c> assignment is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsePkceAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task UsePkceAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -58,9 +60,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form of <c>UsePkce = false</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsePkceObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task UsePkceObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -73,9 +76,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>RequireState = false</c> assignment on the validator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireStateAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task RequireStateAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -90,9 +94,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>RequireStateValidation = false</c> assignment on the validator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireStateValidationAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task RequireStateValidationAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -107,9 +112,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies a direct <c>RequireNonce = false</c> assignment on the validator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireNonceAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task RequireNonceAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -124,9 +130,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form of <c>RequireNonce = false</c> on the validator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RequireNonceObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task RequireNonceObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
@@ -139,9 +146,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>UsePkce</c> to true is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsePkceSetToTrueIsCleanAsync()
-        => await VerifyAsync(
+    public Task UsePkceSetToTrueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -157,9 +165,10 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
 
     /// <summary>Verifies same-named flags on an unrelated type, and unrelated <c>= false</c> assignments, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyAndUnrelatedFalseAssignmentsAreCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyAndUnrelatedFalseAssignmentsAreCleanAsync() =>
+        VerifyAsync(
             """
             public sealed class MyOptions
             {
@@ -205,11 +214,7 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeProtections.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeProtections.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -219,11 +224,7 @@ public class OidcProtocolProtectionDisabledAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeProtections.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + OidcStub
-        };
+        var test = new AnalyzeProtections.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + OidcStub };
 
         await test.RunAsync(CancellationToken.None);
     }

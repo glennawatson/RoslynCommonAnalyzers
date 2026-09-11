@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for enum-values-on-separate-lines analysis (SST1136).</summary>
+[System.Diagnostics.DebuggerDisplay("EnumValuesOnSeparateLinesBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class EnumValuesOnSeparateLinesBenchmarks
@@ -24,11 +26,13 @@ public class EnumValuesOnSeparateLinesBenchmarks
 
     /// <summary>Benchmarks the clean enum-member-line path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EnumValuesOnSeparateLines_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating enum-member-line path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> EnumValuesOnSeparateLines_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

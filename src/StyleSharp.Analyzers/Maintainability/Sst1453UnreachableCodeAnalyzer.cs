@@ -65,8 +65,8 @@ public sealed class Sst1453UnreachableCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a statement always transfers control out of its current block.</summary>
     /// <param name="statement">The statement.</param>
     /// <returns><see langword="true"/> for direct jumps that make following statements unreachable.</returns>
-    private static bool IsTerminatingStatement(StatementSyntax statement)
-        => statement.Kind() is SyntaxKind.ReturnStatement
+    private static bool IsTerminatingStatement(StatementSyntax statement) =>
+        statement.Kind() is SyntaxKind.ReturnStatement
             or SyntaxKind.ThrowStatement
             or SyntaxKind.BreakStatement
             or SyntaxKind.ContinueStatement

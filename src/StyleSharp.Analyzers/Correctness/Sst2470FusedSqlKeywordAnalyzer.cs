@@ -90,12 +90,7 @@ public sealed class Sst2470FusedSqlKeywordAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        if (!IsFusedSeam(leftText, rightText) || !ContainsStrongKeyword(leftText))
-        {
-            return null;
-        }
-
-        return BuildSeamPreview(leftText, rightText);
+        return !IsFusedSeam(leftText, rightText) || !ContainsStrongKeyword(leftText) ? null : BuildSeamPreview(leftText, rightText);
     }
 
     /// <summary>Analyzes one add expression for a fused SQL keyword seam.</summary>
@@ -131,8 +126,8 @@ public sealed class Sst2470FusedSqlKeywordAnalyzer : DiagnosticAnalyzer
     /// <param name="leftText">The left literal's decoded value.</param>
     /// <param name="rightText">The right literal's decoded value.</param>
     /// <returns><see langword="true"/> when a keyword runs into the adjacent token.</returns>
-    private static bool IsFusedSeam(string leftText, string rightText)
-        => (IsWordChar(leftText[leftText.Length - 1]) && StartsWithSeamKeyword(rightText))
+    private static bool IsFusedSeam(string leftText, string rightText) =>
+        (IsWordChar(leftText[^1]) && StartsWithSeamKeyword(rightText))
         || (IsWordChar(rightText[0]) && EndsWithSeamKeyword(leftText));
 
     /// <summary>Returns whether text begins with a seam keyword bounded by a token boundary on its far side.</summary>
@@ -222,12 +217,12 @@ public sealed class Sst2470FusedSqlKeywordAnalyzer : DiagnosticAnalyzer
             rightEnd++;
         }
 
-        return leftText.Substring(leftStart) + rightText.Substring(0, rightEnd);
+        return leftText[leftStart..] + rightText[0..(0 + rightEnd)];
     }
 
     /// <summary>Returns whether a character is an ASCII word character (letter, digit, or underscore).</summary>
     /// <param name="value">The character to classify.</param>
     /// <returns><see langword="true"/> when the character can run into an adjacent token.</returns>
-    private static bool IsWordChar(char value)
-        => value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
+    private static bool IsWordChar(char value) =>
+        value is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
 }

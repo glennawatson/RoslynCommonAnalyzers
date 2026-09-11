@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLiteral = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.LiteralFormattingAnalyzer>;
 
@@ -12,9 +13,10 @@ public class LiteralFormattingAnalyzerUnitTest
 {
     /// <summary>Verifies a long separator-free base-10 integer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LongIntegerWithoutSeparatorsReportedAsync()
-        => await VerifyLiteral.VerifyAnalyzerAsync(
+    public Task LongIntegerWithoutSeparatorsReportedAsync() =>
+        VerifyLiteral.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -28,16 +30,18 @@ public class LiteralFormattingAnalyzerUnitTest
 
     /// <summary>Verifies a string literal embedding a raw tab is reported while an escaped tab is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawControlCharacterReportedAsync()
-        => await VerifyLiteral.VerifyAnalyzerAsync(
+    public Task RawControlCharacterReportedAsync() =>
+        VerifyLiteral.VerifyAnalyzerAsync(
             "public class C\n{\n    private const string Raw = {|SST1192:\"a\tb\"|};\n    private const string Escaped = \"a\\tb\";\n    private const string Plain = \"hello\";\n}\n");
 
     /// <summary>Verifies multi-line raw and verbatim string literals (whose newlines are intentional) are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiLineRawAndVerbatimStringsAreCleanAsync()
-        => await VerifyLiteral.VerifyAnalyzerAsync(
+    public Task MultiLineRawAndVerbatimStringsAreCleanAsync() =>
+        VerifyLiteral.VerifyAnalyzerAsync(
             """"
             public class C
             {

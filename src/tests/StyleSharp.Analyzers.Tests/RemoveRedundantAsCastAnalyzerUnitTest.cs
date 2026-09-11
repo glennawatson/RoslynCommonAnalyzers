@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantAs = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2260RemoveRedundantAsCastAnalyzer,
     StyleSharp.Analyzers.Sst2260RemoveRedundantAsCastCodeFixProvider>;
@@ -41,9 +42,10 @@ public class RemoveRedundantAsCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>as</c> cast on a wider operand type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideningAsCastIsCleanAsync()
-        => await VerifyRedundantAs.VerifyAnalyzerAsync(
+    public Task WideningAsCastIsCleanAsync() =>
+        VerifyRedundantAs.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -56,9 +58,10 @@ public class RemoveRedundantAsCastAnalyzerUnitTest
 
     /// <summary>Verifies an <c>as</c> cast that narrows to a base type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NarrowingToBaseIsCleanAsync()
-        => await VerifyRedundantAs.VerifyAnalyzerAsync(
+    public Task NarrowingToBaseIsCleanAsync() =>
+        VerifyRedundantAs.VerifyAnalyzerAsync(
             """
             internal class C
             {

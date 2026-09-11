@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyElse = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.RedundantCodeAnalyzer,
     StyleSharp.Analyzers.EmptyElseClauseCodeFixProvider>;
@@ -102,9 +103,10 @@ public class EmptyElseClauseAnalyzerUnitTest
 
     /// <summary>Verifies a non-empty <c>else</c> and an <c>else if</c> chain are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonEmptyElseIsCleanAsync()
-        => await VerifyEmptyElse.VerifyAnalyzerAsync(
+    public Task NonEmptyElseIsCleanAsync() =>
+        VerifyEmptyElse.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -16,14 +16,14 @@ internal static class PrivateFieldUsedAsLocalBenchmarkSource
     /// <param name="fields">The number of private fields to emit in the single synthetic type.</param>
     /// <param name="violating">Whether to emit private-field-used-as-local violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int fields, bool violating)
-        => violating ? GenerateViolating(fields) : GenerateClean(fields);
+    internal static string Generate(int fields, bool violating) =>
+        violating ? GenerateViolating(fields) : GenerateClean(fields);
 
     /// <summary>Builds one type whose fields are each used as method-local scratch state (every field is reported).</summary>
     /// <param name="fields">The number of private fields to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateViolating(int fields)
-        => $$"""
+    private static string GenerateViolating(int fields) =>
+        $$"""
            namespace Bench;
 
            internal sealed class Big
@@ -35,8 +35,8 @@ internal static class PrivateFieldUsedAsLocalBenchmarkSource
     /// <summary>Builds one type whose fields carry initializers, so each is rejected before the single-method scan.</summary>
     /// <param name="fields">The number of private fields to emit.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateClean(int fields)
-        => $$"""
+    private static string GenerateClean(int fields) =>
+        $$"""
            namespace Bench;
 
            internal sealed class Big
@@ -48,8 +48,8 @@ internal static class PrivateFieldUsedAsLocalBenchmarkSource
     /// <summary>Builds one field reset and used as scratch by its own method.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateScratchMember(int index)
-        => $$"""
+    private static string GenerateScratchMember(int index) =>
+        $$"""
            private int _f{{index}};
            internal int M{{index}}(int value)
            {
@@ -62,8 +62,8 @@ internal static class PrivateFieldUsedAsLocalBenchmarkSource
     /// <summary>Builds one initialized field with a trivial reader, rejected before the expensive scan.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateInitializedMember(int index)
-        => $$"""
+    private static string GenerateInitializedMember(int index) =>
+        $$"""
            private int _f{{index}} = {{index}};
            internal int M{{index}}()
            {

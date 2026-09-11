@@ -37,7 +37,7 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(MethodImplOptionsMetadataName) is not { } options
                 || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
@@ -110,15 +110,15 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a plain forward: a call, member read, index, or constant.</summary>
     /// <param name="expression">The body expression.</param>
     /// <returns><see langword="true"/> for forwarding shapes.</returns>
-    private static bool IsForwardingExpression(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax
+    private static bool IsForwardingExpression(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax
             or ElementAccessExpressionSyntax or ConditionalAccessExpressionSyntax or LiteralExpressionSyntax
             or ObjectCreationExpressionSyntax;
 
     /// <summary>Returns whether the modifier list rules the member out.</summary>
     /// <param name="modifiers">The member's modifiers.</param>
     /// <returns><see langword="true"/> for virtual-dispatch, async, extern, and partial members.</returns>
-    private static bool HasDisqualifyingModifier(SyntaxTokenList modifiers)
+    private static bool HasDisqualifyingModifier(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -149,7 +149,7 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
                 }
 
                 if (name is SimpleNameSyntax simple
-                    && simple.Identifier.ValueText is MethodImplAttributeShortName or MethodImplAttributeShortName + "Attribute")
+                    && simple.Identifier.ValueText is MethodImplAttributeShortName or $"{MethodImplAttributeShortName}Attribute")
                 {
                     return true;
                 }

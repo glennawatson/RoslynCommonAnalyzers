@@ -80,7 +80,7 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The element name token.</param>
     /// <param name="documentsContent">Whether this part describes what it adds instead of repeating the summary.</param>
     private static void CheckSummary(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         DocumentationCommentTriviaSyntax documentation,
         SyntaxToken name,
         bool documentsContent)
@@ -113,7 +113,7 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     /// second <c>&lt;typeparam&gt;</c> for the same name (CS1710). Asking every part for its own copy
     /// would be asking for code that does not build, so a part is satisfied by a sibling's documentation.
     /// </remarks>
-    private static void CheckTypeParameters(SyntaxNodeAnalysisContext context, SyntaxNode node, DocumentationCommentTriviaSyntax documentation)
+    private static void CheckTypeParameters(in SyntaxNodeAnalysisContext context, SyntaxNode node, DocumentationCommentTriviaSyntax documentation)
     {
         if (node is not TypeDeclarationSyntax { TypeParameterList: { } typeParameters })
         {
@@ -136,7 +136,7 @@ public sealed class PartialDocumentationAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The declaration node.</param>
     /// <param name="name">The type parameter's name.</param>
     /// <returns><see langword="true"/> when a sibling declaration carries the <c>&lt;typeparam&gt;</c>.</returns>
-    private static bool IsDocumentedOnAnotherPart(SyntaxNodeAnalysisContext context, SyntaxNode node, string name)
+    private static bool IsDocumentedOnAnotherPart(in SyntaxNodeAnalysisContext context, SyntaxNode node, string name)
     {
         if (context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not { } symbol)
         {

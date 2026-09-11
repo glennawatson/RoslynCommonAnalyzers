@@ -11,8 +11,8 @@ internal static class InvariantLoopConditionBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
 
@@ -29,8 +29,8 @@ internal static class InvariantLoopConditionBenchmarkSource
     /// breaks out, a condition holding a call the rule refuses to reason about, and a deliberate
     /// <c>while (true)</c>.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void Advance(int limit)
@@ -72,8 +72,8 @@ internal static class InvariantLoopConditionBenchmarkSource
     /// <summary>Builds one type whose loop can never change its stop condition.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Spin(int limit)

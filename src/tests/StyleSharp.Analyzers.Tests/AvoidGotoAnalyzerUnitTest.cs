@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using VerifyGoto = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2014AvoidGotoAnalyzer>;
 
@@ -34,21 +35,24 @@ public class AvoidGotoAnalyzerUnitTest
 
     /// <summary>Verifies a jump out of a loop is reported before C# 15, where nothing else expresses it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JumpToALabelIsReportedAsync()
-        => await RunAsync(LoopEscape, LanguageVersion.CSharp13);
+    public Task JumpToALabelIsReportedAsync() =>
+        RunAsync(LoopEscape, LanguageVersion.CSharp13);
 
     /// <summary>Verifies a jump out of a loop is left alone from C# 15, where a labelled break says it directly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopEscapeIsCleanOnCSharp15Async()
-        => await RunAsync(LoopEscape.Replace("{|SST2014:goto Failed;|}", "goto Failed;", StringComparison.Ordinal));
+    public Task LoopEscapeIsCleanOnCSharp15Async() =>
+        RunAsync(LoopEscape.Replace("{|SST2014:goto Failed;|}", "goto Failed;", StringComparison.Ordinal));
 
     /// <summary>Verifies a jump with no enclosing loop is still reported on C# 15.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JumpOutsideALoopIsStillReportedAsync()
-        => await RunAsync(
+    public Task JumpOutsideALoopIsStillReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -69,9 +73,10 @@ public class AvoidGotoAnalyzerUnitTest
 
     /// <summary>Verifies a jump to a label inside the same loop is still reported on C# 15.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JumpWithinALoopIsStillReportedAsync()
-        => await RunAsync(
+    public Task JumpWithinALoopIsStillReportedAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -94,9 +99,10 @@ public class AvoidGotoAnalyzerUnitTest
 
     /// <summary>Verifies a jump between switch sections is not reported: the language has no other word for it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JumpBetweenSwitchSectionsIsCleanAsync()
-        => await RunAsync(
+    public Task JumpBetweenSwitchSectionsIsCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -121,9 +127,10 @@ public class AvoidGotoAnalyzerUnitTest
 
     /// <summary>Verifies the structured jumps are never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructuredJumpsAreCleanAsync()
-        => await RunAsync(
+    public Task StructuredJumpsAreCleanAsync() =>
+        RunAsync(
             """
             public class C
             {
@@ -155,10 +162,7 @@ public class AvoidGotoAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, LanguageVersion languageVersion = LanguageVersion.Preview)
     {
-        var test = new VerifyGoto.Test
-        {
-            TestCode = source
-        };
+        var test = new VerifyGoto.Test { TestCode = source };
 
         test.SolutionTransforms.Add((solution, projectId) =>
         {

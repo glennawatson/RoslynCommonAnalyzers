@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRedundantStringToString = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2286RedundantStringToStringAnalyzer,
     StyleSharp.Analyzers.Sst2286RedundantStringToStringCodeFixProvider>;
@@ -73,9 +74,10 @@ public class RedundantStringToStringAnalyzerUnitTest
 
     /// <summary>Verifies a ToString call on a non-string receiver is left alone; it does real work.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToStringOnNonStringIsCleanAsync()
-        => await VerifyRedundantStringToString.VerifyAnalyzerAsync(
+    public Task ToStringOnNonStringIsCleanAsync() =>
+        VerifyRedundantStringToString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -85,9 +87,10 @@ public class RedundantStringToStringAnalyzerUnitTest
 
     /// <summary>Verifies a formatting ToString overload is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToStringWithArgumentIsCleanAsync()
-        => await VerifyRedundantStringToString.VerifyAnalyzerAsync(
+    public Task ToStringWithArgumentIsCleanAsync() =>
+        VerifyRedundantStringToString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -97,9 +100,10 @@ public class RedundantStringToStringAnalyzerUnitTest
 
     /// <summary>Verifies a call in an interpolation hole is left to the interpolation rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ToStringInInterpolationIsCleanAsync()
-        => await VerifyRedundantStringToString.VerifyAnalyzerAsync(
+    public Task ToStringInInterpolationIsCleanAsync() =>
+        VerifyRedundantStringToString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -109,9 +113,10 @@ public class RedundantStringToStringAnalyzerUnitTest
 
     /// <summary>Verifies a conditional-access call is left alone; it is a member binding, not a member access.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessToStringIsCleanAsync()
-        => await VerifyRedundantStringToString.VerifyAnalyzerAsync(
+    public Task ConditionalAccessToStringIsCleanAsync() =>
+        VerifyRedundantStringToString.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -121,9 +126,10 @@ public class RedundantStringToStringAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated argument-less call is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherArgumentlessCallIsCleanAsync()
-        => await VerifyRedundantStringToString.VerifyAnalyzerAsync(
+    public Task OtherArgumentlessCallIsCleanAsync() =>
+        VerifyRedundantStringToString.VerifyAnalyzerAsync(
             """
             internal class C
             {

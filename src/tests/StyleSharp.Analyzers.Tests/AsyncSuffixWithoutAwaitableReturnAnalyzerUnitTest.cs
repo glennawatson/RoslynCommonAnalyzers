@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAsyncMismatch = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.MethodNamingAnalyzer,
     StyleSharp.Analyzers.NamingRenameCodeFixProvider>;
@@ -57,9 +58,10 @@ public class AsyncSuffixWithoutAwaitableReturnAnalyzerUnitTest
 
     /// <summary>Verifies awaitable return types and an async method keep the suffix without a report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitableReturnsAreCleanAsync()
-        => await VerifyAsyncMismatch.VerifyAnalyzerAsync(
+    public Task AwaitableReturnsAreCleanAsync() =>
+        VerifyAsyncMismatch.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Runtime.CompilerServices;
@@ -88,9 +90,10 @@ public class AsyncSuffixWithoutAwaitableReturnAnalyzerUnitTest
 
     /// <summary>Verifies a method named exactly 'Async' and a suffix-free synchronous method are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareSuffixAndSuffixFreeAreCleanAsync()
-        => await VerifyAsyncMismatch.VerifyAnalyzerAsync(
+    public Task BareSuffixAndSuffixFreeAreCleanAsync() =>
+        VerifyAsyncMismatch.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -124,7 +124,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one bare instance-member access that should be qualified.</summary>
     /// <param name="context">The semantic model context.</param>
     /// <param name="identifier">The identifier candidate.</param>
-    private static void AnalyzeBareMemberAccess(SemanticModelAnalysisContext context, IdentifierNameSyntax identifier)
+    private static void AnalyzeBareMemberAccess(in SemanticModelAnalysisContext context, IdentifierNameSyntax identifier)
     {
         if (!IsBareReference(identifier))
         {
@@ -209,9 +209,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             && symbol switch
             {
                 IMethodSymbol method => method.MethodKind is MethodKind.Ordinary,
-                IFieldSymbol => true,
-                IPropertySymbol => true,
-                IEventSymbol => true,
+                IFieldSymbol or IPropertySymbol or IEventSymbol => true,
                 _ => false
             };
 
@@ -249,8 +247,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Creates a detached simple name for speculative binding.</summary>
     /// <param name="name">The source simple name.</param>
     /// <returns>A detached simple name with the same identifier and type arguments.</returns>
-    private static SimpleNameSyntax CloneSimpleName(SimpleNameSyntax name)
-        => name switch
+    private static SimpleNameSyntax CloneSimpleName(SimpleNameSyntax name) =>
+        name switch
         {
             GenericNameSyntax genericName => SyntaxFactory.GenericName(
                 SyntaxFactory.Identifier(genericName.Identifier.ValueText),
@@ -362,8 +360,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The name to find.</param>
     /// <param name="position">The candidate position.</param>
     /// <returns><see langword="true"/> when the statement declares the name before the candidate.</returns>
-    private static bool StatementDeclaresLocalName(StatementSyntax statement, string name, int position)
-        => statement switch
+    private static bool StatementDeclaresLocalName(StatementSyntax statement, string name, int position) =>
+        statement switch
         {
             LocalDeclarationStatementSyntax localDeclaration => VariableDeclarationHasName(localDeclaration.Declaration, name),
             LocalFunctionStatementSyntax localFunction => LocalFunctionShadowsName(localFunction, name, position),
@@ -379,8 +377,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The name to find.</param>
     /// <param name="position">The candidate position.</param>
     /// <returns><see langword="true"/> when the local function shadows the member name.</returns>
-    private static bool LocalFunctionShadowsName(LocalFunctionStatementSyntax localFunction, string name, int position)
-        => (localFunction.Identifier.ValueText == name && localFunction.SpanStart < position)
+    private static bool LocalFunctionShadowsName(LocalFunctionStatementSyntax localFunction, string name, int position) =>
+        (localFunction.Identifier.ValueText == name && localFunction.SpanStart < position)
         || ParameterListHasName(localFunction.ParameterList, name);
 
     /// <summary>Returns whether a parameter list contains a name.</summary>
@@ -421,8 +419,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The expression to inspect.</param>
     /// <param name="name">The name to find.</param>
     /// <returns><see langword="true"/> when the expression declares the name.</returns>
-    private static bool PatternDeclaresName(ExpressionSyntax expression, string name)
-        => expression switch
+    private static bool PatternDeclaresName(ExpressionSyntax expression, string name) =>
+        expression switch
         {
             DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax designation } => designation.Identifier.ValueText == name,
             DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax designation } => DesignationDeclaresName(designation, name),
@@ -450,8 +448,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an extension member invocation requires its receiver to stay present.</summary>
     /// <param name="symbol">The member symbol resolved from the receiver-qualified access.</param>
     /// <returns><see langword="true"/> when removing the receiver would break binding.</returns>
-    private static bool IsReceiverRequiredExtensionMember(ISymbol symbol)
-        => symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension }
+    private static bool IsReceiverRequiredExtensionMember(ISymbol symbol) =>
+        symbol is IMethodSymbol { MethodKind: MethodKind.ReducedExtension }
         || ExtensionBlockHelper.IsExtensionContainer(symbol.ContainingType);
 
     /// <summary>Uses symbol lookup for the common non-generic type or namespace simplification path.</summary>
@@ -481,7 +479,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         var candidates = model.LookupNamespacesAndTypes(position, name: identifierName.Identifier.ValueText);
-        if (candidates.Length == 0)
+        if (candidates.IsEmpty)
         {
             return true;
         }
@@ -512,8 +510,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the generic arity a name must match to bind to a symbol.</summary>
     /// <param name="symbol">The candidate or original symbol.</param>
     /// <returns>The type's arity, or zero for a namespace.</returns>
-    private static int GetArity(ISymbol symbol)
-        => symbol is INamedTypeSymbol namedType ? namedType.Arity : 0;
+    private static int GetArity(ISymbol symbol) =>
+        symbol is INamedTypeSymbol namedType ? namedType.Arity : 0;
 
     /// <summary>Uses symbol lookup for unqualified member-access candidates before speculative binding.</summary>
     /// <param name="model">The semantic model.</param>
@@ -531,18 +529,20 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     {
         binds = false;
         var candidates = model.LookupSymbols(position, name: name);
-        if (candidates.Length == 0)
+        if (candidates.IsEmpty)
         {
             return true;
         }
 
         for (var i = 0; i < candidates.Length; i++)
         {
-            if (SymbolEqualityComparer.Default.Equals(candidates[i], originalSymbol))
+            if (!SymbolEqualityComparer.Default.Equals(candidates[i], originalSymbol))
             {
-                binds = true;
-                return true;
+                continue;
             }
+
+            binds = true;
+            return true;
         }
 
         return true;

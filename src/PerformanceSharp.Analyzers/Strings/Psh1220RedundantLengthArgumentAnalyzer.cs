@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -76,14 +78,15 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member name is one of the slices whose one-argument form runs to the end.</summary>
     /// <param name="name">The invoked member name.</param>
     /// <returns><see langword="true"/> for a slice the rule can shorten.</returns>
-    internal static bool IsSliceName(string name)
-        => name is "Substring" or "AsSpan" or "AsMemory" or "Slice";
+    internal static bool IsSliceName(string name) =>
+        name is "Substring" or "AsSpan" or "AsMemory" or "Slice";
 
     /// <summary>Builds the shortened slice, keeping only the start argument.</summary>
     /// <param name="invocation">The reported slice invocation.</param>
     /// <returns>The invocation without its length argument.</returns>
-    internal static InvocationExpressionSyntax BuildShortenedSlice(InvocationExpressionSyntax invocation)
-        => invocation.WithArgumentList(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static InvocationExpressionSyntax BuildShortenedSlice(InvocationExpressionSyntax invocation) =>
+        invocation.WithArgumentList(
             invocation.ArgumentList.WithArguments(
                 SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].WithoutTrivia())));
 
@@ -92,8 +95,8 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The reported slice invocation.</param>
     /// <param name="slice">The bound two-argument slice.</param>
     /// <returns><see langword="true"/> when the shorter overload exists and returns the same thing.</returns>
-    internal static bool ShortenedSliceBinds(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol slice)
-        => model.GetSpeculativeSymbolInfo(
+    internal static bool ShortenedSliceBinds(SemanticModel model, InvocationExpressionSyntax invocation, IMethodSymbol slice) =>
+        model.GetSpeculativeSymbolInfo(
                 invocation.SpanStart,
                 BuildShortenedSlice(invocation),
                 SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol resolved
@@ -157,7 +160,7 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
 
         var owner = slice.ContainingType;
         var declaresEndToEndSlice = owner.SpecialType == SpecialType.System_String
-            || IsInSystem(owner, "MemoryExtensions")
+            || IsInSystem(owner, nameof(MemoryExtensions))
             || IsInSystem(owner, "Span")
             || IsInSystem(owner, "ReadOnlySpan")
             || IsInSystem(owner, "Memory")
@@ -170,8 +173,8 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The type to inspect.</param>
     /// <param name="name">The expected simple name.</param>
     /// <returns><see langword="true"/> when the type matches.</returns>
-    private static bool IsInSystem(INamedTypeSymbol type, string name)
-        => type.Name == name
+    private static bool IsInSystem(INamedTypeSymbol type, string name) =>
+        type.Name == name
             && type.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
 
     /// <summary>Proves the length argument lands exactly on the end of the receiver.</summary>
@@ -186,17 +189,11 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax receiver,
         ExpressionSyntax start,
         ExpressionSyntax length,
-        CancellationToken cancellationToken)
-    {
-        if (Unwrap(length) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction)
-        {
-            return IsLengthOf(model, receiver, subtraction.Left, cancellationToken)
-                && SyntaxFactory.AreEquivalent(Unwrap(subtraction.Right), Unwrap(start));
-        }
-
-        return Unwrap(start) is LiteralExpressionSyntax { Token.ValueText: "0" }
+        CancellationToken cancellationToken) => Unwrap(length) is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction
+            ? IsLengthOf(model, receiver, subtraction.Left, cancellationToken)
+                && SyntaxFactory.AreEquivalent(Unwrap(subtraction.Right), Unwrap(start))
+            : Unwrap(start) is LiteralExpressionSyntax { Token.ValueText: "0" }
             && IsLengthOf(model, receiver, length, cancellationToken);
-    }
 
     /// <summary>Returns whether an expression reads the receiver's own <c>Length</c>.</summary>
     /// <param name="model">The semantic model.</param>
@@ -204,8 +201,8 @@ public sealed class Psh1220RedundantLengthArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The candidate length read.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is <c>receiver.Length</c>.</returns>
-    private static bool IsLengthOf(SemanticModel model, ExpressionSyntax receiver, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => Unwrap(expression) is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+    private static bool IsLengthOf(SemanticModel model, ExpressionSyntax receiver, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        Unwrap(expression) is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == LengthPropertyName
             && SyntaxFactory.AreEquivalent(Unwrap(access.Expression), Unwrap(receiver))
             && model.GetSymbolInfo(access, cancellationToken).Symbol is IPropertySymbol { Type.SpecialType: SpecialType.System_Int32 };

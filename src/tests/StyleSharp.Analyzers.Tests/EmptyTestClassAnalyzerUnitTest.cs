@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyEmptyTestClass = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2504EmptyTestClassAnalyzer>;
@@ -35,9 +36,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest test class with no test method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MSTestClassWithNoTestMethodIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task MSTestClassWithNoTestMethodIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -50,9 +52,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit fixture with no test method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitFixtureWithNoTestIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task NUnitFixtureWithNoTestIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -65,9 +68,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest test class with a test method is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MSTestClassWithTestMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task MSTestClassWithTestMethodIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -81,9 +85,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an MSTest test class with a data-driven test is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MSTestClassWithDataTestMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task MSTestClassWithDataTestMethodIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -97,9 +102,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit fixture with a test is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitFixtureWithTestIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitFixtureWithTestIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -113,9 +119,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an NUnit fixture with a test case is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NUnitFixtureWithTestCaseIsCleanAsync()
-        => await VerifyAsync(
+    public Task NUnitFixtureWithTestCaseIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -129,9 +136,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract test class with no tests is a legitimate base and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractTestClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task AbstractTestClassIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -144,9 +152,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies a concrete class inheriting test methods from a plain base is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedTestMethodFromBaseIsCleanAsync()
-        => await VerifyAsync(
+    public Task InheritedTestMethodFromBaseIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -164,9 +173,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an empty test class deriving from an unrelated base is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyTestClassWithNonTestBaseIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task EmptyTestClassWithNonTestBaseIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -184,9 +194,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies a concrete fixture derived from an abstract test-fixture base is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedFromTestFixtureBaseIsCleanAsync()
-        => await VerifyAsync(
+    public Task DerivedFromTestFixtureBaseIsCleanAsync() =>
+        VerifyAsync(
             """
             using NUnit.Framework;
 
@@ -203,9 +214,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an empty test class written with a fully-qualified attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedTestClassAttributeIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task QualifiedTestClassAttributeIsFlaggedAsync() =>
+        VerifyAsync(
             """
             [Microsoft.VisualStudio.TestTools.UnitTesting.TestClass]
             public class {|SST2504:Fixture|}
@@ -216,9 +228,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an empty MSTest class is reported when both supported frameworks are referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BothFrameworksReferencedFlagsEmptyClassAsync()
-        => await VerifyAsync(
+    public Task BothFrameworksReferencedFlagsEmptyClassAsync() =>
+        VerifyAsync(
             """
             using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -231,9 +244,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with no test-class attribute is never reported, even when the framework is present.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTestClassIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonTestClassIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Ordinary
             {
@@ -243,9 +257,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies a class carrying an unrelated attribute is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonTestClassWithUnrelatedAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonTestClassWithUnrelatedAttributeIsCleanAsync() =>
+        VerifyAsync(
             """
             [System.Serializable]
             public class Ordinary
@@ -256,9 +271,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an attribute merely named like a test-class marker, but from elsewhere, is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LookAlikeTestClassAttributeIsCleanAsync()
-        => await VerifyAsync(
+    public Task LookAlikeTestClassAttributeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Custom;
 
@@ -277,9 +293,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with no test framework referenced is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoFrameworkReferencedIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoFrameworkReferencedIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Ordinary
             {
@@ -289,9 +306,10 @@ public class EmptyTestClassAnalyzerUnitTest
 
     /// <summary>Verifies an xUnit-style class (a fact, no test-class attribute) is out of scope and never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XUnitClassIsOutOfScopeAsync()
-        => await VerifyAsync(
+    public Task XUnitClassIsOutOfScopeAsync() =>
+        VerifyAsync(
             """
             using Xunit;
 
@@ -313,11 +331,7 @@ public class EmptyTestClassAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyEmptyTestClass.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new VerifyEmptyTestClass.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

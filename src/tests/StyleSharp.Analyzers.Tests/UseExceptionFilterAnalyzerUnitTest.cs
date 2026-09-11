@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyExceptionFilter = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2009UseExceptionFilterAnalyzer,
     StyleSharp.Analyzers.Sst2009UseExceptionFilterCodeFixProvider>;
@@ -352,9 +353,10 @@ public class UseExceptionFilterAnalyzerUnitTest
 
     /// <summary>Verifies a condition that invokes a method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvocationConditionIsCleanAsync()
-        => await VerifyExceptionFilter.VerifyAnalyzerAsync(
+    public Task InvocationConditionIsCleanAsync() =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -383,9 +385,10 @@ public class UseExceptionFilterAnalyzerUnitTest
 
     /// <summary>Verifies a catch that already has a filter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExistingFilterIsCleanAsync()
-        => await VerifyExceptionFilter.VerifyAnalyzerAsync(
+    public Task ExistingFilterIsCleanAsync() =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -410,9 +413,10 @@ public class UseExceptionFilterAnalyzerUnitTest
 
     /// <summary>Verifies a branch that throws an expression instead of rethrowing is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowWithExpressionIsCleanAsync()
-        => await VerifyExceptionFilter.VerifyAnalyzerAsync(
+    public Task ThrowWithExpressionIsCleanAsync() =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -439,9 +443,10 @@ public class UseExceptionFilterAnalyzerUnitTest
 
     /// <summary>Verifies an <c>if</c> that is not the catch block's first statement is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IfNotFirstStatementIsCleanAsync()
-        => await VerifyExceptionFilter.VerifyAnalyzerAsync(
+    public Task IfNotFirstStatementIsCleanAsync() =>
+        VerifyExceptionFilter.VerifyAnalyzerAsync(
             """
             public class C
             {

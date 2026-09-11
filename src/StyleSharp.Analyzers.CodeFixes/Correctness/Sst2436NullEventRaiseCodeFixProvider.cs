@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -53,8 +55,9 @@ public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider, IBat
     }
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported null argument and replaces it with <c>this</c> or <c>EventArgs.Empty</c>.</summary>
     /// <param name="root">The syntax root.</param>
@@ -78,7 +81,7 @@ public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider, IBat
         {
             replacement = SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.IdentifierName("EventArgs"),
+                SyntaxFactory.IdentifierName(nameof(EventArgs)),
                 SyntaxFactory.IdentifierName("Empty"));
         }
         else
@@ -94,30 +97,25 @@ public sealed class Sst2436NullEventRaiseCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The title.</returns>
-    private static string TitleFor(SyntaxNode root, Diagnostic diagnostic)
-        => FindArgument(root, diagnostic).Index == 0 ? "Pass 'this' as the sender" : "Pass 'EventArgs.Empty' as the event args";
+    private static string TitleFor(SyntaxNode root, Diagnostic diagnostic) =>
+        FindArgument(root, diagnostic).Index == 0 ? "Pass 'this' as the sender" : "Pass 'EventArgs.Empty' as the event args";
 
     /// <summary>Resolves the reported null to its argument and position in the call.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The argument and its index, or a null argument when the shape no longer matches.</returns>
-    private static (ArgumentSyntax? Argument, int Index) FindArgument(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is not { } argument
-            || argument.Parent is not ArgumentListSyntax list)
-        {
-            return (null, -1);
-        }
-
-        return (argument, list.Arguments.IndexOf(argument));
-    }
+    private static (ArgumentSyntax? Argument, int Index) FindArgument(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is not { } argument
+            || argument.Parent is not ArgumentListSyntax list
+            ? (null, -1)
+            : (argument, list.Arguments.IndexOf(argument));
 
     /// <summary>Returns whether the delegate's event-args parameter is exactly <see cref="EventArgs"/>.</summary>
     /// <param name="argument">The reported args argument.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <returns><see langword="true"/> when <c>EventArgs.Empty</c> is a compiling replacement.</returns>
-    private static bool ArgsParameterIsExactlyEventArgs(ArgumentSyntax argument, SemanticModel model)
-        => argument.Parent?.Parent is InvocationExpressionSyntax invocation
+    private static bool ArgsParameterIsExactlyEventArgs(ArgumentSyntax argument, SemanticModel model) =>
+        argument.Parent?.Parent is InvocationExpressionSyntax invocation
             && model.GetSymbolInfo(invocation).Symbol is IMethodSymbol { Parameters.Length: EventHandlerParameterCount } invoke
             && SymbolEqualityComparer.Default.Equals(invoke.Parameters[1].Type, model.Compilation.GetTypeByMetadataName("System.EventArgs"));
 }

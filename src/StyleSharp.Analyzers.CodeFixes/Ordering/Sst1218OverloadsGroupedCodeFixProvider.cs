@@ -62,7 +62,7 @@ public sealed class Sst1218OverloadsGroupedCodeFixProvider : CodeFixProvider, IB
 
         // Every diagnostic in one type asks for the same end state, and regrouping is idempotent, so the
         // batch can compose the requests instead of trying to sequence a series of single-member moves.
-        editor.ReplaceNode(type!, (current, _) => Regroup(current));
+        editor.ReplaceNode(type!, static (current, _) => Regroup(current));
     }
 
     /// <summary>Moves one overload to sit immediately after the nearest earlier member of its family.</summary>

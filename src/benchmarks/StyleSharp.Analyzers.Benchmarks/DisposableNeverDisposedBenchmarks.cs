@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for undisposed-disposable analysis (SST2410).</summary>
+[System.Diagnostics.DebuggerDisplay("DisposableNeverDisposedBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DisposableNeverDisposedBenchmarks
@@ -24,11 +26,13 @@ public class DisposableNeverDisposedBenchmarks
 
     /// <summary>Benchmarks the clean undisposed-disposable path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DisposableNeverDisposed_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating undisposed-disposable path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DisposableNeverDisposed_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

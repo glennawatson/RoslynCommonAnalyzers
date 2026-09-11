@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFoldNullCheck = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2285FoldNullCheckIntoConditionalAccessAnalyzer,
     StyleSharp.Analyzers.Sst2285FoldNullCheckIntoConditionalAccessCodeFixProvider>;
@@ -211,9 +212,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies an inequality comparison is left alone; the folded form answers differently for null.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedInequalityComparisonIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task GuardedInequalityComparisonIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -223,9 +225,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against null on the right is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedComparisonAgainstNullIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task GuardedComparisonAgainstNullIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class Owner
             {
@@ -240,9 +243,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a right operand that also reads the guarded value is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RightOperandReadingGuardedValueIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task RightOperandReadingGuardedValueIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -252,9 +256,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a conjunction whose second half is about something else is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedConjunctionIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task UnrelatedConjunctionIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -264,9 +269,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a guard on a side-effecting receiver is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SideEffectingReceiverIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task SideEffectingReceiverIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -278,9 +284,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a null-equality guard is not a null-exclusion guard and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualityGuardIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task EqualityGuardIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -290,9 +297,10 @@ public class FoldNullCheckIntoConditionalAccessAnalyzerUnitTest
 
     /// <summary>Verifies a guarded non-bool member read is left alone; there is nothing to compare it to.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedNonBooleanMemberIsCleanAsync()
-        => await VerifyFoldNullCheck.VerifyAnalyzerAsync(
+    public Task GuardedNonBooleanMemberIsCleanAsync() =>
+        VerifyFoldNullCheck.VerifyAnalyzerAsync(
             """
             internal class Owner
             {

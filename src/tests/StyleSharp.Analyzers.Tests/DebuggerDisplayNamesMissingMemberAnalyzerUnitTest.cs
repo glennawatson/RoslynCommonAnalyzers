@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDebuggerDisplay = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2405DebuggerDisplayNamesMissingMemberAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 {
     /// <summary>Verifies a display string naming a member the type does not have is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MissingMemberIsReportedAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task MissingMemberIsReportedAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -26,9 +28,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies the format specifier and the call parentheses are read past to find the member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpecifierAndCallAreReadPastAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task SpecifierAndCallAreReadPastAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -41,9 +44,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies every member the display string names is checked, not only the first.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EachMissingMemberIsReportedAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task EachMissingMemberIsReportedAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -56,9 +60,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies a display string naming members the type has is clean, private ones included.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclaredMembersAreCleanAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task DeclaredMembersAreCleanAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -75,9 +80,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies an inherited member is one the debugger will find.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedMemberIsCleanAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task InheritedMemberIsCleanAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -94,9 +100,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies an expression the rule cannot be sure about is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComplexExpressionIsCleanAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task ComplexExpressionIsCleanAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -110,9 +117,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies a display string with no expressions in it at all is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainDisplayStringIsCleanAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task PlainDisplayStringIsCleanAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 
@@ -125,9 +133,10 @@ public class DebuggerDisplayNamesMissingMemberAnalyzerUnitTest
 
     /// <summary>Verifies the attribute on a field, whose expressions resolve against that field's type, is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AttributeOnAFieldIsCleanAsync()
-        => await VerifyDebuggerDisplay.VerifyAnalyzerAsync(
+    public Task AttributeOnAFieldIsCleanAsync() =>
+        VerifyDebuggerDisplay.VerifyAnalyzerAsync(
             """
             using System.Diagnostics;
 

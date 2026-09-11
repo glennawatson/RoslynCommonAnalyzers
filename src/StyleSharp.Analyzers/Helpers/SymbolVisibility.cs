@@ -19,15 +19,13 @@ internal static class SymbolVisibility
     /// type on the way out are public or protected. A local function is never externally visible, whatever
     /// the method around it says.
     /// </remarks>
-    public static bool IsExternallyVisible(ISymbol symbol)
+    internal static bool IsExternallyVisible(ISymbol symbol)
     {
         for (var current = symbol; current is not null && current.Kind != SymbolKind.Namespace; current = current.ContainingSymbol)
         {
             switch (current.DeclaredAccessibility)
             {
-                case Accessibility.Public:
-                case Accessibility.Protected:
-                case Accessibility.ProtectedOrInternal:
+                case Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal:
                 {
                     break;
                 }

@@ -57,16 +57,19 @@ public sealed class SymbolResolutionUnitTest
     /// <summary>Resolves the single symbol for the call inside the named method.</summary>
     /// <param name="methodName">The enclosing method whose single call to resolve.</param>
     /// <returns>The resolved symbol, or <see langword="null"/>.</returns>
+    /// <exception cref="InvalidOperationException">The shared source declares no method named <paramref name="methodName"/>.</exception>
     private static ISymbol? Resolve(string methodName)
     {
         var (root, model) = SemanticModelFactory.Create(Source);
         foreach (var member in ((TypeDeclarationSyntax)root.Members[0]).Members)
         {
-            if (member is MethodDeclarationSyntax method && method.Identifier.ValueText == methodName)
+            if (member is not MethodDeclarationSyntax method || method.Identifier.ValueText != methodName)
             {
-                var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
-                return SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(invocation));
+                continue;
             }
+
+            var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)method.Body!.Statements[0]).Expression;
+            return SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(invocation));
         }
 
         throw new InvalidOperationException($"Method '{methodName}' was not found.");

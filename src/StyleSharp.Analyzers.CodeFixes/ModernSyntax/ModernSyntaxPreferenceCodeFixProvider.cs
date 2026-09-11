@@ -71,8 +71,8 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
     /// <summary>Gets the code action title.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The title.</returns>
-    private static string Title(string diagnosticId)
-        => diagnosticId == ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id
+    private static string Title(string diagnosticId) =>
+        diagnosticId == ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id
             ? "Remove lambda parameter types"
             : "Use expression-bodied accessor";
 
@@ -116,8 +116,7 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
     /// <returns>The updated lambda.</returns>
     private static ParenthesizedLambdaExpressionSyntax RemoveLambdaParameterTypes(ParenthesizedLambdaExpressionSyntax lambda)
     {
-        var parameters = lambda.ParameterList.Parameters;
-        var parametersWithSeparators = parameters.GetWithSeparators();
+        var parametersWithSeparators = lambda.ParameterList.Parameters.GetWithSeparators();
         var rewritten = new SyntaxNodeOrToken[parametersWithSeparators.Count];
         for (var i = 0; i < parametersWithSeparators.Count; i++)
         {

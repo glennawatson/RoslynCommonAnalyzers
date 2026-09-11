@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeLoad = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 {
     /// <summary>Verifies <c>Assembly.Load(byte[])</c> on a raw buffer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawBytesLoadReportedAsync()
-        => await VerifyNet90Async(
+    public Task RawBytesLoadReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -28,9 +30,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies the raw-bytes overload passed by name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawBytesLoadNamedArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task RawBytesLoadNamedArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -42,9 +45,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies <c>AssemblyLoadContext.LoadFromStream</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromStreamReportedAsync()
-        => await VerifyNet90Async(
+    public Task LoadFromStreamReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.IO;
             using System.Reflection;
@@ -58,9 +62,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies <c>Assembly.LoadFrom</c> with a non-constant path is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromNonConstantPathReportedAsync()
-        => await VerifyNet90Async(
+    public Task LoadFromNonConstantPathReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -72,9 +77,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies <c>Assembly.LoadFile</c> with a non-constant path is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFileNonConstantPathReportedAsync()
-        => await VerifyNet90Async(
+    public Task LoadFileNonConstantPathReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -86,9 +92,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies <c>Assembly.UnsafeLoadFrom</c> with a non-constant path is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsafeLoadFromNonConstantPathReportedAsync()
-        => await VerifyNet90Async(
+    public Task UnsafeLoadFromNonConstantPathReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -100,9 +107,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies <c>Assembly.LoadFrom</c> with a string concatenation of a non-constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromConcatenatedPathReportedAsync()
-        => await VerifyNet90Async(
+    public Task LoadFromConcatenatedPathReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -114,9 +122,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies the safe <c>Assembly.Load(string)</c> identity overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadByNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadByNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -128,9 +137,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies the safe <c>Assembly.Load(AssemblyName)</c> identity overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadByAssemblyNameIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadByAssemblyNameIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -142,9 +152,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal path to <c>Assembly.LoadFrom</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromConstantPathIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadFromConstantPathIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -156,9 +167,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a constant-field path to <c>Assembly.LoadFile</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFileConstFieldPathIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadFileConstFieldPathIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
 
@@ -172,9 +184,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a stream taken directly from an embedded manifest resource is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoadFromStreamOfManifestResourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoadFromStreamOfManifestResourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Reflection;
             using System.Runtime.Loader;
@@ -188,9 +201,10 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>Load(byte[])</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedLoadMethodIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedLoadMethodIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Cache
             {
@@ -208,11 +222,7 @@ public class UnsafeAssemblyLoadAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeLoad.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeLoad.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

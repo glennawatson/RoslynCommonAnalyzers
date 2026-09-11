@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAnalyzer = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.OverrideParameterContractAnalyzer>;
 using VerifyParamsFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -83,9 +84,10 @@ public class OverrideParameterContractAnalyzerUnitTest
 
     /// <summary>Verifies an override that changes a parameter's default is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChangedDefaultIsReportedAsync()
-        => await VerifyAnalyzer.VerifyAnalyzerAsync(
+    public Task ChangedDefaultIsReportedAsync() =>
+        VerifyAnalyzer.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -100,9 +102,10 @@ public class OverrideParameterContractAnalyzerUnitTest
 
     /// <summary>Verifies an override that drops the base's default is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DroppedDefaultIsReportedAsync()
-        => await VerifyAnalyzer.VerifyAnalyzerAsync(
+    public Task DroppedDefaultIsReportedAsync() =>
+        VerifyAnalyzer.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -117,9 +120,10 @@ public class OverrideParameterContractAnalyzerUnitTest
 
     /// <summary>Verifies an override that repeats the base's default is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedDefaultIsCleanAsync()
-        => await VerifyAnalyzer.VerifyAnalyzerAsync(
+    public Task RepeatedDefaultIsCleanAsync() =>
+        VerifyAnalyzer.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -134,9 +138,10 @@ public class OverrideParameterContractAnalyzerUnitTest
 
     /// <summary>Verifies an override that keeps the base's params modifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchingParamsIsCleanAsync()
-        => await VerifyAnalyzer.VerifyAnalyzerAsync(
+    public Task MatchingParamsIsCleanAsync() =>
+        VerifyAnalyzer.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -155,13 +160,15 @@ public class OverrideParameterContractAnalyzerUnitTest
 
     /// <summary>Verifies dropping the base's params modifier is reported and restored.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DroppedParamsIsReportedAndFixedAsync()
-        => await VerifyParamsFix.VerifyCodeFixAsync(DroppedParamsSource, DroppedParamsFixed);
+    public Task DroppedParamsIsReportedAndFixedAsync() =>
+        VerifyParamsFix.VerifyCodeFixAsync(DroppedParamsSource, DroppedParamsFixed);
 
     /// <summary>Verifies adding a params modifier the base lacks is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddedParamsIsReportedAndFixedAsync()
-        => await VerifyParamsFix.VerifyCodeFixAsync(AddedParamsSource, AddedParamsFixed);
+    public Task AddedParamsIsReportedAndFixedAsync() =>
+        VerifyParamsFix.VerifyCodeFixAsync(AddedParamsSource, AddedParamsFixed);
 }

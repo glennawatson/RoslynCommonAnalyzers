@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.MemberDocumentationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class DocumentationQualityUnitTest
 {
     /// <summary>Verifies a placeholder summary is reported (SST1608).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultSummaryAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DefaultSummaryAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// {|SST1608:<summary>Summary description here.</summary>|}
             public class Widget { }
@@ -41,9 +43,10 @@ public class DocumentationQualityUnitTest
 
     /// <summary>Verifies a nameless parameter documentation element is reported (SST1613).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterNameAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ParameterNameAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A widget.</summary>
             /// {|SST1613:<param>No name.</param>|}
@@ -107,9 +110,10 @@ public class DocumentationQualityUnitTest
 
     /// <summary>Verifies a nameless type parameter documentation element is reported (SST1621).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypeParameterNameAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TypeParameterNameAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             /// <summary>A widget.</summary>
             /// {|SST1621:<typeparam>No name.</typeparam>|}

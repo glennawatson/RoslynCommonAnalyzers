@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyComplexity = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.FunctionComplexityAnalyzer>;
 using VerifySingleIterationLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ComplexityAnalyzerUnitTest
 {
     /// <summary>Verifies SST1442 reports methods over the default branching-complexity threshold.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CyclomaticComplexityOverDefaultThresholdIsReportedAsync()
-        => await VerifyComplexity.VerifyAnalyzerAsync(
+    public Task CyclomaticComplexityOverDefaultThresholdIsReportedAsync() =>
+        VerifyComplexity.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -64,7 +66,7 @@ public class ComplexityAnalyzerUnitTest
                                return result;
                            }
                        }
-                       """
+                       """,
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
@@ -80,9 +82,10 @@ public class ComplexityAnalyzerUnitTest
 
     /// <summary>Verifies wide switch expressions do not inflate complexity.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideSwitchExpressionIsCleanAsync()
-        => await VerifyComplexity.VerifyAnalyzerAsync(
+    public Task WideSwitchExpressionIsCleanAsync() =>
+        VerifyComplexity.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -108,9 +111,10 @@ public class ComplexityAnalyzerUnitTest
 
     /// <summary>Verifies wide switch statements do not inflate complexity.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideSwitchStatementIsCleanAsync()
-        => await VerifyComplexity.VerifyAnalyzerAsync(
+    public Task WideSwitchStatementIsCleanAsync() =>
+        VerifyComplexity.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -138,9 +142,10 @@ public class ComplexityAnalyzerUnitTest
 
     /// <summary>Verifies SST1443 reports methods over the default nested-flow threshold.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CognitiveComplexityOverDefaultThresholdIsReportedAsync()
-        => await VerifyComplexity.VerifyAnalyzerAsync(
+    public Task CognitiveComplexityOverDefaultThresholdIsReportedAsync() =>
+        VerifyComplexity.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -174,9 +179,10 @@ public class ComplexityAnalyzerUnitTest
 
     /// <summary>Verifies SST1444 reports an unconditional terminating jump in a loop.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleIterationLoopWithUnconditionalReturnIsReportedAsync()
-        => await VerifySingleIterationLoop.VerifyAnalyzerAsync(
+    public Task SingleIterationLoopWithUnconditionalReturnIsReportedAsync() =>
+        VerifySingleIterationLoop.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -194,9 +200,10 @@ public class ComplexityAnalyzerUnitTest
 
     /// <summary>Verifies SST1444 ignores conditional continues and does not report the outer loop for nested-loop jumps.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalContinueAndNestedLoopJumpsDoNotReportOuterLoopAsync()
-        => await VerifySingleIterationLoop.VerifyAnalyzerAsync(
+    public Task ConditionalContinueAndNestedLoopJumpsDoNotReportOuterLoopAsync() =>
+        VerifySingleIterationLoop.VerifyAnalyzerAsync(
             """
             public class C
             {

@@ -11,8 +11,8 @@ internal static class UsingOrderingBenchmarkSource
     /// <param name="containers">The number of synthetic containers to emit.</param>
     /// <param name="violating">Whether to emit using-ordering rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int containers, bool violating)
-        => violating
+    internal static string Generate(int containers, bool violating) =>
+        violating
             ? BenchmarkSourceText.JoinBlocks(containers, GenerateViolatingNamespace)
             : $$"""
                using System;
@@ -26,8 +26,8 @@ internal static class UsingOrderingBenchmarkSource
     /// <summary>Builds one clean type declaration for the using-ordering benchmark.</summary>
     /// <param name="index">The synthetic container index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanNamespaceMember(int index)
-        => $$"""
+    private static string GenerateCleanNamespaceMember(int index) =>
+        $$"""
            public static class C{{index}}
            {
            }
@@ -36,8 +36,8 @@ internal static class UsingOrderingBenchmarkSource
     /// <summary>Builds one violating namespace block for the using-ordering benchmark.</summary>
     /// <param name="index">The synthetic container index.</param>
     /// <returns>The generated namespace block.</returns>
-    private static string GenerateViolatingNamespace(int index)
-        => $$"""
+    private static string GenerateViolatingNamespace(int index) =>
+        $$"""
            namespace Bench{{index}}
            {
                using Alias{{index}} = System.Console;

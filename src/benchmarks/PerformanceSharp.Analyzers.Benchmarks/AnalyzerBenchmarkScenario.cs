@@ -10,6 +10,7 @@ namespace PerformanceSharp.Analyzers.Benchmarks;
 /// <summary>Describes one compilation plus any analyzer-config options needed to benchmark it.</summary>
 /// <param name="Compilation">The compilation to analyze.</param>
 /// <param name="OptionsProvider">Optional analyzer-config options for the compilation.</param>
+[System.Diagnostics.DebuggerDisplay("AnalyzerBenchmarkScenario: {ToString(),nq}")]
 public readonly record struct AnalyzerBenchmarkScenario(
     CSharpCompilation Compilation,
     AnalyzerConfigOptionsProvider? OptionsProvider = null);

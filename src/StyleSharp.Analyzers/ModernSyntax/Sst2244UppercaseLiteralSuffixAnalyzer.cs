@@ -81,7 +81,7 @@ public sealed class Sst2244UppercaseLiteralSuffixAnalyzer : DiagnosticAnalyzer
             ModernSyntaxRules.UppercaseLiteralSuffix,
             literal.SyntaxTree,
             span,
-            text.Substring(suffixStart)));
+            text[suffixStart..]));
     }
 
     /// <summary>Returns the index at which the token text's type suffix starts, or its length when there is none.</summary>
@@ -102,14 +102,14 @@ public sealed class Sst2244UppercaseLiteralSuffixAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the token text opens with a hexadecimal or binary base prefix.</summary>
     /// <param name="text">The numeric literal token's text.</param>
     /// <returns><see langword="true"/> for <c>0x</c>, <c>0X</c>, <c>0b</c>, and <c>0B</c>.</returns>
-    private static bool HasBasePrefix(string text)
-        => text.Length >= BasePrefixLength && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
+    private static bool HasBasePrefix(string text) =>
+        text.Length >= BasePrefixLength && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B';
 
     /// <summary>Returns whether a character can appear in a numeric literal's type suffix.</summary>
     /// <param name="character">The candidate suffix character.</param>
     /// <param name="integerOnly">Whether the literal is base-prefixed, and so can only carry an integer suffix.</param>
     /// <returns><see langword="true"/> when the character belongs to the suffix rather than the digits.</returns>
-    private static bool IsSuffixCharacter(char character, bool integerOnly)
-        => IntegerSuffixCharacters.IndexOf(character) >= 0
+    private static bool IsSuffixCharacter(char character, bool integerOnly) =>
+        IntegerSuffixCharacters.IndexOf(character) >= 0
             || (!integerOnly && RealSuffixCharacters.IndexOf(character) >= 0);
 }

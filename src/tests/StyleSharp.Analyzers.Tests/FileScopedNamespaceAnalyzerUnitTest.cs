@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyFileScopedNamespace = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -37,27 +38,27 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
                                                    """;
 
-    /// <summary>The block-scoped namespace the rule reports, marked up on its name.</summary>
-    private const string ReportedBlockScopedNamespace = """
-                                                        namespace {|SST2237:Bench|}
-                                                        {
-                                                            public sealed class C
-                                                            {
-                                                            }
-                                                        }
-                                                        """;
-
     /// <summary>Verifies a single block-scoped namespace is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleBlockScopedNamespaceIsReportedAsync()
-        => await RunAsync(ReportedBlockScopedNamespace);
+    public Task SingleBlockScopedNamespaceIsReportedAsync() =>
+        RunAsync(
+            """
+            namespace {|SST2237:Bench|}
+            {
+                public sealed class C
+                {
+                }
+            }
+            """);
 
     /// <summary>Verifies files with multiple namespace members are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleNamespacesAreCleanAsync()
-        => await RunAsync(
+    public Task MultipleNamespacesAreCleanAsync() =>
+        RunAsync(
             """
             namespace A
             {
@@ -76,9 +77,10 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
     /// <summary>Verifies a file-scoped namespace is clean under the default style.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileScopedNamespaceIsCleanByDefaultAsync()
-        => await RunAsync(
+    public Task FileScopedNamespaceIsCleanByDefaultAsync() =>
+        RunAsync(
             """
             namespace Bench;
 
@@ -89,9 +91,10 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
     /// <summary>Verifies a file-scoped namespace is reported once the block-scoped form is configured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileScopedNamespaceIsReportedWhenBlockScopedIsConfiguredAsync()
-        => await RunAsync(
+    public Task FileScopedNamespaceIsReportedWhenBlockScopedIsConfiguredAsync() =>
+        RunAsync(
             """
             namespace {|SST2237:Bench|};
 
@@ -103,9 +106,10 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
     /// <summary>Verifies a block-scoped namespace is clean once the block-scoped form is configured.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockScopedNamespaceIsCleanWhenBlockScopedIsConfiguredAsync()
-        => await RunAsync(
+    public Task BlockScopedNamespaceIsCleanWhenBlockScopedIsConfiguredAsync() =>
+        RunAsync(
             """
             namespace Bench
             {
@@ -118,15 +122,35 @@ public class FileScopedNamespaceAnalyzerUnitTest
 
     /// <summary>Verifies the rule-specific key overrides the project-wide one.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuleSpecificKeyOverridesTheProjectWideKeyAsync()
-        => await RunAsync(ReportedBlockScopedNamespace, RuleSpecificOverrideConfig);
+    public Task RuleSpecificKeyOverridesTheProjectWideKeyAsync() =>
+        RunAsync(
+            """
+            namespace {|SST2237:Bench|}
+            {
+                public sealed class C
+                {
+                }
+            }
+            """,
+            RuleSpecificOverrideConfig);
 
     /// <summary>Verifies an unrecognized value falls back to the documented default.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrecognizedStyleFallsBackToFileScopedAsync()
-        => await RunAsync(ReportedBlockScopedNamespace, UnrecognizedStyleConfig);
+    public Task UnrecognizedStyleFallsBackToFileScopedAsync() =>
+        RunAsync(
+            """
+            namespace {|SST2237:Bench|}
+            {
+                public sealed class C
+                {
+                }
+            }
+            """,
+            UnrecognizedStyleConfig);
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
@@ -134,11 +158,7 @@ public class FileScopedNamespaceAnalyzerUnitTest
     /// <returns>A task representing the asynchronous operation.</returns>
     private static async Task RunAsync(string source, string? editorConfig = null)
     {
-        var test = new VerifyFileScopedNamespace.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyFileScopedNamespace.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         if (editorConfig is not null)
         {

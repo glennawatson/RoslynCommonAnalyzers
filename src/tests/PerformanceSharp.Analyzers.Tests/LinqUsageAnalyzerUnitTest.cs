@@ -176,11 +176,7 @@ public class LinqUsageAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyLinqUsage.Test CreateNet80Test(string source, string? fixedSource = null)
     {
-        var test = new VerifyLinqUsage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyLinqUsage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         if (fixedSource is not null)
         {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeRegex = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 {
     /// <summary>Verifies a nested-quantifier constant pattern to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedQuantifierToConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task NestedQuantifierToConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -28,9 +30,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a top-level alternation inside a repeated group is reported on a static call.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverlappingAlternationToStaticIsMatchReportedAsync()
-        => await VerifyNet90Async(
+    public Task OverlappingAlternationToStaticIsMatchReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -42,9 +45,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a nested-quantifier constant pattern in a <c>[GeneratedRegex]</c> attribute is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedQuantifierInGeneratedRegexReportedAsync()
-        => await VerifyNet90Async(
+    public Task NestedQuantifierInGeneratedRegexReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -57,9 +61,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a <c>(.*)*</c> star-on-star constant pattern is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StarOnStarConstructorReportedAsync()
-        => await VerifyNet90Async(
+    public Task StarOnStarConstructorReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -71,9 +76,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies the pattern passed by name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedPatternArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedPatternArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -85,9 +91,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a nested-quantifier constant pattern to static <c>Regex.Replace</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReplaceReportedAsync()
-        => await VerifyNet90Async(
+    public Task StaticReplaceReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -99,9 +106,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies an unbounded <c>{n,}</c> outer quantifier over a repeated group is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnboundedBraceOuterQuantifierReportedAsync()
-        => await VerifyNet90Async(
+    public Task UnboundedBraceOuterQuantifierReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -125,20 +133,17 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeRegex.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeRegex.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies a supplied match timeout keeps the constructor call clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchTimeoutSuppressesAsync()
-        => await VerifyNet90Async(
+    public Task MatchTimeoutSuppressesAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Text.RegularExpressions;
@@ -151,9 +156,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies the non-backtracking engine keeps the constructor call clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBacktrackingOptionSuppressesAsync()
-        => await VerifyNet90Async(
+    public Task NonBacktrackingOptionSuppressesAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -165,9 +171,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies <c>NonBacktracking</c> combined with other flags is still recognized as safe.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBacktrackingCombinedWithFlagsSuppressesAsync()
-        => await VerifyNet90Async(
+    public Task NonBacktrackingCombinedWithFlagsSuppressesAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -179,9 +186,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a benign constant pattern with no nested quantifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BenignConstantPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BenignConstantPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -193,9 +201,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a repeated group whose body neither repeats nor alternates is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RepeatedGroupWithoutInnerRepetitionIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task RepeatedGroupWithoutInnerRepetitionIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -207,9 +216,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a fixed-width bounded inner quantifier under an outer quantifier is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundedInnerQuantifierIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BoundedInnerQuantifierIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -221,9 +231,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a bounded outer quantifier over a repeated group is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundedOuterQuantifierIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BoundedOuterQuantifierIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -235,9 +246,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant pattern is not reported (that shape is a separate injection concern).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonConstantPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -249,9 +261,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a benign constant pattern to a static call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticBenignPatternIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task StaticBenignPatternIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -263,9 +276,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a <c>[GeneratedRegex]</c> with a match-timeout in milliseconds is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GeneratedRegexWithTimeoutIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task GeneratedRegexWithTimeoutIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Text.RegularExpressions;
 
@@ -278,9 +292,10 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
 
     /// <summary>Verifies a same-named regex type from another namespace is not reported (only the real type binds).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedNonSystemRegexTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task SameNamedNonSystemRegexTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public sealed class Regex
             {
@@ -300,11 +315,7 @@ public class BacktrackingRegexWithoutTimeoutAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeRegex.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeRegex.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

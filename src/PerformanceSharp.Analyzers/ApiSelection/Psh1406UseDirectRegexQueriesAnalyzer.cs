@@ -94,7 +94,7 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="regexType">The regex type.</param>
     /// <param name="hasCountMethod">Whether the regex type exposes the direct <c>Count</c> method.</param>
-    private static void AnalyzeMemberAccess(SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, bool hasCountMethod)
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, bool hasCountMethod)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!TryGetQueryShape(access, out var materializingInvocation, out var replacementName)
@@ -119,8 +119,8 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the invoked member's simple name text for the supported call shapes.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns>The invoked name, or <see langword="null"/> for unsupported expression shapes.</returns>
-    private static string? GetInvokedName(InvocationExpressionSyntax invocation)
-        => invocation.Expression switch
+    private static string? GetInvokedName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
         {
             MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText,
             SimpleNameSyntax simpleName => simpleName.Identifier.ValueText,

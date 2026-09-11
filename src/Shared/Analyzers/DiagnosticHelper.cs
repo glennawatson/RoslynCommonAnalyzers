@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace RoslynCommon.Analyzers;
@@ -17,16 +18,18 @@ internal static class DiagnosticHelper
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="location">The diagnostic location.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location)
-        => Diagnostic.Create(descriptor, location);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, Location location) =>
+        Diagnostic.Create(descriptor, location);
 
     /// <summary>Creates a diagnostic with one message argument.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="location">The diagnostic location.</param>
     /// <param name="messageArg">The one message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, string messageArg)
-        => Diagnostic.Create(descriptor, location, messageArg);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, string messageArg) =>
+        Diagnostic.Create(descriptor, location, messageArg);
 
     /// <summary>Creates a diagnostic with two message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -34,8 +37,9 @@ internal static class DiagnosticHelper
     /// <param name="firstMessageArg">The first message argument.</param>
     /// <param name="secondMessageArg">The second message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, string firstMessageArg, string secondMessageArg)
-        => Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, Location location, string firstMessageArg, string secondMessageArg) =>
+        Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg);
 
     /// <summary>Creates a diagnostic with three message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -44,32 +48,35 @@ internal static class DiagnosticHelper
     /// <param name="secondMessageArg">The second message argument.</param>
     /// <param name="thirdMessageArg">The third message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(
         DiagnosticDescriptor descriptor,
         Location location,
         string firstMessageArg,
         string secondMessageArg,
-        string thirdMessageArg)
-        => Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg, thirdMessageArg);
+        string thirdMessageArg) =>
+        Diagnostic.Create(descriptor, location, firstMessageArg, secondMessageArg, thirdMessageArg);
 
     /// <summary>Creates a diagnostic with cached custom properties but no message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="location">The diagnostic location.</param>
     /// <param name="properties">The custom diagnostic properties.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(
         DiagnosticDescriptor descriptor,
         Location location,
-        ImmutableDictionary<string, string?> properties)
-        => Diagnostic.Create(descriptor, location, properties);
+        ImmutableDictionary<string, string?> properties) =>
+        Diagnostic.Create(descriptor, location, properties);
 
     /// <summary>Creates a diagnostic from a syntax-tree span with no message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
     /// <param name="tree">The owning syntax tree.</param>
     /// <param name="span">The source span to report.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span));
 
     /// <summary>Creates a diagnostic from a syntax-tree span with one message argument.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -77,8 +84,9 @@ internal static class DiagnosticHelper
     /// <param name="span">The source span to report.</param>
     /// <param name="messageArg">The one message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string messageArg)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span), messageArg);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string messageArg) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span), messageArg);
 
     /// <summary>Creates a diagnostic from a syntax-tree span with two message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -87,8 +95,9 @@ internal static class DiagnosticHelper
     /// <param name="firstMessageArg">The first message argument.</param>
     /// <param name="secondMessageArg">The second message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string firstMessageArg, string secondMessageArg)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span), firstMessageArg, secondMessageArg);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(DiagnosticDescriptor descriptor, SyntaxTree tree, TextSpan span, string firstMessageArg, string secondMessageArg) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span), firstMessageArg, secondMessageArg);
 
     /// <summary>Creates a diagnostic from a syntax-tree span with cached custom properties.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -96,12 +105,13 @@ internal static class DiagnosticHelper
     /// <param name="span">The source span to report.</param>
     /// <param name="properties">The custom diagnostic properties.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(
         DiagnosticDescriptor descriptor,
         SyntaxTree tree,
         TextSpan span,
-        ImmutableDictionary<string, string?> properties)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span), properties);
+        ImmutableDictionary<string, string?> properties) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span), properties);
 
     /// <summary>Creates a diagnostic from a syntax-tree span with cached custom properties and one message argument.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -110,13 +120,14 @@ internal static class DiagnosticHelper
     /// <param name="properties">The custom diagnostic properties.</param>
     /// <param name="messageArg">The one message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(
         DiagnosticDescriptor descriptor,
         SyntaxTree tree,
         TextSpan span,
         ImmutableDictionary<string, string?> properties,
-        string messageArg)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span), properties, messageArg);
+        string messageArg) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span), properties, messageArg);
 
     /// <summary>Creates a diagnostic from a syntax-tree span with cached custom properties and two message arguments.</summary>
     /// <param name="descriptor">The rule descriptor.</param>
@@ -126,12 +137,13 @@ internal static class DiagnosticHelper
     /// <param name="firstMessageArg">The first message argument.</param>
     /// <param name="secondMessageArg">The second message argument.</param>
     /// <returns>The created diagnostic.</returns>
-    public static Diagnostic Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Diagnostic Create(
         DiagnosticDescriptor descriptor,
         SyntaxTree tree,
         TextSpan span,
         ImmutableDictionary<string, string?> properties,
         string firstMessageArg,
-        string secondMessageArg)
-        => Diagnostic.Create(descriptor, Location.Create(tree, span), properties, firstMessageArg, secondMessageArg);
+        string secondMessageArg) =>
+        Diagnostic.Create(descriptor, Location.Create(tree, span), properties, firstMessageArg, secondMessageArg);
 }

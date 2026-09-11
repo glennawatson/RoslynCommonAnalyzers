@@ -152,7 +152,7 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskType">The non-generic task type.</param>
     /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
     {
         var node = context.Node;
         if (!TryGetShape(node, out var asyncKeyword, out var awaitExpression, out var isStatementAwait))
@@ -202,8 +202,8 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
     /// <param name="returnType">The declared return type.</param>
     /// <param name="taskOfTType">The generic task type, when it exists.</param>
     /// <returns><see langword="true"/> when the return type is a constructed generic task.</returns>
-    private static bool IsGenericTask(ITypeSymbol returnType, INamedTypeSymbol? taskOfTType)
-        => taskOfTType is not null
+    private static bool IsGenericTask(ITypeSymbol returnType, INamedTypeSymbol? taskOfTType) =>
+        taskOfTType is not null
             && returnType is INamedTypeSymbol named
             && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, taskOfTType);
 }

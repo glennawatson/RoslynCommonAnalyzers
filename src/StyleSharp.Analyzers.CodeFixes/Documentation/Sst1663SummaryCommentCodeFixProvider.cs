@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,8 +20,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.SummaryComment.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.SummaryComment.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -70,12 +71,7 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (root is null || !TryBuildChange(root, diagnostic, out var change))
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return root is null || !TryBuildChange(root, diagnostic, out var change) ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that rewrites the <c>//</c> comment as a <c>/// &lt;summary&gt;</c> line.</summary>
@@ -96,14 +92,15 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
         }
 
         var raw = trivia.ToString();
-        var content = Escape(raw.Substring(SingleLineCommentMarkerLength).Trim());
-        change = new TextChange(trivia.Span, "/// <summary>" + content + "</summary>");
+        var content = Escape(raw[SingleLineCommentMarkerLength..].Trim());
+        change = new(trivia.Span, $"/// <summary>{content}</summary>");
         return true;
     }
 
     /// <summary>Escapes the XML-significant characters in a run of comment text.</summary>
     /// <param name="value">The comment text.</param>
     /// <returns>The XML-escaped text.</returns>
-    private static string Escape(string value)
-        => value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string Escape(string value) =>
+        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyCallerInfoOrder = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2433CallerInfoParameterOrderAnalyzer>;
@@ -25,9 +26,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies a caller-info parameter followed by an ordinary parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerInfoFollowedByOrdinaryIsReportedAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task CallerInfoFollowedByOrdinaryIsReportedAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -56,9 +58,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies a caller-argument-expression parameter out of place is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerArgumentExpressionOutOfPlaceIsReportedAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task CallerArgumentExpressionOutOfPlaceIsReportedAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -72,9 +75,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies a misplaced caller-info parameter is reported on a constructor too.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorCallerInfoFollowedByOrdinaryIsReportedAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task ConstructorCallerInfoFollowedByOrdinaryIsReportedAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -88,9 +92,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies a caller-info parameter that is last and has a default is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallerInfoLastWithDefaultIsCleanAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task CallerInfoLastWithDefaultIsCleanAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -104,9 +109,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies two caller-info parameters in a row at the end, each defaulted, are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsecutiveCallerInfoAtEndIsCleanAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task ConsecutiveCallerInfoAtEndIsCleanAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -120,9 +126,10 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 
     /// <summary>Verifies an ordinary parameter carrying a non-caller-info attribute is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonCallerInfoAttributeIsCleanAsync()
-        => await VerifyCallerInfoOrder.VerifyAnalyzerAsync(
+    public Task NonCallerInfoAttributeIsCleanAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
 

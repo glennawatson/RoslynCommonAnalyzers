@@ -67,21 +67,16 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the <c>GetChars</c> call a <c>new string(...)</c> is built from, syntactically.</summary>
     /// <param name="creation">The candidate string creation.</param>
     /// <returns>The decoding call, or <see langword="null"/> when the shape does not match.</returns>
-    internal static InvocationExpressionSyntax? TryGetDecodeCall(ObjectCreationExpressionSyntax creation)
-    {
-        if (creation.Type is not PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.StringKeyword }
+    internal static InvocationExpressionSyntax? TryGetDecodeCall(ObjectCreationExpressionSyntax creation) =>
+        creation.Type is not PredefinedTypeSyntax { Keyword.RawKind: (int)SyntaxKind.StringKeyword }
             || creation.Initializer is not null
             || creation.ArgumentList is not { Arguments.Count: 1 } arguments
             || arguments.Arguments[0] is not { NameColon: null, RefOrOutKeyword.RawKind: (int)SyntaxKind.None } argument
             || argument.Expression is not InvocationExpressionSyntax invocation
             || invocation.Expression is not MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
-            || access.Name.Identifier.ValueText != GetCharsMethodName)
-        {
-            return null;
-        }
-
-        return invocation;
-    }
+            || access.Name.Identifier.ValueText != GetCharsMethodName
+            ? null
+            : invocation;
 
     /// <summary>Builds the <c>encoding.GetString(...)</c> rewrite, reusing the decoding arguments.</summary>
     /// <param name="decode">The reported <c>GetChars</c> call.</param>
@@ -115,7 +110,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1225 for a decode-then-copy that <c>GetString</c> does in one step.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="encoding">The encoding base type.</param>
-    private static void AnalyzeStringCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol encoding)
+    private static void AnalyzeStringCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encoding)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         if (TryGetDecodeCall(creation) is not { } decodeCall)
@@ -138,7 +133,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             StringRules.UseEncodingGetString,
             creation.SyntaxTree,
             creation.Span,
-            receiver + "." + GetStringMethodName));
+            $"{receiver}.{GetStringMethodName}"));
     }
 
     /// <summary>Binds the decoding call and keeps it only when it is an encoding's own <c>GetChars</c>.</summary>
@@ -186,8 +181,8 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <param name="creation">The string creation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the constructor takes the char buffer whole.</returns>
-    private static bool BuildsAString(SemanticModel model, ObjectCreationExpressionSyntax creation, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(creation, cancellationToken).Symbol is IMethodSymbol
+    private static bool BuildsAString(SemanticModel model, ObjectCreationExpressionSyntax creation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(creation, cancellationToken).Symbol is IMethodSymbol
         {
             MethodKind: MethodKind.Constructor,
             ContainingType.SpecialType: SpecialType.System_String,

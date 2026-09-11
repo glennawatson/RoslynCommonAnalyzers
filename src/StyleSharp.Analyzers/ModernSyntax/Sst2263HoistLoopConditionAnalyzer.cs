@@ -130,15 +130,15 @@ public sealed class Sst2263HoistLoopConditionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a statement is exactly a <c>break;</c> (bare or in a single-statement block).</summary>
     /// <param name="statement">The statement to inspect.</param>
     /// <returns><see langword="true"/> when the statement only breaks.</returns>
-    private static bool IsBreakOnly(StatementSyntax statement)
-        => statement is BreakStatementSyntax
+    private static bool IsBreakOnly(StatementSyntax statement) =>
+        statement is BreakStatementSyntax
             || (statement is BlockSyntax { Statements.Count: 1 } block && block.Statements[0] is BreakStatementSyntax);
 
     /// <summary>Returns whether a statement is an empty block or an empty statement.</summary>
     /// <param name="statement">The statement to inspect.</param>
     /// <returns><see langword="true"/> when the statement carries no work.</returns>
-    private static bool IsEmpty(StatementSyntax statement)
-        => statement is EmptyStatementSyntax or BlockSyntax { Statements.Count: 0 };
+    private static bool IsEmpty(StatementSyntax statement) =>
+        statement is EmptyStatementSyntax or BlockSyntax { Statements.Count: 0 };
 
     /// <summary>Negates a guard condition so it can head the loop.</summary>
     /// <param name="condition">The guard condition.</param>

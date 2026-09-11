@@ -24,20 +24,12 @@ internal readonly record struct UnexpectedThrowOptions(string AdditionalMembers)
     /// <summary>Reads the settings for one tree, falling back to the defaults.</summary>
     /// <param name="options">The analyzer config options for the member's tree.</param>
     /// <returns>The resolved settings.</returns>
-    public static UnexpectedThrowOptions Read(AnalyzerConfigOptions options)
-    {
-        if (!options.TryGetValue(AdditionalMembersRuleKey, out var value)
-            && !options.TryGetValue(AdditionalMembersGeneralKey, out value))
-        {
-            return Default;
-        }
-
-        return new UnexpectedThrowOptions(value);
-    }
+    internal static UnexpectedThrowOptions Read(AnalyzerConfigOptions options) => !options.TryGetValue(AdditionalMembersRuleKey, out var value)
+            && !options.TryGetValue(AdditionalMembersGeneralKey, out value) ? Default : new UnexpectedThrowOptions(value);
 
     /// <summary>Returns whether a member name was added to the must-not-throw list.</summary>
     /// <param name="name">The member's name.</param>
     /// <returns><see langword="true"/> when the configuration names the member.</returns>
-    public bool Contains(string name)
-        => AdditionalMembers.Length != 0 && EditorConfigList.Contains(AdditionalMembers, name, StringComparison.Ordinal);
+    internal bool Contains(string name) =>
+        AdditionalMembers.Length != 0 && EditorConfigList.Contains(AdditionalMembers, name, StringComparison.Ordinal);
 }

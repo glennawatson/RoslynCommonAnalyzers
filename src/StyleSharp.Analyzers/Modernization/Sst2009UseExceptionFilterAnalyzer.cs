@@ -36,21 +36,15 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// <param name="ifStatement">The catch block's first statement.</param>
     /// <param name="statementCount">The catch block's total statement count.</param>
     /// <returns><see langword="true"/> when the condition can move into a <c>when</c> clause.</returns>
-    internal static bool MatchesFilterShape(IfStatementSyntax ifStatement, int statementCount)
-    {
-        if (ifStatement.Else is { } elseClause)
-        {
-            return statementCount == 1 && IsBareRethrow(ifStatement.Statement) != IsBareRethrow(elseClause.Statement);
-        }
-
-        return statementCount > 1 && IsBareRethrow(ifStatement.Statement);
-    }
+    internal static bool MatchesFilterShape(IfStatementSyntax ifStatement, int statementCount) => ifStatement.Else is { } elseClause
+        ? statementCount == 1 && IsBareRethrow(ifStatement.Statement) != IsBareRethrow(elseClause.Statement)
+        : statementCount > 1 && IsBareRethrow(ifStatement.Statement);
 
     /// <summary>Returns whether a statement is a bare <c>throw;</c>, directly or as a block's only statement.</summary>
     /// <param name="statement">The branch statement.</param>
     /// <returns><see langword="true"/> for a bare rethrow.</returns>
-    internal static bool IsBareRethrow(StatementSyntax statement)
-        => statement switch
+    internal static bool IsBareRethrow(StatementSyntax statement) =>
+        statement switch
         {
             ThrowStatementSyntax { Expression: null } => true,
             BlockSyntax { Statements: { Count: 1 } statements } => statements[0] is ThrowStatementSyntax { Expression: null },
@@ -66,8 +60,8 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// </summary>
     /// <param name="expression">The condition to inspect.</param>
     /// <returns><see langword="true"/> when the condition is safe to move.</returns>
-    internal static bool IsSideEffectFreeCondition(ExpressionSyntax expression)
-        => expression switch
+    internal static bool IsSideEffectFreeCondition(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax or LiteralExpressionSyntax => true,
             MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } memberAccess => IsSideEffectFreeCondition(memberAccess.Expression),
@@ -108,8 +102,8 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a binary expression is an allowed comparison, logical join, or <c>is</c> type test.</summary>
     /// <param name="binary">The binary expression.</param>
     /// <returns><see langword="true"/> when the operator and both operands are allowed.</returns>
-    private static bool IsSideEffectFreeBinary(BinaryExpressionSyntax binary)
-        => binary.Kind() switch
+    private static bool IsSideEffectFreeBinary(BinaryExpressionSyntax binary) =>
+        binary.Kind() switch
         {
             SyntaxKind.IsExpression => IsSideEffectFreeCondition(binary.Left),
             var kind when IsComparisonOrLogicalKind(kind) => IsSideEffectFreeCondition(binary.Left) && IsSideEffectFreeCondition(binary.Right),
@@ -119,8 +113,8 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a binary operator kind is an allowed comparison or short-circuit logical join.</summary>
     /// <param name="kind">The binary expression's syntax kind.</param>
     /// <returns><see langword="true"/> for equality, relational, <c>&amp;&amp;</c>, and <c>||</c> operators.</returns>
-    private static bool IsComparisonOrLogicalKind(SyntaxKind kind)
-        => kind is SyntaxKind.EqualsExpression
+    private static bool IsComparisonOrLogicalKind(SyntaxKind kind) =>
+        kind is SyntaxKind.EqualsExpression
             or SyntaxKind.NotEqualsExpression
             or SyntaxKind.LessThanExpression
             or SyntaxKind.LessThanOrEqualExpression
@@ -132,8 +126,8 @@ public sealed class Sst2009UseExceptionFilterAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a pattern is a constant, type, or property pattern over allowed content.</summary>
     /// <param name="pattern">The pattern to inspect.</param>
     /// <returns><see langword="true"/> when the pattern cannot run arbitrary code and declares nothing.</returns>
-    private static bool IsSideEffectFreePattern(PatternSyntax pattern)
-        => pattern switch
+    private static bool IsSideEffectFreePattern(PatternSyntax pattern) =>
+        pattern switch
         {
             ConstantPatternSyntax constant => IsSideEffectFreeCondition(constant.Expression),
             TypePatternSyntax => true,

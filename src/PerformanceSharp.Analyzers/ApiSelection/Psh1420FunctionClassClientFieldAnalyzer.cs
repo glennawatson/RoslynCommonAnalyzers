@@ -98,7 +98,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
     /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void AnalyzeType(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol functionAttributeType,
         INamedTypeSymbol httpClientType,
         Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
@@ -183,8 +183,8 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an attribute's written simple name is the function attribute.</summary>
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the name is <c>Function</c> or <c>FunctionAttribute</c>.</returns>
-    private static bool IsFunctionAttributeName(NameSyntax name)
-        => GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
+    private static bool IsFunctionAttributeName(NameSyntax name) =>
+        GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
 
     /// <summary>Confirms the class declares a method whose function-named attribute binds to the worker attribute.</summary>
     /// <param name="model">The semantic model.</param>
@@ -225,7 +225,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
     /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void ReportClientField(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         FieldDeclarationSyntax field,
         INamedTypeSymbol httpClientType,
         Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
@@ -249,7 +249,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="clientTypes">The compilation's lazily resolved client types.</param>
     /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void ReportClientProperty(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
         INamedTypeSymbol httpClientType,
         Psh1418PerCallHttpClientAnalyzer.ClientTypeCache clientTypes,
@@ -272,7 +272,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="httpClientType">The resolved HTTP client type.</param>
     /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void ReportClient(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxToken identifier,
         INamedTypeSymbol clientType,
         INamedTypeSymbol httpClientType,
@@ -318,8 +318,8 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a field's modifiers make it static or const, and therefore already shared.</summary>
     /// <param name="modifiers">The field modifiers.</param>
     /// <returns><see langword="true"/> when the field is static or const.</returns>
-    private static bool IsStaticOrConst(SyntaxTokenList modifiers)
-        => modifiers.Any(SyntaxKind.StaticKeyword) || modifiers.Any(SyntaxKind.ConstKeyword);
+    private static bool IsStaticOrConst(in SyntaxTokenList modifiers) =>
+        modifiers.Any(SyntaxKind.StaticKeyword) || modifiers.Any(SyntaxKind.ConstKeyword);
 
     /// <summary>Returns the rightmost identifier of a written name, without binding it.</summary>
     /// <param name="name">The written name syntax.</param>

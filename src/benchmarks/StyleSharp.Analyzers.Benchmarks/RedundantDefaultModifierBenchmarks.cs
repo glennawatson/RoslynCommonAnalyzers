@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for redundant-default-modifier analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantDefaultModifierBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class RedundantDefaultModifierBenchmarks
@@ -24,11 +26,13 @@ public class RedundantDefaultModifierBenchmarks
 
     /// <summary>Benchmarks the clean redundant-default-modifier path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantDefaultModifier_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating redundant-default-modifier path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantDefaultModifier_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

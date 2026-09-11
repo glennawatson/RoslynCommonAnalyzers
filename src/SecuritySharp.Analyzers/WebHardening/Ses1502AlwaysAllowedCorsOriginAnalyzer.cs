@@ -33,13 +33,13 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     private enum PredicateShape
     {
         /// <summary>Not a reportable predicate shape.</summary>
-        None,
+        None = 0,
 
         /// <summary>A lambda or anonymous method already known to always return true.</summary>
-        AlwaysTrueLambda,
+        AlwaysTrueLambda = 1,
 
         /// <summary>A method group whose referenced method still needs to be inspected.</summary>
-        MethodGroup,
+        MethodGroup = 2,
     }
 
     /// <inheritdoc/>
@@ -66,7 +66,7 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1502 for a <c>SetIsOriginAllowed</c> call whose predicate always returns true.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 

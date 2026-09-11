@@ -78,8 +78,8 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     /// An initializer would be assigning properties the shared instance does not let you assign, and an
     /// argument would be a seed. Either way the shape is not one the fix can rewrite.
     /// </remarks>
-    internal static bool IsParameterlessCreationShape(BaseObjectCreationExpressionSyntax creation)
-        => creation is { Initializer: null, ArgumentList.Arguments.Count: 0 };
+    internal static bool IsParameterlessCreationShape(BaseObjectCreationExpressionSyntax creation) =>
+        creation is { Initializer: null, ArgumentList.Arguments.Count: 0 };
 
     /// <summary>Returns the rightmost identifier of a written type name.</summary>
     /// <param name="type">The written type syntax.</param>
@@ -95,7 +95,7 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1412 for an allocation of a <c>Random</c> the shared instance could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="randomType">The compilation's <c>Random</c> type.</param>
-    private static void AnalyzeCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol randomType)
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol randomType)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsParameterlessCreationShape(creation) || !IsNamedRandomOrImplicit(creation))
@@ -125,8 +125,8 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     /// A target-typed <c>new()</c> names nothing, so it has to be bound to be judged; every other
     /// <c>new Foo()</c> in the file is settled by a string comparison instead.
     /// </remarks>
-    private static bool IsNamedRandomOrImplicit(BaseObjectCreationExpressionSyntax creation)
-        => creation is not ObjectCreationExpressionSyntax explicitCreation
+    private static bool IsNamedRandomOrImplicit(BaseObjectCreationExpressionSyntax creation) =>
+        creation is not ObjectCreationExpressionSyntax explicitCreation
             || GetSimpleName(explicitCreation.Type) == RandomTypeName;
 
     /// <summary>Returns whether the fix can name <c>Random</c> at the allocation's position.</summary>

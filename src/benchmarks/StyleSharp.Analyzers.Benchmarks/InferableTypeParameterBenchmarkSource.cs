@@ -11,8 +11,8 @@ internal static class InferableTypeParameterBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
 
@@ -25,8 +25,8 @@ internal static class InferableTypeParameterBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose type parameters a call site never has to name.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -37,8 +37,8 @@ internal static class InferableTypeParameterBenchmarkSource
     /// parameter written directly as a parameter; one buried inside a constructed type, which is the case
     /// that pays for the recursive walk; and one that cannot be inferred but is not externally visible.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public static class C{{index}}
            {
                public static int Length(string text) => text.Length;
@@ -56,8 +56,8 @@ internal static class InferableTypeParameterBenchmarkSource
     /// <summary>Builds one type whose type parameters every call site has to spell out.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public static class V{{index}}
            {
                public static void Register<TService>() => Console.WriteLine(typeof(TService));

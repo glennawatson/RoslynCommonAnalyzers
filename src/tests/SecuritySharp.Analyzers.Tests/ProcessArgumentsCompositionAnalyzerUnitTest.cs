@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeArguments = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 {
     /// <summary>Verifies an interpolated string assigned to <c>ProcessStartInfo.Arguments</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedArgumentsAssignmentReportedAsync()
-        => await VerifyNet90Async(
+    public Task InterpolatedArgumentsAssignmentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -32,9 +34,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a string concatenation assigned to <c>ProcessStartInfo.Arguments</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenatedArgumentsAssignmentReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConcatenatedArgumentsAssignmentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -50,9 +53,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a composition assigned through an object initializer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerArgumentsReportedAsync()
-        => await VerifyNet90Async(
+    public Task ObjectInitializerArgumentsReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -71,9 +75,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a concatenated arguments string passed to <c>Process.Start</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcatenatedProcessStartArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConcatenatedProcessStartArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -88,9 +93,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated arguments string passed by name to <c>Process.Start</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedProcessStartArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedProcessStartArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -105,9 +111,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a fully-constant concatenated <c>Arguments</c> value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantConcatenationIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantConcatenationIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -125,9 +132,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string whose only hole is a constant is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantInterpolationIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantInterpolationIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -145,9 +153,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a plain constant literal <c>Arguments</c> value is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantLiteralArgumentsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ConstantLiteralArgumentsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -163,9 +172,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a bare variable assigned to <c>Arguments</c> is not reported (no local composition shape).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainVariableArgumentsIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task PlainVariableArgumentsIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -181,9 +191,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies each value added through <c>ArgumentList</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ArgumentListIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ArgumentListIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -200,9 +211,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies the collection overload of <c>Process.Start</c> is not reported (its arguments are not a string).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProcessStartCollectionOverloadIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ProcessStartCollectionOverloadIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Collections.Generic;
             using System.Diagnostics;
@@ -218,9 +230,10 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
 
     /// <summary>Verifies a composition assigned to a same-named property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedArgumentsPropertyIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedArgumentsPropertyIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Diagnostics;
 
@@ -258,11 +271,7 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeArguments.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default,
-            TestCode = Source
-        };
+        var test = new AnalyzeArguments.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -272,11 +281,7 @@ public class ProcessArgumentsCompositionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeArguments.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeArguments.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

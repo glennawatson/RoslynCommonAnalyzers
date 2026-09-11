@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMemberLength = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1523MethodTooLongAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,9 +10,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1523 (members should not be too long).</summary>
 public class MethodTooLongAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the member-length options are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a method over the default maximum of 60 code lines is reported and a shorter one is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -80,7 +78,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 7")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 7")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -149,7 +147,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -175,7 +173,7 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.SST1523.max_member_lines = 1")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.SST1523.max_member_lines = 1")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -202,7 +200,7 @@ public class MethodTooLongAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, BuildConfig("stylesharp.max_member_lines = 90", "stylesharp.SST1523.max_member_lines = 4")));
+            ("/.editorconfig", BuildConfig("stylesharp.max_member_lines = 90", "stylesharp.SST1523.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -226,19 +224,20 @@ public class MethodTooLongAnalyzerUnitTest
                        """,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, BuildConfig("stylesharp.max_member_lines = 4")));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", BuildConfig("stylesharp.max_member_lines = 4")));
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Builds the requested number of accumulator statements.</summary>
     /// <param name="count">The number of statements to emit.</param>
     /// <returns>The generated statements, one per line.</returns>
-    private static string BuildStatements(int count)
-        => string.Join("\n", Enumerable.Range(0, count).Select(static i => $"        total += {i};"));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string BuildStatements(int count) =>
+        string.Join("\n", Enumerable.Range(0, count).Select(static i => $"        total += {i};"));
 
     /// <summary>Builds an editor config file body from the supplied keys.</summary>
     /// <param name="entries">The keys to write under the C# section.</param>
     /// <returns>The editor config text.</returns>
-    private static string BuildConfig(params string[] entries)
-        => "root = true\n[*.cs]\n" + string.Join("\n", entries) + "\n";
+    private static string BuildConfig(params string[] entries) =>
+        $"root = true\n[*.cs]\n{string.Join("\n", entries)}\n";
 }

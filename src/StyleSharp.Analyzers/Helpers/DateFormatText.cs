@@ -20,7 +20,7 @@ internal static class DateFormatText
     /// <summary>Returns whether a custom format contains an unquoted date or time separator.</summary>
     /// <param name="format">The custom format string.</param>
     /// <returns><see langword="true"/> when an unquoted <c>/</c> or <c>:</c> is present.</returns>
-    public static bool HasUnquotedSeparator(string format)
+    internal static bool HasUnquotedSeparator(string format)
     {
         var quote = '\0';
         var i = 0;
@@ -48,7 +48,7 @@ internal static class DateFormatText
     /// <summary>Wraps each unquoted separator in a custom format in single quotes so it stays literal.</summary>
     /// <param name="format">The custom format string.</param>
     /// <returns>The format with its separators quoted.</returns>
-    public static string QuoteSeparators(string format)
+    internal static string QuoteSeparators(string format)
     {
         var builder = new StringBuilder(format.Length);
         var quote = '\0';
@@ -65,12 +65,12 @@ internal static class DateFormatText
 
             if (quote == '\0' && c is '/' or ':')
             {
-                builder.Append('\'').Append(c).Append('\'');
+                _ = builder.Append('\'').Append(c).Append('\'');
             }
             else
             {
                 quote = NextQuoteState(quote, c);
-                builder.Append(c);
+                _ = builder.Append(c);
             }
 
             i++;
@@ -85,13 +85,13 @@ internal static class DateFormatText
     /// <param name="index">The index of the backslash.</param>
     private static void AppendEscape(StringBuilder builder, string format, int index)
     {
-        builder.Append('\\');
+        _ = builder.Append('\\');
         if (index + 1 >= format.Length)
         {
             return;
         }
 
-        builder.Append(format[index + 1]);
+        _ = builder.Append(format[index + 1]);
     }
 
     /// <summary>Advances the quote state for one character outside a separator.</summary>

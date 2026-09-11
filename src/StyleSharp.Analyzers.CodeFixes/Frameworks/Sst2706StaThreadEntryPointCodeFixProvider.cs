@@ -81,8 +81,8 @@ public sealed class Sst2706StaThreadEntryPointCodeFixProvider : CodeFixProvider
     /// <summary>Returns the indentation trivia (the whitespace immediately before the method) of its leading trivia.</summary>
     /// <param name="leading">The method's leading trivia.</param>
     /// <returns>The indentation trivia list, or an empty list when the method starts at column zero.</returns>
-    private static SyntaxTriviaList IndentTrivia(SyntaxTriviaList leading)
-        => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
+    private static SyntaxTriviaList IndentTrivia(in SyntaxTriviaList leading) =>
+        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? SyntaxFactory.TriviaList(leading[leading.Count - 1])
             : SyntaxTriviaList.Empty;
 }

@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile (EventPipe) benchmarks for using-declaration analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UsingDeclarationProfiledAllocBenchmarks: {Nodes}")]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 [ShortRunJob]
 public class UsingDeclarationProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class UsingDeclarationProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean using-declaration path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UsingDeclaration_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating using-declaration path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UsingDeclaration_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

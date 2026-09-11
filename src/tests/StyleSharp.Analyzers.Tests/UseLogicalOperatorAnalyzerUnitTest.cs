@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUseLogicalOperator = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2288UseLogicalOperatorAnalyzer,
     StyleSharp.Analyzers.Sst2288UseLogicalOperatorCodeFixProvider>;
@@ -153,9 +154,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a conditional with two literal branches is left to the rule that owns it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BothBranchesLiteralIsCleanAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task BothBranchesLiteralIsCleanAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -165,9 +167,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a conditional with no literal branch is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoLiteralBranchIsCleanAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task NoLiteralBranchIsCleanAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -177,9 +180,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a non-boolean conditional is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBooleanConditionalIsCleanAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task NonBooleanConditionalIsCleanAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -189,9 +193,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a negated pattern condition is quoted as compilable C#.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegatedPatternConditionIsParenthesizedInMessageAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task NegatedPatternConditionIsParenthesizedInMessageAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -229,9 +234,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
     /// <summary>Verifies a conditional whose other branch is nullable is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks><c>&amp;&amp;</c> takes two <c>bool</c> operands, so folding a <c>bool?</c> branch stops compiling.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableBranchIsCleanAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task NullableBranchIsCleanAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -241,9 +247,10 @@ public class UseLogicalOperatorAnalyzerUnitTest
 
     /// <summary>Verifies a conditional whose other branch is a null literal is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullBranchIsCleanAsync()
-        => await VerifyUseLogicalOperator.VerifyAnalyzerAsync(
+    public Task NullBranchIsCleanAsync() =>
+        VerifyUseLogicalOperator.VerifyAnalyzerAsync(
             """
             internal class C
             {

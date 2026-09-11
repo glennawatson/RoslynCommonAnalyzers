@@ -11,8 +11,8 @@ internal static class OpeningParenOnDeclarationLineCodeFixBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="bracketedArgument">Whether to generate bracketed-argument violations instead of method-parameter violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool bracketedArgument)
-        => $$"""
+    internal static string Generate(int members, bool bracketedArgument) =>
+        $$"""
            namespace Bench;
            internal static class OpeningParenCodeFixBench
            {
@@ -23,8 +23,8 @@ internal static class OpeningParenOnDeclarationLineCodeFixBenchmarkSource
     /// <summary>Builds one method-parameter SST1110 violation.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMethodParameterMember(int index)
-        => $$"""
+    private static string GenerateMethodParameterMember(int index) =>
+        $$"""
            private static int Add{{index}}
                (int value) => value;
            """;
@@ -32,8 +32,8 @@ internal static class OpeningParenOnDeclarationLineCodeFixBenchmarkSource
     /// <summary>Builds one bracketed-argument SST1110 violation.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateBracketedArgumentMember(int index)
-        => $$"""
+    private static string GenerateBracketedArgumentMember(int index) =>
+        $$"""
            private static int Use{{index}}(int[] values)
                => values
                    [0];

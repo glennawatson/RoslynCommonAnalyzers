@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -215,6 +217,7 @@ internal static partial class ModernizationRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, "Modernization", description);
 
@@ -224,6 +227,7 @@ internal static partial class ModernizationRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.CreateOptIn(id, title, messageFormat, "Modernization", description);
 }

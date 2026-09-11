@@ -11,8 +11,8 @@ internal static class MethodGroupBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit forwarding lambdas.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal sealed class MethodGroupBench
@@ -27,8 +27,8 @@ internal static class MethodGroupBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $"public System.Func<int, int> M{index}() => value => Square(value);"
             : $"public System.Func<int, int> M{index}() => value => Square(value + {index});";
 }

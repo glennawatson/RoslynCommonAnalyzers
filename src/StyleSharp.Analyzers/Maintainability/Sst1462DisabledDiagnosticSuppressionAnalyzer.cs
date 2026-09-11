@@ -44,7 +44,7 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
     /// <summary>Reports a suppression for a disabled diagnostic id.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="suppressMessageAttribute">The suppression attribute symbol.</param>
-    private static void AnalyzeAttribute(SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
@@ -89,6 +89,6 @@ public sealed class Sst1462DisabledDiagnosticSuppressionAnalyzer : DiagnosticAna
         }
 
         var colon = checkId.IndexOf(':');
-        return colon > 0 ? checkId.Substring(0, colon) : checkId;
+        return colon > 0 ? checkId[0..(0 + colon)] : checkId;
     }
 }

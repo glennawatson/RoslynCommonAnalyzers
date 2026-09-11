@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyVirtualCall = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1483VirtualCallInConstructorAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 {
     /// <summary>Verifies a virtual and an abstract call are reported, whether or not <c>this</c> is written.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualAndAbstractCallsAreReportedAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task VirtualAndAbstractCallsAreReportedAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public abstract class Control
             {
@@ -33,9 +35,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an override is still open to a further override, while a sealed override is closed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsReportedButSealedOverrideIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task OverrideIsReportedButSealedOverrideIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public abstract class Base
             {
@@ -64,9 +67,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a sealed type has no derived type to surprise, so its constructor is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedTypeIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task SealedTypeIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -83,9 +87,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a <c>sealed</c> modifier on another partial half still closes the type.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealedOnAnotherPartialHalfIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task SealedOnAnotherPartialHalfIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -106,9 +111,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a struct and a record struct are implicitly sealed, so neither is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StructIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task StructIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public struct Point
             {
@@ -139,9 +145,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a <c>base.</c> call is a non-virtual call and can never land in a derived override.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseQualifiedCallIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task BaseQualifiedCallIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -162,9 +169,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a call on another instance is that object's business, not this half-built one's.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallOnAnotherInstanceIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task CallOnAnotherInstanceIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Control
             {
@@ -181,9 +189,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a private, a static and a non-virtual member cannot be overridden and are not reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateStaticAndNonVirtualCallsAreCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task PrivateStaticAndNonVirtualCallsAreCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -208,9 +217,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies naming a virtual property is calling it: every read and every write runs an accessor.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualPropertyReadAndWriteAreReportedAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task VirtualPropertyReadAndWriteAreReportedAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -237,9 +247,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
     /// A method group builds a delegate, and a lambda or a local function runs when something invokes it — which
     /// may be long after the constructor has returned.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupLambdaAndLocalFunctionAreCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task MethodGroupLambdaAndLocalFunctionAreCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -266,9 +277,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies <c>nameof</c> yields a name at compile time and dispatches nothing.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameofIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task NameofIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -287,9 +299,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an object initializer names a virtual member of the object being built, not of this one.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectInitializerMemberIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task ObjectInitializerMemberIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Box
             {
@@ -310,9 +323,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
     /// Inside the type that declares it, a field-like event <em>is</em> its backing field: <c>+=</c> combines
     /// delegates directly and no accessor runs, so there is nothing for a derived type to override.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedVirtualEventIsReportedAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task InheritedVirtualEventIsReportedAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -350,9 +364,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
     /// A primary constructor's base arguments and the field initializers it feeds cannot reach an instance member
     /// at all (CS0120, CS0236), so there is no virtual call there to report.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrimaryConstructorIsCleanButRegularConstructorIsReportedAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task PrimaryConstructorIsCleanButRegularConstructorIsReportedAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Control
             {
@@ -384,9 +399,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a static constructor has no instance to dispatch on.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticConstructorIsCleanAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task StaticConstructorIsCleanAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -406,9 +422,10 @@ public class VirtualCallInConstructorAnalyzerUnitTest
     /// <summary>Verifies the virtual members object itself declares are reported like any others.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks><c>object.ToString</c> is virtual, so a derived type that overrides it sees a half-built object.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectToStringIsReportedAsync()
-        => await VerifyVirtualCall.VerifyAnalyzerAsync(
+    public Task ObjectToStringIsReportedAsync() =>
+        VerifyVirtualCall.VerifyAnalyzerAsync(
             """
             public class C
             {

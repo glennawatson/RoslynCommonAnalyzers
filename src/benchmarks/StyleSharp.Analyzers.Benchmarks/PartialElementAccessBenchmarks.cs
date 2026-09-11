@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for partial-element-access analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("PartialElementAccessBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class PartialElementAccessBenchmarks
@@ -24,11 +26,13 @@ public class PartialElementAccessBenchmarks
 
     /// <summary>Benchmarks the clean partial-element-access path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PartialElementAccess_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating partial-element-access path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> PartialElementAccess_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

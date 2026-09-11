@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyPragma = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 {
     /// <summary>Verifies a <c>#pragma warning disable</c> of an analyzer code is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisableOfAnalyzerCodeReportedAsync()
-        => await VerifyAsync(
+    public Task DisableOfAnalyzerCodeReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -28,9 +30,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies a <c>#pragma warning disable</c> of a compiler (CS) code is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompilerCodeDisableNotReportedAsync()
-        => await VerifyAsync(
+    public Task CompilerCodeDisableNotReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -42,9 +45,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies a <c>#pragma warning disable</c> of a bare numeric (compiler) code is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericCodeDisableNotReportedAsync()
-        => await VerifyAsync(
+    public Task NumericCodeDisableNotReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -56,9 +60,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies a directive mixing a compiler code and an analyzer code is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedCompilerAndAnalyzerCodesReportedAsync()
-        => await VerifyAsync(
+    public Task MixedCompilerAndAnalyzerCodesReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -70,9 +75,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies a directive listing several analyzer codes is reported once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleAnalyzerCodesReportedAsync()
-        => await VerifyAsync(
+    public Task MultipleAnalyzerCodesReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -84,9 +90,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies an analyzer-code disable inside a method body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementLevelDisableReportedAsync()
-        => await VerifyAsync(
+    public Task StatementLevelDisableReportedAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -101,9 +108,10 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
 
     /// <summary>Verifies code with no pragma directive is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoPragmaIsCleanAsync()
-        => await VerifyAsync(
+    public Task NoPragmaIsCleanAsync() =>
+        VerifyAsync(
             """
             internal class C
             {
@@ -120,11 +128,7 @@ public class Sst1426PragmaWarningDisableAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyPragma.Test
-        {
-            TestCode = source,
-            TestBehaviors = TestBehaviors.SkipSuppressionCheck,
-        };
+        var test = new VerifyPragma.Test { TestCode = source, TestBehaviors = TestBehaviors.SkipSuppressionCheck, };
 
         await test.RunAsync(CancellationToken.None);
     }

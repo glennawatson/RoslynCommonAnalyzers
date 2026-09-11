@@ -11,8 +11,8 @@ internal static class RedundantDefaultModifierBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit modifiers that restate the declaration's default.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class RedundantDefaultModifierBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit violating declarations.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds declarations whose modifiers all carry meaning.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -33,8 +33,8 @@ internal static class RedundantDefaultModifierBenchmarkSource
     /// a private interface member, a static interface member that keeps abstract, a mutable struct whose member
     /// really is readonly, and an ordinary class whose modifiers say something.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public interface IClean{{index}}
            {
                int Value { get; }
@@ -70,8 +70,8 @@ internal static class RedundantDefaultModifierBenchmarkSource
     /// <summary>Builds declarations that restate five defaults between them.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public interface IWide{{index}}
            {
                public int Value { get; }

@@ -93,12 +93,9 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
     private static bool CarriesADirective(SyntaxNode root, Diagnostic diagnostic)
     {
         var reported = root.FindNode(diagnostic.Location.SourceSpan);
-        if (reported.FirstAncestorOrSelf<SwitchStatementSyntax>() is { } switchStatement)
-        {
-            return DirectiveBoundaries.Cross(switchStatement, switchStatement.Span);
-        }
-
-        return reported.FirstAncestorOrSelf<SwitchExpressionSyntax>() is { } switchExpression
+        return reported.FirstAncestorOrSelf<SwitchStatementSyntax>() is { } switchStatement
+            ? DirectiveBoundaries.Cross(switchStatement, switchStatement.Span)
+            : reported.FirstAncestorOrSelf<SwitchExpressionSyntax>() is { } switchExpression
             && DirectiveBoundaries.Cross(switchExpression, switchExpression.Span);
     }
 

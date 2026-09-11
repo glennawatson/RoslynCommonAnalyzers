@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -22,12 +24,13 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported concatenation and gives its right literal a leading space.</summary>
     /// <param name="root">The syntax root.</param>
@@ -43,21 +46,18 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
             return null;
         }
 
-        if (binary.Right is not LiteralExpressionSyntax rightLiteral
+        return binary.Right is not LiteralExpressionSyntax rightLiteral
             || !rightLiteral.Token.IsKind(SyntaxKind.StringLiteralToken)
-            || IsVerbatim(rightLiteral.Token))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(rightLiteral, WithLeadingSpace(rightLiteral), current => WithLeadingSpace((LiteralExpressionSyntax)current));
+            || IsVerbatim(rightLiteral.Token)
+            ? null
+            : new NodeReplacement(rightLiteral, WithLeadingSpace(rightLiteral), static current => WithLeadingSpace((LiteralExpressionSyntax)current));
     }
 
     /// <summary>Returns whether a string-literal token is verbatim (<c>@"..."</c>).</summary>
     /// <param name="token">The string-literal token.</param>
     /// <returns><see langword="true"/> when the token text is verbatim.</returns>
-    private static bool IsVerbatim(SyntaxToken token)
-        => token.Text.Length > 0 && token.Text[0] == '@';
+    private static bool IsVerbatim(SyntaxToken token) =>
+        token.Text.Length > 0 && token.Text[0] == '@';
 
     /// <summary>Rebuilds a regular string literal with one leading space added to its value.</summary>
     /// <param name="literal">The literal to space.</param>
@@ -65,7 +65,7 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
     private static LiteralExpressionSyntax WithLeadingSpace(LiteralExpressionSyntax literal)
     {
         var token = literal.Token;
-        var spaced = SyntaxFactory.Literal(" " + token.ValueText).WithTriviaFrom(token);
+        var spaced = SyntaxFactory.Literal($" {token.ValueText}").WithTriviaFrom(token);
         return literal.WithToken(spaced);
     }
 }

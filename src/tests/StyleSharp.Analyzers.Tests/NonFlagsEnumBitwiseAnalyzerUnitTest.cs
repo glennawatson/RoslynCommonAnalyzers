@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNonFlagsEnumBitwise = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2458NonFlagsEnumBitwiseAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 {
     /// <summary>Verifies or-ing two members of a non-flags enum is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task OrOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -30,9 +32,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies masking a non-flags enum value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AndOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task AndOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -49,9 +52,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies xor-ing two non-flags enum values is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XorOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task XorOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -68,9 +72,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies complementing a non-flags enum value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComplementOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task ComplementOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -87,9 +92,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies an or-assignment on a non-flags enum is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrAssignmentOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task OrAssignmentOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -110,9 +116,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies an and-assignment on a non-flags enum is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AndAssignmentOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task AndAssignmentOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -133,9 +140,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a xor-assignment on a non-flags enum is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task XorAssignmentOnNonFlagsEnumIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task XorAssignmentOnNonFlagsEnumIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -156,9 +164,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a chain of bitwise operators is reported once, at the outermost operation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainedOperatorsReportOnceAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task ChainedOperatorsReportOnceAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -177,9 +186,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a masked value compared to a named member is still reported: without flags, the mask lies.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MaskedComparisonToMemberIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task MaskedComparisonToMemberIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -196,9 +206,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a masked zero test is still reported: the bits it examines were never assigned.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroTestMaskIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task ZeroTestMaskIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -215,9 +226,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies the lifted operators on a nullable non-flags enum are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableEnumOperandIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task NullableEnumOperandIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -236,9 +248,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a metadata enum without flags is reported just like a source one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MetadataEnumWithoutFlagsIsReportedAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task MetadataEnumWithoutFlagsIsReportedAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -250,9 +263,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies every bitwise shape is clean on an enum declared as a flag set.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlagsEnumBitwiseIsCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task FlagsEnumBitwiseIsCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -282,9 +296,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies equality comparisons are the supported way to use a non-flags enum, and are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EqualityComparisonsAreCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task EqualityComparisonsAreCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -303,9 +318,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies enum values cast to a numeric type are raw numbers, and combining them is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericCastOperandsAreCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task NumericCastOperandsAreCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public enum Color
             {
@@ -324,9 +340,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies bitwise work on integers never binds the rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntegerBitwiseIsCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task IntegerBitwiseIsCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -341,9 +358,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies the non-short-circuiting boolean operators are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BooleanOperatorsAreCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task BooleanOperatorsAreCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             public static class C
             {
@@ -355,9 +373,10 @@ public class NonFlagsEnumBitwiseAnalyzerUnitTest
 
     /// <summary>Verifies a metadata enum declared as a flag set is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MetadataFlagsEnumIsCleanAsync()
-        => await VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
+    public Task MetadataFlagsEnumIsCleanAsync() =>
+        VerifyNonFlagsEnumBitwise.VerifyAnalyzerAsync(
             """
             using System;
 

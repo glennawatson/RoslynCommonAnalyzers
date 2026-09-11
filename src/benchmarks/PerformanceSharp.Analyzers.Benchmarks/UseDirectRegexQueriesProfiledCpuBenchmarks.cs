@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for use-direct-regex-queries analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseDirectRegexQueriesProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class UseDirectRegexQueriesProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class UseDirectRegexQueriesProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean use-direct-regex-queries path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseDirectRegexQueries_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating use-direct-regex-queries path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseDirectRegexQueries_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

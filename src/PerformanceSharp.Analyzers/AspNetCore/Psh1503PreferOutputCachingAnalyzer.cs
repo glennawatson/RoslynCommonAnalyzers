@@ -93,7 +93,7 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="servicesExtensions">The response-caching service extensions, when referenced.</param>
     /// <param name="builderExtensions">The response-caching application-builder extensions, when referenced.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol? servicesExtensions, INamedTypeSymbol? builderExtensions)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? servicesExtensions, INamedTypeSymbol? builderExtensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var methodName = GetInvokedMethodName(invocation.Expression);

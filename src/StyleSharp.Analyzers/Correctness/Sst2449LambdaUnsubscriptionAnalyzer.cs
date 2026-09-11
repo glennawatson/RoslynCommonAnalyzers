@@ -34,8 +34,8 @@ public sealed class Sst2449LambdaUnsubscriptionAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.LambdaUnsubscription);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -71,8 +71,8 @@ public sealed class Sst2449LambdaUnsubscriptionAnalyzer : DiagnosticAnalyzer
     /// A custom subtraction operator can accept a delegate argument; binding the left side tells a handler
     /// list apart from that. An unresolved target reports nothing — broken code is the compiler's to explain.
     /// </remarks>
-    private static bool RemovesFromHandlerList(SyntaxNodeAnalysisContext context, ExpressionSyntax target)
-        => context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol switch
+    private static bool RemovesFromHandlerList(in SyntaxNodeAnalysisContext context, ExpressionSyntax target) =>
+        context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol switch
         {
             IEventSymbol => true,
             IFieldSymbol field => IsDelegateType(field.Type),

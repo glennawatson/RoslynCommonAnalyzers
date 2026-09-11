@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNoPublic = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1416NoPublicOnInternalTypeAnalyzer,
     StyleSharp.Analyzers.Sst1416NoPublicOnInternalTypeCodeFixProvider>;
@@ -42,9 +43,10 @@ public class NoPublicOnInternalTypeAnalyzerUnitTest
     /// override inherits <c>public</c> from <see cref="object"/>, and narrowing it is CS0507. Members the
     /// containing type does not get to choose the accessibility of are outside this rule.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverridesAreCleanAsync()
-        => await VerifyNoPublic.VerifyAnalyzerAsync(
+    public Task OverridesAreCleanAsync() =>
+        VerifyNoPublic.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -66,9 +68,10 @@ public class NoPublicOnInternalTypeAnalyzerUnitTest
     /// Demoting the base leaves the override stranded — the same CS0507, from the other end. The containing
     /// type cannot see who overrides it, so it cannot narrow the member on its own.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualAndAbstractMembersAreCleanAsync()
-        => await VerifyNoPublic.VerifyAnalyzerAsync(
+    public Task VirtualAndAbstractMembersAreCleanAsync() =>
+        VerifyNoPublic.VerifyAnalyzerAsync(
             """
             internal abstract class Base
             {
@@ -95,9 +98,10 @@ public class NoPublicOnInternalTypeAnalyzerUnitTest
 
     /// <summary>Verifies interface implementations and members of a public type are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceImplementationAndPublicTypeAreCleanAsync()
-        => await VerifyNoPublic.VerifyAnalyzerAsync(
+    public Task InterfaceImplementationAndPublicTypeAreCleanAsync() =>
+        VerifyNoPublic.VerifyAnalyzerAsync(
             """
             internal class C : System.IDisposable
             {

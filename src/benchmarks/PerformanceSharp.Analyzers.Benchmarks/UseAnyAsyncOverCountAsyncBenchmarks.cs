@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for use-AnyAsync-over-CountAsync analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseAnyAsyncOverCountAsyncBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseAnyAsyncOverCountAsyncBenchmarks
@@ -24,11 +26,13 @@ public class UseAnyAsyncOverCountAsyncBenchmarks
 
     /// <summary>Benchmarks the clean use-AnyAsync-over-CountAsync path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseAnyAsyncOverCountAsync_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating use-AnyAsync-over-CountAsync path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseAnyAsyncOverCountAsync_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

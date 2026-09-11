@@ -52,7 +52,7 @@ public sealed class Psh1008UselessSuppressFinalizeAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a SuppressFinalize call in a type that can never have a finalizer.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gcType">The compilation's GC type symbol.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!HasSuppressFinalizeThisShape(invocation))

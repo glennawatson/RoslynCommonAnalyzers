@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyShift = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1478SuspiciousShiftCountAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -9,14 +10,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1478 (shift counts should be within the operand's width).</summary>
 public class SuspiciousShiftCountAnalyzerUnitTest
 {
-    /// <summary>The path the verifier mounts a test's analyzer config file at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a count at or beyond a 32-bit operand's width is reported and one inside it is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CountAtOrBeyondTheWidthIsReportedAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task CountAtOrBeyondTheWidthIsReportedAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -37,9 +36,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
     /// shift style writes there — so the enum member form needs no setting to stay quiet. A count that is out
     /// of range is still a defect in an enum, and is still reported.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroCountInAnEnumMemberIsCleanAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task ZeroCountInAnEnumMemberIsCleanAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -70,9 +70,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a shift by a constant zero is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroCountIsReportedAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task ZeroCountIsReportedAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -84,9 +85,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a negative count is reported, since it masks around to a large shift.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NegativeCountIsReportedAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task NegativeCountIsReportedAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -96,9 +98,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a 64-bit operand is measured against 64 bits, not 32.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SixtyFourBitOperandUsesTheWiderLimitAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task SixtyFourBitOperandUsesTheWiderLimitAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -120,9 +123,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
     /// <c>ulong</c>, so the byte is promoted to an <c>int</c> before it is shifted, and a count of 8 is well
     /// inside 32. Only a count of 32 or more is out of range for it.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NarrowOperandsArePromotedToIntAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task NarrowOperandsArePromotedToIntAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -144,9 +148,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned 32-bit operand is measured against 32 bits.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedIntOperandUsesTheNarrowLimitAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task UnsignedIntOperandUsesTheNarrowLimitAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -158,9 +163,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies the unsigned right shift is measured like the other two.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnsignedRightShiftIsMeasuredAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task UnsignedRightShiftIsMeasuredAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -174,9 +180,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a count that is constant without being a literal is still measured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantCountsThatAreNotLiteralsAreMeasuredAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task ConstantCountsThatAreNotLiteralsAreMeasuredAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -194,9 +201,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a count the compiler cannot fold is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedCountIsCleanAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task ComputedCountIsCleanAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -208,9 +216,10 @@ public class SuspiciousShiftCountAnalyzerUnitTest
 
     /// <summary>Verifies a native integer is never reported, because its width depends on the process.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NativeIntegerIsNotReportedAsync()
-        => await VerifyShift.VerifyAnalyzerAsync(
+    public Task NativeIntegerIsNotReportedAsync() =>
+        VerifyShift.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -238,7 +247,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1478.allow_zero_shift = true
@@ -264,7 +273,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allow_zero_shift = true
@@ -291,7 +300,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allow_zero_shift = true
@@ -317,7 +326,7 @@ public class SuspiciousShiftCountAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1478.allow_zero_shift = sometimes

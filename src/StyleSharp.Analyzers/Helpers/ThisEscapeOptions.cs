@@ -23,13 +23,13 @@ internal readonly record struct ThisEscapeOptions(string[] AllowedEscapeMethods)
     /// construction, on activation — is indistinguishable from one that publishes it immediately, so the
     /// codebase names the ones it trusts rather than the rule guessing.
     /// </remarks>
-    public static ThisEscapeOptions Read(AnalyzerConfigOptions options)
-        => new(AnalyzerOptionReader.ReadCommaSeparatedList(options, AllowedEscapeMethodsRuleKey, AllowedEscapeMethodsGeneralKey));
+    internal static ThisEscapeOptions Read(AnalyzerConfigOptions options) =>
+        new(AnalyzerOptionReader.ReadCommaSeparatedList(options, AllowedEscapeMethodsRuleKey, AllowedEscapeMethodsGeneralKey));
 
     /// <summary>Returns whether a method has been named as safe to receive the instance.</summary>
     /// <param name="methodName">The simple name of the invoked method.</param>
     /// <returns><see langword="true"/> when the method is on the configured list.</returns>
-    public bool Allows(string methodName)
+    internal bool Allows(string methodName)
     {
         for (var i = 0; i < AllowedEscapeMethods.Length; i++)
         {

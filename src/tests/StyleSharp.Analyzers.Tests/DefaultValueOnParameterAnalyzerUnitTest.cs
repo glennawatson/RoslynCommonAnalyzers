@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyDefaultValue = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2460DefaultValueOnParameterAnalyzer>;
@@ -16,9 +17,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 {
     /// <summary>Verifies the designer attribute on an ordinary parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultValueOnParameterIsReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task DefaultValueOnParameterIsReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
 
@@ -32,9 +34,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies the near-miss pairing — [Optional] with [DefaultValue] — is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionalPairingIsReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task OptionalPairingIsReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
             using System.Runtime.InteropServices;
@@ -49,9 +52,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies a namespace-qualified spelling of the attribute is still recognised.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedSpellingIsReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task QualifiedSpellingIsReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             public static class Api
             {
@@ -63,9 +67,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies a record positional parameter without a target specifier is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordParameterWithoutTargetIsReportedAsync()
-        => await VerifyAnalyzerAsync(
+    public Task RecordParameterWithoutTargetIsReportedAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
 
@@ -74,9 +79,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies the attribute on a property — its real home — is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyDefaultValueIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task PropertyDefaultValueIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
 
@@ -89,9 +95,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies the correct interop pairing is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CorrectDefaultParameterValueIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task CorrectDefaultParameterValueIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.Runtime.InteropServices;
 
@@ -105,9 +112,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated attribute that happens to share the name is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedDefaultValueAttributeIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task UnrelatedDefaultValueAttributeIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             namespace Custom
             {
@@ -130,9 +138,10 @@ public class DefaultValueOnParameterAnalyzerUnitTest
 
     /// <summary>Verifies a record parameter that retargets the attribute to its property is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyTargetedRecordParameterIsCleanAsync()
-        => await VerifyAnalyzerAsync(
+    public Task PropertyTargetedRecordParameterIsCleanAsync() =>
+        VerifyAnalyzerAsync(
             """
             using System.ComponentModel;
 
@@ -336,11 +345,7 @@ public class DefaultValueOnParameterAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerAsync(string source)
     {
-        var test = new VerifyDefaultValue.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyDefaultValue.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -351,12 +356,7 @@ public class DefaultValueOnParameterAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyFixAsync(string source, string fixedSource)
     {
-        var test = new VerifyDefaultValueFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-            FixedCode = fixedSource,
-        };
+        var test = new VerifyDefaultValueFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, FixedCode = fixedSource, };
 
         await test.RunAsync(CancellationToken.None);
     }

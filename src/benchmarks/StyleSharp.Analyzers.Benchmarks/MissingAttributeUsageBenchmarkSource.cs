@@ -11,8 +11,8 @@ internal static class MissingAttributeUsageBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -23,8 +23,8 @@ internal static class MissingAttributeUsageBenchmarkSource
     /// <summary>Builds one attribute that declares its usage.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [AttributeUsage(AttributeTargets.Method)]
            public sealed class Clean{{index}}Attribute : Attribute
            {
@@ -34,8 +34,8 @@ internal static class MissingAttributeUsageBenchmarkSource
     /// <summary>Builds one attribute with no declared usage.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class Violating{{index}}Attribute : Attribute
            {
            }

@@ -17,7 +17,7 @@ internal static class CompoundAssignmentOperators
     /// <param name="text">The compound operator text (for the diagnostic message).</param>
     /// <returns><see langword="true"/> when the binary kind has a compound-assignment form.</returns>
     [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "A flat operator-kind switch is a zero-allocation jump table.")]
-    public static bool TryMap(SyntaxKind binaryKind, out SyntaxKind assignmentKind, out SyntaxKind operatorToken, out string text)
+    internal static bool TryMap(SyntaxKind binaryKind, out SyntaxKind assignmentKind, out SyntaxKind operatorToken, out string text)
     {
         (assignmentKind, operatorToken, text) = binaryKind switch
         {
@@ -39,10 +39,9 @@ internal static class CompoundAssignmentOperators
     /// <summary>Returns whether an assignment target is side-effect-free enough to fold into a compound form.</summary>
     /// <param name="target">The left-hand side of the assignment.</param>
     /// <returns><see langword="true"/> for an identifier, <c>this</c>, or a member-access chain of those.</returns>
-    public static bool IsSideEffectFreeTarget(ExpressionSyntax target) => target switch
+    internal static bool IsSideEffectFreeTarget(ExpressionSyntax target) => target switch
     {
-        IdentifierNameSyntax => true,
-        ThisExpressionSyntax => true,
+        IdentifierNameSyntax or ThisExpressionSyntax => true,
         MemberAccessExpressionSyntax memberAccess => IsSideEffectFreeTarget(memberAccess.Expression),
         _ => false
     };

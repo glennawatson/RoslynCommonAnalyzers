@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeUpload = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -27,9 +28,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed directly to <c>Path.Combine</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PathCombineArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task PathCombineArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -43,9 +45,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename in a <c>+</c> concatenation with a separator literal is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PathConcatWithSeparatorLiteralReportedAsync()
-        => await VerifyAsync(
+    public Task PathConcatWithSeparatorLiteralReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -58,9 +61,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename in a <c>+</c> chain whose only separator is a bare literal is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PathConcatChainReportedAsync()
-        => await VerifyAsync(
+    public Task PathConcatChainReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -73,9 +77,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed to <c>File.WriteAllBytes</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileWriteAllBytesArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task FileWriteAllBytesArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -89,9 +94,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed to <c>File.Create</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileCreateArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task FileCreateArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -107,9 +113,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed to <c>File.OpenWrite</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileOpenWriteArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task FileOpenWriteArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -125,9 +132,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed as the destination of <c>File.Copy</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileCopyDestinationArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task FileCopyDestinationArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -141,9 +149,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed to a <c>new FileStream(...)</c> constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileStreamConstructorArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task FileStreamConstructorArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -159,9 +168,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies the rule fires through fully-qualified sink names.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedFileStreamConstructorReportedAsync()
-        => await VerifyAsync(
+    public Task FullyQualifiedFileStreamConstructorReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -176,9 +186,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename sanitized with <c>Path.GetFileName</c> before combining is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SanitizedWithGetFileNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task SanitizedWithGetFileNameIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -192,9 +203,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a concatenation without any path-separator literal is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPathConcatenationIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonPathConcatenationIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -207,9 +219,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>FileName</c> on a non-upload type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedFileNameOnOtherTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedFileNameOnOtherTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.IO;
 
@@ -227,9 +240,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename read into a call that is not a path sink is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedCallArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedCallArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -242,9 +256,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename passed to a file-reading call (not a creating call) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FileReadCallIsCleanAsync()
-        => await VerifyAsync(
+    public Task FileReadCallIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.IO;
             using Microsoft.AspNetCore.Http;
@@ -258,9 +273,10 @@ public class UploadFilenameInPathAnalyzerUnitTest
 
     /// <summary>Verifies a filename merely stored in a local (no path sink) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlainLocalAssignmentIsCleanAsync()
-        => await VerifyAsync(
+    public Task PlainLocalAssignmentIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -298,11 +314,7 @@ public class UploadFilenameInPathAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeUpload.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeUpload.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -312,11 +324,7 @@ public class UploadFilenameInPathAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeUpload.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + FormFileStub
-        };
+        var test = new AnalyzeUpload.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + FormFileStub };
 
         await test.RunAsync(CancellationToken.None);
     }

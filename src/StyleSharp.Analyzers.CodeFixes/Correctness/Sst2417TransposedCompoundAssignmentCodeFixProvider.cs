@@ -18,10 +18,10 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2417TransposedCompoundAssignmentCodeFixProvider : CodeFixProvider
 {
     /// <summary>The equivalence key for the compound-operator reading.</summary>
-    private const string CompoundKey = nameof(Sst2417TransposedCompoundAssignmentCodeFixProvider) + ".Compound";
+    private const string CompoundKey = $"{nameof(Sst2417TransposedCompoundAssignmentCodeFixProvider)}.Compound";
 
     /// <summary>The equivalence key for the unary-value reading.</summary>
-    private const string UnaryKey = nameof(Sst2417TransposedCompoundAssignmentCodeFixProvider) + ".Unary";
+    private const string UnaryKey = $"{nameof(Sst2417TransposedCompoundAssignmentCodeFixProvider)}.Unary";
 
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(CorrectnessRules.TransposedCompoundAssignment.Id);

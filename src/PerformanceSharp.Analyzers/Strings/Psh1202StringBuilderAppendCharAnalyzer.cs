@@ -16,9 +16,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the string builder type.</summary>
-    private const string StringBuilderMetadataName = "System.Text.StringBuilder";
-
     /// <summary>The argument count of the <c>Append(string)</c> shape.</summary>
     private const int AppendArgumentCount = 1;
 
@@ -51,7 +48,7 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1202 for a single-character literal passed to <c>Append</c> or <c>Insert</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="overloads">The string builder char overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, StringBuilderOverloads overloads)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, StringBuilderOverloads overloads)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetCandidateLiteral(invocation, overloads, out var literal, out var methodName, out var literalIndex)
@@ -153,11 +150,14 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
     /// <param name="HasInsertChar">Whether <c>Insert(int, char)</c> exists.</param>
     internal readonly record struct StringBuilderOverloads(INamedTypeSymbol BuilderType, bool HasAppendChar, bool HasInsertChar)
     {
+        /// <summary>The metadata name of the string builder type.</summary>
+        private const string StringBuilderMetadataName = "System.Text.StringBuilder";
+
         /// <summary>Probes the compilation once for <c>StringBuilder</c> and its char overloads.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <param name="overloads">The resolved overload availability.</param>
         /// <returns><see langword="true"/> when the type exists and at least one char overload is available.</returns>
-        public static bool TryResolve(Compilation compilation, out StringBuilderOverloads overloads)
+        internal static bool TryResolve(Compilation compilation, out StringBuilderOverloads overloads)
         {
             if (compilation.GetTypeByMetadataName(StringBuilderMetadataName) is not { } builderType)
             {

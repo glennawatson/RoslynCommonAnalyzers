@@ -32,7 +32,7 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is null)
             {
@@ -65,8 +65,8 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a field declaration is a private static readonly single-variable byte array.</summary>
     /// <param name="field">The field declaration.</param>
     /// <returns><see langword="true"/> when the candidate shape matches.</returns>
-    internal static bool HasCandidateShape(FieldDeclarationSyntax field)
-        => field.Declaration.Variables.Count == 1
+    internal static bool HasCandidateShape(FieldDeclarationSyntax field) =>
+        field.Declaration.Variables.Count == 1
             && field.Declaration.Variables[0].Initializer is not null
             && IsByteArrayType(field.Declaration.Type)
             && HasPrivateStaticReadonlyShape(field);
@@ -74,8 +74,8 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type syntax is a single-dimensional byte array.</summary>
     /// <param name="type">The declared field type.</param>
     /// <returns><see langword="true"/> for <c>byte[]</c>.</returns>
-    private static bool IsByteArrayType(TypeSyntax type)
-        => type is ArrayTypeSyntax { RankSpecifiers: [{ Rank: 1 }] } array
+    private static bool IsByteArrayType(TypeSyntax type) =>
+        type is ArrayTypeSyntax { RankSpecifiers: [{ Rank: 1 }] } array
             && array.ElementType is PredefinedTypeSyntax predefined
             && predefined.Keyword.IsKind(SyntaxKind.ByteKeyword);
 
@@ -117,7 +117,7 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
 
         var variable = field.Declaration.Variables[0];
         var scan = new UsageScan(variable.Identifier.ValueText, variable.Identifier.SpanStart);
-        DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
         if (!scan.OnlySpanReads || !ArgumentsBindToSpans(context, scan.ArgumentUsages))
         {
             return;
@@ -133,7 +133,7 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="argumentUsages">The argument usages to verify.</param>
     /// <returns><see langword="true"/> when the span property would still compile at every argument.</returns>
-    private static bool ArgumentsBindToSpans(SyntaxNodeAnalysisContext context, List<ArgumentSyntax>? argumentUsages)
+    private static bool ArgumentsBindToSpans(in SyntaxNodeAnalysisContext context, List<ArgumentSyntax>? argumentUsages)
     {
         if (argumentUsages is null)
         {
@@ -161,8 +161,8 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <c>ReadOnlySpan&lt;byte&gt;</c>.</summary>
     /// <param name="type">The parameter type.</param>
     /// <returns><see langword="true"/> for the read-only byte span.</returns>
-    private static bool IsReadOnlyByteSpan(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsReadOnlyByteSpan(ITypeSymbol type) =>
+        type is INamedTypeSymbol
         {
             Name: "ReadOnlySpan",
             IsGenericType: true,

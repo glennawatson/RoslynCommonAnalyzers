@@ -86,8 +86,8 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
     /// <summary>Returns whether an invocation has the array-based stream call shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the member name and argument count match an array overload.</returns>
-    internal static bool IsArrayOverloadShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count is ArrayArgumentCount or ArrayWithTokenArgumentCount
+    internal static bool IsArrayOverloadShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count is ArrayArgumentCount or ArrayWithTokenArgumentCount
             && invocation.Expression is MemberAccessExpressionSyntax access
             && access.Name.Identifier.ValueText is ReadAsyncMethodName or WriteAsyncMethodName;
 
@@ -154,7 +154,7 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
     /// <summary>Reports PSH1314 for an awaited array-based stream call whose memory overload exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gate">The per-compilation gate state.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, MemoryOverloadGate gate)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in MemoryOverloadGate gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsArrayOverloadShape(invocation)

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyWriteOnly = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1421WriteOnlyPropertyAnalyzer>;
 
@@ -12,9 +13,10 @@ public class WriteOnlyPropertyAnalyzerUnitTest
 {
     /// <summary>Verifies set-only and init-only properties are reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteOnlyPropertiesAreReportedAsync()
-        => await VerifyWriteOnly.VerifyAnalyzerAsync(
+    public Task WriteOnlyPropertiesAreReportedAsync() =>
+        VerifyWriteOnly.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -33,9 +35,10 @@ public class WriteOnlyPropertyAnalyzerUnitTest
 
     /// <summary>Verifies readable, overriding, and explicit-interface properties are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExemptPropertiesAreCleanAsync()
-        => await VerifyWriteOnly.VerifyAnalyzerAsync(
+    public Task ExemptPropertiesAreCleanAsync() =>
+        VerifyWriteOnly.VerifyAnalyzerAsync(
             """
             public interface I
             {

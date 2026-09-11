@@ -55,8 +55,8 @@ public sealed class Psh1014ReadonlyStructAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether one struct member keeps the instance state immutable.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when the member neither stores mutable instance state nor mutates <c>this</c>.</returns>
-    private static bool IsImmutableMember(MemberDeclarationSyntax member)
-        => member switch
+    private static bool IsImmutableMember(MemberDeclarationSyntax member) =>
+        member switch
         {
             FieldDeclarationSyntax field => IsImmutableField(field),
             EventFieldDeclarationSyntax eventField => eventField.Modifiers.Any(SyntaxKind.StaticKeyword),
@@ -115,7 +115,7 @@ public sealed class Psh1014ReadonlyStructAnalyzer : DiagnosticAnalyzer
     private static bool MutatesThis(SyntaxNode node)
     {
         var found = false;
-        DescendantTraversalHelper.VisitDescendantTokens(
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
             node,
             ref found,
             static (in SyntaxToken token, ref bool state) =>
@@ -137,8 +137,8 @@ public sealed class Psh1014ReadonlyStructAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a <c>this</c> expression is written through.</summary>
     /// <param name="thisExpression">The this expression.</param>
     /// <returns><see langword="true"/> for assignment targets and ref/out arguments.</returns>
-    private static bool IsWrittenThrough(ThisExpressionSyntax thisExpression)
-        => thisExpression.Parent switch
+    private static bool IsWrittenThrough(ThisExpressionSyntax thisExpression) =>
+        thisExpression.Parent switch
         {
             AssignmentExpressionSyntax assignment => assignment.Left == thisExpression,
             ArgumentSyntax argument => !argument.RefOrOutKeyword.IsKind(SyntaxKind.None),

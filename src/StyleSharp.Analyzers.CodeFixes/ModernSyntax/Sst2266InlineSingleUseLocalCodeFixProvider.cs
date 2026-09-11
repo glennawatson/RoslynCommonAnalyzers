@@ -74,22 +74,17 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The edit, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InlineEdit? Resolve(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { Parent: BlockSyntax block } local
+    private static InlineEdit? Resolve(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is not { Parent: BlockSyntax block } local
             || local.Declaration is not { Variables.Count: 1 } declaration
             || declaration.Variables[0].Initializer is not { } equalsValue
             || !Sst2266InlineSingleUseLocalAnalyzer.IsPureInlinable(equalsValue.Value)
             || model.GetDeclaredSymbol(declaration.Variables[0]) is not ILocalSymbol symbol
             || !Sst2266InlineSingleUseLocalAnalyzer.PreservesDeclaredMeaning(model, equalsValue.Value, symbol, CancellationToken.None)
             || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference
-            || CrossesADirective(local, reference))
-        {
-            return null;
-        }
-
-        return new InlineEdit(local, reference, Inline(equalsValue.Value, reference).WithTriviaFrom(reference));
-    }
+            || CrossesADirective(local, reference)
+            ? null
+            : new InlineEdit(local, reference, Inline(equalsValue.Value, reference).WithTriviaFrom(reference));
 
     /// <summary>Returns whether a directive stands between the declaration and the read it folds into.</summary>
     /// <param name="local">The declaration being removed.</param>
@@ -105,8 +100,8 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
     /// <param name="value">The declaration's initializer.</param>
     /// <param name="reference">The read being replaced.</param>
     /// <returns>The initializer, parenthesized where the surrounding precedence needs it.</returns>
-    private static ExpressionSyntax Inline(ExpressionSyntax value, ExpressionSyntax reference)
-        => Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value, reference)
+    private static ExpressionSyntax Inline(ExpressionSyntax value, ExpressionSyntax reference) =>
+        Sst2266InlineSingleUseLocalAnalyzer.NeedsParentheses(value, reference)
             ? SyntaxFactory.ParenthesizedExpression(value.WithoutTrivia())
             : value.WithoutTrivia();
 

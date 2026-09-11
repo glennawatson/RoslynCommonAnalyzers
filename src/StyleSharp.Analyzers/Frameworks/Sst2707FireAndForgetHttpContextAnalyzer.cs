@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -82,7 +84,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <param name="controllerBaseType">The resolved <c>ControllerBase</c> type.</param>
     /// <param name="taskType">The resolved <c>System.Threading.Tasks.Task</c> type.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol httpContextType,
         INamedTypeSymbol controllerBaseType,
         INamedTypeSymbol taskType)
@@ -121,8 +123,8 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the invoked member's simple name for an <c>Identifier(...)</c> or <c>x.Identifier(...)</c> call.</summary>
     /// <param name="expression">The invocation's callee expression.</param>
     /// <returns>The simple name, or <see langword="null"/> when the callee is not a plain member reference.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetInvokedName(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
@@ -132,8 +134,8 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the invocation's result is thrown away rather than awaited, returned, or stored.</summary>
     /// <param name="invocation">The <c>Task.Run</c> invocation.</param>
     /// <returns><see langword="true"/> for a bare statement call or a <c>_ = ...</c> discard assignment.</returns>
-    private static bool IsDiscarded(InvocationExpressionSyntax invocation)
-        => invocation.Parent switch
+    private static bool IsDiscarded(InvocationExpressionSyntax invocation) =>
+        invocation.Parent switch
         {
             ExpressionStatementSyntax => true,
             AssignmentExpressionSyntax assignment
@@ -150,12 +152,9 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     private static CSharpSyntaxNode? GetDelegateBody(InvocationExpressionSyntax invocation)
     {
         var arguments = invocation.ArgumentList.Arguments;
-        if (arguments.Count < 1)
-        {
-            return null;
-        }
-
-        return arguments[0].Expression switch
+        return arguments.Count < 1
+            ? null
+            : arguments[0].Expression switch
         {
             SimpleLambdaExpressionSyntax lambda => lambda.Body,
             ParenthesizedLambdaExpressionSyntax lambda => lambda.Body,
@@ -178,7 +177,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
         }
 
         var search = new CaptureSearch(model, httpContextType, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants(body, ref search, CaptureVisitor);
+        _ = DescendantTraversalHelper.VisitDescendants(body, ref search, CaptureVisitor);
         return search.Found;
     }
 
@@ -186,6 +185,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <param name="node">The current descendant expression.</param>
     /// <param name="state">The threaded search state.</param>
     /// <returns><see langword="false"/> to stop once a match is found; otherwise <see langword="true"/>.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool VisitExpression(ExpressionSyntax node, ref CaptureSearch state) => state.Observe(node);
 
     /// <summary>Returns whether an expression's type is, or derives from, <c>HttpContext</c>.</summary>
@@ -194,8 +194,9 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <param name="httpContextType">The resolved <c>HttpContext</c> type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression is <c>HttpContext</c>-typed.</returns>
-    private static bool IsHttpContextTyped(ExpressionSyntax expression, SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken)
-        => IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsHttpContextTyped(ExpressionSyntax expression, SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken) =>
+        IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
 
     /// <summary>Returns whether a type is, or derives from, a given base type.</summary>
     /// <param name="type">The candidate type.</param>
@@ -215,27 +216,19 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>The state threaded through the delegate-body descendant walk.</summary>
-    private sealed class CaptureSearch
+    /// <param name="model">The semantic model.</param>
+    /// <param name="httpContextType">The resolved <c>HttpContext</c> type.</param>
+    /// <param name="cancellationToken">A token that cancels the walk.</param>
+    private sealed class CaptureSearch(SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken)
     {
         /// <summary>The semantic model used to resolve each expression's type.</summary>
-        private readonly SemanticModel _model;
+        private readonly SemanticModel _model = model;
 
         /// <summary>The resolved <c>HttpContext</c> type to match against.</summary>
-        private readonly INamedTypeSymbol _httpContextType;
+        private readonly INamedTypeSymbol _httpContextType = httpContextType;
 
         /// <summary>A token that cancels the walk.</summary>
-        private readonly CancellationToken _cancellationToken;
-
-        /// <summary>Initializes a new instance of the <see cref="CaptureSearch"/> class.</summary>
-        /// <param name="model">The semantic model.</param>
-        /// <param name="httpContextType">The resolved <c>HttpContext</c> type.</param>
-        /// <param name="cancellationToken">A token that cancels the walk.</param>
-        public CaptureSearch(SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken)
-        {
-            _model = model;
-            _httpContextType = httpContextType;
-            _cancellationToken = cancellationToken;
-        }
+        private readonly CancellationToken _cancellationToken = cancellationToken;
 
         /// <summary>Gets a value indicating whether an <c>HttpContext</c>-typed reference has been seen.</summary>
         public bool Found { get; private set; }

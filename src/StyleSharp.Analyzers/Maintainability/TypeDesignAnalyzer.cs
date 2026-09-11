@@ -75,8 +75,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member is static, a constant, a nested type, or a static constructor.</returns>
     internal static bool IsStaticCompatibleMember(MemberDeclarationSyntax member) => member switch
     {
-        BaseTypeDeclarationSyntax => true,
-        DelegateDeclarationSyntax => true,
+        BaseTypeDeclarationSyntax or DelegateDeclarationSyntax => true,
         ConstructorDeclarationSyntax constructor => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
         FieldDeclarationSyntax field => ModifierListHelper.ContainsEither(field.Modifiers, SyntaxKind.StaticKeyword, SyntaxKind.ConstKeyword),
         _ => ModifierListHelper.Contains(member.Modifiers, SyntaxKind.StaticKeyword)
@@ -96,11 +95,13 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
 
         for (var i = 0; i < constructor.Modifiers.Count; i++)
         {
-            if (constructor.Modifiers[i].IsKind(SyntaxKind.PublicKeyword))
+            if (!constructor.Modifiers[i].IsKind(SyntaxKind.PublicKeyword))
             {
-                context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoPublicConstructorOnAbstractType, constructor.Modifiers[i].GetLocation()));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.NoPublicConstructorOnAbstractType, constructor.Modifiers[i].GetLocation()));
+            return;
         }
     }
 
@@ -196,7 +197,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         }
 
         var references = symbol.DeclaringSyntaxReferences;
-        if (references.Length == 0)
+        if (references.IsEmpty)
         {
             return false;
         }
@@ -263,7 +264,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a member is reachable outside its type (so callers see the awkward type argument).</summary>
     /// <param name="modifiers">The member modifiers.</param>
     /// <returns><see langword="true"/> for a <c>public</c>, <c>internal</c>, or <c>protected</c> member.</returns>
-    private static bool IsExternallyVisible(SyntaxTokenList modifiers)
+    private static bool IsExternallyVisible(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -292,7 +293,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     private static bool MemberMentionsAnyTypeParameter(MemberDeclarationSyntax member)
     {
         var state = new TypeParameterScan(member);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, TypeParameterScan>(member, ref state, MatchTypeParameterName);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, TypeParameterScan>(member, ref state, MatchTypeParameterName);
         return state.Found;
     }
 
@@ -306,7 +307,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <c>Test</c> means <c>Verifier&lt;TAnalyzer, TCodeFix&gt;.Test</c> — and where the generic type is
     /// declared in several parts the nested type need not even be in this file, so the symbol decides.
     /// </remarks>
-    private static bool MemberMentionsNestedType(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
+    private static bool MemberMentionsNestedType(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
     {
         if (member.Parent is not TypeDeclarationSyntax owner
             || context.SemanticModel.GetDeclaredSymbol(owner, context.CancellationToken) is not { } ownerSymbol)
@@ -315,7 +316,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
         }
 
         var state = new NestedTypeScan(context.SemanticModel, ownerSymbol.OriginalDefinition, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NestedTypeScan>(member, ref state, MatchNestedType);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NestedTypeScan>(member, ref state, MatchNestedType);
         return state.Found;
     }
 
@@ -389,7 +390,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="member">The static member.</param>
     /// <returns><see langword="true"/> when the member's type is a built-in or configured owner type.</returns>
-    private static bool IsPropertySystemOwnerMember(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
+    private static bool IsPropertySystemOwnerMember(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member)
     {
         var declaredType = member switch
         {
@@ -421,7 +422,7 @@ public sealed class TypeDesignAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The static member (its tree supplies the options scope).</param>
     /// <param name="name">The candidate fully-qualified type name.</param>
     /// <returns><see langword="true"/> when the name is configured as an additional owner type.</returns>
-    private static bool IsConfiguredOwnerType(SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member, string name)
+    private static bool IsConfiguredOwnerType(in SyntaxNodeAnalysisContext context, MemberDeclarationSyntax member, string name)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(member.SyntaxTree);
         return EditorConfigList.ContainsToken(options, AdditionalOwnerTypesSpecificKey, name, StringComparison.Ordinal)

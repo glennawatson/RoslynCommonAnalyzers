@@ -11,8 +11,8 @@ internal static class NullableSyntaxCleanupBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit reportable nullable syntax.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => violating
+    internal static string Generate(int members, bool violating) =>
+        violating
             ? $$"""
                #nullable enable
                #nullable enable
@@ -38,8 +38,8 @@ internal static class NullableSyntaxCleanupBenchmarkSource
     /// <summary>Builds a violating member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateViolatingMember(int index)
-        => $$"""
+    private static string GenerateViolatingMember(int index) =>
+        $$"""
            public int Value{{index}}()
            {
                var value = {{index}};
@@ -50,8 +50,8 @@ internal static class NullableSyntaxCleanupBenchmarkSource
     /// <summary>Builds a clean member.</summary>
     /// <param name="index">The synthetic member index.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateCleanMember(int index)
-        => $$"""
+    private static string GenerateCleanMember(int index) =>
+        $$"""
            public string Value{{index}}(string? value) => value!;
            """;
 }

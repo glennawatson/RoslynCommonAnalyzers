@@ -16,11 +16,11 @@ internal static class SemanticModelFactory
     /// <summary>Compiles a single source snippet and returns its root and semantic model.</summary>
     /// <param name="source">The source to compile.</param>
     /// <returns>The compilation unit root and the semantic model over it.</returns>
-    public static (CompilationUnitSyntax Root, SemanticModel Model) Create(string source)
+    internal static (CompilationUnitSyntax Root, SemanticModel Model) Create(string source)
     {
         var tree = CSharpSyntaxTree.ParseText(source);
         var compilation = CSharpCompilation.Create(
-            assemblyName: "SemanticModelFactory",
+            assemblyName: nameof(SemanticModelFactory),
             syntaxTrees: [tree],
             references: RuntimeMetadataReferences.Platform);
         return (tree.GetCompilationUnitRoot(), compilation.GetSemanticModel(tree));

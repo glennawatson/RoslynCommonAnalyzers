@@ -96,8 +96,8 @@ public sealed class BracePlacementCodeFixProvider : CodeFixProvider, ITextChange
     /// <param name="text">The source text.</param>
     /// <param name="brace">The brace token.</param>
     /// <returns>The owner indentation: the opening brace's line for a closing brace, otherwise the brace's own line.</returns>
-    private static string OwnerIndent(SourceText text, SyntaxToken brace)
-        => brace.IsKind(SyntaxKind.CloseBraceToken) && LayoutHelpers.TryGetBraces(brace.Parent!, out var open, out _)
+    private static string OwnerIndent(SourceText text, SyntaxToken brace) =>
+        brace.IsKind(SyntaxKind.CloseBraceToken) && LayoutHelpers.TryGetBraces(brace.Parent!, out var open, out _)
             ? LayoutFixHelpers.IndentOfLine(text, open.SpanStart)
             : LayoutFixHelpers.IndentOfLine(text, brace.SpanStart);
 

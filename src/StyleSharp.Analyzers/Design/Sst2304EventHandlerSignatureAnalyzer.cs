@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports an event whose delegate is not one of the framework's handler delegates (SST2304).
-/// </summary>
+/// <summary>Reports an event whose delegate is not one of the framework's handler delegates (SST2304).</summary>
 /// <remarks>
 /// <para>
 /// Code that forwards one event to another, weakly subscribes to one, or binds one at runtime is written
@@ -75,7 +73,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeEvent(SymbolAnalysisContext context)
     {
         var @event = (IEventSymbol)context.Symbol;
-        if (@event.IsOverride || @event.ExplicitInterfaceImplementations.Length > 0 || ImplementsInterfaceEvent(@event))
+        if (@event.IsOverride || !@event.ExplicitInterfaceImplementations.IsEmpty || ImplementsInterfaceEvent(@event))
         {
             return;
         }
@@ -85,7 +83,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (@event.Locations.Length == 0 || !@event.Locations[0].IsInSource)
+        if (@event.Locations.IsEmpty || !@event.Locations[0].IsInSource)
         {
             return;
         }
@@ -117,12 +115,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
         }
 
         var payload = invoke.Parameters[1].Type;
-        if (payload is INamedTypeSymbol named && IsSystemEventArgs(named))
-        {
-            return EventHandlerName;
-        }
-
-        return "EventHandler<" + payload.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat) + ">";
+        return payload is INamedTypeSymbol named && IsSystemEventArgs(named) ? EventHandlerName : $"EventHandler<{payload.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}>";
     }
 
     /// <summary>Returns whether an event implicitly implements an interface's event.</summary>
@@ -155,16 +148,16 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a delegate is one of the framework's handler delegates.</summary>
     /// <param name="handler">The event's delegate type.</param>
     /// <returns><see langword="true"/> for <c>EventHandler</c> and <c>EventHandler&lt;T&gt;</c>.</returns>
-    private static bool IsFrameworkHandler(INamedTypeSymbol handler)
-        => string.Equals(handler.Name, EventHandlerName, StringComparison.Ordinal)
+    private static bool IsFrameworkHandler(INamedTypeSymbol handler) =>
+        string.Equals(handler.Name, EventHandlerName, StringComparison.Ordinal)
             && handler.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
 
     /// <summary>Returns whether a delegate's invoke method has the shape every event consumer assumes.</summary>
     /// <param name="invoke">The delegate's invoke method.</param>
     /// <returns><see langword="true"/> for <c>void (object sender, TEventArgs e)</c>.</returns>
     /// <remarks>A by-reference parameter is not the shape: it cannot bind to the framework handler.</remarks>
-    private static bool HasStandardShape(IMethodSymbol invoke)
-        => invoke.ReturnsVoid
+    private static bool HasStandardShape(IMethodSymbol invoke) =>
+        invoke.ReturnsVoid
             && invoke.Parameters.Length == HandlerParameterCount
             && invoke.Parameters[0] is { RefKind: RefKind.None, Type.SpecialType: SpecialType.System_Object }
             && invoke.Parameters[1] is { RefKind: RefKind.None } payload
@@ -209,7 +202,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <c>System.EventArgs</c> itself.</summary>
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> for the framework's event payload base.</returns>
-    private static bool IsSystemEventArgs(ITypeSymbol type)
-        => string.Equals(type.Name, EventArgsName, StringComparison.Ordinal)
+    private static bool IsSystemEventArgs(ITypeSymbol type) =>
+        string.Equals(type.Name, EventArgsName, StringComparison.Ordinal)
             && type.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
 }

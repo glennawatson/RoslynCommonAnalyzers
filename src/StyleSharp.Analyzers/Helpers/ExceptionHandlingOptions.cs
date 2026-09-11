@@ -23,6 +23,6 @@ internal readonly record struct ExceptionHandlingOptions(bool CheckConstantRetur
     /// codebase knows which it is — so the empty catch stays reported everywhere and the constant-returning
     /// one is opted into.
     /// </remarks>
-    public static ExceptionHandlingOptions Read(AnalyzerConfigOptions options)
-        => new(AnalyzerOptionReader.ReadBool(options, CheckConstantReturningCatchRuleKey, CheckConstantReturningCatchGeneralKey));
+    internal static ExceptionHandlingOptions Read(AnalyzerConfigOptions options) =>
+        new(AnalyzerOptionReader.ReadBool(options, CheckConstantReturningCatchRuleKey, CheckConstantReturningCatchGeneralKey));
 }

@@ -54,7 +54,7 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one parameterless construction of a <c>Guid</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="guid">The <c>System.Guid</c> symbol for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol guid)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol guid)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: 0 } || creation.Initializer is not null)

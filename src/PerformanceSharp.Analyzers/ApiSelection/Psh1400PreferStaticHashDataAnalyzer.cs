@@ -86,7 +86,7 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1400 for a chained <c>Create().ComputeHash(byte[])</c> invocation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsChainedComputeHashShape(invocation, out var createInvocation)
@@ -106,7 +106,7 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1400 for using-declaration locals used only as ComputeHash receivers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeLocalDeclaration(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    private static void AnalyzeLocalDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (!declaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword) || declaration.Parent is not { } scope)
@@ -120,7 +120,7 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1400 for using-statement locals used only as ComputeHash receivers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeUsingStatement(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
     {
         var usingStatement = (UsingStatementSyntax)context.Node;
         if (usingStatement.Declaration is not { } declaration)
@@ -137,7 +137,7 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <param name="scope">The scope containing every possible reference to the variables.</param>
     /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
     private static void AnalyzeUsingScopedVariables(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         VariableDeclarationSyntax declaration,
         SyntaxNode scope,
         INamedTypeSymbol[] algorithmTypes)
@@ -218,16 +218,16 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is a single-dimensional byte array.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <c>byte[]</c>.</returns>
-    private static bool IsByteArray(ITypeSymbol type)
-        => type is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_Byte };
+    private static bool IsByteArray(ITypeSymbol type) =>
+        type is IArrayTypeSymbol { Rank: 1, ElementType.SpecialType: SpecialType.System_Byte };
 
     /// <summary>Returns whether the bound ComputeHash overload takes a single byte array.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The ComputeHash invocation to bind.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the invocation binds to a single-parameter byte[] overload.</returns>
-    private static bool IsSingleByteArrayComputeHash(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Parameters.Length: 1 } method
+    private static bool IsSingleByteArrayComputeHash(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { Parameters.Length: 1 } method
             && IsByteArray(method.Parameters[0].Type);
 
     /// <summary>Returns the gated algorithm type when an invocation binds to its static parameterless Create method.</summary>
@@ -262,8 +262,8 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation has the parameterless <c>X.Create()</c> syntax shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the syntax-only factory shape matches.</returns>
-    private static bool IsParameterlessCreateShape(InvocationExpressionSyntax invocation)
-        => invocation is
+    private static bool IsParameterlessCreateShape(InvocationExpressionSyntax invocation) =>
+        invocation is
         {
             ArgumentList.Arguments.Count: 0,
             Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: CreateMethodName }
@@ -284,7 +284,7 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         var state = new HashOnlyLocalScanState(model, local, variable.Identifier.ValueText, cancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashOnlyLocalScanState>(scope, ref state, VisitLocalReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashOnlyLocalScanState>(scope, ref state, VisitLocalReference);
         return state.HasComputeHashUse && !state.HasOtherUse;
     }
 
@@ -315,8 +315,8 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The local reference to classify.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the reference only feeds a one-shot hash call.</returns>
-    private static bool IsComputeHashReceiver(SemanticModel model, IdentifierNameSyntax identifier, CancellationToken cancellationToken)
-        => identifier.Parent is MemberAccessExpressionSyntax { Name.Identifier.ValueText: ComputeHashMethodName } access
+    private static bool IsComputeHashReceiver(SemanticModel model, IdentifierNameSyntax identifier, CancellationToken cancellationToken) =>
+        identifier.Parent is MemberAccessExpressionSyntax { Name.Identifier.ValueText: ComputeHashMethodName } access
             && access.Expression == identifier
             && access.Parent is InvocationExpressionSyntax { ArgumentList.Arguments.Count: 1 } invocation
             && IsSingleByteArrayComputeHash(model, invocation, cancellationToken);

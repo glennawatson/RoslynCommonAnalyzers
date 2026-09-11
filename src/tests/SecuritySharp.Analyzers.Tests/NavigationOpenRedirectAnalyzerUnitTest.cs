@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeNavigation = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -35,9 +36,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant navigation target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantTargetReportedAsync()
-        => await VerifyAsync(
+    public Task NonConstantTargetReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -51,9 +53,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies an absolute-URL literal (which leaves the origin) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbsoluteLiteralReportedAsync()
-        => await VerifyAsync(
+    public Task AbsoluteLiteralReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -67,9 +70,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a protocol-relative literal (which leaves the origin) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtocolRelativeLiteralReportedAsync()
-        => await VerifyAsync(
+    public Task ProtocolRelativeLiteralReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -83,9 +87,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a backslash protocol-relative literal (a browser origin-escape trick) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BackslashProtocolRelativeLiteralReportedAsync()
-        => await VerifyAsync(
+    public Task BackslashProtocolRelativeLiteralReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -99,9 +104,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant interpolated target is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedTargetReportedAsync()
-        => await VerifyAsync(
+    public Task InterpolatedTargetReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -115,9 +121,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies the <c>forceLoad</c> overload still reports its non-constant target.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForceLoadOverloadReportedAsync()
-        => await VerifyAsync(
+    public Task ForceLoadOverloadReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -131,9 +138,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a named <c>uri:</c> non-constant argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedUriArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task NamedUriArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -147,9 +155,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a navigation on a subclass of <c>NavigationManager</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SubclassNavigationReportedAsync()
-        => await VerifyAsync(
+    public Task SubclassNavigationReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -165,9 +174,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a target from a non-allow-listed method call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAllowListedValidatorReportedAsync()
-        => await VerifyAsync(
+    public Task NonAllowListedValidatorReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -183,9 +193,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a constant rooted-relative literal is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RootedRelativeLiteralCleanAsync()
-        => await VerifyAsync(
+    public Task RootedRelativeLiteralCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -199,9 +210,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a constant base-relative literal (no leading slash) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseRelativeLiteralCleanAsync()
-        => await VerifyAsync(
+    public Task BaseRelativeLiteralCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -215,9 +227,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a constant tilde-relative literal is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TildeRelativeLiteralCleanAsync()
-        => await VerifyAsync(
+    public Task TildeRelativeLiteralCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -231,9 +244,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a relative <c>const</c> field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RelativeConstFieldCleanAsync()
-        => await VerifyAsync(
+    public Task RelativeConstFieldCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -248,9 +262,10 @@ public class NavigationOpenRedirectAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>NavigateTo</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedNavigateOnUnrelatedTypeCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedNavigateOnUnrelatedTypeCleanAsync() =>
+        VerifyAsync(
             """
             public class NotANavigator
             {
@@ -345,11 +360,7 @@ public class NavigationOpenRedirectAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeNavigation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzeNavigation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -359,11 +370,7 @@ public class NavigationOpenRedirectAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeNavigation.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + NavigationStub,
-        };
+        var test = new AnalyzeNavigation.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + NavigationStub, };
 
         await test.RunAsync(CancellationToken.None);
     }

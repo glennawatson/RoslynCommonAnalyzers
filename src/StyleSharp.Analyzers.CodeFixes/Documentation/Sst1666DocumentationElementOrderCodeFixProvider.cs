@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -16,23 +17,24 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DocumentationRules.DocumentationElementOrder.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DocumentationRules.DocumentationElementOrder.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Order the documentation elements",
             nameof(Sst1666DocumentationElementOrderCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported comment and replaces it with one whose elements are in order.</summary>
     /// <param name="root">The syntax root.</param>
@@ -41,13 +43,10 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         // A documentation comment is structured trivia, so the search has to be told to descend into it.
-        if (root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?
-                .FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>() is not { } documentation)
-        {
-            return null;
-        }
-
-        return new NodeReplacement(documentation, Reorder(documentation));
+        return root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?
+                .FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>() is not { } documentation
+            ? null
+            : new NodeReplacement(documentation, Reorder(documentation));
     }
 
     /// <summary>Rebuilds a documentation comment with its ranked elements in the conventional order.</summary>
@@ -91,7 +90,14 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
         var next = 0;
         for (var i = 0; i < content.Count; i++)
         {
-            rebuilt.Add(isSlot[i] ? ranked[next++].Node : content[i]);
+            if (!isSlot[i])
+            {
+                rebuilt.Add(content[i]);
+                continue;
+            }
+
+            rebuilt.Add(ranked[next].Node);
+            next++;
         }
 
         return documentation.WithContent(SyntaxFactory.List(rebuilt));

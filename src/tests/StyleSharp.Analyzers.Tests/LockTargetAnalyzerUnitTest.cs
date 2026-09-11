@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -15,9 +16,10 @@ public class LockTargetAnalyzerUnitTest
 {
     /// <summary>Verifies locking on a public field is reported (SST1901).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicFieldTargetReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task PublicFieldTargetReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -34,9 +36,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies an object cast does not hide an accessible field lock target (SST1901).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ObjectCastOnPublicFieldTargetReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task ObjectCastOnPublicFieldTargetReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -53,9 +56,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on 'this' is reported (SST1902, opt-in).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThisTargetReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task ThisTargetReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -70,9 +74,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a string and a typeof expression are reported (SST1902).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringAndTypeofTargetsReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task StringAndTypeofTargetsReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -93,9 +98,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a newly-created object is reported (SST1903).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewObjectTargetReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task NewObjectTargetReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -110,9 +116,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a private object field is not reported by any lock-target rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateObjectFieldIsCleanAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task PrivateObjectFieldIsCleanAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -153,9 +160,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a non-readonly private object field is reported (SST1904).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonReadonlyPrivateObjectFieldReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task NonReadonlyPrivateObjectFieldReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -172,9 +180,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a non-readonly private non-object field is reported (SST1904).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonReadonlyPrivateFieldReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task NonReadonlyPrivateFieldReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -196,9 +205,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies a readonly private object field is clean under every lock-target rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyPrivateObjectFieldIsCleanForNonReadonlyRuleAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task ReadonlyPrivateObjectFieldIsCleanForNonReadonlyRuleAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -215,9 +225,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies locking on a fresh local object that never escapes is reported (SST1903).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreshLocalObjectTargetReportedAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task FreshLocalObjectTargetReportedAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -233,9 +244,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies a local that aliases a shared field is not reported (SST1903 stays silent).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalAliasingSharedFieldIsCleanAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task LocalAliasingSharedFieldIsCleanAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -253,9 +265,10 @@ public class LockTargetAnalyzerUnitTest
 
     /// <summary>Verifies a fresh local that is published to a field is not reported (SST1903 stays silent).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FreshLocalPublishedToFieldIsCleanAsync()
-        => await VerifyLockTarget.VerifyAnalyzerAsync(
+    public Task FreshLocalPublishedToFieldIsCleanAsync() =>
+        VerifyLockTarget.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -275,6 +288,6 @@ public class LockTargetAnalyzerUnitTest
     /// <summary>Parses the first lock statement from the supplied source.</summary>
     /// <param name="source">The source containing the lock statement.</param>
     /// <returns>The parsed lock statement.</returns>
-    private static LockStatementSyntax ParseLockStatement(string source)
-        => (LockStatementSyntax)((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[1]).Body!.Statements[0];
+    private static LockStatementSyntax ParseLockStatement(string source) =>
+        (LockStatementSyntax)((MethodDeclarationSyntax)((ClassDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0]).Members[1]).Body!.Statements[0];
 }

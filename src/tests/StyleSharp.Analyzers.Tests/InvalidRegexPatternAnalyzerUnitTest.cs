@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2444InvalidRegexPatternAnalyzer>;
@@ -13,9 +14,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 {
     /// <summary>Verifies an unterminated character class in a construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnterminatedSetInConstructionIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UnterminatedSetInConstructionIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -27,9 +29,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies an unclosed group in a static query is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnclosedGroupInStaticQueryIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UnclosedGroupInStaticQueryIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -41,9 +44,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a reversed quantifier is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReversedQuantifierIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ReversedQuantifierIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -55,9 +59,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a backreference to a group that is never defined is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UndefinedBackreferenceIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task UndefinedBackreferenceIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -69,9 +74,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies the non-backtracking option is kept, so a backreference under it is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BackreferenceUnderNonBacktrackingIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task BackreferenceUnderNonBacktrackingIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -83,9 +89,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a valid pattern is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidPatternIsCleanAsync()
-        => await VerifyAsync(
+    public Task ValidPatternIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -97,9 +104,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a valid backreference in the default engine is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidBackreferenceIsCleanAsync()
-        => await VerifyAsync(
+    public Task ValidBackreferenceIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -111,9 +119,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies the compile option is stripped, so a valid compiled pattern is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompiledOptionIsStrippedAsync()
-        => await VerifyAsync(
+    public Task CompiledOptionIsStrippedAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -125,9 +134,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies whitespace ignored under the pattern-whitespace option keeps a spaced pattern valid.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IgnorePatternWhitespaceKeepsSpacedPatternValidAsync()
-        => await VerifyAsync(
+    public Task IgnorePatternWhitespaceKeepsSpacedPatternValidAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -139,9 +149,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant pattern is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantPatternIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantPatternIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -153,9 +164,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on another type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnOtherTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMethodOnOtherTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public static class Helper
             {
@@ -170,9 +182,10 @@ public class InvalidRegexPatternAnalyzerUnitTest
 
     /// <summary>Verifies an instance query with no pattern argument is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceQueryWithoutPatternIsCleanAsync()
-        => await VerifyAsync(
+    public Task InstanceQueryWithoutPatternIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -187,11 +200,7 @@ public class InvalidRegexPatternAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

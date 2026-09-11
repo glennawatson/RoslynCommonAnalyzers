@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -88,7 +90,7 @@ public sealed class Sst2400SwappedArgumentsAnalyzer : DiagnosticAnalyzer
     /// <param name="arguments">The call's arguments.</param>
     /// <param name="parameters">The resolved parameters.</param>
     private static void ReportTranspositions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SeparatedSyntaxList<ArgumentSyntax> arguments,
         ImmutableArray<IParameterSymbol> parameters)
     {
@@ -136,21 +138,16 @@ public sealed class Sst2400SwappedArgumentsAnalyzer : DiagnosticAnalyzer
             return -1;
         }
 
-        if (!NameMatches(GetIdentifierName(arguments[partner]), parameters[index].Name)
-            || !IsInterchangeable(parameters[index], parameters[partner]))
-        {
-            return -1;
-        }
-
-        return partner;
+        return !NameMatches(GetIdentifierName(arguments[partner]), parameters[index].Name)
+            || !IsInterchangeable(parameters[index], parameters[partner]) ? -1 : partner;
     }
 
     /// <summary>Returns whether two parameters can trade places without changing what the call means.</summary>
     /// <param name="first">The first parameter.</param>
     /// <param name="second">The second parameter.</param>
     /// <returns><see langword="true"/> when the reordered call binds identically.</returns>
-    private static bool IsInterchangeable(IParameterSymbol first, IParameterSymbol second)
-        => first.RefKind == second.RefKind
+    private static bool IsInterchangeable(IParameterSymbol first, IParameterSymbol second) =>
+        first.RefKind == second.RefKind
             && SymbolEqualityComparer.Default.Equals(first.Type, second.Type);
 
     /// <summary>Returns the position of the parameter with the given name.</summary>
@@ -178,14 +175,15 @@ public sealed class Sst2400SwappedArgumentsAnalyzer : DiagnosticAnalyzer
     /// Case is ignored so a <c>Source</c> property or a <c>Target</c> local still reads as the parameter it
     /// is named after; a transposition is a naming mistake, and casing does not make it less of one.
     /// </remarks>
-    private static bool NameMatches(string? argumentName, string parameterName)
-        => argumentName is not null && string.Equals(argumentName, parameterName, StringComparison.OrdinalIgnoreCase);
+    private static bool NameMatches(string? argumentName, string parameterName) =>
+        argumentName is not null && string.Equals(argumentName, parameterName, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Builds the property bag telling the fix where the reported argument belongs.</summary>
     /// <param name="partner">The transposed partner's position.</param>
     /// <returns>The diagnostic properties.</returns>
-    private static ImmutableDictionary<string, string?> BuildProperties(int partner)
-        => ImmutableDictionary<string, string?>.Empty.Add(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ImmutableDictionary<string, string?> BuildProperties(int partner) =>
+        ImmutableDictionary<string, string?>.Empty.Add(
             SwapWithKey,
             partner.ToString(System.Globalization.CultureInfo.InvariantCulture));
 
@@ -221,14 +219,14 @@ public sealed class Sst2400SwappedArgumentsAnalyzer : DiagnosticAnalyzer
     /// With a <c>params</c> tail an argument's position no longer maps to a parameter's position, so a name
     /// landing in the "wrong" slot proves nothing.
     /// </remarks>
-    private static bool TakesParameterArray(ImmutableArray<IParameterSymbol> parameters)
-        => parameters.Length > 0 && parameters[parameters.Length - 1].IsParams;
+    private static bool TakesParameterArray(ImmutableArray<IParameterSymbol> parameters) =>
+        !parameters.IsEmpty && parameters[parameters.Length - 1].IsParams;
 
     /// <summary>Gets an argument's identifier text.</summary>
     /// <param name="argument">The argument.</param>
     /// <returns>The identifier, or <see langword="null"/> when the argument is not a bare identifier.</returns>
-    private static string? GetIdentifierName(ArgumentSyntax argument)
-        => argument.Expression is IdentifierNameSyntax identifier ? identifier.Identifier.ValueText : null;
+    private static string? GetIdentifierName(ArgumentSyntax argument) =>
+        argument.Expression is IdentifierNameSyntax identifier ? identifier.Identifier.ValueText : null;
 
     /// <summary>Gets the argument list of a call.</summary>
     /// <param name="node">The invocation or object creation.</param>

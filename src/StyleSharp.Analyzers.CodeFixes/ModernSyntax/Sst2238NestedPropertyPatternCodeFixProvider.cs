@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Folds a nested property pattern into the extended property path it is equivalent to (SST2238).</summary>
@@ -25,6 +27,7 @@ public sealed class Sst2238NestedPropertyPatternCodeFixProvider : CodeFixProvide
             TryRewrite);
 
     /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 

@@ -59,7 +59,7 @@ public sealed class Sst2463InheritedFieldCaseClashAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="type">The declaring type.</param>
     /// <param name="field">The derived type's own instance field under test.</param>
-    private static void ReportIfInheritedCaseClash(SymbolAnalysisContext context, INamedTypeSymbol type, IFieldSymbol field)
+    private static void ReportIfInheritedCaseClash(in SymbolAnalysisContext context, INamedTypeSymbol type, IFieldSymbol field)
     {
         var name = field.Name;
         for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
@@ -74,17 +74,18 @@ public sealed class Sst2463InheritedFieldCaseClashAnalyzer : DiagnosticAnalyzer
                 }
 
                 var baseName = baseField.Name;
-                if (!string.Equals(name, baseName, StringComparison.Ordinal)
-                    && string.Equals(name, baseName, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(name, baseName, StringComparison.Ordinal) || !string.Equals(name, baseName, StringComparison.OrdinalIgnoreCase))
                 {
-                    context.ReportDiagnostic(DiagnosticHelper.Create(
-                        CorrectnessRules.InheritedFieldCaseClash,
-                        field.Locations[0],
-                        name,
-                        baseName,
-                        baseField.ContainingType.Name));
-                    return;
+                    continue;
                 }
+
+                context.ReportDiagnostic(DiagnosticHelper.Create(
+                    CorrectnessRules.InheritedFieldCaseClash,
+                    field.Locations[0],
+                    name,
+                    baseName,
+                    baseField.ContainingType.Name));
+                return;
             }
         }
     }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -71,9 +72,10 @@ public class CompletedTaskAnalyzerUnitTest
 
     /// <summary>Verifies a FromResult whose value is observed stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FromResultObservedAsGenericTaskIsCleanAsync()
-        => await VerifyAsync(
+    public Task FromResultObservedAsGenericTaskIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -85,9 +87,10 @@ public class CompletedTaskAnalyzerUnitTest
 
     /// <summary>Verifies an awaited FromResult stays clean; the value flows to the awaiter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitedFromResultIsCleanAsync()
-        => await VerifyAsync(
+    public Task AwaitedFromResultIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -103,11 +106,7 @@ public class CompletedTaskAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

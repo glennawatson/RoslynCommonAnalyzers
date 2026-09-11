@@ -41,7 +41,7 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(IDictionaryMetadataName) is null)
             {

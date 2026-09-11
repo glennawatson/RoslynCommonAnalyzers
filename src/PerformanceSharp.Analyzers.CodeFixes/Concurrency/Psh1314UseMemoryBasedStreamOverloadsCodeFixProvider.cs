@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace PerformanceSharp.Analyzers;
@@ -34,12 +35,13 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the Memory overload", nameof(Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the Memory overload", nameof(Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces a reported array-based stream call with its memory-based form.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -47,8 +49,8 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The stream call to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation)
-        => TryGetReplacement(model, invocation, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, InvocationExpressionSyntax invocation) =>
+        TryGetReplacement(model, invocation, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement!))
             : document;
 
@@ -57,8 +59,8 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && TryGetReplacement(model, invocation, out var replacement)
             ? new NodeReplacement(invocation, replacement!)
             : null;

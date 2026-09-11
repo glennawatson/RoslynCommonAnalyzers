@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -118,7 +119,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one comparison that cannot answer the question it appears to ask.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         var isEquality = binary.RawKind is (int)SyntaxKind.EqualsExpression or (int)SyntaxKind.NotEqualsExpression;
@@ -158,7 +159,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// falls through to the general path, where an equality on a floating-point type is still reported and
     /// anything else is not.
     /// </remarks>
-    private static bool TryReportNaNComparison(SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, bool isEquality)
+    private static bool TryReportNaNComparison(in SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary, bool isEquality)
     {
         var leftIsNaN = IsNaNComparand(context, binary.Left);
         var rightIsNaN = IsNaNComparand(context, binary.Right);
@@ -212,8 +213,8 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The operand.</param>
     /// <returns><see langword="true"/> when the name really is the framework's NaN.</returns>
     /// <remarks>The syntactic shape is checked first, so an operand not spelled <c>NaN</c> never reaches the semantic model.</remarks>
-    private static bool IsNaNComparand(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
-        => IsNaNShaped(expression)
+    private static bool IsNaNComparand(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        IsNaNShaped(expression)
             && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IFieldSymbol { Name: NaNFieldName } field
             && field.ContainingType.SpecialType is SpecialType.System_Single or SpecialType.System_Double;
 
@@ -230,7 +231,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// is consulted only when the left failed to bind at all.
     /// </remarks>
     private static bool TryGetComparisonKeyword(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BinaryExpressionSyntax binary,
         out string keyword,
         out bool isNullable)
@@ -273,14 +274,14 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <param name="binary">The comparison.</param>
     /// <returns><see langword="true"/> when a <see langword="null"/>, <see langword="bool"/>, string or char literal rules the comparison out.</returns>
     /// <remarks>This is the syntactic prepass that keeps <c>name == "x"</c> and <c>value == null</c> off the semantic model.</remarks>
-    private static bool HasNonFloatingLiteralOperand(BinaryExpressionSyntax binary)
-        => IsNonFloatingLiteral(binary.Left) || IsNonFloatingLiteral(binary.Right);
+    private static bool HasNonFloatingLiteralOperand(BinaryExpressionSyntax binary) =>
+        IsNonFloatingLiteral(binary.Left) || IsNonFloatingLiteral(binary.Right);
 
     /// <summary>Returns whether an expression is a literal of a kind no floating-point value has.</summary>
     /// <param name="expression">The operand.</param>
     /// <returns><see langword="true"/> for a <see langword="null"/>, <see langword="bool"/>, string or char literal.</returns>
-    private static bool IsNonFloatingLiteral(ExpressionSyntax expression)
-        => expression.RawKind is (int)SyntaxKind.NullLiteralExpression
+    private static bool IsNonFloatingLiteral(ExpressionSyntax expression) =>
+        expression.RawKind is (int)SyntaxKind.NullLiteralExpression
             or (int)SyntaxKind.TrueLiteralExpression
             or (int)SyntaxKind.FalseLiteralExpression
             or (int)SyntaxKind.StringLiteralExpression
@@ -293,10 +294,10 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a zero literal is compared and zero comparisons are allowed.</returns>
     /// <remarks>The settings are read only after a zero literal has been found, so a file with none never touches them.</remarks>
     private static bool IsAllowedZeroComparison(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         BinaryExpressionSyntax binary,
-        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
-        => (IsZeroLiteral(binary.Left) || IsZeroLiteral(binary.Right))
+        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
+        (IsZeroLiteral(binary.Left) || IsZeroLiteral(binary.Right))
             && GetOptions(context, optionsByTree).AllowZeroComparison;
 
     /// <summary>Reads the settings for the comparison's tree, parsing each tree's options at most once.</summary>
@@ -304,7 +305,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static FloatingPointComparisonOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -314,7 +315,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
         }
 
         options = FloatingPointComparisonOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 
@@ -335,8 +336,8 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a numeric literal's source text denotes zero, without parsing or boxing it.</summary>
     /// <param name="text">The literal's source text.</param>
     /// <returns><see langword="true"/> when every digit in the literal is a zero.</returns>
-    private static bool IsZeroText(string text)
-        => text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B'
+    private static bool IsZeroText(string text) =>
+        text.Length > 1 && text[0] == '0' && text[1] is 'x' or 'X' or 'b' or 'B'
             ? !HasNonZeroBitDigit(text)
             : !HasNonZeroDecimalDigit(text);
 
@@ -403,8 +404,9 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <param name="keyword">The floating-point keyword.</param>
     /// <param name="fixKind">The rewrite the code fix should apply.</param>
     /// <returns>The property set.</returns>
-    private static ImmutableDictionary<string, string?> CreateProperties(string keyword, string fixKind)
-        => ImmutableDictionary<string, string?>.Empty
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ImmutableDictionary<string, string?> CreateProperties(string keyword, string fixKind) =>
+        ImmutableDictionary<string, string?>.Empty
             .Add(TypeKeywordKey, keyword)
             .Add(FixKindKey, fixKind);
 }

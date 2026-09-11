@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -48,9 +49,10 @@ public class SingleProbeInsertAnalyzerUnitTest
 
     /// <summary>Verifies a failed TryGetValue followed by a store is reported for the value-slot API.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TryGetValueStoreIsReportedAsync()
-        => await VerifyAsync(
+    public Task TryGetValueStoreIsReportedAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -71,9 +73,10 @@ public class SingleProbeInsertAnalyzerUnitTest
 
     /// <summary>Verifies a guard writing a different key stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentKeyIsCleanAsync()
-        => await VerifyAsync(
+    public Task DifferentKeyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -91,9 +94,10 @@ public class SingleProbeInsertAnalyzerUnitTest
 
     /// <summary>Verifies a guard with an else branch stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardWithElseIsCleanAsync()
-        => await VerifyAsync(
+    public Task GuardWithElseIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -119,11 +123,7 @@ public class SingleProbeInsertAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

@@ -33,13 +33,13 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
     private enum CallbackShape
     {
         /// <summary>Not a reportable callback shape.</summary>
-        None,
+        None = 0,
 
         /// <summary>A lambda or anonymous method already known to always return true.</summary>
-        AlwaysTrueLambda,
+        AlwaysTrueLambda = 1,
 
         /// <summary>A method group whose referenced method still needs to be inspected.</summary>
-        MethodGroup,
+        MethodGroup = 2,
     }
 
     /// <inheritdoc/>
@@ -54,7 +54,7 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         context.RegisterCompilationStartAction(start =>
         {
             var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(CallbackPropertyName).Length == 0)
+            if (handlerType is null || handlerType.GetMembers(CallbackPropertyName).IsEmpty)
             {
                 return;
             }
@@ -66,7 +66,7 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
     /// <summary>Reports SES1108 for an always-true assignment to the server-certificate validation callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 

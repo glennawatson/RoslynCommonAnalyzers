@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifySeal = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2301EquatableTypeShouldBeSealedAnalyzer,
     StyleSharp.Analyzers.Sst2301SealEquatableTypeCodeFixProvider>;
@@ -111,25 +112,29 @@ public class Sst2301SealEquatableTypeCodeFixUnitTest
 
     /// <summary>Verifies the fix appends <c>sealed</c> to the access modifiers.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealsAPublicClassAsync()
-        => await VerifySeal.VerifyCodeFixAsync(PublicClassSource, PublicClassFixed);
+    public Task SealsAPublicClassAsync() =>
+        VerifySeal.VerifyCodeFixAsync(PublicClassSource, PublicClassFixed);
 
     /// <summary>Verifies a class with no modifiers keeps its leading trivia when <c>sealed</c> arrives.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealsAClassWithNoModifiersAsync()
-        => await VerifySeal.VerifyCodeFixAsync(NoModifierSource, NoModifierFixed);
+    public Task SealsAClassWithNoModifiersAsync() =>
+        VerifySeal.VerifyCodeFixAsync(NoModifierSource, NoModifierFixed);
 
     /// <summary>Verifies <c>sealed</c> is inserted in front of <c>partial</c>, which stays last.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SealsAPartialClassAsync()
-        => await VerifySeal.VerifyCodeFixAsync(PartialClassSource, PartialClassFixed);
+    public Task SealsAPartialClassAsync() =>
+        VerifySeal.VerifyCodeFixAsync(PartialClassSource, PartialClassFixed);
 
     /// <summary>Verifies Fix All seals every reported class in the document.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllSealsEveryReportedClassAsync()
-        => await VerifySeal.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
+    public Task FixAllSealsEveryReportedClassAsync() =>
+        VerifySeal.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
 }

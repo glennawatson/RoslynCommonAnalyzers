@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -79,9 +80,10 @@ public class PreferOutputCachingAnalyzerUnitTest
 
     /// <summary>Verifies a qualified <c>AddResponseCaching</c> registration is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddResponseCachingIsFlaggedAsync()
-        => await VerifyWithOutputCachingAsync(
+    public Task AddResponseCachingIsFlaggedAsync() =>
+        VerifyWithOutputCachingAsync(
             """
             using Microsoft.Extensions.DependencyInjection;
 
@@ -93,9 +95,10 @@ public class PreferOutputCachingAnalyzerUnitTest
 
     /// <summary>Verifies a qualified <c>UseResponseCaching</c> middleware call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UseResponseCachingIsFlaggedAsync()
-        => await VerifyWithOutputCachingAsync(
+    public Task UseResponseCachingIsFlaggedAsync() =>
+        VerifyWithOutputCachingAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -154,9 +157,10 @@ public class PreferOutputCachingAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on an unrelated type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserDefinedSameNameMethodIsCleanAsync()
-        => await VerifyWithOutputCachingAsync(
+    public Task UserDefinedSameNameMethodIsCleanAsync() =>
+        VerifyWithOutputCachingAsync(
             """
             public class MyServices
             {
@@ -173,9 +177,10 @@ public class PreferOutputCachingAnalyzerUnitTest
 
     /// <summary>Verifies a same-named delegate member invocation is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNameDelegateMemberIsCleanAsync()
-        => await VerifyWithOutputCachingAsync(
+    public Task SameNameDelegateMemberIsCleanAsync() =>
+        VerifyWithOutputCachingAsync(
             """
             public class Holder
             {
@@ -218,9 +223,10 @@ public class PreferOutputCachingAnalyzerUnitTest
 
     /// <summary>Verifies an unqualified invocation (no member-access target) is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnqualifiedInvocationIsCleanAsync()
-        => await VerifyWithOutputCachingAsync(
+    public Task UnqualifiedInvocationIsCleanAsync() =>
+        VerifyWithOutputCachingAsync(
             """
             public class C
             {
@@ -237,11 +243,7 @@ public class PreferOutputCachingAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithOutputCachingAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.Sources.Add(CoreTypesSource);
         test.TestState.Sources.Add(ResponseCachingStubsSource);
         test.TestState.Sources.Add(OutputCachingStubsSource);

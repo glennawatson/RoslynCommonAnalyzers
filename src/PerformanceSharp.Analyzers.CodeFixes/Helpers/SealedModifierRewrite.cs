@@ -17,7 +17,7 @@ internal static class SealedModifierRewrite
     /// <summary>Inserts <c>sealed</c> after any accessibility modifiers, keeping modifier order valid.</summary>
     /// <param name="declaration">The class declaration to seal.</param>
     /// <returns>The sealed class declaration.</returns>
-    public static ClassDeclarationSyntax AddSealed(ClassDeclarationSyntax declaration)
+    internal static ClassDeclarationSyntax AddSealed(ClassDeclarationSyntax declaration)
     {
         var modifiers = declaration.Modifiers;
         var insertIndex = 0;
@@ -52,8 +52,8 @@ internal static class SealedModifierRewrite
     /// <summary>Returns whether a modifier kind is an accessibility modifier.</summary>
     /// <param name="kind">The modifier kind to inspect.</param>
     /// <returns><see langword="true"/> for accessibility modifiers.</returns>
-    private static bool IsAccessibilityModifier(SyntaxKind kind)
-        => kind is SyntaxKind.PublicKeyword
+    private static bool IsAccessibilityModifier(SyntaxKind kind) =>
+        kind is SyntaxKind.PublicKeyword
             or SyntaxKind.PrivateKeyword
             or SyntaxKind.ProtectedKeyword
             or SyntaxKind.InternalKeyword

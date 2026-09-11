@@ -15,7 +15,7 @@ internal static class DocumentedParameterList
     /// <summary>Returns the parameters a member exposes to <c>&lt;param&gt;</c> documentation.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns>The member's parameters, or an empty list when it declares none that a <c>&lt;param&gt;</c> would describe.</returns>
-    public static SeparatedSyntaxList<ParameterSyntax> Of(SyntaxNode member) => member switch
+    internal static SeparatedSyntaxList<ParameterSyntax> Of(SyntaxNode member) => member switch
     {
         MethodDeclarationSyntax method => method.ParameterList.Parameters,
         ConstructorDeclarationSyntax constructor => constructor.ParameterList.Parameters,

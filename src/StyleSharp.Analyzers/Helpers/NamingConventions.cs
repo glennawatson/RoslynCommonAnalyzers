@@ -40,15 +40,15 @@ internal static class NamingConventions
     /// <param name="generalKey">The general editorconfig key.</param>
     /// <param name="fallback">The value to use when neither key is set to a recognized value.</param>
     /// <returns>The configured (or fallback) convention.</returns>
-    public static NamingConvention Read(AnalyzerConfigOptions options, string specificKey, string generalKey, NamingConvention fallback) =>
+    internal static NamingConvention Read(AnalyzerConfigOptions options, string specificKey, string generalKey, NamingConvention fallback) =>
         TryRead(options, specificKey, out var convention) || TryRead(options, generalKey, out convention) ? convention : fallback;
 
     /// <summary>Returns whether <paramref name="name"/> already conforms to <paramref name="convention"/>.</summary>
     /// <param name="name">The identifier text.</param>
     /// <param name="convention">The expected convention.</param>
     /// <returns><see langword="true"/> when the name conforms.</returns>
-    public static bool Conforms(string name, NamingConvention convention)
-        => convention == NamingConvention.PascalCase
+    internal static bool Conforms(string name, NamingConvention convention) =>
+        convention == NamingConvention.PascalCase
             ? NamingHelper.BeginsWithUpperCase(name)
             : NamingHelper.BeginsWithLowerCase(name);
 
@@ -56,8 +56,8 @@ internal static class NamingConventions
     /// <param name="name">The identifier text.</param>
     /// <param name="convention">The expected convention.</param>
     /// <returns>The suggested name.</returns>
-    public static string Suggest(string name, NamingConvention convention)
-        => convention == NamingConvention.PascalCase
+    internal static string Suggest(string name, NamingConvention convention) =>
+        convention == NamingConvention.PascalCase
             ? NamingHelper.SuggestPascalCase(name)
             : NamingHelper.SuggestCamelCase(name);
 

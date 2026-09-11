@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -16,9 +17,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 {
     /// <summary>Verifies every externally visible declaration of a DateTime is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryExternallyVisibleDateTimeDeclarationIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task EveryExternallyVisibleDateTimeDeclarationIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -40,9 +42,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a nullable DateTime is reported: the offset is just as absent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableDateTimeIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task NullableDateTimeIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -54,9 +57,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified DateTime is reported, and reported once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedDateTimeIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task QualifiedDateTimeIsReportedAsync() =>
+        VerifyNet80Async(
             """
             public class C
             {
@@ -66,9 +70,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a positional record parameter is reported: the generated property takes its type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RecordPositionalParameterIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task RecordPositionalParameterIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -77,9 +82,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a delegate's return type and parameters are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateSignatureIsReportedAsync()
-        => await VerifyNet80Async(
+    public Task DelegateSignatureIsReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -88,9 +94,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a clock read is left to SST2010: this rule looks at declared types, never at expressions.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClockReadsAreNotReportedAsync()
-        => await VerifyNet80Async(
+    public Task ClockReadsAreNotReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -110,9 +117,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a local, and a member nobody outside the assembly can see, are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalsAndInvisibleMembersAreNotReportedAsync()
-        => await VerifyNet80Async(
+    public Task LocalsAndInvisibleMembersAreNotReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -140,9 +148,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies the declaration that owns the type is reported, and the members restating it are not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideAndInterfaceImplementationAreNotReportedAsync()
-        => await VerifyNet80Async(
+    public Task OverrideAndInterfaceImplementationAreNotReportedAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -166,9 +175,10 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
 
     /// <summary>Verifies a signature already written in DateTimeOffset is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DateTimeOffsetSignatureIsCleanAsync()
-        => await VerifyNet80Async(
+    public Task DateTimeOffsetSignatureIsCleanAsync() =>
+        VerifyNet80Async(
             """
             using System;
 
@@ -211,11 +221,7 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet80Async(string source)
     {
-        var test = new VerifyDateTimeOffset.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyDateTimeOffset.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -247,7 +253,7 @@ public class PreferDateTimeOffsetAnalyzerUnitTest
                        """;
 
         var compilation = CSharpCompilation.Create(
-            assemblyName: "PreferDateTimeOffsetAnalyzerUnitTest",
+            assemblyName: nameof(PreferDateTimeOffsetAnalyzerUnitTest),
             syntaxTrees: [CSharpSyntaxTree.ParseText(source)],
             references: []);
         var withAnalyzers = compilation.WithAnalyzers([new Sst2016PreferDateTimeOffsetAnalyzer()]);

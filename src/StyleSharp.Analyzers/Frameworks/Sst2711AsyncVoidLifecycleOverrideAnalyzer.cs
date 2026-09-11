@@ -64,7 +64,7 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
     /// <summary>Reports a synchronous lifecycle override declared <c>async void</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="componentBase">The resolved <c>ComponentBase</c> type.</param>
-    private static void AnalyzeMethod(SymbolAnalysisContext context, INamedTypeSymbol componentBase)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol componentBase)
     {
         var method = (IMethodSymbol)context.Symbol;
         if (method.MethodKind != MethodKind.Ordinary
@@ -87,8 +87,8 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a name is one of the three synchronous lifecycle hooks.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> when the name is a synchronous lifecycle hook.</returns>
-    private static bool IsSynchronousLifecycleName(string name)
-        => string.Equals(name, OnInitializedName, StringComparison.Ordinal)
+    private static bool IsSynchronousLifecycleName(string name) =>
+        string.Equals(name, OnInitializedName, StringComparison.Ordinal)
             || string.Equals(name, OnParametersSetName, StringComparison.Ordinal)
             || string.Equals(name, OnAfterRenderName, StringComparison.Ordinal);
 

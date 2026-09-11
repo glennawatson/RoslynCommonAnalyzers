@@ -51,8 +51,8 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation has the argument-free <c>GetExecutingAssembly()</c> syntax shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the syntax-only shape matches (member access or using-static call).</returns>
-    internal static bool IsGetExecutingAssemblyShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsGetExecutingAssemblyShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && GetInvokedSimpleName(invocation) is { Identifier.ValueText: GetExecutingAssemblyMethodName };
 
     /// <summary>Builds the enclosing type's display name — its declared identifier plus its own type parameters.</summary>
@@ -67,25 +67,25 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
         }
 
         var builder = new System.Text.StringBuilder(identifier);
-        builder.Append('<');
+        _ = builder.Append('<');
         for (var i = 0; i < typeParameters.Parameters.Count; i++)
         {
             if (i > 0)
             {
-                builder.Append(", ");
+                _ = builder.Append(", ");
             }
 
-            builder.Append(typeParameters.Parameters[i].Identifier.ValueText);
+            _ = builder.Append(typeParameters.Parameters[i].Identifier.ValueText);
         }
 
-        builder.Append('>');
+        _ = builder.Append('>');
         return builder.ToString();
     }
 
     /// <summary>Reports PSH1404 for an invocation bound to <c>Assembly.GetExecutingAssembly()</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assemblyType">The reflection assembly type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsGetExecutingAssemblyShape(invocation))
@@ -109,8 +109,8 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns the invoked member's simple name for the supported call shapes.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns>The invoked simple name, or <see langword="null"/> for unsupported expression shapes.</returns>
-    private static SimpleNameSyntax? GetInvokedSimpleName(InvocationExpressionSyntax invocation)
-        => invocation.Expression switch
+    private static SimpleNameSyntax? GetInvokedSimpleName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression switch
         {
             MemberAccessExpressionSyntax access => access.Name,
             SimpleNameSyntax simpleName => simpleName,
@@ -121,15 +121,10 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="invocation">The reported invocation.</param>
     /// <returns>The declared type's display name, or the synthesized containing type's name inside top-level statements.</returns>
-    private static string GetEnclosingTypeName(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
-    {
-        if (invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration)
-        {
-            return GetEnclosingTypeDisplayName(typeDeclaration);
-        }
-
-        return context.ContainingSymbol?.ContainingType?.Name ?? TopLevelProgramTypeName;
-    }
+    private static string GetEnclosingTypeName(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation) =>
+        invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } typeDeclaration
+            ? GetEnclosingTypeDisplayName(typeDeclaration)
+            : context.ContainingSymbol?.ContainingType?.Name ?? TopLevelProgramTypeName;
 
     /// <summary>Returns whether the assembly type exposes the static parameterless <c>GetExecutingAssembly</c> method.</summary>
     /// <param name="assemblyType">The reflection assembly type to probe.</param>

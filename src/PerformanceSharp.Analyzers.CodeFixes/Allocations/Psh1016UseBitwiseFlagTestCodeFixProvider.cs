@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -25,20 +27,21 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a bitwise flag test", nameof(Psh1016UseBitwiseFlagTestCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a bitwise flag test", nameof(Psh1016UseBitwiseFlagTestCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies the bitwise rewrite to one HasFlag invocation.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The HasFlag invocation to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => TryGetReplacement(invocation) is { } edit
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        TryGetReplacement(invocation) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
 
@@ -46,8 +49,8 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches or the flag argument is not safe to repeat.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax invocation
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is InvocationExpressionSyntax invocation
             ? TryGetReplacement(invocation)
             : null;
 
@@ -68,7 +71,7 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
         }
 
         var negated = invocation.Parent is PrefixUnaryExpressionSyntax parent && parent.IsKind(SyntaxKind.LogicalNotExpression);
-        SyntaxNode original = negated ? invocation.Parent! : invocation;
+        var original = negated ? invocation.Parent! : invocation;
         return new NodeReplacement(original, Rewrite(access.Expression, flag, negated, original));
     }
 
@@ -102,21 +105,18 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
     /// <summary>Returns the flag operand, parenthesized when its precedence is below a comparison operand's.</summary>
     /// <param name="flag">The flag argument to reuse.</param>
     /// <returns>The trivia-free operand; a bitwise-or combination gains parentheses, the other safe shapes need none.</returns>
-    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax flag)
-        => flag.IsKind(SyntaxKind.BitwiseOrExpression)
+    private static ExpressionSyntax ParenthesizeIfNeeded(ExpressionSyntax flag) =>
+        flag.IsKind(SyntaxKind.BitwiseOrExpression)
             ? SyntaxFactory.ParenthesizedExpression(flag.WithoutTrivia())
             : flag.WithoutTrivia();
 
     /// <summary>Returns whether evaluating an expression twice cannot change behavior or trigger side effects.</summary>
     /// <param name="expression">The candidate flag argument.</param>
     /// <returns><see langword="true"/> for identifiers, member access chains, literals, and parenthesized or bitwise-or combinations of those.</returns>
-    private static bool IsRepeatSafe(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsRepeatSafe(ExpressionSyntax expression) =>
+        expression switch
         {
-            IdentifierNameSyntax => true,
-            LiteralExpressionSyntax => true,
-            ThisExpressionSyntax => true,
-            BaseExpressionSyntax => true,
+            IdentifierNameSyntax or LiteralExpressionSyntax or ThisExpressionSyntax or BaseExpressionSyntax => true,
             MemberAccessExpressionSyntax access when access.IsKind(SyntaxKind.SimpleMemberAccessExpression) => IsRepeatSafe(access.Expression),
             ParenthesizedExpressionSyntax parenthesized => IsRepeatSafe(parenthesized.Expression),
             BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.BitwiseOrExpression) => IsRepeatSafe(binary.Left) && IsRepeatSafe(binary.Right),

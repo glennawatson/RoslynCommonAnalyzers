@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2323PreferInterfaceOverAbstractClassAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 {
     /// <summary>Verifies a class whose every member is abstract is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AllAbstractClassIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AllAbstractClassIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class {|SST2323:Shape|}
             {
@@ -27,9 +29,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract property and event alongside methods still report.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractPropertyEventAndIndexerAreReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AbstractPropertyEventAndIndexerAreReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -47,9 +50,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a generic all-abstract class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericAllAbstractClassIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GenericAllAbstractClassIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class {|SST2323:Store|}<T>
             {
@@ -61,9 +65,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a partial class whose parts are all abstract is reported once.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialAllAbstractClassIsReportedOnceAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PartialAllAbstractClassIsReportedOnceAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract partial class {|SST2323:Handler|}
             {
@@ -79,9 +84,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
     /// <summary>Verifies a nested class whose every member is abstract is itself reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The outer type holds a nested type, so only the all-abstract nested type is a contract candidate.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedAllAbstractClassIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NestedAllAbstractClassIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class Outer
             {
@@ -94,9 +100,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with an instance field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithFieldIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithFieldIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -108,9 +115,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with an implemented method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithImplementedMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithImplementedMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -124,9 +132,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a class with a hand-written constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithConstructorIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithConstructorIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -140,9 +149,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract class with a non-abstract property is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithNonAbstractMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithNonAbstractMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -154,9 +164,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract member that is not public keeps the type silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithNonPublicAbstractMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithNonPublicAbstractMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -167,9 +178,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
     /// <summary>Verifies an abstract class that declares nothing abstract is not reported here.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>That shape is the opposite predicate and belongs to the maintainability rule, not this one.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractClassWithNoAbstractMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AbstractClassWithNoAbstractMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -181,9 +193,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an empty abstract class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyAbstractClassIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptyAbstractClassIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Marker
             {
@@ -193,9 +206,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
     /// <summary>Verifies an all-abstract class extending another class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>An interface cannot inherit a class, so a real base class rules the conversion out.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractClassWithBaseClassIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AbstractClassWithBaseClassIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Widget
             {
@@ -214,9 +228,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a nested type keeps the outer class silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ClassWithNestedTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ClassWithNestedTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -231,9 +246,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a concrete class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConcreteClassIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConcreteClassIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class Shape
             {
@@ -243,9 +259,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies a static class is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticClassIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public static class Shapes
             {
@@ -255,9 +272,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public interface IShape
             {
@@ -269,9 +287,10 @@ public class Sst2323PreferInterfaceOverAbstractClassAnalyzerUnitTest
 
     /// <summary>Verifies an abstract record is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractRecordIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AbstractRecordIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract record Shape
             {

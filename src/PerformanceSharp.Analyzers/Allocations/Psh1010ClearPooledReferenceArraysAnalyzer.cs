@@ -54,7 +54,7 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
     /// <summary>Reports PSH1010 for a pool return of reference-containing elements without clearing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="poolType">The array pool type definition.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol poolType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol poolType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
@@ -87,8 +87,8 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether the pool's element type can keep other objects reachable.</summary>
     /// <param name="elementType">The pool's element type.</param>
     /// <returns><see langword="true"/> for reference types and reference-containing structs; type parameters only with a class constraint.</returns>
-    private static bool ElementKeepsReferencesAlive(ITypeSymbol elementType)
-        => elementType is ITypeParameterSymbol typeParameter
+    private static bool ElementKeepsReferencesAlive(ITypeSymbol elementType) =>
+        elementType is ITypeParameterSymbol typeParameter
             ? typeParameter.HasReferenceTypeConstraint
             : !elementType.IsUnmanagedType;
 
@@ -97,7 +97,7 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
     /// <param name="invocation">The return invocation.</param>
     /// <param name="method">The bound return method.</param>
     /// <returns><see langword="true"/> when no flag is passed or a constant false is; opaque values are trusted.</returns>
-    private static bool ClearIsProvablyMissing(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method)
+    private static bool ClearIsProvablyMissing(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method)
     {
         var arguments = invocation.ArgumentList.Arguments;
         ArgumentSyntax? clearArgument = null;
@@ -115,11 +115,13 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
                 continue;
             }
 
-            if (i == 1 && method.Parameters.Length == FlagArgumentCount)
+            if (i != 1 || method.Parameters.Length != FlagArgumentCount)
             {
-                clearArgument = argument;
-                break;
+                continue;
             }
+
+            clearArgument = argument;
+            break;
         }
 
         if (clearArgument is null)

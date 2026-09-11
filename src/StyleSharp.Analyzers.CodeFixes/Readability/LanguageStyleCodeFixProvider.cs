@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Applies mechanical fixes for grouped language-style readability rules (SST1193-SST1199).</summary>
@@ -338,12 +340,13 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <param name="whenFalse">The expression used for the false branch.</param>
     /// <param name="operatorLeading">The trivia that precedes <c>?</c> and <c>:</c>.</param>
     /// <returns>The conditional expression.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ConditionalExpressionSyntax Conditional(
         ExpressionSyntax condition,
         ExpressionSyntax whenTrue,
         ExpressionSyntax whenFalse,
-        SyntaxTriviaList operatorLeading)
-        => SyntaxFactory.ConditionalExpression(
+        in SyntaxTriviaList operatorLeading) =>
+        SyntaxFactory.ConditionalExpression(
             condition.WithoutTrivia(),
             SyntaxFactory.Token(operatorLeading, SyntaxKind.QuestionToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             whenTrue.WithoutTrivia(),
@@ -355,8 +358,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <param name="whenTrue">The expression used for the true branch.</param>
     /// <param name="whenFalse">The expression used for the false branch.</param>
     /// <returns><see langword="true"/> when the replacement would nest a conditional expression.</returns>
-    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse)
-        => ContainsConditionalExpression(condition)
+    private static bool WouldNestConditionalExpression(ExpressionSyntax condition, ExpressionSyntax whenTrue, ExpressionSyntax whenFalse) =>
+        ContainsConditionalExpression(condition)
             || ContainsConditionalExpression(whenTrue)
             || ContainsConditionalExpression(whenFalse);
 
@@ -693,8 +696,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <summary>Gets the code action title for a supported diagnostic id.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The code action title, or <see langword="null"/>.</returns>
-    private static string? GetTitle(string diagnosticId)
-        => diagnosticId switch
+    private static string? GetTitle(string diagnosticId) =>
+        diagnosticId switch
         {
             "SST1193" => "Move assignment into initializer",
             "SST1194" => "Move Add call into initializer",

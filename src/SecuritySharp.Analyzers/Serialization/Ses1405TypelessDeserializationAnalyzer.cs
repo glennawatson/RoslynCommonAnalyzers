@@ -92,7 +92,7 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1405 for a <c>MessagePackSerializer.Typeless.Deserialize</c>/<c>DeserializeAsync</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="facade">The resolved typeless facade type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol facade)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol facade)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -120,7 +120,7 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="objectResolver">The resolved <c>TypelessObjectResolver</c>, or <see langword="null"/> when absent.</param>
     /// <param name="contractlessResolver">The resolved <c>TypelessContractlessStandardResolver</c>, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeResolverReference(SyntaxNodeAnalysisContext context, INamedTypeSymbol? objectResolver, INamedTypeSymbol? contractlessResolver)
+    private static void AnalyzeResolverReference(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? objectResolver, INamedTypeSymbol? contractlessResolver)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -154,16 +154,16 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
     /// <param name="objectResolver">The resolved <c>TypelessObjectResolver</c>, or <see langword="null"/> when absent.</param>
     /// <param name="contractlessResolver">The resolved <c>TypelessContractlessStandardResolver</c>, or <see langword="null"/> when absent.</param>
     /// <returns>The resolver's simple name, or <see langword="null"/> when the qualifier is not a gated resolver.</returns>
-    private static string? GetResolverDisplayName(INamedTypeSymbol resolverType, INamedTypeSymbol? objectResolver, INamedTypeSymbol? contractlessResolver)
-        => SymbolEqualityComparer.Default.Equals(resolverType, objectResolver) || SymbolEqualityComparer.Default.Equals(resolverType, contractlessResolver)
+    private static string? GetResolverDisplayName(INamedTypeSymbol resolverType, INamedTypeSymbol? objectResolver, INamedTypeSymbol? contractlessResolver) =>
+        SymbolEqualityComparer.Default.Equals(resolverType, objectResolver) || SymbolEqualityComparer.Default.Equals(resolverType, contractlessResolver)
             ? resolverType.Name
             : null;
 
     /// <summary>Returns the rightmost simple identifier of a qualifier expression, or <see langword="null"/>.</summary>
     /// <param name="expression">The qualifier expression to the left of a member access.</param>
     /// <returns>The rightmost identifier text, or <see langword="null"/> when the qualifier is not a name.</returns>
-    private static string? GetRightmostSimpleName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetRightmostSimpleName(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,

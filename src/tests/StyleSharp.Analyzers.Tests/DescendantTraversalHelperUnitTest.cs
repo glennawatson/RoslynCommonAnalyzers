@@ -65,8 +65,8 @@ public sealed class DescendantTraversalHelperUnitTest
     /// <summary>Parses a single type declaration for traversal helper tests.</summary>
     /// <param name="source">The source to parse.</param>
     /// <returns>The parsed type declaration.</returns>
-    private static TypeDeclarationSyntax ParseType(string source)
-        => (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
+    private static TypeDeclarationSyntax ParseType(string source) =>
+        (TypeDeclarationSyntax)SyntaxFactory.ParseCompilationUnit(source).Members[0];
 
     /// <summary>Adds one method name and keeps traversing.</summary>
     /// <param name="method">The visited method declaration.</param>

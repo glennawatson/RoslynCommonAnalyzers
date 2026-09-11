@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the collection-expression code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("CollectionExpressionCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class CollectionExpressionCodeFixBenchmarks : IDisposable
@@ -38,10 +40,10 @@ public class CollectionExpressionCodeFixBenchmarks : IDisposable
     public enum Shape
     {
         /// <summary>Uses an empty collection factory or literal.</summary>
-        Empty,
+        Empty = 0,
 
         /// <summary>Uses an explicit collection initializer.</summary>
-        Explicit
+        Explicit = 1,
     }
 
     /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
@@ -57,7 +59,7 @@ public class CollectionExpressionCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(
             _workspace,
             ModernizationCodeFixBenchmarkSource.GenerateCollectionExpression(Nodes, CurrentShape == Shape.Explicit));
@@ -70,6 +72,7 @@ public class CollectionExpressionCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 

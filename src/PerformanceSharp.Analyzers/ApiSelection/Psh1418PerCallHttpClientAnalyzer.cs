@@ -43,7 +43,7 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     /// <summary>The simple name of the HTTP client type.</summary>
     internal const string HttpClientTypeName = "HttpClient";
 
-    /// <summary>The index of the HTTP client in <see cref="ClientMetadataNames"/>.</summary>
+    /// <summary>The index of the HTTP client in <see cref="ClientSimpleNames"/>.</summary>
     private const int HttpClientIndex = 0;
 
     /// <summary>The metadata name of the HTTP client type.</summary>
@@ -60,28 +60,6 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The suggestion appended for the service clients, which are all safe to share across threads.</summary>
     private const string SharedClientSuggestion = "cache one shared instance for the lifetime of the process instead";
-
-    /// <summary>
-    /// The metadata names of the reported client types, indexed like <see cref="ClientSimpleNames"/>.
-    /// Every entry must be documented as thread-safe, intended for process-lifetime reuse, and expensive
-    /// to construct, so the shared-instance steer is always correct.
-    /// </summary>
-    private static readonly string[] ClientMetadataNames =
-    [
-        HttpClientMetadataName,
-        "Azure.Storage.Blobs.BlobServiceClient",
-        "Azure.Storage.Queues.QueueServiceClient",
-        "Azure.Storage.Files.Shares.ShareServiceClient",
-        "Azure.Storage.Files.DataLake.DataLakeServiceClient",
-        "Azure.Data.Tables.TableServiceClient",
-        "Azure.Messaging.ServiceBus.ServiceBusClient",
-        "Azure.Messaging.EventHubs.Producer.EventHubProducerClient",
-        "Azure.Messaging.EventGrid.EventGridPublisherClient",
-        "Microsoft.Azure.Cosmos.CosmosClient",
-        "Azure.Security.KeyVault.Secrets.SecretClient",
-        "Azure.Security.KeyVault.Keys.KeyClient",
-        "Azure.Security.KeyVault.Certificates.CertificateClient",
-    ];
 
     /// <summary>The simple names of the reported client types.</summary>
     private static readonly string[] ClientSimpleNames =
@@ -173,7 +151,7 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     /// <param name="entryPoint">The compilation's entry point, when it has one.</param>
     /// <param name="httpClientSuggestion">The compilation-specific replacement advice for the HTTP client.</param>
     private static void AnalyzeCreation(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ClientTypeCache clientTypes,
         IMethodSymbol? entryPoint,
         string httpClientSuggestion)
@@ -208,7 +186,7 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Maps a written simple name to its index in the client tables, without binding.</summary>
     /// <param name="simpleName">The written simple name, when the construction spells one.</param>
-    /// <returns>The index into <see cref="ClientMetadataNames"/>, or -1 when the name is not a known client.</returns>
+    /// <returns>The index into <see cref="ClientSimpleNames"/>, or -1 when the name is not a known client.</returns>
     private static int GetKnownClientIndex(string? simpleName)
     {
         if (simpleName is not null)
@@ -282,6 +260,28 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>The sentinel cached when a metadata name does not resolve.</summary>
         private static readonly object Absent = new();
+
+        /// <summary>
+        /// The metadata names of the reported client types, indexed like <see cref="ClientSimpleNames"/>.
+        /// Every entry must be documented as thread-safe, intended for process-lifetime reuse, and expensive
+        /// to construct, so the shared-instance steer is always correct.
+        /// </summary>
+        private static readonly string[] ClientMetadataNames =
+        [
+            HttpClientMetadataName,
+            "Azure.Storage.Blobs.BlobServiceClient",
+            "Azure.Storage.Queues.QueueServiceClient",
+            "Azure.Storage.Files.Shares.ShareServiceClient",
+            "Azure.Storage.Files.DataLake.DataLakeServiceClient",
+            "Azure.Data.Tables.TableServiceClient",
+            "Azure.Messaging.ServiceBus.ServiceBusClient",
+            "Azure.Messaging.EventHubs.Producer.EventHubProducerClient",
+            "Azure.Messaging.EventGrid.EventGridPublisherClient",
+            "Microsoft.Azure.Cosmos.CosmosClient",
+            "Azure.Security.KeyVault.Secrets.SecretClient",
+            "Azure.Security.KeyVault.Keys.KeyClient",
+            "Azure.Security.KeyVault.Certificates.CertificateClient",
+        ];
 
         /// <summary>The compilation the client types resolve in.</summary>
         private readonly Compilation _compilation;

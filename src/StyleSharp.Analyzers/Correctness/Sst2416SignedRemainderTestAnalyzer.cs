@@ -88,19 +88,19 @@ public sealed class Sst2416SignedRemainderTestAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The expression to evaluate.</param>
     /// <returns><see langword="true"/> for a non-zero integral constant.</returns>
-    private static bool IsNonZeroConstant(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
+    private static bool IsNonZeroConstant(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
     {
         var constant = context.SemanticModel.GetConstantValue(expression, context.CancellationToken);
         return constant is { HasValue: true, Value: { } value }
             && IsIntegral(value)
-            && Convert.ToDecimal(value, CultureInfo.InvariantCulture) != 0m;
+            && Convert.ToDecimal(value, CultureInfo.InvariantCulture) != 0M;
     }
 
     /// <summary>Returns whether a boxed constant is an integral value.</summary>
     /// <param name="value">The boxed constant.</param>
     /// <returns><see langword="true"/> for a signed or unsigned integer.</returns>
-    private static bool IsIntegral(object value)
-        => value is int or long or short or byte or sbyte or ushort or uint or ulong;
+    private static bool IsIntegral(object value) =>
+        value is int or long or short or byte or sbyte or ushort or uint or ulong;
 
     /// <summary>Returns whether an operand is provably non-negative from its syntax.</summary>
     /// <param name="expression">The dividend.</param>

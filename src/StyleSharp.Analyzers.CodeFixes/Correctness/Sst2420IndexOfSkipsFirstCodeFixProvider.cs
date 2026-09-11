@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,16 +22,17 @@ public sealed class Sst2420IndexOfSkipsFirstCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Test membership without skipping the first position",
             nameof(Sst2420IndexOfSkipsFirstCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported comparison and rewrites it to a correct membership test.</summary>
     /// <param name="root">The syntax root.</param>
@@ -91,7 +94,7 @@ public sealed class Sst2420IndexOfSkipsFirstCodeFixProvider : CodeFixProvider, I
         return zeroSide is LiteralExpressionSyntax { Token.Value: int and 0 }
             && invocationSide is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax member } invocation
             && member.Name.Identifier.ValueText is "IndexOf" or "LastIndexOf"
-                ? invocation
-                : null;
+            ? invocation
+            : null;
     }
 }

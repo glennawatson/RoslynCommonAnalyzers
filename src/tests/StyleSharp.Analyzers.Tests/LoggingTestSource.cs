@@ -68,5 +68,5 @@ internal static class LoggingTestSource
     /// <summary>Prepends the logging shim to a snippet of user code.</summary>
     /// <param name="code">The user code, in the global namespace.</param>
     /// <returns>The combined source.</returns>
-    public static string Wrap(string code) => Shim + "\n" + code;
+    internal static string Wrap(string code) => $"{Shim}\n{code}";
 }

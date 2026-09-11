@@ -42,8 +42,8 @@ public sealed class Sst2272EnumFlagValueStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a canonical <c>1 &lt;&lt; n</c> single-flag shift.</summary>
     /// <param name="expression">The value expression to inspect.</param>
     /// <returns><see langword="true"/> when it left-shifts the literal <c>1</c> by a literal amount.</returns>
-    internal static bool IsSingleFlagShift(ExpressionSyntax expression)
-        => expression is BinaryExpressionSyntax shift
+    internal static bool IsSingleFlagShift(ExpressionSyntax expression) =>
+        expression is BinaryExpressionSyntax shift
             && shift.IsKind(SyntaxKind.LeftShiftExpression)
             && shift.Left is LiteralExpressionSyntax { Token.Value: 1 } left
             && left.IsKind(SyntaxKind.NumericLiteralExpression)
@@ -73,7 +73,7 @@ public sealed class Sst2272EnumFlagValueStyleAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="member">The enum member to inspect.</param>
     /// <param name="style">The configured value style.</param>
-    private static void AnalyzeMember(SyntaxNodeAnalysisContext context, EnumMemberDeclarationSyntax member, EnumFlagValueStyle style)
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, EnumMemberDeclarationSyntax member, EnumFlagValueStyle style)
     {
         if (member.EqualsValue is not { } equalsValue)
         {

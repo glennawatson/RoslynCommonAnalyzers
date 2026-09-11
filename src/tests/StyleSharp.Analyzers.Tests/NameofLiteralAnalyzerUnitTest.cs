@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyNameofLiteral = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class NameofLiteralAnalyzerUnitTest
 {
     /// <summary>Verifies a name-shaped argument matching a property is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SymbolNameLiteralIsReportedAsync()
-        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+    public Task SymbolNameLiteralIsReportedAsync() =>
+        VerifyNameofLiteral.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -36,9 +38,10 @@ public class NameofLiteralAnalyzerUnitTest
     /// A local is in scope from its declarator onward, so the lookup finds it — but naming it inside its
     /// own initializer is CS0841, not a rename-safe reference.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralInTheLocalsOwnInitializerIsCleanAsync()
-        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+    public Task LiteralInTheLocalsOwnInitializerIsCleanAsync() =>
+        VerifyNameofLiteral.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -55,9 +58,10 @@ public class NameofLiteralAnalyzerUnitTest
     /// <summary>Verifies a literal is left alone when a pattern later on the line declares that name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     /// <remarks>The designation comes after the literal, so naming it there is CS0841.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LiteralBeforeAPatternDeclaringThatNameIsCleanAsync()
-        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+    public Task LiteralBeforeAPatternDeclaringThatNameIsCleanAsync() =>
+        VerifyNameofLiteral.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -77,9 +81,10 @@ public class NameofLiteralAnalyzerUnitTest
 
     /// <summary>Verifies ordinary message strings are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonNameParameterIsCleanAsync()
-        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+    public Task NonNameParameterIsCleanAsync() =>
+        VerifyNameofLiteral.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -123,15 +128,16 @@ public class NameofLiteralAnalyzerUnitTest
     }
 
     /// <summary>Verifies a name matching only a generic type is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The bare name of a generic type is not a name the language will take: where the only
     /// <c>Holder</c> in scope is <c>Holder&lt;T&gt;</c>, <c>nameof(Holder)</c> is CS0305, so suggesting it
     /// would trade a working string for a build error.
     /// </remarks>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NameMatchingOnlyAGenericTypeIsNotReportedAsync()
-        => await VerifyNameofLiteral.VerifyAnalyzerAsync(
+    public Task NameMatchingOnlyAGenericTypeIsNotReportedAsync() =>
+        VerifyNameofLiteral.VerifyAnalyzerAsync(
             """
             public sealed class Holder<T>
             {

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -86,8 +88,9 @@ public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvide
     /// <param name="keyword">The <c>float</c> or <c>double</c> keyword to call <c>IsNaN</c> on.</param>
     /// <param name="negated">Whether the call is negated.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary, string keyword, bool negated)
-        => document.WithSyntaxRoot(root.ReplaceNode(binary, Rewrite(binary, keyword, negated)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, BinaryExpressionSyntax binary, string keyword, bool negated) =>
+        document.WithSyntaxRoot(root.ReplaceNode(binary, Rewrite(binary, keyword, negated)));
 
     /// <summary>Resolves a diagnostic to the comparison it reported and the rewrite the analyzer chose.</summary>
     /// <param name="root">The syntax root.</param>
@@ -165,8 +168,8 @@ public sealed class Sst1473FloatingPointEqualityCodeFixProvider : CodeFixProvide
     /// For a self-comparison neither operand is <c>NaN</c> and the two are equivalent, so the left one is
     /// the answer either way.
     /// </remarks>
-    private static ExpressionSyntax GetTestedOperand(BinaryExpressionSyntax binary)
-        => Sst1473FloatingPointEqualityAnalyzer.IsNaNShaped(binary.Left) ? binary.Right : binary.Left;
+    private static ExpressionSyntax GetTestedOperand(BinaryExpressionSyntax binary) =>
+        Sst1473FloatingPointEqualityAnalyzer.IsNaNShaped(binary.Left) ? binary.Right : binary.Left;
 
     /// <summary>Maps a stored type keyword to its predefined-type token.</summary>
     /// <param name="keyword">The <c>float</c> or <c>double</c> keyword.</param>

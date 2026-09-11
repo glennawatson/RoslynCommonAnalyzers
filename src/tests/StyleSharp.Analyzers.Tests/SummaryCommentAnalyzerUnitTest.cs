@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1663SummaryCommentAnalyzer,
     StyleSharp.Analyzers.Sst1663SummaryCommentCodeFixProvider>;
@@ -13,9 +14,10 @@ public class SummaryCommentAnalyzerUnitTest
 {
     /// <summary>Verifies a comment separated from the member by a blank line is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlankLineSeparatedCommentIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BlankLineSeparatedCommentIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -27,9 +29,10 @@ public class SummaryCommentAnalyzerUnitTest
 
     /// <summary>Verifies a stacked multi-line comment block is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StackedCommentBlockIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StackedCommentBlockIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -41,9 +44,10 @@ public class SummaryCommentAnalyzerUnitTest
 
     /// <summary>Verifies a comment above a non-public member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonPublicMemberIsIgnoredAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonPublicMemberIsIgnoredAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {

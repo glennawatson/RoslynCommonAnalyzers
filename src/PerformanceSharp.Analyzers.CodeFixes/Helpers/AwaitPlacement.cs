@@ -18,21 +18,15 @@ internal static class AwaitPlacement
     /// <summary>Returns whether an <c>await</c> would be legal in the position a node occupies.</summary>
     /// <param name="node">The expression the await would replace.</param>
     /// <returns><see langword="true"/> when nothing between the node and its function forbids awaiting.</returns>
-    public static bool IsLegalAt(SyntaxNode node)
+    internal static bool IsLegalAt(SyntaxNode node)
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             switch (current)
             {
-                case LockStatementSyntax:
-                case UnsafeStatementSyntax:
-                case FixedStatementSyntax:
-                case CatchFilterClauseSyntax:
-                case QueryExpressionSyntax:
+                case LockStatementSyntax or UnsafeStatementSyntax or FixedStatementSyntax or CatchFilterClauseSyntax or QueryExpressionSyntax:
                     return false;
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
-                case MemberDeclarationSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or MemberDeclarationSyntax:
                     return true;
                 default:
                     continue;

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyMutableStatic = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -13,9 +14,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1499 (do not expose a mutable static field) and its fix.</summary>
 public class MutableStaticFieldAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the internal-visibility options are read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies a visible static field that nothing reassigns is reported and simply gains <c>readonly</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
@@ -152,20 +150,17 @@ public class MutableStaticFieldAnalyzerUnitTest
                                   public static readonly IReadOnlyList<int> Exposed = new List<int>();
                               }
                               """;
-        var test = new VerifyMutableStatic.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyMutableStatic.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies constants, private fields, and per-thread state are not shared mutable state.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantsPrivateFieldsAndThreadStaticAreCleanAsync()
-        => await VerifyMutableStatic.VerifyAnalyzerAsync(
+    public Task ConstantsPrivateFieldsAndThreadStaticAreCleanAsync() =>
+        VerifyMutableStatic.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -184,9 +179,10 @@ public class MutableStaticFieldAnalyzerUnitTest
 
     /// <summary>Verifies a field only its own type can reach — a public one inside a private nested type — is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldInPrivateNestedTypeIsCleanAsync()
-        => await VerifyMutableStatic.VerifyAnalyzerAsync(
+    public Task FieldInPrivateNestedTypeIsCleanAsync() =>
+        VerifyMutableStatic.VerifyAnalyzerAsync(
             """
             public class Outer
             {
@@ -201,9 +197,10 @@ public class MutableStaticFieldAnalyzerUnitTest
 
     /// <summary>Verifies an assembly-visible field is reported by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalFieldIsReportedByDefaultAsync()
-        => await VerifyMutableStatic.VerifyAnalyzerAsync(
+    public Task InternalFieldIsReportedByDefaultAsync() =>
+        VerifyMutableStatic.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -235,7 +232,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1499.include_internal = false
@@ -263,7 +260,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.include_internal = false
@@ -289,7 +286,7 @@ public class MutableStaticFieldAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1499.include_internal = sometimes

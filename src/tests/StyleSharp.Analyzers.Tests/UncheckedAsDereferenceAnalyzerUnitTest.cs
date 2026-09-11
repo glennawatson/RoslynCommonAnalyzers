@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUncheckedAsDereference = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2454UncheckedAsDereferenceAnalyzer>;
 
@@ -12,9 +13,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 {
     /// <summary>Verifies a member read through an 'as' result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessOnAsResultIsFlaggedAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task MemberAccessOnAsResultIsFlaggedAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -24,9 +26,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies a call through an 'as' result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CallOnAsResultIsFlaggedAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task CallOnAsResultIsFlaggedAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -36,9 +39,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies an index through an 'as' result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexOnAsResultIsFlaggedAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task IndexOnAsResultIsFlaggedAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -48,9 +52,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies extra parentheses around the conversion do not hide the dereference.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DoublyParenthesizedAsResultIsFlaggedAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task DoublyParenthesizedAsResultIsFlaggedAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -60,9 +65,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies unwrapping a nullable value type from an 'as' conversion is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableValueUnwrapOnAsResultIsFlaggedAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task NullableValueUnwrapOnAsResultIsFlaggedAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -72,9 +78,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies a conditional access is the null check the rule asks for and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessOnAsResultIsCleanAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task ConditionalAccessOnAsResultIsCleanAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -84,9 +91,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies an 'as' result that is only tested for null is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullTestedAsResultIsCleanAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task NullTestedAsResultIsCleanAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -96,9 +104,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies an 'as' result stored in a local is left alone; the flow question is not this rule's.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsResultStoredInLocalIsCleanAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task AsResultStoredInLocalIsCleanAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -112,9 +121,10 @@ public class UncheckedAsDereferenceAnalyzerUnitTest
 
     /// <summary>Verifies a cast, which throws with the right exception, is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastDereferenceIsCleanAsync()
-        => await VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
+    public Task CastDereferenceIsCleanAsync() =>
+        VerifyUncheckedAsDereference.VerifyAnalyzerAsync(
             """
             internal class C
             {

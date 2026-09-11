@@ -44,7 +44,7 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Add '{modifier}' modifier",
-                    cancellationToken => AddAsync(context.Document, root, member, accessibility, cancellationToken),
+                    _ => AddAsync(context.Document, root, member, accessibility),
                     equivalenceKey: nameof(Sst1400AccessModifierCodeFixProvider)),
                 diagnostic);
         }
@@ -72,9 +72,9 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="member">The member that omits an access modifier.</param>
     /// <param name="accessibility">The accessibility to declare.</param>
-    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The updated document.</returns>
-    internal static Task<Document> AddAsync(Document document, SyntaxNode root, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
+    /// <remarks>The rewrite is a pure syntax edit over a root the caller already has, so there is nothing to cancel.</remarks>
+    internal static Task<Document> AddAsync(Document document, SyntaxNode root, MemberDeclarationSyntax member, Accessibility accessibility)
     {
         var generator = SyntaxGenerator.GetGenerator(document);
         var updated = generator.WithAccessibility(member, accessibility);
@@ -90,6 +90,6 @@ public sealed class Sst1400AccessModifierCodeFixProvider : CodeFixProvider, IBat
     internal static async Task<Document> AddAsync(Document document, MemberDeclarationSyntax member, Accessibility accessibility, CancellationToken cancellationToken)
     {
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);
-        return await AddAsync(document, root!, member, accessibility, cancellationToken).ConfigureAwait(false);
+        return await AddAsync(document, root!, member, accessibility).ConfigureAwait(false);
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -28,20 +30,21 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Freeze the lookup", nameof(Psh1114FreezeStaticLookupsCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Freeze the lookup", nameof(Psh1114FreezeStaticLookupsCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported lookup field and builds its frozen replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => TryGetFixableField(root, diagnostic) is { } field
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryGetFixableField(root, diagnostic) is { } field
             ? new NodeReplacement(field, Rewrite(root, model, field, CancellationToken.None))
             : null;
 
@@ -105,8 +108,8 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
     /// creation — into an argument, or onto a member access — so it would be re-pointed at the wrapper's
     /// parameter, or left with no target at all. Naming the type keeps it building what it built before.
     /// </remarks>
-    private static ExpressionSyntax WithDeclaredType(BaseObjectCreationExpressionSyntax creation, GenericNameSyntax declaredType)
-        => creation is ImplicitObjectCreationExpressionSyntax implicitCreation
+    private static ExpressionSyntax WithDeclaredType(BaseObjectCreationExpressionSyntax creation, GenericNameSyntax declaredType) =>
+        creation is ImplicitObjectCreationExpressionSyntax implicitCreation
             ? SyntaxFactory.ObjectCreationExpression(
                 SyntaxFactory.Token(default, SyntaxKind.NewKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 declaredType.WithoutTrivia(),
@@ -143,17 +146,14 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
             arguments = arguments.Add(SyntaxFactory.Argument(comparer.WithoutTrivia()));
         }
 
-        if (hasImport)
-        {
-            return SyntaxFactory.InvocationExpression(
+        return hasImport
+            ? SyntaxFactory.InvocationExpression(
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
                     source,
                     SyntaxFactory.IdentifierName(wrapperName)),
-                SyntaxFactory.ArgumentList(arguments));
-        }
-
-        return SyntaxFactory.InvocationExpression(
+                SyntaxFactory.ArgumentList(arguments))
+            : SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.ParseExpression($"global::{FrozenNamespace}.{frozenName}"),

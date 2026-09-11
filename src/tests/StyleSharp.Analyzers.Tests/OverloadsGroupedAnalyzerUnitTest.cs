@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOverloads = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1218OverloadsGroupedAnalyzer,
     StyleSharp.Analyzers.Sst1218OverloadsGroupedCodeFixProvider>;
@@ -103,9 +104,10 @@ public class OverloadsGroupedAnalyzerUnitTest
 
     /// <summary>Verifies overloads that already sit together, with only comments between them, are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentOverloadsAreCleanAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task AdjacentOverloadsAreCleanAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -127,9 +129,10 @@ public class OverloadsGroupedAnalyzerUnitTest
     /// <summary>Verifies overloads the ordering rules place apart — a different accessibility, a different static-ness — are not compared.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Reporting these would demand a move that the member-ordering rules would then demand back.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverloadsInDifferentOrderingGroupsAreCleanAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task OverloadsInDifferentOrderingGroupsAreCleanAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -153,9 +156,10 @@ public class OverloadsGroupedAnalyzerUnitTest
 
     /// <summary>Verifies an explicit interface implementation follows its interface, not the name it shares.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceImplementationIsCleanAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceImplementationIsCleanAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public interface IWriter
             {
@@ -180,9 +184,10 @@ public class OverloadsGroupedAnalyzerUnitTest
 
     /// <summary>Verifies constructors are not measured: they already carry the type's name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorsAreNotMeasuredAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task ConstructorsAreNotMeasuredAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -202,9 +207,10 @@ public class OverloadsGroupedAnalyzerUnitTest
 
     /// <summary>Verifies each part of a partial type is judged on its own members.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypePartsAreJudgedSeparatelyAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task PartialTypePartsAreJudgedSeparatelyAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public partial class C
             {
@@ -283,9 +289,10 @@ public class OverloadsGroupedAnalyzerUnitTest
 
     /// <summary>Verifies a member of any kind between two overloads separates them.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertyBetweenOverloadsSeparatesThemAsync()
-        => await VerifyOverloads.VerifyAnalyzerAsync(
+    public Task PropertyBetweenOverloadsSeparatesThemAsync() =>
+        VerifyOverloads.VerifyAnalyzerAsync(
             """
             public class C
             {

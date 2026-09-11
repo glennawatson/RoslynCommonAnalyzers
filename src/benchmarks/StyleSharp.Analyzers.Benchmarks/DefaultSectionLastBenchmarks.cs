@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for default-section-last analysis (SST1219).</summary>
+[System.Diagnostics.DebuggerDisplay("DefaultSectionLastBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DefaultSectionLastBenchmarks
@@ -24,11 +26,13 @@ public class DefaultSectionLastBenchmarks
 
     /// <summary>Benchmarks the clean default-section-last path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DefaultSectionLast_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating default-section-last path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> DefaultSectionLast_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

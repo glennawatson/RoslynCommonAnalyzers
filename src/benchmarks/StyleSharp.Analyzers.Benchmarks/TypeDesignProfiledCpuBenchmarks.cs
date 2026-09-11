@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile (EventPipe) benchmarks for the type-design analyzer.</summary>
+[System.Diagnostics.DebuggerDisplay("TypeDesignProfiledCpuBenchmarks: {Nodes}")]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 [ShortRunJob]
 public class TypeDesignProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class TypeDesignProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean type-design path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TypeDesign_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating type-design path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TypeDesign_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

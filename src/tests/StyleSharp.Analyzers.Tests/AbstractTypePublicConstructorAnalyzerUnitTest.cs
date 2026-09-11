@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAbstractCtor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.TypeDesignAnalyzer,
     StyleSharp.Analyzers.AbstractTypePublicConstructorCodeFixProvider>;
@@ -37,9 +38,10 @@ public class AbstractTypePublicConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a protected abstract constructor and a public concrete constructor are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedAndConcreteAreCleanAsync()
-        => await VerifyAbstractCtor.VerifyAnalyzerAsync(
+    public Task ProtectedAndConcreteAreCleanAsync() =>
+        VerifyAbstractCtor.VerifyAnalyzerAsync(
             """
             public abstract class A
             {
@@ -58,9 +60,10 @@ public class AbstractTypePublicConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a public constructor is reported when a sibling part carries the abstract marker.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicConstructorOnAbstractPartialSiblingIsReportedAsync()
-        => await VerifyAbstractCtor.VerifyAnalyzerAsync(
+    public Task PublicConstructorOnAbstractPartialSiblingIsReportedAsync() =>
+        VerifyAbstractCtor.VerifyAnalyzerAsync(
             """
             public abstract partial class A
             {
@@ -76,9 +79,10 @@ public class AbstractTypePublicConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a concrete partial type keeps its public constructor clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicConstructorOnConcretePartialIsCleanAsync()
-        => await VerifyAbstractCtor.VerifyAnalyzerAsync(
+    public Task PublicConstructorOnConcretePartialIsCleanAsync() =>
+        VerifyAbstractCtor.VerifyAnalyzerAsync(
             """
             public partial class A
             {

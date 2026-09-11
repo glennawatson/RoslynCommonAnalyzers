@@ -66,7 +66,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="toolAttribute">The resolved model-tool attribute type.</param>
     /// <param name="sinks">The destructive sink types resolved for the compilation.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context, INamedTypeSymbol toolAttribute, DestructiveSinks sinks)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, INamedTypeSymbol toolAttribute, DestructiveSinks sinks)
     {
         var method = (MethodDeclarationSyntax)context.Node;
 
@@ -88,7 +88,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
             SecurityRules.NonDestructiveToolMutation,
             destructiveCall.SyntaxTree,
             destructiveCall.Span,
-            callee.ContainingType.Name + "." + callee.Name));
+            $"{callee.ContainingType.Name}.{callee.Name}"));
     }
 
     /// <summary>Returns whether a declaration carries a tool attribute that explicitly promises read-only or non-destructive behaviour.</summary>
@@ -97,7 +97,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <param name="toolAttribute">The resolved model-tool attribute type.</param>
     /// <returns><see langword="true"/> when a tool attribute sets <c>ReadOnly = true</c> or <c>Destructive = false</c>.</returns>
     private static bool DeclaresSafeTool(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         INamedTypeSymbol toolAttribute)
     {
@@ -127,7 +127,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="attribute">The bound tool attribute.</param>
     /// <returns><see langword="true"/> when an explicit safety hint is present.</returns>
-    private static bool PromisesSafety(SyntaxNodeAnalysisContext context, AttributeSyntax attribute)
+    private static bool PromisesSafety(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute)
     {
         if (attribute.ArgumentList is not { } argumentList)
         {
@@ -158,11 +158,11 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <param name="method">The tool method declaration.</param>
     /// <param name="sinks">The destructive sink types resolved for the compilation.</param>
     /// <returns>The scan state, whose <see cref="DestructiveScan.Found"/> holds the first destructive call when present.</returns>
-    private static DestructiveScan FindDestructiveCall(SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, DestructiveSinks sinks)
+    private static DestructiveScan FindDestructiveCall(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, DestructiveSinks sinks)
     {
         var scan = new DestructiveScan(context.SemanticModel, sinks, context.CancellationToken);
         SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!;
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, DestructiveScan>(body, ref scan, VisitInvocation);
+        _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, DestructiveScan>(body, ref scan, VisitInvocation);
         return scan;
     }
 
@@ -301,10 +301,13 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
         /// <returns><see langword="true"/> for a raw-SQL, bulk-delete, or bulk-update extension.</returns>
         private static bool IsEntityFrameworkBulkMutation(string name) => name switch
         {
-            "ExecuteSqlRaw" or "ExecuteSqlRawAsync" => true,
-            "ExecuteSqlInterpolated" or "ExecuteSqlInterpolatedAsync" => true,
-            "ExecuteDelete" or "ExecuteDeleteAsync" => true,
-            "ExecuteUpdate" or "ExecuteUpdateAsync" => true,
+            "ExecuteSqlRaw"
+                or "ExecuteSqlRawAsync"
+                or "ExecuteSqlInterpolated"
+                or "ExecuteSqlInterpolatedAsync"
+                or "ExecuteDelete"
+                or "ExecuteDeleteAsync"
+                or "ExecuteUpdate" or "ExecuteUpdateAsync" => true,
             _ => false,
         };
 
@@ -318,15 +321,9 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
         /// <param name="name">The callee name.</param>
         /// <param name="containingType">The callee's containing type.</param>
         /// <returns><see langword="true"/> for a file/directory delete or file overwrite.</returns>
-        private bool IsFileSystemSink(string name, INamedTypeSymbol containingType)
-        {
-            if (_file is { } file && SymbolEqualityComparer.Default.Equals(containingType, file))
-            {
-                return name is "Delete" or "WriteAllText" or "WriteAllTextAsync";
-            }
-
-            return _directory is { } directory && SymbolEqualityComparer.Default.Equals(containingType, directory) && name == "Delete";
-        }
+        private bool IsFileSystemSink(string name, INamedTypeSymbol containingType) => _file is { } file && SymbolEqualityComparer.Default.Equals(containingType, file)
+            ? name is "Delete" or "WriteAllText" or "WriteAllTextAsync"
+            : _directory is { } directory && SymbolEqualityComparer.Default.Equals(containingType, directory) && name == "Delete";
 
         /// <summary>Returns whether a call starts an external process.</summary>
         /// <param name="name">The callee name.</param>
@@ -351,12 +348,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
                 return false;
             }
 
-            if (name is "SaveChanges" or "SaveChangesAsync")
-            {
-                return IsOrDerivesFrom(containingType, dbContext);
-            }
-
-            return IsEntityFrameworkBulkMutation(name) && IsEntityFrameworkMember(containingType);
+            return name is "SaveChanges" or "SaveChangesAsync" ? IsOrDerivesFrom(containingType, dbContext) : IsEntityFrameworkBulkMutation(name) && IsEntityFrameworkMember(containingType);
         }
     }
 }

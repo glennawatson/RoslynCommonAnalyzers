@@ -355,11 +355,7 @@ public class Sst2708LifecycleEventSubscriptionAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifySubscription.Test
-        {
-            TestCode = Source,
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-        };
+        var test = new VerifySubscription.Test { TestCode = Source, ReferenceAssemblies = ReferenceAssemblies.Net.Net80, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -368,11 +364,7 @@ public class Sst2708LifecycleEventSubscriptionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifySubscription.Test
-        {
-            TestCode = source,
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-        };
+        var test = new VerifySubscription.Test { TestCode = source, ReferenceAssemblies = ReferenceAssemblies.Net.Net80, };
         test.TestState.Sources.Add(("ComponentBaseStub.cs", ComponentsStub));
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Diagnostic descriptors for modern C# syntax rules (SST22xx).</summary>
@@ -989,7 +991,7 @@ internal static class ModernSyntaxRules
         + "invocation still require the context, and a block containing any of them is left alone. A block with no pointer operations at all is not "
         + "reported here either — an unsafe modifier guarding nothing is a separate shape with its own rule.";
 
-    /// <summary>The diagnostic category every SST22xx descriptor is filed under.</summary>
+    /// <summary>The diagnostic category every descriptor in this range is filed under.</summary>
     private const string Category = "ModernSyntax";
 
     /// <summary>Creates a Warning-severity ModernSyntax descriptor whose help link points at the rule's docs page.</summary>
@@ -998,6 +1000,7 @@ internal static class ModernSyntaxRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor Create(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.Create(id, title, messageFormat, Category, description);
 
@@ -1027,6 +1030,7 @@ internal static class ModernSyntaxRules
     /// <param name="messageFormat">The message format.</param>
     /// <param name="description">The rule description.</param>
     /// <returns>The descriptor.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static DiagnosticDescriptor CreateOptIn(string id, string title, string messageFormat, string description) =>
         DescriptorFactory.CreateOptIn(id, title, messageFormat, Category, description);
 }

@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for redundant slice length analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RedundantLengthArgumentProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class RedundantLengthArgumentProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class RedundantLengthArgumentProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean redundant slice length path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantLengthArgument_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating redundant slice length path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RedundantLengthArgument_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

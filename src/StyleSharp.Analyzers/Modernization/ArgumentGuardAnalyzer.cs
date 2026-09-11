@@ -19,7 +19,7 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The name prefix every <c>ArgumentOutOfRangeException</c> guard helper shares.</summary>
+    /// <summary>The name prefix every <c>ArgumentOutOfRangeException</c> range helper shares.</summary>
     private const string RangeHelperNamePrefix = "ThrowIf";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
@@ -64,8 +64,8 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Creates a helper set that enables every guard pattern currently supported by the analyzer.</summary>
     /// <returns>A helper set suitable for hot-path benchmarks.</returns>
-    internal static GuardHelpers CreateBenchmarkHelpers()
-        => new(
+    internal static GuardHelpers CreateBenchmarkHelpers() =>
+        new(
             ThrowIfNull: true,
             ThrowIfNullOrEmpty: true,
             ThrowIfNullOrWhiteSpace: true,
@@ -151,7 +151,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the applicable guard-helper suggestion for one if statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="helpers">The guard helpers available in this compilation.</param>
-    private static void AnalyzeIf(SyntaxNodeAnalysisContext context, GuardHelpers helpers)
+    private static void AnalyzeIf(in SyntaxNodeAnalysisContext context, GuardHelpers helpers)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
 
@@ -199,7 +199,7 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="guardMethod">The matched guard method name.</param>
     /// <param name="checkedExpression">The checked string expression.</param>
     private static void ReportStringGuard(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         IfStatementSyntax ifStatement,
         GuardHelpers helpers,
         string guardMethod,
@@ -221,8 +221,8 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
     /// <param name="helpers">The guard helpers available in this scenario.</param>
     /// <param name="guardMethod">The matched guard method name.</param>
     /// <returns><see langword="true"/> when the corresponding helper exists.</returns>
-    private static bool IsStringGuardHelperAvailable(in GuardHelpers helpers, string guardMethod)
-        => guardMethod == ThrowGuardPatterns.IsNullOrEmpty ? helpers.ThrowIfNullOrEmpty : helpers.ThrowIfNullOrWhiteSpace;
+    private static bool IsStringGuardHelperAvailable(in GuardHelpers helpers, string guardMethod) =>
+        guardMethod == ThrowGuardPatterns.IsNullOrEmpty ? helpers.ThrowIfNullOrEmpty : helpers.ThrowIfNullOrWhiteSpace;
 
     /// <summary>Returns whether a type has a static method with the given name.</summary>
     /// <param name="type">The type symbol, when resolved.</param>
@@ -276,8 +276,8 @@ public sealed class ArgumentGuardAnalyzer : DiagnosticAnalyzer
         var index = 0;
         for (var i = 0; i < members.Length; i++)
         {
-            if (members[i] is not IMethodSymbol { IsStatic: true, Name: var name } ||
-                !name.StartsWith(RangeHelperNamePrefix, StringComparison.Ordinal))
+            if (members[i] is not IMethodSymbol { IsStatic: true, Name: var name }
+                || !name.StartsWith(RangeHelperNamePrefix, StringComparison.Ordinal))
             {
                 continue;
             }

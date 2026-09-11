@@ -11,8 +11,8 @@ internal static class ExceptionDiscardedInCatchBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            {{LoggerBenchmarkShim.Shim}}
 
            namespace Bench
@@ -26,8 +26,8 @@ internal static class ExceptionDiscardedInCatchBenchmarkSource
     /// <summary>Builds one type whose catch passes the exception to the logger.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Clean(int index)
-        => $$"""
+    private static string Clean(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void M(ILogger logger)
@@ -41,8 +41,8 @@ internal static class ExceptionDiscardedInCatchBenchmarkSource
     /// <summary>Builds one type whose error log discards the caught exception.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string Violating(int index)
-        => $$"""
+    private static string Violating(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void M(ILogger logger)

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAsyncVoid = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1905AsyncVoidAnalyzer,
     StyleSharp.Analyzers.Sst1905AsyncVoidCodeFixProvider>;
@@ -39,9 +40,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an async void method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidMethodReportedAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task AsyncVoidMethodReportedAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -56,15 +58,17 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an async void method is rewritten to return Task.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidMethodFixedToTaskAsync()
-        => await VerifyAsyncVoid.VerifyCodeFixAsync(AsyncVoidMethodSource, AsyncVoidMethodFixed);
+    public Task AsyncVoidMethodFixedToTaskAsync() =>
+        VerifyAsyncVoid.VerifyCodeFixAsync(AsyncVoidMethodSource, AsyncVoidMethodFixed);
 
     /// <summary>Verifies an async void local function is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidLocalFunctionReportedAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task AsyncVoidLocalFunctionReportedAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -84,9 +88,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an async void Action lambda — the fire-and-forget shape — is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidActionLambdaReportedAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task AsyncVoidActionLambdaReportedAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -103,9 +108,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies a genuine event-handler method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventHandlerMethodIsCleanAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task EventHandlerMethodIsCleanAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -121,9 +127,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an EventHandler-typed lambda is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventHandlerLambdaIsCleanAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task EventHandlerLambdaIsCleanAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -140,9 +147,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an async Task method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncTaskMethodIsCleanAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task AsyncTaskMethodIsCleanAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -157,9 +165,10 @@ public class Sst1905AsyncVoidAnalyzerUnitTest
 
     /// <summary>Verifies an async void override of an inherited void member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidOverrideIsCleanAsync()
-        => await VerifyAsyncVoid.VerifyAnalyzerAsync(
+    public Task AsyncVoidOverrideIsCleanAsync() =>
+        VerifyAsyncVoid.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 

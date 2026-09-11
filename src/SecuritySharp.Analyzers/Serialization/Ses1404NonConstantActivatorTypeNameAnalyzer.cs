@@ -64,7 +64,7 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
     /// <summary>Reports SES1404 when a by-name activator overload's <c>typeName</c> argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="activatorType">The resolved <c>System.Activator</c> type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol activatorType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol activatorType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -88,7 +88,7 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
             SecurityRules.NonConstantActivatorTypeName,
             typeName.SyntaxTree,
             typeName.Span,
-            member.ContainingType.Name + "." + member.Name));
+            $"{member.ContainingType.Name}.{member.Name}"));
     }
 
     /// <summary>Returns whether a bound method is an Activator by-name overload (first two parameters both <see cref="string"/>).</summary>

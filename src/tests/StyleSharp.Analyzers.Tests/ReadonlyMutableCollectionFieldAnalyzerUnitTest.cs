@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyReadonlyMutableCollectionField = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 {
     /// <summary>Verifies a public readonly field of a mutable collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicReadonlyListFieldIsReportedAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task PublicReadonlyListFieldIsReportedAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -28,9 +30,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies an internal readonly field of a mutable collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalReadonlyListFieldIsReportedAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task InternalReadonlyListFieldIsReportedAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -42,9 +45,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a protected readonly field of a mutable collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedReadonlyListFieldIsReportedAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task ProtectedReadonlyListFieldIsReportedAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -56,9 +60,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a protected internal readonly field of a mutable collection is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedInternalReadonlyListFieldIsReportedAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task ProtectedInternalReadonlyListFieldIsReportedAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -90,20 +95,17 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
                                   public readonly IList<int> {|SST2322:Exposed|} = new List<int>();
                               }
                               """;
-        var test = new VerifyReadonlyMutableCollectionField.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyReadonlyMutableCollectionField.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Verifies every declarator of one declaration is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryDeclaratorOfADeclarationIsReportedAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task EveryDeclaratorOfADeclarationIsReportedAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -115,9 +117,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a private readonly field keeps the collection under the type's own control and is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateReadonlyListFieldIsCleanAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task PrivateReadonlyListFieldIsCleanAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -131,9 +134,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a field with no accessibility keyword, which is private, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitlyPrivateReadonlyListFieldIsCleanAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task ImplicitlyPrivateReadonlyListFieldIsCleanAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -147,9 +151,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a static readonly collection field is out of scope here.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticReadonlyListFieldIsCleanAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task StaticReadonlyListFieldIsCleanAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -161,9 +166,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
 
     /// <summary>Verifies a readonly field of a non-collection type is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReadonlyScalarFieldIsCleanAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task ReadonlyScalarFieldIsCleanAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -189,11 +195,7 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
                                   public readonly ReadOnlyCollection<int> Wrapped = new(new List<int>());
                               }
                               """;
-        var test = new VerifyReadonlyMutableCollectionField.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyReadonlyMutableCollectionField.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -201,9 +203,10 @@ public class ReadonlyMutableCollectionFieldAnalyzerUnitTest
     /// <summary>Verifies a non-readonly collection field is left to other rules.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>The reference itself can move, which is a plainer problem than the one this rule guards.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonReadonlyListFieldIsCleanAsync()
-        => await VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
+    public Task NonReadonlyListFieldIsCleanAsync() =>
+        VerifyReadonlyMutableCollectionField.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 

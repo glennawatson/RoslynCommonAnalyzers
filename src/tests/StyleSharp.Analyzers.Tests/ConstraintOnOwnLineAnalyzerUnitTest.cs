@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyConstraint = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1127ConstraintOnOwnLineAnalyzer,
     StyleSharp.Analyzers.Sst1127ConstraintOnOwnLineCodeFixProvider>;
@@ -13,9 +14,10 @@ public class ConstraintOnOwnLineAnalyzerUnitTest
 {
     /// <summary>Verifies a constraint sharing the declaration line is reported (SST1127).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstraintSharingDeclarationLineReportedAsync()
-        => await VerifyConstraint.VerifyAnalyzerAsync(
+    public Task ConstraintSharingDeclarationLineReportedAsync() =>
+        VerifyConstraint.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -27,9 +29,10 @@ public class ConstraintOnOwnLineAnalyzerUnitTest
 
     /// <summary>Verifies a constraint on its own line is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstraintOnOwnLineIsCleanAsync()
-        => await VerifyConstraint.VerifyAnalyzerAsync(
+    public Task ConstraintOnOwnLineIsCleanAsync() =>
+        VerifyConstraint.VerifyAnalyzerAsync(
             """
             internal class C
             {

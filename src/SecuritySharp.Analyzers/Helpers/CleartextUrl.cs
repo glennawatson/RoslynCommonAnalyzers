@@ -22,7 +22,7 @@ internal static class CleartextUrl
     /// <summary>Reads the host out of a cleartext URL.</summary>
     /// <param name="text">The literal's text, beginning with <see cref="HttpSchemePrefix"/>.</param>
     /// <returns>The host segment; a bracketed IPv6 authority is returned without its brackets.</returns>
-    public static string ExtractHost(string text)
+    internal static string ExtractHost(string text)
     {
         var start = HttpSchemePrefix.Length;
 
@@ -31,7 +31,7 @@ internal static class CleartextUrl
         {
             var inner = start + 1;
             var close = text.IndexOf(']', inner);
-            return close < 0 ? text.Substring(inner) : text.Substring(inner, close - inner);
+            return close < 0 ? text[inner..] : text.Substring(inner, close - inner);
         }
 
         var end = start;
@@ -52,7 +52,7 @@ internal static class CleartextUrl
     /// <summary>Returns whether a parsed host is a loopback address that does not warrant a cleartext warning.</summary>
     /// <param name="host">The parsed host.</param>
     /// <returns><see langword="true"/> for a loopback or <c>*.localhost</c> host.</returns>
-    public static bool IsLoopbackHost(string host)
+    internal static bool IsLoopbackHost(string host)
     {
         if (string.Equals(host, "localhost", StringComparison.OrdinalIgnoreCase)
             || string.Equals(host, "127.0.0.1", StringComparison.Ordinal)

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -51,13 +53,15 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
 
     /// <summary>Analyzes the statements of one block.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void AnalyzeBlock(SyntaxNodeAnalysisContext context)
-        => AnalyzeStatements(context, ((BlockSyntax)context.Node).Statements);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeBlock(SyntaxNodeAnalysisContext context) =>
+        AnalyzeStatements(context, ((BlockSyntax)context.Node).Statements);
 
     /// <summary>Analyzes the statements of one switch section, which are not wrapped in a block.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void AnalyzeSwitchSection(SyntaxNodeAnalysisContext context)
-        => AnalyzeStatements(context, ((SwitchSectionSyntax)context.Node).Statements);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeSwitchSection(SyntaxNodeAnalysisContext context) =>
+        AnalyzeStatements(context, ((SwitchSectionSyntax)context.Node).Statements);
 
     /// <summary>Walks a statement list once, checking each adjacent pair.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -68,7 +72,7 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
     /// assignments in a row produce two diagnostics, on the first and the second — both of those writes are
     /// lost, and both are worth seeing.
     /// </remarks>
-    private static void AnalyzeStatements(SyntaxNodeAnalysisContext context, SyntaxList<StatementSyntax> statements)
+    private static void AnalyzeStatements(in SyntaxNodeAnalysisContext context, SyntaxList<StatementSyntax> statements)
     {
         if (statements.Count < MinimumStatements)
         {
@@ -96,12 +100,12 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
     /// <c>sum[i] += x</c> and <c>cache[k] ??= v</c> read the element before they write it, so neither can ever
     /// throw a value away, and neither is an <c>=</c>.
     /// </remarks>
-    private static AssignmentExpressionSyntax? TryGetElementWrite(StatementSyntax statement)
-        => statement is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment }
+    private static AssignmentExpressionSyntax? TryGetElementWrite(StatementSyntax statement) =>
+        statement is ExpressionStatementSyntax { Expression: AssignmentExpressionSyntax assignment }
             && assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && assignment.Left is ElementAccessExpressionSyntax
-                ? assignment
-                : null;
+            ? assignment
+            : null;
 
     /// <summary>Reports the earlier of two writes when the later one provably overwrites it.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -114,7 +118,7 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
     /// squiggle marks the dead line rather than the line that killed it.
     /// </remarks>
     private static void ReportLostWrite(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         StatementSyntax earlierStatement,
         StatementSyntax laterStatement,
         AssignmentExpressionSyntax earlier,
@@ -197,7 +201,7 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
             return true;
         }
 
-        DescendantTraversalHelper.VisitDescendants<ExpressionSyntax, ReceiverSearch>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             expression,
             ref search,
             static (ExpressionSyntax node, ref ReceiverSearch state) => state.Visit(node));
@@ -206,7 +210,11 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
     }
 
     /// <summary>Searches a subtree for an expression that reads the same collection as the assignment target.</summary>
-    private struct ReceiverSearch : IEquatable<ReceiverSearch>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct ReceiverSearch
     {
         /// <summary>The receiver being looked for.</summary>
         private readonly ExpressionSyntax _receiver;
@@ -238,17 +246,5 @@ public sealed class Sst1487OverwrittenCollectionElementAnalyzer : DiagnosticAnal
             _found = true;
             return false;
         }
-
-        /// <summary>Returns whether two searches are equivalent.</summary>
-        /// <param name="other">The other search.</param>
-        /// <returns><see langword="true"/> when both search for the same receiver and agree on the answer.</returns>
-        public readonly bool Equals(ReceiverSearch other)
-            => _found == other._found && ReferenceEquals(_receiver, other._receiver);
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is ReceiverSearch other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => _found ? 1 : 0;
     }
 }

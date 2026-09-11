@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>The resolved PSH1204 settings for one syntax tree.</summary>
@@ -49,15 +51,15 @@ internal readonly record struct EmptyStringStyleOptions(EmptyStringStyle Style)
     /// exactly what <c>== ""</c> answers for every input — so an unset or misspelled value can never
     /// change what a fixed file does when the string is null.
     /// </remarks>
-    public static EmptyStringStyleOptions Read(AnalyzerConfigOptions options)
-        => new(TryRead(options, StyleRuleKey, out var style) || TryRead(options, StyleGeneralKey, out style)
+    internal static EmptyStringStyleOptions Read(AnalyzerConfigOptions options) =>
+        new(TryRead(options, StyleRuleKey, out var style) || TryRead(options, StyleGeneralKey, out style)
             ? style
             : EmptyStringStyle.Pattern);
 
     /// <summary>Gets the cached diagnostic properties that carry a style to the code fix.</summary>
     /// <param name="style">The style the analyzer settled on.</param>
     /// <returns>The properties to attach to the diagnostic.</returns>
-    public static ImmutableDictionary<string, string?> GetProperties(EmptyStringStyle style) => style switch
+    internal static ImmutableDictionary<string, string?> GetProperties(EmptyStringStyle style) => style switch
     {
         EmptyStringStyle.Length => LengthProperties,
         EmptyStringStyle.IsNullOrEmpty => IsNullOrEmptyProperties,
@@ -71,16 +73,17 @@ internal readonly record struct EmptyStringStyleOptions(EmptyStringStyle Style)
     /// The fallback matters: a diagnostic from an older build, or one whose properties were dropped, must
     /// fix to the exact-equivalent pattern rather than to a form that changes null behavior.
     /// </remarks>
-    public static EmptyStringStyle ReadStyle(ImmutableDictionary<string, string?> properties)
-        => properties.TryGetValue(StyleKey, out var value) && TryParse(value, out var style)
+    internal static EmptyStringStyle ReadStyle(ImmutableDictionary<string, string?> properties) =>
+        properties.TryGetValue(StyleKey, out var value) && TryParse(value, out var style)
             ? style
             : EmptyStringStyle.Pattern;
 
     /// <summary>Builds the diagnostic properties naming one style.</summary>
     /// <param name="value">The style's configuration value.</param>
     /// <returns>The single-entry property map.</returns>
-    private static ImmutableDictionary<string, string?> CreateProperties(string value)
-        => ImmutableDictionary<string, string?>.Empty.Add(StyleKey, value);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ImmutableDictionary<string, string?> CreateProperties(string value) =>
+        ImmutableDictionary<string, string?>.Empty.Add(StyleKey, value);
 
     /// <summary>Tries to read and parse a style from a single editorconfig key.</summary>
     /// <param name="options">The analyzer config options.</param>

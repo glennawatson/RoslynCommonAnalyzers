@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,12 +23,13 @@ public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported loop and builds its opposite-style replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -64,8 +67,9 @@ public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, I
     /// <summary>Builds the <c>while (true)</c> form of a <c>for (;;)</c> loop.</summary>
     /// <param name="statement">The reported loop; callers must have validated the shape.</param>
     /// <returns>The rewritten loop.</returns>
-    private static WhileStatementSyntax ToWhile(ForStatementSyntax statement)
-        => SyntaxFactory.WhileStatement(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static WhileStatementSyntax ToWhile(ForStatementSyntax statement) =>
+        SyntaxFactory.WhileStatement(
             statement.AttributeLists,
             SyntaxFactory.Token(statement.ForKeyword.LeadingTrivia, SyntaxKind.WhileKeyword, statement.ForKeyword.TrailingTrivia),
             statement.OpenParenToken,
@@ -76,8 +80,9 @@ public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, I
     /// <summary>Builds the <c>for (;;)</c> form of a <c>while (true)</c> loop.</summary>
     /// <param name="statement">The reported loop; callers must have validated the shape.</param>
     /// <returns>The rewritten loop.</returns>
-    private static ForStatementSyntax ToFor(WhileStatementSyntax statement)
-        => SyntaxFactory.ForStatement(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ForStatementSyntax ToFor(WhileStatementSyntax statement) =>
+        SyntaxFactory.ForStatement(
             statement.AttributeLists,
             SyntaxFactory.Token(statement.WhileKeyword.LeadingTrivia, SyntaxKind.ForKeyword, statement.WhileKeyword.TrailingTrivia),
             statement.OpenParenToken,

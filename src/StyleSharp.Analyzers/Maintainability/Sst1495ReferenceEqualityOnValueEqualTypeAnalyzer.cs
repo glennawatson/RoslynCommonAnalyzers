@@ -30,8 +30,8 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer : Diagnosti
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.ReferenceEqualityOnValueEqualType);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -44,8 +44,8 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer : Diagnosti
     /// <summary>Returns whether a comparison compares references while the type compares values.</summary>
     /// <param name="type">The operand type.</param>
     /// <returns><see langword="true"/> when the type overrides Equals and leaves the operator alone.</returns>
-    internal static bool IsValueEqualWithoutOperator(ITypeSymbol type)
-        => OverridesObjectEquals(type) && !HasEqualityOperator(type);
+    internal static bool IsValueEqualWithoutOperator(ITypeSymbol type) =>
+        OverridesObjectEquals(type) && !HasEqualityOperator(type);
 
     /// <summary>Reports a reference comparison of a type that defines value equality.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -78,8 +78,8 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer : Diagnosti
     /// <summary>Returns whether an operand is a literal, which covers <c>null</c> and <c>default</c>.</summary>
     /// <param name="expression">The operand.</param>
     /// <returns><see langword="true"/> when the operand states a value rather than naming one.</returns>
-    private static bool IsLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax or DefaultExpressionSyntax;
+    private static bool IsLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax or DefaultExpressionSyntax;
 
     /// <summary>Returns whether an operand's type can meaningfully be compared by reference.</summary>
     /// <param name="type">The operand type.</param>
@@ -112,7 +112,7 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer : Diagnosti
     {
         for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
-            var candidates = current.GetMembers("Equals");
+            var candidates = current.GetMembers(nameof(Equals));
             for (var i = 0; i < candidates.Length; i++)
             {
                 if (candidates[i] is IMethodSymbol { IsOverride: true, Parameters.Length: 1 } method
@@ -133,7 +133,7 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeAnalyzer : Diagnosti
     {
         for (var current = type; current is not null && current.SpecialType != SpecialType.System_Object; current = current.BaseType)
         {
-            if (current.GetMembers(WellKnownMemberNames.EqualityOperatorName).Length > 0)
+            if (!current.GetMembers(WellKnownMemberNames.EqualityOperatorName).IsEmpty)
             {
                 return true;
             }

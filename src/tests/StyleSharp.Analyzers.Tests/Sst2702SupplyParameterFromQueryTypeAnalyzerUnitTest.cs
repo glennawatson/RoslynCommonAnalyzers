@@ -263,11 +263,7 @@ public class Sst2702SupplyParameterFromQueryTypeAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyQuery.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-        };
+        var test = new VerifyQuery.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, };
         test.TestState.Sources.Add(("ComponentsStub.cs", ComponentsStub));
         await test.RunAsync(CancellationToken.None);
     }
@@ -293,11 +289,7 @@ public class Sst2702SupplyParameterFromQueryTypeAnalyzerUnitTest
                               }
                               """;
 
-        var test = new VerifyQuery.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source,
-        };
+        var test = new VerifyQuery.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source, };
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -310,11 +302,7 @@ public class Sst2702SupplyParameterFromQueryTypeAnalyzerUnitTest
     /// </remarks>
     private static async Task VerifyAsync(string source)
     {
-        var test = new VerifyQuery.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = source,
-        };
+        var test = new VerifyQuery.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = source, };
         test.TestState.Sources.Add(("ComponentsStub.cs", ComponentsStub));
         await test.RunAsync(CancellationToken.None);
     }

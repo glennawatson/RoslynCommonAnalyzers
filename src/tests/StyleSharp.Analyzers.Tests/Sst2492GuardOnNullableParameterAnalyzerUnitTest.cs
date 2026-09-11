@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2492GuardOnNullableParameterAnalyzer>;
@@ -13,9 +14,10 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
 {
     /// <summary>Verifies a hand-written throw guard on a nullable-annotated parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowGuardOnAnnotatedParameterIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ThrowGuardOnAnnotatedParameterIsReportedAsync() =>
+        VerifyAsync("""
             #nullable enable
             using System;
 
@@ -30,9 +32,10 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
 
     /// <summary>Verifies a ThrowIfNull guard on a nullable-annotated parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowIfNullOnAnnotatedParameterIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ThrowIfNullOnAnnotatedParameterIsReportedAsync() =>
+        VerifyAsync("""
             #nullable enable
             using System;
 
@@ -47,9 +50,10 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
 
     /// <summary>Verifies a throw guard on an optional parameter defaulting to null is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowGuardOnOptionalNullParameterIsReportedAsync()
-        => await VerifyAsync("""
+    public Task ThrowGuardOnOptionalNullParameterIsReportedAsync() =>
+        VerifyAsync("""
             using System;
 
             public sealed class C
@@ -63,9 +67,10 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
 
     /// <summary>Verifies a throw guard on a non-nullable reference parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThrowGuardOnNonNullableParameterIsCleanAsync()
-        => await VerifyAsync("""
+    public Task ThrowGuardOnNonNullableParameterIsCleanAsync() =>
+        VerifyAsync("""
             #nullable enable
             using System;
 
@@ -81,9 +86,10 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
 
     /// <summary>Verifies a guard on a null-checked local rather than a parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardOnLocalIsCleanAsync()
-        => await VerifyAsync("""
+    public Task GuardOnLocalIsCleanAsync() =>
+        VerifyAsync("""
             #nullable enable
             using System;
 
@@ -105,11 +111,7 @@ public class Sst2492GuardOnNullableParameterAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

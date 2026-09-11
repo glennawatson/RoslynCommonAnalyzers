@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -326,11 +327,7 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
                                   public override int GetHashCode() => (Id.GetHashCode() * 397) ^ Age.GetHashCode();
                               }
                               """;
-        var test = new VerifyModernSyntaxReadability.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxReadability.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard20, TestCode = Source };
         AddModernParseOptions(test);
 
         await test.RunAsync(CancellationToken.None);
@@ -352,11 +349,7 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
                                   public (string name, int Age) M(Person person, string name) => (name: name, Age: person.Age);
                               }
                               """;
-        var test = new VerifyModernSyntaxReadability.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyModernSyntaxReadability.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -372,11 +365,7 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyModernSyntaxReadability.Test CreateNet80Test(string source, string? fixedSource = null)
     {
-        var test = new VerifyModernSyntaxReadability.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyModernSyntaxReadability.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         if (fixedSource is not null)
         {
@@ -389,8 +378,9 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
 
     /// <summary>Ensures feature-gated syntax rules run against a modern C# parse option.</summary>
     /// <param name="test">The test to configure.</param>
-    private static void AddModernParseOptions(VerifyModernSyntaxReadability.Test test)
-        => test.SolutionTransforms.Add(static (solution, projectId) =>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AddModernParseOptions(VerifyModernSyntaxReadability.Test test) =>
+        test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var projectParseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
             return solution.WithProjectParseOptions(projectId, projectParseOptions.WithLanguageVersion(LanguageVersion.CSharp12));

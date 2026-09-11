@@ -31,7 +31,7 @@ internal static class DocumentationElementOrder
     /// <summary>Gets the conventional rank of a documentation element name.</summary>
     /// <param name="name">The element's local name.</param>
     /// <returns>The rank, or -1 when the element has no place in the conventional order.</returns>
-    public static int RankOf(string name)
+    internal static int RankOf(string name)
     {
         for (var i = 0; i < RankedNames.Length; i++)
         {
@@ -47,7 +47,7 @@ internal static class DocumentationElementOrder
     /// <summary>Gets the local name of a documentation element node.</summary>
     /// <param name="node">The content node.</param>
     /// <returns>The element's local name, or <see langword="null"/> when the node is not an element.</returns>
-    public static string? NameOf(XmlNodeSyntax node) => node switch
+    internal static string? NameOf(XmlNodeSyntax node) => node switch
     {
         XmlElementSyntax element => element.StartTag.Name.LocalName.ValueText,
         XmlEmptyElementSyntax empty => empty.Name.LocalName.ValueText,
@@ -59,7 +59,7 @@ internal static class DocumentationElementOrder
     /// <param name="outOfOrder">The element written too early.</param>
     /// <param name="shouldPrecede">The name of the element it should have come before.</param>
     /// <returns><see langword="true"/> when the comment writes two ranked elements out of sequence.</returns>
-    public static bool TryFindFirstOutOfOrder(
+    internal static bool TryFindFirstOutOfOrder(
         DocumentationCommentTriviaSyntax documentation,
         out XmlNodeSyntax outOfOrder,
         out string shouldPrecede)

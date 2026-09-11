@@ -17,8 +17,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2466EmptyFinallyClauseCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(CorrectnessRules.EmptyFinallyClause.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(CorrectnessRules.EmptyFinallyClause.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDisposeInterface = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2316DisposeWithoutInterfaceAnalyzer,
     StyleSharp.Analyzers.Sst2316DisposeWithoutInterfaceCodeFixProvider>;
@@ -33,9 +34,10 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies a Dispose method with no IDisposable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeWithoutInterfaceReportedAsync()
-        => await VerifyDisposeInterface.VerifyAnalyzerAsync(
+    public Task DisposeWithoutInterfaceReportedAsync() =>
+        VerifyDisposeInterface.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -47,9 +49,10 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies a DisposeAsync method with no IAsyncDisposable is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeAsyncWithoutInterfaceReportedAsync()
-        => await VerifyDisposeInterface.VerifyAnalyzerAsync(
+    public Task DisposeAsyncWithoutInterfaceReportedAsync() =>
+        VerifyDisposeInterface.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 
@@ -61,9 +64,10 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies a ref struct with a pattern Dispose is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefStructDisposeIsCleanAsync()
-        => await VerifyDisposeInterface.VerifyAnalyzerAsync(
+    public Task RefStructDisposeIsCleanAsync() =>
+        VerifyDisposeInterface.VerifyAnalyzerAsync(
             """
             public ref struct C
             {
@@ -75,9 +79,10 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies a type that implements IDisposable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplementsDisposableIsCleanAsync()
-        => await VerifyDisposeInterface.VerifyAnalyzerAsync(
+    public Task ImplementsDisposableIsCleanAsync() =>
+        VerifyDisposeInterface.VerifyAnalyzerAsync(
             """
             public class C : System.IDisposable
             {
@@ -89,9 +94,10 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies a duck-typed enumerator with a Dispose is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DuckTypedEnumeratorIsCleanAsync()
-        => await VerifyDisposeInterface.VerifyAnalyzerAsync(
+    public Task DuckTypedEnumeratorIsCleanAsync() =>
+        VerifyDisposeInterface.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -107,7 +113,8 @@ public class Sst2316DisposeWithoutInterfaceAnalyzerUnitTest
 
     /// <summary>Verifies the fix adds the IDisposable interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DisposeFixedByAddingInterfaceAsync()
-        => await VerifyDisposeInterface.VerifyCodeFixAsync(DisposeSource, DisposeFixed);
+    public Task DisposeFixedByAddingInterfaceAsync() =>
+        VerifyDisposeInterface.VerifyCodeFixAsync(DisposeSource, DisposeFixed);
 }

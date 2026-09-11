@@ -18,6 +18,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// This is the level at which the <c>DescendantTokens</c>-to-allocation-free rewrite is visible
 /// (the end-to-end <see cref="MemberDocumentationBenchmarks"/> are dominated by compilation binding).
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("XmlDocumentationHelperMicroBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class XmlDocumentationHelperMicroBenchmarks

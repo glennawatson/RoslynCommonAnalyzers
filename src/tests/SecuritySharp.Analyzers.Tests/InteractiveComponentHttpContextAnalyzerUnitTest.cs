@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeInteractiveHttpContext = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -65,9 +66,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies an injected IHttpContextAccessor property on an interactive component is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InjectedAccessorReportedAsync()
-        => await VerifyAsync(
+    public Task InjectedAccessorReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -83,9 +85,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a cascaded HttpContext parameter on an interactive component is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CascadedHttpContextReportedAsync()
-        => await VerifyAsync(
+    public Task CascadedHttpContextReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -101,9 +104,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a constructor-injected IHttpContextAccessor on an interactive component is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorInjectedAccessorReportedAsync()
-        => await VerifyAsync(
+    public Task ConstructorInjectedAccessorReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -120,9 +124,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies an injected IHttpContextAccessor field on an interactive component is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InjectedAccessorFieldReportedAsync()
-        => await VerifyAsync(
+    public Task InjectedAccessorFieldReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -138,9 +143,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies the Interactive WebAssembly render mode is treated as interactive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WebAssemblyRenderModeReportedAsync()
-        => await VerifyAsync(
+    public Task WebAssemblyRenderModeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -156,9 +162,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies the Interactive Auto render mode is treated as interactive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AutoRenderModeReportedAsync()
-        => await VerifyAsync(
+    public Task AutoRenderModeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -174,9 +181,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a custom attribute deriving from a render-mode attribute is treated as interactive.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DerivedRenderModeAttributeReportedAsync()
-        => await VerifyAsync(
+    public Task DerivedRenderModeAttributeReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Http;
@@ -195,9 +203,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a component with no render mode (static server rendering) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticComponentNotReportedAsync()
-        => await VerifyAsync(
+    public Task StaticComponentNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Http;
@@ -211,9 +220,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies an interactive component injecting an unrelated service is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InteractiveComponentWithoutHttpContextNotReportedAsync()
-        => await VerifyAsync(
+    public Task InteractiveComponentWithoutHttpContextNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -232,9 +242,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a cascaded non-HttpContext parameter on an interactive component is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CascadedNonHttpContextNotReportedAsync()
-        => await VerifyAsync(
+    public Task CascadedNonHttpContextNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -249,9 +260,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a non-component type carrying a render-mode attribute and an accessor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonComponentWithRenderModeNotReportedAsync()
-        => await VerifyAsync(
+    public Task NonComponentWithRenderModeNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -267,9 +279,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a component whose only attribute is not a render mode is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComponentWithNonRenderModeAttributeNotReportedAsync()
-        => await VerifyAsync(
+    public Task ComponentWithNonRenderModeAttributeNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Http;
@@ -284,9 +297,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies plain and unrelated-attributed members on an interactive component are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InteractiveComponentWithPlainMembersNotReportedAsync()
-        => await VerifyAsync(
+    public Task InteractiveComponentWithPlainMembersNotReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
             using Microsoft.AspNetCore.Components.Web;
@@ -305,9 +319,10 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
 
     /// <summary>Verifies a project without the Blazor markers registers nothing (the rule is gated off).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoBlazorReferencesNotReportedAsync()
-        => await VerifyAsync(
+    public Task NoBlazorReferencesNotReportedAsync() =>
+        VerifyAsync(
             """
             public class Dashboard
             {
@@ -320,11 +335,7 @@ public class InteractiveComponentHttpContextAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeInteractiveHttpContext.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeInteractiveHttpContext.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

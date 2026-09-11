@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for SST1155 object-creation-expression argument unique-lines analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLinesProfiledC
 
     /// <summary>Benchmarks the clean SST1155 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLines_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating SST1155 path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1155ObjectCreationExpressionArgumentMustBeOnUniqueLines_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -92,14 +92,14 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
     /// <param name="keySymbol">The captured key variable's symbol.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the identifier binds to the same local or parameter as the key argument.</returns>
-    internal static bool IsCapturedKeyReference(SemanticModel model, IdentifierNameSyntax identifier, string keyName, ISymbol keySymbol, CancellationToken cancellationToken)
-        => identifier.Identifier.ValueText == keyName
+    internal static bool IsCapturedKeyReference(SemanticModel model, IdentifierNameSyntax identifier, string keyName, ISymbol keySymbol, CancellationToken cancellationToken) =>
+        identifier.Identifier.ValueText == keyName
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, keySymbol);
 
     /// <summary>Reports PSH1006 for each factory lambda that captures the outer key variable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="dictionaryType">The resolved <c>ConcurrentDictionary`2</c> type for this compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetFactoryCallShape(invocation, out var memberAccess, out var keyIdentifier)
@@ -132,8 +132,8 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
     /// <summary>Returns whether a factory method name gates further analysis.</summary>
     /// <param name="name">The member access name to test.</param>
     /// <returns><see langword="true"/> for GetOrAdd and AddOrUpdate.</returns>
-    private static bool IsFactoryMethodName(string name)
-        => name is GetOrAddMethodName or AddOrUpdateMethodName;
+    private static bool IsFactoryMethodName(string name) =>
+        name is GetOrAddMethodName or AddOrUpdateMethodName;
 
     /// <summary>Returns whether any argument after the key is a simple or parenthesized lambda.</summary>
     /// <param name="arguments">The invocation's arguments.</param>
@@ -154,8 +154,8 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
     /// <summary>Returns whether a lambda declares its own (first) key parameter.</summary>
     /// <param name="lambda">The lambda to inspect.</param>
     /// <returns><see langword="true"/> when the lambda has at least one parameter.</returns>
-    private static bool HasOwnKeyParameter(LambdaExpressionSyntax lambda)
-        => lambda switch
+    private static bool HasOwnKeyParameter(LambdaExpressionSyntax lambda) =>
+        lambda switch
         {
             SimpleLambdaExpressionSyntax => true,
             ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.ParameterList.Parameters.Count > 0,
@@ -197,7 +197,7 @@ public sealed class Psh1006ConcurrentDictionaryClosureCaptureAnalyzer : Diagnost
             return true;
         }
 
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, KeyReferenceScanState>(lambda.Body, ref state, VisitKeyReference);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, KeyReferenceScanState>(lambda.Body, ref state, VisitKeyReference);
         return state.Found;
     }
 

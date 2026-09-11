@@ -36,7 +36,7 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     private static readonly HashSet<string> AllowedPrefixes = new(StringComparer.Ordinal)
     {
         "as", "at", "by", "db", "do", "ef", "gc", "go", "id", "if", "in", "io", "is", "it",
-        "js", "ms", "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok"
+        "js", "ms", "my", "no", "of", "on", "or", "so", "to", "ui", "up", "us", "ok",
     };
 
     /// <summary>The kinds whose identifiers are inspected for Hungarian notation.</summary>
@@ -97,7 +97,7 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the identifier when its name appears to use Hungarian notation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The identifier token.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxToken identifier)
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken identifier)
     {
         if (!TryGetHungarianPrefix(identifier.ValueText, out var prefix) || IsAllowedPrefix(context, prefix))
         {
@@ -134,7 +134,7 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="prefix">The candidate Hungarian prefix.</param>
     /// <returns><see langword="true"/> when the prefix should not be flagged.</returns>
-    private static bool IsAllowedPrefix(SyntaxNodeAnalysisContext context, string prefix)
+    private static bool IsAllowedPrefix(in SyntaxNodeAnalysisContext context, string prefix)
     {
         if (AllowedPrefixes.Contains(prefix))
         {
@@ -152,8 +152,8 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     /// <param name="key">The editorconfig key to read.</param>
     /// <param name="prefix">The prefix to find.</param>
     /// <returns><see langword="true"/> when the list is present and contains the prefix.</returns>
-    private static bool ConfiguredListContains(AnalyzerConfigOptions options, string key, string prefix)
-        => options.TryGetValue(key, out var list) && list.Length != 0 && ListContainsToken(list, prefix);
+    private static bool ConfiguredListContains(AnalyzerConfigOptions options, string key, string prefix) =>
+        options.TryGetValue(key, out var list) && list.Length != 0 && ListContainsToken(list, prefix);
 
     /// <summary>Returns whether a comma- or whitespace-separated list contains an exact (case-insensitive) token.</summary>
     /// <param name="list">The raw list value.</param>
@@ -191,6 +191,6 @@ public sealed class Sst1305HungarianNotationAnalyzer : DiagnosticAnalyzer
     /// <param name="length">The slice length.</param>
     /// <param name="token">The token to compare against.</param>
     /// <returns><see langword="true"/> when the slice equals the token.</returns>
-    private static bool TokenEquals(string list, int start, int length, string token)
-        => length == token.Length && string.Compare(list, start, token, 0, length, StringComparison.OrdinalIgnoreCase) == 0;
+    private static bool TokenEquals(string list, int start, int length, string token) =>
+        length == token.Length && string.Compare(list, start, token, 0, length, StringComparison.OrdinalIgnoreCase) == 0;
 }

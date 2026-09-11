@@ -27,8 +27,8 @@ public sealed class Sst2494ConstantNullCoalesceAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.ConstantNullCoalesce);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -70,10 +70,7 @@ public sealed class Sst2494ConstantNullCoalesceAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool CouldBeConstant(ExpressionSyntax expression) => expression switch
     {
-        LiteralExpressionSyntax => true,
-        DefaultExpressionSyntax => true,
-        IdentifierNameSyntax => true,
-        MemberAccessExpressionSyntax => true,
+        LiteralExpressionSyntax or DefaultExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax => true,
         ParenthesizedExpressionSyntax parenthesized => CouldBeConstant(parenthesized.Expression),
         CastExpressionSyntax cast => CouldBeConstant(cast.Expression),
         _ => false,

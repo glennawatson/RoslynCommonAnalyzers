@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAsyncOptions = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1318AsyncOptionsValidationAnalyzer>;
 
@@ -48,9 +49,10 @@ public class Psh1318AsyncOptionsValidationAnalyzerUnitTest
 
     /// <summary>Verifies a validator that blocks on a task is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockingValidatorReportedAsync()
-        => await VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
+    public Task BlockingValidatorReportedAsync() =>
+        VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
             public class MyValidator : IValidateOptions<MyOptions>
             {
                 public ValidateOptionsResult {|PSH1318:Validate|}(string? name, MyOptions options)
@@ -63,9 +65,10 @@ public class Psh1318AsyncOptionsValidationAnalyzerUnitTest
 
     /// <summary>Verifies a validator that reads a task result is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultReadReportedAsync()
-        => await VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
+    public Task ResultReadReportedAsync() =>
+        VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
             public class MyValidator : IValidateOptions<MyOptions>
             {
                 public ValidateOptionsResult {|PSH1318:Validate|}(string? name, MyOptions options)
@@ -78,9 +81,10 @@ public class Psh1318AsyncOptionsValidationAnalyzerUnitTest
 
     /// <summary>Verifies a validator that does no asynchronous work is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SynchronousValidatorIsCleanAsync()
-        => await VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
+    public Task SynchronousValidatorIsCleanAsync() =>
+        VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
             public class MyValidator : IValidateOptions<MyOptions>
             {
                 public ValidateOptionsResult Validate(string? name, MyOptions options)
@@ -92,9 +96,10 @@ public class Psh1318AsyncOptionsValidationAnalyzerUnitTest
 
     /// <summary>Verifies a validator that already offers the asynchronous interface is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AlreadyAsyncValidatorIsCleanAsync()
-        => await VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
+    public Task AlreadyAsyncValidatorIsCleanAsync() =>
+        VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
             public class MyValidator : IValidateOptions<MyOptions>, IAsyncValidateOptions<MyOptions>
             {
                 public ValidateOptionsResult Validate(string? name, MyOptions options)
@@ -110,9 +115,10 @@ public class Psh1318AsyncOptionsValidationAnalyzerUnitTest
 
     /// <summary>Verifies a blocking method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedValidateIsCleanAsync()
-        => await VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
+    public Task UnrelatedValidateIsCleanAsync() =>
+        VerifyAsyncOptions.VerifyAnalyzerAsync(OptionsApi + """
             public class Checker
             {
                 public bool Validate(string? name)

@@ -26,8 +26,8 @@ internal static class LineLengthBudget
     /// <param name="compilation">The active compilation.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns>The maximum line length, or <see langword="null"/> when no ceiling is in force.</returns>
-    public static int? Read(SyntaxTree tree, AnalyzerOptions options, Compilation compilation, CancellationToken cancellationToken)
-        => DiagnosticSeverityConfiguration.IsOff(LineLengthRuleId, tree, options, compilation, cancellationToken)
+    internal static int? Read(SyntaxTree tree, AnalyzerOptions options, Compilation compilation, CancellationToken cancellationToken) =>
+        DiagnosticSeverityConfiguration.IsOff(LineLengthRuleId, tree, options, compilation, cancellationToken)
             ? null
             : SizeLimitOptions.ReadMaxLineLength(options.AnalyzerConfigOptionsProvider.GetOptions(tree));
 
@@ -38,11 +38,11 @@ internal static class LineLengthBudget
     /// <param name="compilation">The active compilation.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the rewrite fits, or when no ceiling is in force.</returns>
-    public static bool Fits(
+    internal static bool Fits(
         int lineLength,
         SyntaxTree tree,
         AnalyzerOptions options,
         Compilation compilation,
-        CancellationToken cancellationToken)
-        => Read(tree, options, compilation, cancellationToken) is not { } maximum || lineLength <= maximum;
+        CancellationToken cancellationToken) =>
+        Read(tree, options, compilation, cancellationToken) is not { } maximum || lineLength <= maximum;
 }

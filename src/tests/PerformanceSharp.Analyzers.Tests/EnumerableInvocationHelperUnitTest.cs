@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 using Microsoft.CodeAnalysis;
@@ -12,10 +13,7 @@ using RoslynCommon.Analyzers.Tests;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="EnumerableInvocationHelper"/>, the <c>System.Linq.Enumerable</c>
-/// resolution shared by the LINQ chain, usage, and native-method analyzers.
-/// </summary>
+/// <summary>Direct tests for <see cref="EnumerableInvocationHelper"/>, the <c>System.Linq.Enumerable</c> resolution shared by the LINQ chain, usage, and native-method analyzers.</summary>
 public class EnumerableInvocationHelperUnitTest
 {
     /// <summary>A compilation unit exercising an Enumerable call, a native call, and a string call.</summary>
@@ -85,6 +83,7 @@ public class EnumerableInvocationHelperUnitTest
     /// <param name="root">The syntax root to search.</param>
     /// <param name="memberName">The invoked member name.</param>
     /// <returns>The matching invocation.</returns>
+    /// <exception cref="InvalidOperationException">No member access named <paramref name="memberName"/> is invoked anywhere under <paramref name="root"/>.</exception>
     private static InvocationExpressionSyntax InvocationNamed(SyntaxNode root, string memberName)
     {
         foreach (var node in root.DescendantNodes())
@@ -103,10 +102,11 @@ public class EnumerableInvocationHelperUnitTest
     /// <summary>Compiles the source against the running framework's reference assemblies.</summary>
     /// <param name="source">The compilation unit source.</param>
     /// <returns>The compilation.</returns>
-    private static CSharpCompilation Compile(string source)
-        => CSharpCompilation.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static CSharpCompilation Compile(string source) =>
+        CSharpCompilation.Create(
             "EnumerableInvocationHelperTests",
             [CSharpSyntaxTree.ParseText(source)],
             RuntimeMetadataReferences.Platform,
-            new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+            new(OutputKind.DynamicallyLinkedLibrary));
 }

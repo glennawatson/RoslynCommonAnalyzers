@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -19,12 +21,13 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use const", nameof(Psh1402PreferConstOverStaticReadonlyCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use const", nameof(Psh1402PreferConstOverStaticReadonlyCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported field or local declaration and builds its <c>const</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -35,7 +38,7 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         if (node.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>() is { } local)
         {
-            diagnostic.Properties.TryGetValue(Psh1402PreferConstOverStaticReadonlyAnalyzer.ExplicitTypeKey, out var explicitTypeName);
+            _ = diagnostic.Properties.TryGetValue(Psh1402PreferConstOverStaticReadonlyAnalyzer.ExplicitTypeKey, out var explicitTypeName);
             return new NodeReplacement(local, Rewrite(local, explicitTypeName));
         }
 

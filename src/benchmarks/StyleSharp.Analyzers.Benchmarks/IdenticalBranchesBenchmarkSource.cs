@@ -11,8 +11,8 @@ internal static class IdenticalBranchesBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit identical-branch rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,8 +22,8 @@ internal static class IdenticalBranchesBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose branches all decide something, producing no diagnostics.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class IdenticalBranchesBenchmarkSource
     /// whose arms differ, and a conditional expression whose arms differ. Exactly zero diagnostics — and no
     /// construct reaches the semantic model, which is what this corpus exists to prove.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public int Classify(int value)
@@ -90,8 +90,8 @@ internal static class IdenticalBranchesBenchmarkSource
     /// Five diagnostics per block: the if/else, the three-branch chain, the switch statement, the switch
     /// expression, and the conditional expression.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public int Classify(int value)

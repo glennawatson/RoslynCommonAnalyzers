@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,7 +23,7 @@ internal static class LogMessageTemplate
     /// <summary>Parses a template's value text into its placeholders.</summary>
     /// <param name="text">The template's value text.</param>
     /// <returns>The placeholders, in source order, or an empty array when there are none.</returns>
-    public static LogPlaceholder[] Parse(string text)
+    internal static LogPlaceholder[] Parse(string text)
     {
         var count = Scan(text, null);
         if (count == 0)
@@ -30,7 +32,7 @@ internal static class LogMessageTemplate
         }
 
         var placeholders = new LogPlaceholder[count];
-        Scan(text, placeholders);
+        _ = Scan(text, placeholders);
         return placeholders;
     }
 
@@ -39,7 +41,7 @@ internal static class LogMessageTemplate
     /// <param name="first">The first placeholder.</param>
     /// <param name="second">The second placeholder.</param>
     /// <returns><see langword="true"/> when the names match.</returns>
-    public static bool NamesEqual(string text, in LogPlaceholder first, in LogPlaceholder second)
+    internal static bool NamesEqual(string text, in LogPlaceholder first, in LogPlaceholder second)
     {
         var length = first.NameLength;
         return length == second.NameLength
@@ -51,23 +53,25 @@ internal static class LogMessageTemplate
     /// <param name="placeholder">The placeholder.</param>
     /// <param name="candidate">The candidate name.</param>
     /// <returns><see langword="true"/> when the name matches the candidate.</returns>
-    public static bool NameEquals(string text, in LogPlaceholder placeholder, string candidate)
-        => placeholder.NameLength == candidate.Length
+    internal static bool NameEquals(string text, in LogPlaceholder placeholder, string candidate) =>
+        placeholder.NameLength == candidate.Length
             && string.Compare(text, placeholder.NameStart, candidate, 0, candidate.Length, System.StringComparison.OrdinalIgnoreCase) == 0;
 
     /// <summary>Materializes a placeholder's name.</summary>
     /// <param name="text">The template's value text.</param>
     /// <param name="placeholder">The placeholder.</param>
     /// <returns>The name.</returns>
-    public static string GetName(string text, in LogPlaceholder placeholder)
-        => text.Substring(placeholder.NameStart, placeholder.NameLength);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GetName(string text, in LogPlaceholder placeholder) =>
+        text.Substring(placeholder.NameStart, placeholder.NameLength);
 
     /// <summary>Materializes a placeholder's full text, braces included.</summary>
     /// <param name="text">The template's value text.</param>
     /// <param name="placeholder">The placeholder.</param>
     /// <returns>The placeholder text.</returns>
-    public static string GetText(string text, in LogPlaceholder placeholder)
-        => text.Substring(placeholder.ValueStart, placeholder.ValueEnd - placeholder.ValueStart);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GetText(string text, in LogPlaceholder placeholder) =>
+        text.Substring(placeholder.ValueStart, placeholder.ValueEnd - placeholder.ValueStart);
 
     /// <summary>Scans the template, counting placeholders and, when a buffer is supplied, recording them.</summary>
     /// <param name="text">The template's value text.</param>
@@ -150,8 +154,8 @@ internal static class LogMessageTemplate
     /// <param name="text">The template's value text.</param>
     /// <param name="index">The offset of the brace.</param>
     /// <returns><see langword="true"/> when the next character repeats the brace.</returns>
-    private static bool IsDoubled(string text, int index)
-        => index + 1 < text.Length && text[index + 1] == text[index];
+    private static bool IsDoubled(string text, int index) =>
+        index + 1 < text.Length && text[index + 1] == text[index];
 
     /// <summary>Classifies one placeholder from the span between its braces.</summary>
     /// <param name="text">The template's value text.</param>
@@ -171,15 +175,17 @@ internal static class LogMessageTemplate
         var nameEnd = contentEnd;
         for (var q = nameStart; q < contentEnd; q++)
         {
-            if (text[q] is ',' or ':')
+            if (text[q] is not (',' or ':'))
             {
-                nameEnd = q;
-                break;
+                continue;
             }
+
+            nameEnd = q;
+            break;
         }
 
         var kind = ClassifyName(text, nameStart, nameEnd);
-        return new LogPlaceholder(kind, valueStart, valueEnd, nameStart, nameEnd);
+        return new(kind, valueStart, valueEnd, nameStart, nameEnd);
     }
 
     /// <summary>Classifies the name span of a placeholder.</summary>
@@ -215,8 +221,8 @@ internal static class LogMessageTemplate
     /// <summary>Returns whether a character can appear in a placeholder name.</summary>
     /// <param name="ch">The character.</param>
     /// <returns><see langword="true"/> when the character is a letter, digit, or underscore.</returns>
-    private static bool IsNameChar(char ch)
-        => ch is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
+    private static bool IsNameChar(char ch) =>
+        ch is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '_';
 
     /// <summary>Returns whether a character is a digit.</summary>
     /// <param name="ch">The character.</param>

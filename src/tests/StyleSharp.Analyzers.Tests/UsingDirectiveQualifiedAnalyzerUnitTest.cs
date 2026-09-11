@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUsingQualified = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1135UsingDirectiveQualifiedAnalyzer,
     StyleSharp.Analyzers.Sst1135UsingDirectiveQualifiedCodeFixProvider>;
@@ -63,9 +64,10 @@ public class UsingDirectiveQualifiedAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified using is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedUsingIsCleanAsync()
-        => await VerifyUsingQualified.VerifyAnalyzerAsync(
+    public Task QualifiedUsingIsCleanAsync() =>
+        VerifyUsingQualified.VerifyAnalyzerAsync(
             """
             using System.Threading.Tasks;
 

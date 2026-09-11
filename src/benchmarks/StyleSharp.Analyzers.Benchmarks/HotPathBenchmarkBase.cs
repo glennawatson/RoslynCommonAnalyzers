@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -12,7 +13,8 @@ using Microsoft.CodeAnalysis.Diagnostics;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Shared setup for the hot-path analyzer benchmarks.</summary>
-public abstract class HotPathBenchmarkBase
+[System.Diagnostics.DebuggerDisplay("HotPathBenchmarkBase: {Nodes}")]
+public class HotPathBenchmarkBase
 {
     /// <summary>The spacing analyzers used by the hot-path suites.</summary>
     private static readonly ImmutableArray<DiagnosticAnalyzer> SpacingAnalyzers = [new SpacingAnalyzer()];
@@ -22,6 +24,12 @@ public abstract class HotPathBenchmarkBase
 
     /// <summary>The argument-guard analyzers used by the hot-path suites.</summary>
     private static readonly ImmutableArray<DiagnosticAnalyzer> ArgumentGuardAnalyzers = [new ArgumentGuardAnalyzer()];
+
+    /// <summary>The clean spacing benchmark compilation.</summary>
+    private CSharpCompilation _spacingCleanCompilation = null!;
+
+    /// <summary>The violating spacing benchmark compilation.</summary>
+    private CSharpCompilation _spacingViolatingCompilation = null!;
 
     /// <summary>The parsed clean parameter list used by the line-scan benchmark.</summary>
     private ParameterListSyntax _lineCleanList = null!;
@@ -68,12 +76,6 @@ public abstract class HotPathBenchmarkBase
     /// <summary>The violating argument-guard benchmark compilation.</summary>
     private CSharpCompilation _guardViolatingCompilation = null!;
 
-    /// <summary>The clean spacing benchmark compilation.</summary>
-    private CSharpCompilation _spacingCleanCompilation = null!;
-
-    /// <summary>The violating spacing benchmark compilation.</summary>
-    private CSharpCompilation _spacingViolatingCompilation = null!;
-
     /// <summary>Gets or sets the synthetic node count used for each benchmark corpus.</summary>
     [Params(BenchmarkParameterValues.SmallNodeCount, BenchmarkParameterValues.LargeNodeCount)]
     public int Nodes { get; set; }
@@ -96,7 +98,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < Nodes; i++)
         {
-            if (ArgumentsOrParameterOnSameLineHelper.ReportsJaggedLayout(_lineCleanList, _lineCleanList.Parameters))
+            if (ArgumentsOrParameterOnSameLineHelperExtensions.ReportsJaggedLayout(_lineCleanList, _lineCleanList.Parameters))
             {
                 count++;
             }
@@ -112,7 +114,7 @@ public abstract class HotPathBenchmarkBase
         var count = 0;
         for (var i = 0; i < Nodes; i++)
         {
-            if (ArgumentsOrParameterOnSameLineHelper.ReportsJaggedLayout(_lineViolatingList, _lineViolatingList.Parameters))
+            if (ArgumentsOrParameterOnSameLineHelperExtensions.ReportsJaggedLayout(_lineViolatingList, _lineViolatingList.Parameters))
             {
                 count++;
             }
@@ -155,13 +157,15 @@ public abstract class HotPathBenchmarkBase
 
     /// <summary>Benchmarks the clean path of SST1142 including diagnostic reporting.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunTupleAnalyzerCleanAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_tupleCleanCompilation, TupleElementNameAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunTupleAnalyzerCleanAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_tupleCleanCompilation, TupleElementNameAnalyzers);
 
     /// <summary>Benchmarks the violating path of SST1142 including diagnostic reporting.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunTupleAnalyzerViolatingAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_tupleViolatingCompilation, TupleElementNameAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunTupleAnalyzerViolatingAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_tupleViolatingCompilation, TupleElementNameAnalyzers);
 
     /// <summary>Benchmarks the clean path of SST1415.</summary>
     /// <returns>The number of constructor arguments that should become <c>nameof</c>.</returns>
@@ -223,23 +227,27 @@ public abstract class HotPathBenchmarkBase
 
     /// <summary>Benchmarks the clean path of the throw-helper analyzer including diagnostic reporting.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunArgumentGuardAnalyzerCleanAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_guardCleanCompilation, ArgumentGuardAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunArgumentGuardAnalyzerCleanAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_guardCleanCompilation, ArgumentGuardAnalyzers);
 
     /// <summary>Benchmarks the violating path of the throw-helper analyzer including diagnostic reporting.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunArgumentGuardAnalyzerViolatingAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_guardViolatingCompilation, ArgumentGuardAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunArgumentGuardAnalyzerViolatingAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_guardViolatingCompilation, ArgumentGuardAnalyzers);
 
     /// <summary>Benchmarks the clean path of the spacing analyzer's token walk.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunSpacingCleanAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_spacingCleanCompilation, SpacingAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunSpacingCleanAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_spacingCleanCompilation, SpacingAnalyzers);
 
     /// <summary>Benchmarks the violating path of the spacing analyzer's token walk.</summary>
     /// <returns>The number of diagnostics produced.</returns>
-    protected Task<int> RunSpacingViolatingAsync()
-        => HotPathBenchmarkRunner.GetDiagnosticCountAsync(_spacingViolatingCompilation, SpacingAnalyzers);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    protected Task<int> RunSpacingViolatingAsync() =>
+        HotPathBenchmarkRunner.GetDiagnosticCountAsync(_spacingViolatingCompilation, SpacingAnalyzers);
 
     /// <summary>Gets the method declarations from the benchmark's single top-level type.</summary>
     /// <param name="root">The parsed compilation unit.</param>
@@ -307,8 +315,8 @@ public abstract class HotPathBenchmarkBase
     /// <summary>Gets the single benchmark method from a single-type compilation unit.</summary>
     /// <param name="root">The parsed compilation unit.</param>
     /// <returns>The single method declaration.</returns>
-    private static MethodDeclarationSyntax GetSingleMethod(CompilationUnitSyntax root)
-        => (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
+    private static MethodDeclarationSyntax GetSingleMethod(CompilationUnitSyntax root) =>
+        (MethodDeclarationSyntax)((TypeDeclarationSyntax)root.Members[0]).Members[0];
 
     /// <summary>Parses the jagged-line benchmark fixture.</summary>
     private void SetupLineScan()

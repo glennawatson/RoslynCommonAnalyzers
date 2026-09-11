@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeUntrustedXmlSignatureKey = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -38,9 +39,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies the parameterless <c>CheckSignature()</c> is reported with the receiver name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessCheckSignatureReportedAsync()
-        => await VerifyReportedAsync(
+    public Task ParameterlessCheckSignatureReportedAsync() =>
+        VerifyReportedAsync(
             """
             using System.Security.Cryptography.Xml;
 
@@ -52,9 +54,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies the single-<c>bool</c> <c>CheckSignature(bool)</c> is reported (it still supplies no key).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoolCheckSignatureReportedAsync()
-        => await VerifyReportedAsync(
+    public Task BoolCheckSignatureReportedAsync() =>
+        VerifyReportedAsync(
             """
             using System.Security.Cryptography.Xml;
 
@@ -66,9 +69,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies a null-conditional <c>signedXml?.CheckSignature()</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessCheckSignatureReportedAsync()
-        => await VerifyReportedAsync(
+    public Task ConditionalAccessCheckSignatureReportedAsync() =>
+        VerifyReportedAsync(
             """
             using System.Security.Cryptography.Xml;
 
@@ -80,9 +84,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies a call through a member-access receiver reports with the receiver member's name.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberAccessReceiverCheckSignatureReportedAsync()
-        => await VerifyReportedAsync(
+    public Task MemberAccessReceiverCheckSignatureReportedAsync() =>
+        VerifyReportedAsync(
             """
             using System.Security.Cryptography.Xml;
 
@@ -99,9 +104,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies an unqualified inherited <c>CheckSignature()</c> inside a <c>SignedXml</c> subclass is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedBareCheckSignatureReportedAsync()
-        => await VerifyReportedAsync(
+    public Task InheritedBareCheckSignatureReportedAsync() =>
+        VerifyReportedAsync(
             """
             public class MySigned : System.Security.Cryptography.Xml.SignedXml
             {
@@ -111,9 +117,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies the key overload <c>CheckSignature(AsymmetricAlgorithm)</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task KeyOverloadCleanAsync()
-        => await VerifyCleanAsync(
+    public Task KeyOverloadCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System.Security.Cryptography;
             using System.Security.Cryptography.Xml;
@@ -126,9 +133,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies the certificate overload <c>CheckSignature(X509Certificate2, bool)</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CertificateOverloadCleanAsync()
-        => await VerifyCleanAsync(
+    public Task CertificateOverloadCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System.Security.Cryptography.X509Certificates;
             using System.Security.Cryptography.Xml;
@@ -141,9 +149,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>CheckSignature()</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedCheckSignatureCleanAsync()
-        => await VerifyCleanAsync(
+    public Task UnrelatedCheckSignatureCleanAsync() =>
+        VerifyCleanAsync(
             """
             public class Unrelated
             {
@@ -158,9 +167,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies a delegate field named <c>CheckSignature</c> invoked as a delegate is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateFieldNamedCheckSignatureCleanAsync()
-        => await VerifyCleanAsync(
+    public Task DelegateFieldNamedCheckSignatureCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -177,9 +187,10 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
 
     /// <summary>Verifies an invocation with no simple callee name (a returned delegate invoked inline) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InvokedDelegateResultCleanAsync()
-        => await VerifyCleanAsync(
+    public Task InvokedDelegateResultCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System;
 
@@ -208,11 +219,7 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeUntrustedXmlSignatureKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzeUntrustedXmlSignatureKey.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -220,11 +227,13 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
     /// <summary>Runs a verification for a source that carries a reported no-key <c>CheckSignature</c> call.</summary>
     /// <param name="source">The source with diagnostic markup; the stubbed <c>SignedXml</c> is appended.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task VerifyReportedAsync(string source) => RunAsync(source + SignedXmlStub);
 
     /// <summary>Runs a verification for a source the rule must leave unreported.</summary>
     /// <param name="source">The source; the stubbed <c>SignedXml</c> is appended.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task VerifyCleanAsync(string source) => RunAsync(source + SignedXmlStub);
 
     /// <summary>Runs the analyzer against the .NET 9 reference assemblies with the supplied source.</summary>
@@ -232,11 +241,7 @@ public class UntrustedXmlSignatureKeyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source)
     {
-        var test = new AnalyzeUntrustedXmlSignatureKey.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new AnalyzeUntrustedXmlSignatureKey.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

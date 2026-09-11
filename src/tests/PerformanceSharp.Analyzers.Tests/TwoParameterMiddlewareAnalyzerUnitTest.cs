@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -48,9 +49,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a nested async-lambda middleware is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedAsyncLambdaIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task NestedAsyncLambdaIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -68,9 +70,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a nested non-async lambda middleware is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedLambdaIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task NestedLambdaIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -84,9 +87,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a parenthesized single-parameter outer lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedSingleParameterIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ParenthesizedSingleParameterIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -100,9 +104,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a block-bodied outer lambda that returns a nested delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodyReturningLambdaIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task BlockBodyReturningLambdaIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -119,9 +124,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a nested anonymous-method inner delegate is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedAnonymousMethodIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task NestedAnonymousMethodIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -139,9 +145,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies the legacy form is reported on a concrete type implementing the builder interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WebApplicationReceiverIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task WebApplicationReceiverIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -155,9 +162,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies the legacy form is reported through a conditional-access invocation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessReceiverIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessReceiverIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -171,9 +179,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a nested delegate wrapped in parentheses is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedInnerDelegateIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ParenthesizedInnerDelegateIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -187,9 +196,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies the outer lambda is reported when the whole argument is parenthesized.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParenthesizedArgumentIsFlaggedAsync()
-        => await VerifyAsync(
+    public Task ParenthesizedArgumentIsFlaggedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -203,9 +213,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated single-parameter Use overload on a builder is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLegacyUseOverloadIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonLegacyUseOverloadIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using Microsoft.AspNetCore.Builder;
@@ -229,9 +240,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies the modern two-parameter overload is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ModernTwoParameterLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task ModernTwoParameterLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -249,9 +261,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a middleware that returns its next delegate unchanged is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnsNextUnchangedIsCleanAsync()
-        => await VerifyAsync(
+    public Task ReturnsNextUnchangedIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -265,9 +278,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a middleware whose inner value is a method call, not a lambda, is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InnerMethodCallIsCleanAsync()
-        => await VerifyAsync(
+    public Task InnerMethodCallIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -283,9 +297,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a block-bodied outer lambda that returns an existing delegate is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodyWithoutReturnedLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task BlockBodyWithoutReturnedLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
             using Microsoft.AspNetCore.Http;
@@ -303,9 +318,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a same-shaped Use on a non-builder type is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBuilderUseIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonBuilderUseIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using Microsoft.AspNetCore.Http;
@@ -330,9 +346,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies a conditional-access call to a member other than Use is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessToOtherMemberIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessToOtherMemberIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -347,9 +364,10 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when the ASP.NET Core builder type is not referenced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WithoutAspNetCoreIsCleanAsync()
-        => await VerifyWithoutStubsAsync(
+    public Task WithoutAspNetCoreIsCleanAsync() =>
+        VerifyWithoutStubsAsync(
             """
             using System;
 
@@ -377,11 +395,7 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         test.TestState.Sources.Add(AspNetCoreStubsSource);
 
         await test.RunAsync(CancellationToken.None);
@@ -392,11 +406,7 @@ public class TwoParameterMiddlewareAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyWithoutStubsAsync(string source)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
 
         await test.RunAsync(CancellationToken.None);
     }

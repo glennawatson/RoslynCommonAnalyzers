@@ -79,7 +79,7 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
     /// <param name="route">The resolved <c>RouteAttribute</c> type.</param>
     /// <param name="layout">The resolved <c>LayoutComponentBase</c> type.</param>
     private static void AnalyzeType(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol authorize,
         INamedTypeSymbol componentBase,
         INamedTypeSymbol route,
@@ -119,7 +119,7 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
     /// <param name="route">The resolved <c>RouteAttribute</c> type.</param>
     /// <returns>The first <c>[Authorize]</c> attribute when the declaration is not routable; otherwise <see langword="null"/>.</returns>
     private static AttributeSyntax? FindNonRoutableAuthorize(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         INamedTypeSymbol authorize,
         INamedTypeSymbol route)
@@ -153,7 +153,7 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
     /// <param name="layout">The resolved <c>LayoutComponentBase</c> type.</param>
     /// <returns><see langword="true"/> when the type is a component and is not abstract, a layout, or exempt.</returns>
     private static bool IsReportableComponent(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax declaration,
         INamedTypeSymbol componentBase,
         INamedTypeSymbol layout)
@@ -174,7 +174,7 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
     /// <param name="tree">The declaration's syntax tree, used to resolve the config options.</param>
     /// <param name="typeSymbol">The component's type symbol.</param>
     /// <returns><see langword="true"/> when the type's simple or fully qualified name is on the exempt list.</returns>
-    private static bool IsExemptType(SyntaxNodeAnalysisContext context, SyntaxTree tree, INamedTypeSymbol typeSymbol)
+    private static bool IsExemptType(in SyntaxNodeAnalysisContext context, SyntaxTree tree, INamedTypeSymbol typeSymbol)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
         var exemptTypes = AnalyzerOptionReader.ReadCommaSeparatedList(options, ExemptTypesRuleKey, ExemptTypesGeneralKey);

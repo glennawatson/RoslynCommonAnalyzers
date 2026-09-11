@@ -22,8 +22,8 @@ public sealed class Sst2331ImplicitEnumValueAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.EnumMembersShouldBeExplicit);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -41,14 +41,16 @@ public sealed class Sst2331ImplicitEnumValueAnalyzer : DiagnosticAnalyzer
         var members = declaration.Members;
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i].EqualsValue is null)
+            if (members[i].EqualsValue is not null)
             {
-                context.ReportDiagnostic(Diagnostic.Create(
-                    DesignRules.EnumMembersShouldBeExplicit,
-                    declaration.Identifier.GetLocation(),
-                    declaration.Identifier.ValueText));
-                return;
+                continue;
             }
+
+            context.ReportDiagnostic(Diagnostic.Create(
+                DesignRules.EnumMembersShouldBeExplicit,
+                declaration.Identifier.GetLocation(),
+                declaration.Identifier.ValueText));
+            return;
         }
     }
 }

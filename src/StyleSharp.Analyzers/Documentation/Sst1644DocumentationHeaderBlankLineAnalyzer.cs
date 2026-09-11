@@ -17,8 +17,8 @@ public sealed class Sst1644DocumentationHeaderBlankLineAnalyzer : DiagnosticAnal
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.DocumentationHeaderNoBlankLines);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -66,7 +66,7 @@ public sealed class Sst1644DocumentationHeaderBlankLineAnalyzer : DiagnosticAnal
     private static bool IsInsideCodeLikeElement(DocumentationCommentTriviaSyntax documentation, int position)
     {
         var query = new CodeLikeSpanQuery(position);
-        DescendantTraversalHelper.VisitDescendants<XmlElementSyntax, CodeLikeSpanQuery>(documentation, ref query, VisitCodeLikeElement);
+        _ = DescendantTraversalHelper.VisitDescendants<XmlElementSyntax, CodeLikeSpanQuery>(documentation, ref query, VisitCodeLikeElement);
         return query.Found;
     }
 

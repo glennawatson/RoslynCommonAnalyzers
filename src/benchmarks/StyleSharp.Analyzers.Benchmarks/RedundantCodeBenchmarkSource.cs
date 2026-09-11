@@ -11,8 +11,8 @@ internal static class RedundantCodeBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit redundant trailing <c>return;</c> statements.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class RedundantCodeBench
@@ -25,8 +25,8 @@ internal static class RedundantCodeBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a redundant trailing <c>return;</c>.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $$"""
               internal static void M{{index}}(int x)
               {

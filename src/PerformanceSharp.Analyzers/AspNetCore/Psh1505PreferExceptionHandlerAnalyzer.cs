@@ -80,7 +80,7 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
     /// <param name="exceptionFilter">The resolved synchronous filter interface, or <see langword="null"/> when absent.</param>
     /// <param name="asyncExceptionFilter">The resolved asynchronous filter interface, or <see langword="null"/> when absent.</param>
     private static void AnalyzeClassDeclaration(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol? exceptionFilter,
         INamedTypeSymbol? asyncExceptionFilter)
     {
@@ -118,8 +118,8 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an unqualified name matches one of the MVC exception filter interfaces.</summary>
     /// <param name="name">The base type's written simple name.</param>
     /// <returns><see langword="true"/> for <c>IExceptionFilter</c> or <c>IAsyncExceptionFilter</c>.</returns>
-    private static bool IsFilterInterfaceName(string name)
-        => string.Equals(name, ExceptionFilterName, StringComparison.Ordinal)
+    private static bool IsFilterInterfaceName(string name) =>
+        string.Equals(name, ExceptionFilterName, StringComparison.Ordinal)
             || string.Equals(name, AsyncExceptionFilterName, StringComparison.Ordinal);
 
     /// <summary>Returns whether a bound interface is one of the resolved ASP.NET Core filter interfaces.</summary>
@@ -127,8 +127,8 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
     /// <param name="exceptionFilter">The resolved synchronous filter interface, or <see langword="null"/> when absent.</param>
     /// <param name="asyncExceptionFilter">The resolved asynchronous filter interface, or <see langword="null"/> when absent.</param>
     /// <returns><see langword="true"/> when the bound interface is the ASP.NET Core filter, not a same-named look-alike.</returns>
-    private static bool MatchesFilterInterface(INamedTypeSymbol bound, INamedTypeSymbol? exceptionFilter, INamedTypeSymbol? asyncExceptionFilter)
-        => (exceptionFilter is not null && SymbolEqualityComparer.Default.Equals(bound, exceptionFilter))
+    private static bool MatchesFilterInterface(INamedTypeSymbol bound, INamedTypeSymbol? exceptionFilter, INamedTypeSymbol? asyncExceptionFilter) =>
+        (exceptionFilter is not null && SymbolEqualityComparer.Default.Equals(bound, exceptionFilter))
             || (asyncExceptionFilter is not null && SymbolEqualityComparer.Default.Equals(bound, asyncExceptionFilter));
 
     /// <summary>Gets the rightmost identifier of a possibly qualified or aliased base type name.</summary>

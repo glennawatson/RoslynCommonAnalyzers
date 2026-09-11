@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Builds synthetic source for LINQ usage analysis.</summary>
@@ -14,23 +16,25 @@ internal static class LinqUsageBenchmarkSource
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => GenerateCore(members, violating, shape: null);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string Generate(int members, bool violating) =>
+        GenerateCore(members, violating, shape: null);
 
     /// <summary>Builds source containing one repeated shape for code-fix benchmarks.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="shape">The repeated shape.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCodeFix(int members, LinqUsageBenchmarkShape shape)
-        => GenerateCore(members, violating: true, shape);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string GenerateCodeFix(int members, LinqUsageBenchmarkShape shape) =>
+        GenerateCore(members, violating: true, shape);
 
     /// <summary>Builds the benchmark source body.</summary>
     /// <param name="members">The number of synthetic members to emit.</param>
     /// <param name="violating">Whether to emit reportable shapes.</param>
     /// <param name="shape">The fixed shape, or <see langword="null"/> to cycle all shapes.</param>
     /// <returns>The generated source text.</returns>
-    private static string GenerateCore(int members, bool violating, LinqUsageBenchmarkShape? shape)
-        => $$"""
+    private static string GenerateCore(int members, bool violating, LinqUsageBenchmarkShape? shape) =>
+        $$"""
            using System;
            using System.Linq;
 
@@ -47,8 +51,8 @@ internal static class LinqUsageBenchmarkSource
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <param name="shape">The benchmark shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating, LinqUsageBenchmarkShape shape)
-        => shape switch
+    private static string GenerateMember(int index, bool violating, LinqUsageBenchmarkShape shape) =>
+        shape switch
         {
             LinqUsageBenchmarkShape.WhereTerminal => GenerateWhereTerminal(index, violating),
             LinqUsageBenchmarkShape.TypeFilter => GenerateTypeFilter(index, violating),
@@ -59,8 +63,8 @@ internal static class LinqUsageBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateWhereTerminal(int index, bool violating)
-        => violating
+    private static string GenerateWhereTerminal(int index, bool violating) =>
+        violating
             ? $$"""
                 private bool WhereTerminal{{index}}(int[] values) => values.Where(value => value > {{index}}).Any();
                 """
@@ -72,8 +76,8 @@ internal static class LinqUsageBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateTypeFilter(int index, bool violating)
-        => violating
+    private static string GenerateTypeFilter(int index, bool violating) =>
+        violating
             ? $$"""
                 private object TypeFilter{{index}}(object[] values) => values.Where(value => value is string).Cast<string>();
                 """
@@ -85,8 +89,8 @@ internal static class LinqUsageBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit the reportable form.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateHotPathLinq(int index, bool violating)
-        => violating
+    private static string GenerateHotPathLinq(int index, bool violating) =>
+        violating
             ? $$"""
                 private object HotPathLinq{{index}}(int[] values) => values.Select(value => value + {{index}});
                 """

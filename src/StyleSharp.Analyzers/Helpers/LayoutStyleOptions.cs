@@ -39,7 +39,7 @@ internal static class LayoutStyleOptions
     /// <param name="generalKey">The project-wide key.</param>
     /// <param name="defaultBreakBefore">The value used when neither key resolves.</param>
     /// <returns><see langword="true"/> when the token should lead the continuation line.</returns>
-    public static bool ReadBreakBefore(AnalyzerConfigOptions options, string ruleKey, string generalKey, bool defaultBreakBefore)
+    internal static bool ReadBreakBefore(AnalyzerConfigOptions options, string ruleKey, string generalKey, bool defaultBreakBefore)
     {
         var value = ReadValue(options, ruleKey, generalKey);
         if (string.Equals(value, BeforeValue, StringComparison.OrdinalIgnoreCase))
@@ -55,8 +55,8 @@ internal static class LayoutStyleOptions
     /// <param name="ruleKey">The rule-specific key.</param>
     /// <param name="generalKey">The project-wide key.</param>
     /// <returns>The configured newline sequence.</returns>
-    public static string ReadLineEnding(AnalyzerConfigOptions options, string ruleKey, string generalKey)
-        => string.Equals(ReadValue(options, ruleKey, generalKey), CarriageReturnLineFeedValue, StringComparison.OrdinalIgnoreCase)
+    internal static string ReadLineEnding(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
+        string.Equals(ReadValue(options, ruleKey, generalKey), CarriageReturnLineFeedValue, StringComparison.OrdinalIgnoreCase)
             ? CarriageReturnLineFeed
             : LineFeed;
 

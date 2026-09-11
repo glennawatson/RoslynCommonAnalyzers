@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCapitalFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.DocumentationTextAnalyzer,
     StyleSharp.Analyzers.Sst1628TextBeginsWithCapitalCodeFixProvider>;
@@ -73,9 +74,10 @@ public class Sst1628TextBeginsWithCapitalCodeFixUnitTest
     /// The first word is a code fragment whose casing the language decides, so there is no
     /// sentence-initial letter to capitalise and changing the one inside would break the fragment.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SummaryOpeningWithACodeElementIsCleanAsync()
-        => await VerifyCapitalFix.VerifyAnalyzerAsync(
+    public Task SummaryOpeningWithACodeElementIsCleanAsync() =>
+        VerifyCapitalFix.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -88,9 +90,10 @@ public class Sst1628TextBeginsWithCapitalCodeFixUnitTest
 
     /// <summary>Verifies a summary that opens with a parameter reference is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SummaryOpeningWithAParameterReferenceIsCleanAsync()
-        => await VerifyCapitalFix.VerifyAnalyzerAsync(
+    public Task SummaryOpeningWithAParameterReferenceIsCleanAsync() =>
+        VerifyCapitalFix.VerifyAnalyzerAsync(
             """
             internal class C
             {

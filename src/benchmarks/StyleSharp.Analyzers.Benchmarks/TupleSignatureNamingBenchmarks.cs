@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for tuple-signature-naming analysis (SST1414).</summary>
+[System.Diagnostics.DebuggerDisplay("TupleSignatureNamingBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class TupleSignatureNamingBenchmarks
@@ -24,11 +26,13 @@ public class TupleSignatureNamingBenchmarks
 
     /// <summary>Benchmarks the clean tuple-signature-naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TupleSignatureNaming_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating tuple-signature-naming path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> TupleSignatureNaming_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

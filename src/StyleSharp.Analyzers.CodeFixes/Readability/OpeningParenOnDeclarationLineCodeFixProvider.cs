@@ -69,12 +69,7 @@ public sealed class OpeningParenOnDeclarationLineCodeFixProvider : CodeFixProvid
         }
 
         var text = await document.GetTextAsync(cancellationToken).ConfigureAwait(false);
-        if (BuildChange(text, root, openingSpan) is not { } change)
-        {
-            return document;
-        }
-
-        return document.WithText(text.WithChanges(change));
+        return BuildChange(text, root, openingSpan) is not { } change ? document : document.WithText(text.WithChanges(change));
     }
 
     /// <summary>Builds the change that removes the whitespace before the opening token, if any applies.</summary>
@@ -96,17 +91,14 @@ public sealed class OpeningParenOnDeclarationLineCodeFixProvider : CodeFixProvid
             return null;
         }
 
-        if (!LayoutFixHelpers.IsWhitespaceBetween(text, previousToken.Span.End, openingToken.SpanStart))
-        {
-            return null;
-        }
-
-        return new TextChange(TextSpan.FromBounds(previousToken.Span.End, openingToken.SpanStart), string.Empty);
+        return !LayoutFixHelpers.IsWhitespaceBetween(text, previousToken.Span.End, openingToken.SpanStart)
+            ? null
+            : new TextChange(TextSpan.FromBounds(previousToken.Span.End, openingToken.SpanStart), string.Empty);
     }
 
     /// <summary>Returns whether the token is an opening parenthesis or bracket handled by SST1110.</summary>
     /// <param name="token">The token to inspect.</param>
     /// <returns><see langword="true"/> when the token is supported.</returns>
-    private static bool IsSupportedOpeningToken(SyntaxToken token)
-        => token.IsKind(SyntaxKind.OpenParenToken) || token.IsKind(SyntaxKind.OpenBracketToken);
+    private static bool IsSupportedOpeningToken(SyntaxToken token) =>
+        token.IsKind(SyntaxKind.OpenParenToken) || token.IsKind(SyntaxKind.OpenBracketToken);
 }

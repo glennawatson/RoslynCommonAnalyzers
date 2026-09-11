@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeLdap = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -38,9 +39,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous authentication type passed as the fourth positional argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousAuthenticationArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task AnonymousAuthenticationArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -55,9 +57,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous authentication type passed by the named argument is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousNamedAuthenticationArgumentReportedAsync()
-        => await VerifyAsync(
+    public Task AnonymousNamedAuthenticationArgumentReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -72,9 +75,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an <c>AuthenticationType = AuthenticationTypes.Anonymous</c> object-initializer member is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AnonymousInitializerMemberReportedAsync()
-        => await VerifyAsync(
+    public Task AnonymousInitializerMemberReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -89,9 +93,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an LDAP bind with both credentials as empty string literals is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyStringCredentialsReportedAsync()
-        => await VerifyAsync(
+    public Task EmptyStringCredentialsReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -106,9 +111,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an LDAP bind with both credentials as <see langword="null"/> literals is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullCredentialsReportedAsync()
-        => await VerifyAsync(
+    public Task NullCredentialsReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -123,9 +129,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an LDAP bind mixing an empty string and a <see langword="null"/> credential is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedEmptyAndNullCredentialsReportedAsync()
-        => await VerifyAsync(
+    public Task MixedEmptyAndNullCredentialsReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -140,9 +147,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies empty credentials supplied through named arguments are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyCredentialsByNamedArgumentsReportedAsync()
-        => await VerifyAsync(
+    public Task EmptyCredentialsByNamedArgumentsReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -157,9 +165,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a lowercase <c>ldap://</c> scheme with empty credentials is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LowercaseLdapSchemeReportedAsync()
-        => await VerifyAsync(
+    public Task LowercaseLdapSchemeReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -174,9 +183,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a fully-qualified <c>DirectoryEntry</c> construction is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedTypeReportedAsync()
-        => await VerifyAsync(
+    public Task FullyQualifiedTypeReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -189,9 +199,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed <c>new(...)</c> empty-credential bind is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitEmptyCredentialsReportedAsync()
-        => await VerifyAsync(
+    public Task ImplicitEmptyCredentialsReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -206,9 +217,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed <c>new(...)</c> anonymous authentication type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitAnonymousAuthenticationReportedAsync()
-        => await VerifyAsync(
+    public Task ImplicitAnonymousAuthenticationReportedAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -223,9 +235,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a bind with a real username and password is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValidCredentialsAreCleanAsync()
-        => await VerifyAsync(
+    public Task ValidCredentialsAreCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -240,9 +253,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a path-only construction (no explicit credentials) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PathOnlyConstructionIsCleanAsync()
-        => await VerifyAsync(
+    public Task PathOnlyConstructionIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -257,9 +271,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless construction is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessConstructionIsCleanAsync()
-        => await VerifyAsync(
+    public Task ParameterlessConstructionIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -274,9 +289,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a non-anonymous authentication type in an object initializer is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureAuthenticationInitializerIsCleanAsync()
-        => await VerifyAsync(
+    public Task SecureAuthenticationInitializerIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -291,9 +307,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a non-anonymous authentication type argument is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureAuthenticationArgumentIsCleanAsync()
-        => await VerifyAsync(
+    public Task SecureAuthenticationArgumentIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -308,9 +325,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies empty credentials against a non-LDAP provider path are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLdapProviderPathIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonLdapProviderPathIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -325,9 +343,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies empty credentials against a path shorter than the LDAP scheme are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ShortNonLdapPathIsCleanAsync()
-        => await VerifyAsync(
+    public Task ShortNonLdapPathIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -342,9 +361,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies an LDAP bind with only the username empty (password supplied) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OnlyUsernameEmptyIsCleanAsync()
-        => await VerifyAsync(
+    public Task OnlyUsernameEmptyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -359,9 +379,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies non-literal credentials (a method call) against an LDAP path are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralCredentialsAreCleanAsync()
-        => await VerifyAsync(
+    public Task NonLiteralCredentialsAreCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -380,9 +401,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies empty credentials against a non-literal path are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLiteralPathIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonLiteralPathIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -397,9 +419,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a value named <c>Anonymous</c> that is not the authentication enum member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalNamedAnonymousIsCleanAsync()
-        => await VerifyAsync(
+    public Task LocalNamedAnonymousIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.DirectoryServices;
 
@@ -414,9 +437,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies unrelated object creations (an unnamed and a generic type) are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedCreationsAreCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedCreationsAreCleanAsync() =>
+        VerifyAsync(
             """
             using System.Collections.Generic;
 
@@ -432,9 +456,10 @@ public class AnonymousLdapBindAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>DirectoryEntry</c> from another namespace is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedTypeInOtherNamespaceIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedTypeInOtherNamespaceIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -473,11 +498,7 @@ public class AnonymousLdapBindAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeLdap.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source,
-        };
+        var test = new AnalyzeLdap.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source, };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -487,11 +508,7 @@ public class AnonymousLdapBindAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string body)
     {
-        var test = new AnalyzeLdap.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = body + DirectoryServicesStubs,
-        };
+        var test = new AnalyzeLdap.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = body + DirectoryServicesStubs, };
 
         await test.RunAsync(CancellationToken.None);
     }

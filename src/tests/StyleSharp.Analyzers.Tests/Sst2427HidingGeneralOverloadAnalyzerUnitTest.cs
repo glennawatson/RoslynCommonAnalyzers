@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2427HidingGeneralOverloadAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 {
     /// <summary>Verifies a derived overload whose parameter is a base type of the base overload's parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GeneralDerivedOverloadIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GeneralDerivedOverloadIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -32,9 +34,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a general overload that hides a base overload two levels up is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GeneralOverloadHidingGrandparentIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GeneralOverloadHidingGrandparentIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Root
             {
@@ -57,9 +60,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies an <c>override</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverrideIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OverrideIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -78,9 +82,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a member marked <c>new</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewModifierIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NewModifierIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -99,9 +104,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated parameter type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedParameterTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnrelatedParameterTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -120,9 +126,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a more specific derived overload is not reported, since it hides nothing.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MoreSpecificDerivedOverloadIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MoreSpecificDerivedOverloadIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -141,9 +148,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a plain new overload that adds a parameter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentArityIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentArityIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -162,9 +170,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a derived overload whose parameter is a base interface of the base overload's parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceGeneralizationIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceGeneralizationIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -185,9 +194,10 @@ public class Sst2427HidingGeneralOverloadAnalyzerUnitTest
 
     /// <summary>Verifies a private base overload is not treated as hidden, since it is not inherited.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateBaseOverloadIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateBaseOverloadIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {

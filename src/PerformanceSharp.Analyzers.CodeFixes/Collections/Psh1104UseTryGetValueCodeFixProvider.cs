@@ -113,8 +113,8 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     /// <param name="invocation">The reported ContainsKey invocation.</param>
     /// <param name="valueName">The chosen out-variable name.</param>
     /// <returns>The TryGetValue guard for the invocation, or the out variable for a guarded read.</returns>
-    private static SyntaxNode CreateReplacementNode(SyntaxNode original, InvocationExpressionSyntax invocation, string valueName)
-        => original == invocation
+    private static SyntaxNode CreateReplacementNode(SyntaxNode original, InvocationExpressionSyntax invocation, string valueName) =>
+        original == invocation
             ? CreateTryGetValueInvocation(invocation, valueName)
             : SyntaxFactory.IdentifierName(valueName).WithTriviaFrom(original);
 
@@ -170,7 +170,7 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
             state.Reads.Add(elementAccess);
         }
 
-        DescendantTraversalHelper.VisitDescendants<ElementAccessExpressionSyntax, ReadCollectorState>(region, ref state, VisitElementAccess);
+        _ = DescendantTraversalHelper.VisitDescendants<ElementAccessExpressionSyntax, ReadCollectorState>(region, ref state, VisitElementAccess);
     }
 
     /// <summary>Records one matching element access encountered during collection.</summary>
@@ -195,7 +195,7 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     {
         var scope = GetEnclosingScope(invocation);
         var hasValueIdentifier = false;
-        DescendantTraversalHelper.VisitDescendantTokens(scope, ref hasValueIdentifier, VisitIdentifierToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(scope, ref hasValueIdentifier, VisitIdentifierToken);
         return hasValueIdentifier ? FallbackValueName : DefaultValueName;
     }
 

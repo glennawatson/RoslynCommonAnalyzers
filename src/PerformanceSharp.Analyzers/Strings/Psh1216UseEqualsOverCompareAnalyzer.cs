@@ -111,8 +111,8 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the numeric literal <c>0</c>.</summary>
     /// <param name="expression">The candidate operand expression.</param>
     /// <returns><see langword="true"/> for a numeric literal whose value is the <see cref="int"/> zero.</returns>
-    private static bool IsZeroLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsZeroLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.NumericLiteralExpression)
             && literal.Token.Value is 0;
 

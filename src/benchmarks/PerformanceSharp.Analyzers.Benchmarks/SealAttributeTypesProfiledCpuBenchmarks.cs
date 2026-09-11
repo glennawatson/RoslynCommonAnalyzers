@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>CPU-profile benchmarks for seal-attribute-types analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("SealAttributeTypesProfiledCpuBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.CpuSampling)]
 public class SealAttributeTypesProfiledCpuBenchmarks
@@ -25,11 +27,13 @@ public class SealAttributeTypesProfiledCpuBenchmarks
 
     /// <summary>Benchmarks the clean seal-attribute-types path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SealAttributeTypes_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating seal-attribute-types path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> SealAttributeTypes_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

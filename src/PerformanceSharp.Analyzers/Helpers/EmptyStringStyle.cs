@@ -16,11 +16,11 @@ namespace PerformanceSharp.Analyzers;
 internal enum EmptyStringStyle
 {
     /// <summary>The null-safe length pattern, <c>s is { Length: 0 }</c>. Requires C# 9.</summary>
-    Pattern,
+    Pattern = 0,
 
     /// <summary>The direct length test, <c>s.Length == 0</c>. Throws on a null string.</summary>
-    Length,
+    Length = 1,
 
     /// <summary>The framework helper, <c>string.IsNullOrEmpty(s)</c>. Answers true for a null string.</summary>
-    IsNullOrEmpty
+    IsNullOrEmpty = 2,
 }

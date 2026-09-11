@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,12 +22,13 @@ public sealed class Sst2258RemoveRedundantDelegateCreationCodeFixProvider : Code
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Remove the delegate wrapper", nameof(Sst2258RemoveRedundantDelegateCreationCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the delegate wrapper", nameof(Sst2258RemoveRedundantDelegateCreationCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported delegate creation and rewrites it to the bare method group.</summary>
     /// <param name="root">The syntax root.</param>
@@ -35,12 +38,9 @@ public sealed class Sst2258RemoveRedundantDelegateCreationCodeFixProvider : Code
     private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
     {
         var creation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ObjectCreationExpressionSyntax>();
-        if (creation is null
-            || !Sst2258RemoveRedundantDelegateCreationAnalyzer.TryGetUnwrapped(creation, model, CancellationToken.None, out var methodGroup, out _))
-        {
-            return null;
-        }
-
-        return new NodeReplacement(creation, methodGroup.WithTriviaFrom(creation));
+        return creation is null
+            || !Sst2258RemoveRedundantDelegateCreationAnalyzer.TryGetUnwrapped(creation, model, CancellationToken.None, out var methodGroup, out _)
+            ? null
+            : new NodeReplacement(creation, methodGroup.WithTriviaFrom(creation));
     }
 }

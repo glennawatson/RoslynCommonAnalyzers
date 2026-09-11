@@ -81,7 +81,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST2705 for the under-postable members of every body-bound model on an <c>[ApiController]</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="markers">The resolved MVC and validation marker types.</param>
-    private static void AnalyzeType(SymbolAnalysisContext context, BindingMarkers markers)
+    private static void AnalyzeType(in SymbolAnalysisContext context, in BindingMarkers markers)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class
@@ -103,7 +103,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
             {
                 if (TryGetBodyBoundModel(parameter, markers) is { } model)
                 {
-                    models.Add(model);
+                    _ = models.Add(model);
                 }
             }
         }
@@ -118,7 +118,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="model">The body-bound model type.</param>
     /// <param name="markers">The resolved MVC and validation marker types.</param>
-    private static void ReportUnderpostedMembers(SymbolAnalysisContext context, INamedTypeSymbol model, BindingMarkers markers)
+    private static void ReportUnderpostedMembers(in SymbolAnalysisContext context, INamedTypeSymbol model, in BindingMarkers markers)
     {
         foreach (var member in model.GetMembers())
         {
@@ -138,10 +138,10 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The candidate model member.</param>
     /// <param name="markers">The resolved MVC and validation marker types.</param>
     /// <returns><see langword="true"/> when omitting the member from a request silently binds it to its default.</returns>
-    private static bool IsUnderpostableMember(ISymbol member, BindingMarkers markers)
-        => member switch
+    private static bool IsUnderpostableMember(ISymbol member, in BindingMarkers markers) =>
+        member switch
         {
-            _ when member.Locations.Length == 0 => false,
+            _ when member.Locations.IsEmpty => false,
             IPropertySymbol { DeclaredAccessibility: Accessibility.Public, IsStatic: false, IsIndexer: false, SetMethod.DeclaredAccessibility: Accessibility.Public } property
                 => IsNonNullableValueType(property.Type) && !HasRequiredMarker(property, markers),
             IFieldSymbol { DeclaredAccessibility: Accessibility.Public, IsStatic: false, IsConst: false, IsReadOnly: false } field
@@ -153,36 +153,30 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <param name="parameter">The action parameter.</param>
     /// <param name="markers">The resolved MVC and validation marker types.</param>
     /// <returns>The source-declared model class bound from the body, or <see langword="null"/>.</returns>
-    private static INamedTypeSymbol? TryGetBodyBoundModel(IParameterSymbol parameter, BindingMarkers markers)
-    {
-        if (parameter.Type is not INamedTypeSymbol { TypeKind: TypeKind.Class } model
-            || model.DeclaringSyntaxReferences.Length == 0
+    private static INamedTypeSymbol? TryGetBodyBoundModel(IParameterSymbol parameter, in BindingMarkers markers) => parameter.Type is not INamedTypeSymbol { TypeKind: TypeKind.Class } model
+            || model.DeclaringSyntaxReferences.IsEmpty
             || ImplementsEnumerable(model)
-            || HasNonBodyBindingSource(parameter, markers.NonBodySources))
-        {
-            return null;
-        }
-
-        return model;
-    }
+            || HasNonBodyBindingSource(parameter, markers.NonBodySources)
+        ? null
+        : model;
 
     /// <summary>Returns whether a method is a public instance action (verb attributes are not required here).</summary>
     /// <param name="method">The candidate method.</param>
     /// <param name="nonActionAttribute">The resolved <c>NonActionAttribute</c> type, or <see langword="null"/>.</param>
     /// <returns><see langword="true"/> when the method's parameters take part in model binding.</returns>
-    private static bool IsAction(IMethodSymbol method, INamedTypeSymbol? nonActionAttribute)
-        => HasActionShape(method) && !IsNonAction(method, nonActionAttribute);
+    private static bool IsAction(IMethodSymbol method, INamedTypeSymbol? nonActionAttribute) =>
+        HasActionShape(method) && !IsNonAction(method, nonActionAttribute);
 
     /// <summary>Returns whether a method has the shape of an action whose parameters bind (before attributes).</summary>
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for a public, non-static, non-generic, ordinary method with parameters.</returns>
-    private static bool HasActionShape(IMethodSymbol method)
-        => method.DeclaredAccessibility == Accessibility.Public
+    private static bool HasActionShape(IMethodSymbol method) =>
+        method.DeclaredAccessibility == Accessibility.Public
             && !method.IsStatic
             && !method.IsAbstract
             && !method.IsGenericMethod
             && method.MethodKind == MethodKind.Ordinary
-            && method.Parameters.Length > 0
+            && !method.Parameters.IsEmpty
             && !OverridesObjectMethod(method);
 
     /// <summary>Returns whether a method is opted out of action discovery with <c>[NonAction]</c>.</summary>
@@ -236,7 +230,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <param name="member">The candidate model member.</param>
     /// <param name="markers">The resolved MVC and validation marker types.</param>
     /// <returns><see langword="true"/> when <c>[Required]</c> or <c>[BindRequired]</c> is present.</returns>
-    private static bool HasRequiredMarker(ISymbol member, BindingMarkers markers)
+    private static bool HasRequiredMarker(ISymbol member, in BindingMarkers markers)
     {
         foreach (var attribute in member.GetAttributes())
         {
@@ -258,8 +252,8 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is a non-nullable value type (a struct, enum, or primitive, but not <c>Nullable&lt;T&gt;</c>).</summary>
     /// <param name="type">The member's type.</param>
     /// <returns><see langword="true"/> when a missing value binds to <c>default</c> with no way to detect the absence.</returns>
-    private static bool IsNonNullableValueType(ITypeSymbol type)
-        => type.IsValueType
+    private static bool IsNonNullableValueType(ITypeSymbol type) =>
+        type.IsValueType
             && type.TypeKind != TypeKind.TypeParameter
             && type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T;
 
@@ -344,10 +338,13 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < NonBodySourceMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(NonBodySourceMetadataNames[i]) is { } source)
+            if (compilation.GetTypeByMetadataName(NonBodySourceMetadataNames[i]) is not { } source)
             {
-                resolved[count++] = source;
+                continue;
             }
+
+            resolved[count] = source;
+            count++;
         }
 
         if (count == NonBodySourceMetadataNames.Length)

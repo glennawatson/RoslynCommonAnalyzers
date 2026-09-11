@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Simplification;
 
@@ -75,8 +76,9 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     /// <param name="clause">The failing clause.</param>
     /// <param name="replacement">The modifiers a public <c>Dispose(bool)</c> should declare instead.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, MethodDeclarationSyntax method, string? clause, string? replacement)
-        => document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method, clause, replacement)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, MethodDeclarationSyntax method, string? clause, string? replacement) =>
+        document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method, clause, replacement)));
 
     /// <summary>Registers the code action for one repairable clause.</summary>
     /// <param name="context">The code fix context.</param>
@@ -107,8 +109,8 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     /// <summary>Reads the modifiers a public <c>Dispose(bool)</c> should declare instead.</summary>
     /// <param name="diagnostic">The diagnostic being fixed.</param>
     /// <returns>The replacement modifiers, which the analyzer supplies for the public-overload clause.</returns>
-    private static string GetReplacementModifiers(Diagnostic diagnostic)
-        => diagnostic.Properties.TryGetValue(Sst2300DisposePatternAnalyzer.ReplacementModifiersKey, out var replacement) && replacement is not null
+    private static string GetReplacementModifiers(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Sst2300DisposePatternAnalyzer.ReplacementModifiersKey, out var replacement) && replacement is not null
             ? replacement
             : Sst2300DisposePatternAnalyzer.OverridableModifiers;
 
@@ -116,16 +118,17 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The method declaration, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static MethodDeclarationSyntax? FindMethod(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MethodDeclarationSyntax? FindMethod(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>();
 
     /// <summary>Rewrites the reported method for its clause.</summary>
     /// <param name="method">The method the clause was reported on.</param>
     /// <param name="clause">The failing clause.</param>
     /// <param name="replacement">The modifiers a public <c>Dispose(bool)</c> should declare instead.</param>
     /// <returns>The rewritten method.</returns>
-    private static MethodDeclarationSyntax Rewrite(MethodDeclarationSyntax method, string? clause, string? replacement)
-        => clause == Sst2300DisposePatternAnalyzer.SuppressFinalizeClause
+    private static MethodDeclarationSyntax Rewrite(MethodDeclarationSyntax method, string? clause, string? replacement) =>
+        clause == Sst2300DisposePatternAnalyzer.SuppressFinalizeClause
             ? AddSuppressFinalize(method)
             : WithReplacementModifiers(method, replacement);
 
@@ -165,8 +168,9 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     /// without <c>using System;</c>, or one where something else is already called <c>GC</c>, keeps the
     /// qualified form and still compiles — the fix never writes a name it has not proved binds.
     /// </remarks>
-    private static StatementSyntax BuildSuppressFinalizeStatement()
-        => SyntaxFactory.ParseStatement(SuppressFinalizeCall)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static StatementSyntax BuildSuppressFinalizeStatement() =>
+        SyntaxFactory.ParseStatement(SuppressFinalizeCall)
             .WithAdditionalAnnotations(Simplifier.Annotation)
             .WithAdditionalAnnotations(Formatter.Annotation);
 

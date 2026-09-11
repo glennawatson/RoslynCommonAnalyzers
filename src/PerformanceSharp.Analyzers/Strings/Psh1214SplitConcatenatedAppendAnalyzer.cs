@@ -46,7 +46,7 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1214 for a concatenated Append or AppendLine argument.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The resolved string builder type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetConcatenationArgument(invocation, out var concatenation)
@@ -95,8 +95,8 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol builderType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { IsStatic: false, Parameters: [{ Type.SpecialType: SpecialType.System_String }] } method
             && SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType);
 
     /// <summary>Runs the argument semantic check: the <c>+</c> must be the built-in string concatenation operator.</summary>
@@ -104,8 +104,8 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
     /// <param name="concatenation">The candidate <c>+</c> expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the operator is the built-in string concatenation; user-defined operators fail.</returns>
-    private static bool IsBuiltInStringConcatenation(SemanticModel model, BinaryExpressionSyntax concatenation, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(concatenation, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsBuiltInStringConcatenation(SemanticModel model, BinaryExpressionSyntax concatenation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(concatenation, cancellationToken).Symbol is IMethodSymbol
         {
             MethodKind: MethodKind.BuiltinOperator,
             ContainingType.SpecialType: SpecialType.System_String,

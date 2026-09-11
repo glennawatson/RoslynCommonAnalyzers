@@ -152,13 +152,7 @@ public class ValueTypeEqualityCodeFixUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string fixedSource, string equivalenceKey)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource,
-            CodeActionEquivalenceKey = equivalenceKey,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource, CodeActionEquivalenceKey = equivalenceKey, };
         await test.RunAsync(CancellationToken.None);
     }
 }

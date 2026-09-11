@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeTypedResults = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -49,9 +50,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies a simple <c>Results.Ok(...)</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultsOkReportedAsync()
-        => await VerifyAsync(
+    public Task ResultsOkReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -63,9 +65,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless <c>Results.NotFound()</c> call is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultsNotFoundReportedAsync()
-        => await VerifyAsync(
+    public Task ResultsNotFoundReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -77,9 +80,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified <c>Results.X(...)</c> call is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FullyQualifiedResultsReportedAsync()
-        => await VerifyAsync(
+    public Task FullyQualifiedResultsReportedAsync() =>
+        VerifyAsync(
             """
             public class Handlers
             {
@@ -90,9 +94,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies the strongly typed <c>TypedResults.X(...)</c> call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypedResultsIsCleanAsync()
-        => await VerifyAsync(
+    public Task TypedResultsIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -104,9 +109,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies a same-named factory in the user's own namespace is not reported (containing-type identity, not name text).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedResultsTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedResultsTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public class Handlers
             {
@@ -124,9 +130,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Results</c> member with no matching <c>TypedResults</c> member is not reported (the suggestion must be actionable).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ResultsMemberWithoutTypedCounterpartIsCleanAsync()
-        => await VerifyAsync(
+    public Task ResultsMemberWithoutTypedCounterpartIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -138,9 +145,10 @@ public class PreferTypedResultsAnalyzerUnitTest
 
     /// <summary>Verifies the rule stays silent when <c>TypedResults</c> is absent from the compilation.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SilentWhenTypedResultsAbsentAsync()
-        => await VerifyAsync(
+    public Task SilentWhenTypedResultsAbsentAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -167,11 +175,7 @@ public class PreferTypedResultsAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeTypedResults.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeTypedResults.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

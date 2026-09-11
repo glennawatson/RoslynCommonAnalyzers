@@ -65,7 +65,7 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
     /// <summary>Reports PSH1602 when a component reaches <c>StateHasChanged()</c> unconditionally from a post-render callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="componentBase">The resolved component base type gating the rule.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol componentBase)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol componentBase)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsStateHasChangedName(invocation.Expression))
@@ -116,15 +116,14 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         {
             switch (current)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
                     return null;
 
                 case MethodDeclarationSyntax method:
                     return method.Identifier.ValueText is OnAfterRenderMethodName or OnAfterRenderAsyncMethodName
                         && method.ParameterList.Parameters.Count == 1
-                            ? method
-                            : null;
+                        ? method
+                        : null;
 
                 case MemberDeclarationSyntax:
                     return null;
@@ -147,9 +146,7 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         {
             switch (current)
             {
-                case ExpressionStatementSyntax:
-                case BlockSyntax:
-                case ArrowExpressionClauseSyntax:
+                case ExpressionStatementSyntax or BlockSyntax or ArrowExpressionClauseSyntax:
                     continue;
 
                 default:

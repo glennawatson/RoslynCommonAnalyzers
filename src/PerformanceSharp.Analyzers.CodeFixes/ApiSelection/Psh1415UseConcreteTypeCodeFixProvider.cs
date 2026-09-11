@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Simplification;
 
@@ -25,12 +26,13 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Declare the concrete type", nameof(Psh1415UseConcreteTypeCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Declare the concrete type", nameof(Psh1415UseConcreteTypeCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces a reported interface declaration with the concrete type.</summary>
     /// <param name="document">The document being fixed.</param>
@@ -38,8 +40,8 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     /// <param name="model">The semantic model.</param>
     /// <param name="declaredType">The declared type syntax to rewrite.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, TypeSyntax declaredType)
-        => TryGetReplacement(model, declaredType, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, TypeSyntax declaredType) =>
+        TryGetReplacement(model, declaredType, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(declaredType, replacement!))
             : document;
 
@@ -48,8 +50,8 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is TypeSyntax declaredType
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is TypeSyntax declaredType
             && TryGetReplacement(model, declaredType, out var replacement)
             ? new NodeReplacement(declaredType, replacement!)
             : null;
@@ -88,7 +90,7 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     /// <param name="candidate">The replacement type syntax.</param>
     /// <param name="concrete">The concrete type it must resolve to.</param>
     /// <returns><see langword="true"/> when the replacement names exactly that type.</returns>
-    private static bool BindsToConcreteType(SemanticModel model, int position, TypeSyntax candidate, INamedTypeSymbol concrete)
-        => model.GetSpeculativeTypeInfo(position, candidate, SpeculativeBindingOption.BindAsTypeOrNamespace).Type is { } bound
+    private static bool BindsToConcreteType(SemanticModel model, int position, TypeSyntax candidate, INamedTypeSymbol concrete) =>
+        model.GetSpeculativeTypeInfo(position, candidate, SpeculativeBindingOption.BindAsTypeOrNamespace).Type is { } bound
             && SymbolEqualityComparer.Default.Equals(bound, concrete);
 }

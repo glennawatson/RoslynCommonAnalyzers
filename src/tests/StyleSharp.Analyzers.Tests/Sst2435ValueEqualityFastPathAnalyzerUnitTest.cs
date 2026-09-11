@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2435ValueEqualityFastPathAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2435ValueEqualityFastPathAnalyzerUnitTest
 {
     /// <summary>Verifies an early-return-true fast path over a value-equality base is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EarlyReturnTrueOverValueBaseIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EarlyReturnTrueOverValueBaseIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -45,9 +47,10 @@ public class Sst2435ValueEqualityFastPathAnalyzerUnitTest
 
     /// <summary>Verifies a base.Equals(...) || ... short-circuit over a value-equality base is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrShortCircuitOverValueBaseIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OrShortCircuitOverValueBaseIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -70,9 +73,10 @@ public class Sst2435ValueEqualityFastPathAnalyzerUnitTest
 
     /// <summary>Verifies the correct base.Equals(...) &amp;&amp; ... shape is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AndCombinationIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task AndCombinationIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -95,9 +99,10 @@ public class Sst2435ValueEqualityFastPathAnalyzerUnitTest
 
     /// <summary>Verifies a guarded fast path against an object base (real reference equality) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedFastPathAgainstObjectBaseIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardedFastPathAgainstObjectBaseIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {

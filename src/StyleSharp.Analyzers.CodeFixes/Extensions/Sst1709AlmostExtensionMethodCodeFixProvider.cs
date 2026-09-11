@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.Formatting;
 
@@ -19,7 +20,7 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <summary>Parses the synthesized block with the C# 14 extension syntax available.</summary>
-    private static readonly Microsoft.CodeAnalysis.CSharp.CSharpParseOptions ExtensionParseOptions =
+    private static readonly CSharpParseOptions ExtensionParseOptions =
         new(Microsoft.CodeAnalysis.CSharp.LanguageVersion.Preview);
 
     /// <inheritdoc/>
@@ -29,16 +30,17 @@ public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvide
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Convert to an extension block member",
             nameof(Sst1709AlmostExtensionMethodCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported method and rewrites it as an extension block.</summary>
     /// <param name="root">The syntax root.</param>
@@ -74,18 +76,13 @@ public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvide
             .WithTrailingTrivia(SyntaxFactory.TriviaList());
 
         var blockText =
-            "extension(" + receiverType + " " + firstParameter.Identifier.ValueText + ")\n{\n"
-            + inner.NormalizeWhitespace().ToFullString()
-            + "\n}";
+            $"extension({receiverType} {firstParameter.Identifier.ValueText})\n{{\n{inner.NormalizeWhitespace().ToFullString()}\n}}";
 
-        if (SyntaxFactory.ParseMemberDeclaration(blockText, options: ExtensionParseOptions) is not { } parsed
+        return SyntaxFactory.ParseMemberDeclaration(blockText, options: ExtensionParseOptions) is not { } parsed
             || parsed.ContainsDiagnostics
-            || !ExtensionBlockHelper.IsExtensionBlock(parsed))
-        {
-            return null;
-        }
-
-        return parsed
+            || !ExtensionBlockHelper.IsExtensionBlock(parsed)
+            ? null
+            : parsed
             .WithLeadingTrivia(method.GetLeadingTrivia())
             .WithTrailingTrivia(method.GetTrailingTrivia())
             .WithAdditionalAnnotations(Formatter.Annotation);
@@ -94,7 +91,7 @@ public sealed class Sst1709AlmostExtensionMethodCodeFixProvider : CodeFixProvide
     /// <summary>Returns the modifier list with any <c>static</c> keyword removed.</summary>
     /// <param name="modifiers">The method's modifiers.</param>
     /// <returns>The modifiers without <c>static</c>.</returns>
-    private static SyntaxTokenList WithoutStatic(SyntaxTokenList modifiers)
+    private static SyntaxTokenList WithoutStatic(in SyntaxTokenList modifiers)
     {
         var kept = new List<SyntaxToken>(modifiers.Count);
         for (var i = 0; i < modifiers.Count; i++)

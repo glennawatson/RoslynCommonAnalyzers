@@ -53,7 +53,7 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one bit array built from a throwaway array.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="bitArray">The resolved bit-array type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol bitArray)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol bitArray)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: 1 } arguments
@@ -79,8 +79,8 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets whether the argument allocates an array that exists only for this call.</summary>
     /// <param name="expression">The single constructor argument.</param>
     /// <returns><see langword="true"/> for an array created inline.</returns>
-    private static bool IsTemporaryArray(ExpressionSyntax expression)
-        => expression is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax;
+    private static bool IsTemporaryArray(ExpressionSyntax expression) =>
+        expression is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax;
 
     /// <summary>Gets whether the bit array offers a constructor taking a read-only span.</summary>
     /// <param name="bitArray">The resolved bit-array type.</param>

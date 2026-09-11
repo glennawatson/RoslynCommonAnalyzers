@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,8 +17,8 @@ internal static class ExtensionBlockHelper
     /// <summary>Returns whether the node is a C# 14 extension block.</summary>
     /// <param name="node">The candidate node.</param>
     /// <returns><see langword="true"/> when the node is an extension block.</returns>
-    public static bool IsExtensionBlock(SyntaxNode node)
-        => node is TypeDeclarationSyntax type
+    internal static bool IsExtensionBlock(SyntaxNode node) =>
+        node is TypeDeclarationSyntax type
             && type.Kind() is not (
                 SyntaxKind.ClassDeclaration
                 or SyntaxKind.StructDeclaration
@@ -27,20 +29,21 @@ internal static class ExtensionBlockHelper
     /// <summary>Returns the receiver type syntax of an extension block, or <see langword="null"/> when absent.</summary>
     /// <param name="extensionBlock">The extension block.</param>
     /// <returns>The receiver parameter's type syntax, or <see langword="null"/>.</returns>
-    public static TypeSyntax? ReceiverType(TypeDeclarationSyntax extensionBlock)
-        => extensionBlock.ParameterList?.Parameters is { Count: > 0 } parameters ? parameters[0].Type : null;
+    internal static TypeSyntax? ReceiverType(TypeDeclarationSyntax extensionBlock) =>
+        extensionBlock.ParameterList?.Parameters is { Count: > 0 } parameters ? parameters[0].Type : null;
 
     /// <summary>Returns the textual receiver type of an extension block, or <see langword="null"/> when absent.</summary>
     /// <param name="extensionBlock">The extension block.</param>
     /// <returns>The receiver parameter's type text (for example <c>string</c>), or <see langword="null"/>.</returns>
-    public static string? ReceiverTypeText(TypeDeclarationSyntax extensionBlock)
-        => ReceiverTypeText(ReceiverType(extensionBlock));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static string? ReceiverTypeText(TypeDeclarationSyntax extensionBlock) =>
+        ReceiverTypeText(ReceiverType(extensionBlock));
 
     /// <summary>Returns the textual receiver type for a receiver type syntax.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <returns>The receiver text, or <see langword="null"/> when absent.</returns>
-    public static string? ReceiverTypeText(TypeSyntax? receiverType)
-        => receiverType switch
+    internal static string? ReceiverTypeText(TypeSyntax? receiverType) =>
+        receiverType switch
         {
             null => null,
             PredefinedTypeSyntax predefined => predefined.Keyword.Text,
@@ -52,7 +55,7 @@ internal static class ExtensionBlockHelper
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <param name="shape">The simple receiver text when classified.</param>
     /// <returns><see langword="true"/> when the receiver can be classified cheaply.</returns>
-    public static bool TryClassifyReceiverShape(TypeSyntax? receiverType, out string? shape)
+    internal static bool TryClassifyReceiverShape(TypeSyntax? receiverType, out string? shape)
     {
         switch (receiverType)
         {
@@ -81,7 +84,7 @@ internal static class ExtensionBlockHelper
     /// <param name="shape">The simple receiver text when classified.</param>
     /// <param name="isBroadReceiver"><see langword="true"/> when the classified receiver is broad.</param>
     /// <returns><see langword="true"/> when the receiver can be classified cheaply.</returns>
-    public static bool TryClassifyReceiver(TypeSyntax? receiverType, out string? shape, out bool isBroadReceiver)
+    internal static bool TryClassifyReceiver(TypeSyntax? receiverType, out string? shape, out bool isBroadReceiver)
     {
         switch (receiverType)
         {
@@ -112,7 +115,7 @@ internal static class ExtensionBlockHelper
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <param name="receiverText">The display text used in the diagnostic message.</param>
     /// <returns><see langword="true"/> for <c>object</c>, <c>System.Object</c>, or <c>dynamic</c>.</returns>
-    public static bool IsBroadReceiver(TypeSyntax? receiverType, out string receiverText)
+    internal static bool IsBroadReceiver(TypeSyntax? receiverType, out string receiverText)
     {
         receiverText = string.Empty;
         switch (receiverType)
@@ -153,7 +156,7 @@ internal static class ExtensionBlockHelper
     /// </summary>
     /// <param name="type">The candidate containing type.</param>
     /// <returns><see langword="true"/> when the type is an extension-block marker type.</returns>
-    public static bool IsExtensionContainer(INamedTypeSymbol? type)
+    internal static bool IsExtensionContainer(INamedTypeSymbol? type)
     {
 #if ROSLYN_5_OR_GREATER
         return type is { IsExtension: true };
@@ -167,8 +170,8 @@ internal static class ExtensionBlockHelper
     /// <summary>Returns whether the member is a classic <c>this</c>-parameter extension method.</summary>
     /// <param name="member">The member declaration.</param>
     /// <returns><see langword="true"/> when the member is a static extension method declared the pre-C#14 way.</returns>
-    public static bool IsClassicExtensionMethod(MemberDeclarationSyntax member)
-        => member is MethodDeclarationSyntax method
+    internal static bool IsClassicExtensionMethod(MemberDeclarationSyntax member) =>
+        member is MethodDeclarationSyntax method
             && method.ParameterList.Parameters.Count > 0
             && ModifierListHelper.Contains(method.ParameterList.Parameters[0].Modifiers, SyntaxKind.ThisKeyword);
 }

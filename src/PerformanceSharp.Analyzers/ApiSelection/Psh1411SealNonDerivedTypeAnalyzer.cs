@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -116,7 +117,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one class when nothing in the compilation derives from or constrains to it.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="index">The per-compilation index.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, SealCandidateIndex index)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, SealCandidateIndex index)
     {
         var symbol = (INamedTypeSymbol)context.Symbol;
 
@@ -145,8 +146,8 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     /// A record has its own sealing rule (SST1800). A static class is already sealed and abstract in
     /// metadata, and an abstract class exists to be derived from.
     /// </remarks>
-    private static bool IsSealableShape(INamedTypeSymbol symbol)
-        => symbol is
+    private static bool IsSealableShape(INamedTypeSymbol symbol) =>
+        symbol is
         {
             TypeKind: TypeKind.Class,
             IsSealed: false,
@@ -218,7 +219,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="index">The per-compilation index.</param>
     /// <returns><see langword="true"/> when sealing it cannot break an assembly this build cannot see.</returns>
-    private static bool IsReportableAccessibility(INamedTypeSymbol symbol, SymbolAnalysisContext context, SealCandidateIndex index)
+    private static bool IsReportableAccessibility(INamedTypeSymbol symbol, in SymbolAnalysisContext context, SealCandidateIndex index)
     {
         // A file-local type is invisible outside its own file, whatever its declared accessibility says
         // and whatever friend assemblies exist.
@@ -234,8 +235,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
                 return true;
             }
 
-            case Accessibility.Internal:
-            case Accessibility.ProtectedAndInternal:
+            case Accessibility.Internal or Accessibility.ProtectedAndInternal:
             {
                 return !index.AssemblyExposesInternals;
             }
@@ -314,8 +314,8 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a class may not be sealed.</summary>
         /// <param name="type">The class definition.</param>
         /// <returns><see langword="true"/> when something derives from it or constrains to it.</returns>
-        public bool Contains(INamedTypeSymbol type)
-            => _types.Contains(type) || _localFunctionConstraintNames?.Contains(type.Name) == true;
+        public bool Contains(INamedTypeSymbol type) =>
+            _types.Contains(type) || _localFunctionConstraintNames?.Contains(type.Name) == true;
 
         /// <summary>Records a local function's constraint targets while walking a tree.</summary>
         /// <param name="localFunction">The visited local function.</param>
@@ -443,7 +443,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
             foreach (var tree in compilation.SyntaxTrees)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                DescendantTraversalHelper.VisitDescendants<LocalFunctionStatementSyntax, BlockedTypes>(
+                _ = DescendantTraversalHelper.VisitDescendants<LocalFunctionStatementSyntax, BlockedTypes>(
                     tree.GetRoot(cancellationToken),
                     ref state,
                     VisitLocalFunction);
@@ -454,12 +454,12 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         /// <param name="type">The class definition.</param>
         private void Block(INamedTypeSymbol type)
         {
-            if (type.TypeKind != TypeKind.Class || type.IsSealed || type.DeclaringSyntaxReferences.Length == 0)
+            if (type.TypeKind != TypeKind.Class || type.IsSealed || type.DeclaringSyntaxReferences.IsEmpty)
             {
                 return;
             }
 
-            _types.Add(type);
+            _ = _types.Add(type);
         }
 
         /// <summary>Records the written name of a class a local function constrains a type parameter to.</summary>
@@ -467,7 +467,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         private void BlockName(string name)
         {
             _localFunctionConstraintNames ??= new HashSet<string>(StringComparer.Ordinal);
-            _localFunctionConstraintNames.Add(name);
+            _ = _localFunctionConstraintNames.Add(name);
         }
     }
 
@@ -507,14 +507,15 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         /// lookup, so the rule stays linear in the size of the compilation however many candidates it
         /// finds. A cancelled build stores nothing, so the next caller starts it again.
         /// </remarks>
-        public bool IsBlocked(INamedTypeSymbol type, CancellationToken cancellationToken)
-            => GetBlocked(cancellationToken).Contains(type);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsBlocked(INamedTypeSymbol type, CancellationToken cancellationToken) =>
+            GetBlocked(cancellationToken).Contains(type);
 
         /// <summary>Reads the settings for a class's tree, parsing each tree's options at most once.</summary>
         /// <param name="symbol">The declared type.</param>
         /// <param name="context">The symbol analysis context.</param>
         /// <returns>The resolved settings.</returns>
-        public SealNonDerivedTypeOptions GetOptions(INamedTypeSymbol symbol, SymbolAnalysisContext context)
+        public SealNonDerivedTypeOptions GetOptions(INamedTypeSymbol symbol, in SymbolAnalysisContext context)
         {
             if (symbol.Locations[0].SourceTree is not { } tree)
             {
@@ -527,7 +528,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
             }
 
             options = SealNonDerivedTypeOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-            _optionsByTree.TryAdd(tree, options);
+            _ = _optionsByTree.TryAdd(tree, options);
             return options;
         }
 

@@ -22,29 +22,23 @@ internal static class ExtensionContainerNaming
     /// <summary>Returns whether the container name already ends with an accepted suffix.</summary>
     /// <param name="name">The container class name.</param>
     /// <returns><see langword="true"/> when the name ends with <c>Extensions</c> or <c>Mixins</c>.</returns>
-    public static bool HasValidSuffix(string name)
-        => name.EndsWith(ExtensionsSuffix, StringComparison.Ordinal)
+    internal static bool HasValidSuffix(string name) =>
+        name.EndsWith(ExtensionsSuffix, StringComparison.Ordinal)
             || name.EndsWith(MixinsSuffix, StringComparison.Ordinal);
 
     /// <summary>Reads the preferred extension-container suffix from analyzer config options.</summary>
     /// <param name="options">The options to inspect.</param>
     /// <returns><c>Extensions</c> or <c>Mixins</c>, defaulting to <c>Extensions</c>.</returns>
-    public static string ReadPreferredSuffix(AnalyzerConfigOptions options)
-    {
-        if (TryReadPreferredSuffix(options, PreferredSuffixSpecificKey, out var preferredSuffix)
-            || TryReadPreferredSuffix(options, PreferredSuffixGeneralKey, out preferredSuffix))
-        {
-            return preferredSuffix!;
-        }
-
-        return ExtensionsSuffix;
-    }
+    internal static string ReadPreferredSuffix(AnalyzerConfigOptions options) => TryReadPreferredSuffix(options, PreferredSuffixSpecificKey, out var preferredSuffix)
+            || TryReadPreferredSuffix(options, PreferredSuffixGeneralKey, out preferredSuffix)
+        ? preferredSuffix!
+        : ExtensionsSuffix;
 
     /// <summary>Builds the preferred container name by removing any accepted suffix before appending the preferred one.</summary>
     /// <param name="currentName">The current container name.</param>
     /// <param name="preferredSuffix">The preferred suffix to append.</param>
     /// <returns>The preferred container name.</returns>
-    public static string BuildPreferredName(string currentName, string preferredSuffix)
+    internal static string BuildPreferredName(string currentName, string preferredSuffix)
     {
         var baseName = currentName;
         if (baseName.EndsWith(ExtensionsSuffix, StringComparison.Ordinal))

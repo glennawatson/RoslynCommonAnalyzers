@@ -145,7 +145,7 @@ public sealed class Sst2282ReferenceEqualsNullPatternAnalyzer : DiagnosticAnalyz
     /// <param name="node">A node in the tree.</param>
     /// <param name="negated">Whether the rewrite is the negated <c>is not null</c> form.</param>
     /// <returns><see langword="true"/> when the constant null pattern (C# 7) — or the <c>not</c> pattern (C# 9) when negated — is available.</returns>
-    private static bool SupportsRequiredPattern(SyntaxNode node, bool negated)
-        => node.SyntaxTree.Options is CSharpParseOptions options
+    private static bool SupportsRequiredPattern(SyntaxNode node, bool negated) =>
+        node.SyntaxTree.Options is CSharpParseOptions options
             && options.LanguageVersion >= (negated ? LanguageVersion.CSharp9 : LanguageVersion.CSharp7);
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -60,8 +62,9 @@ public sealed class Sst1448CallerInfoArgumentCodeFixProvider : CodeFixProvider, 
     /// <param name="root">The syntax root.</param>
     /// <param name="argument">The reported argument.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ArgumentSyntax argument)
-        => document.WithSyntaxRoot(root.ReplaceNode((ArgumentListSyntax)argument.Parent!, RemoveArgument((ArgumentListSyntax)argument.Parent!, argument)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, ArgumentSyntax argument) =>
+        document.WithSyntaxRoot(root.ReplaceNode((ArgumentListSyntax)argument.Parent!, RemoveArgument((ArgumentListSyntax)argument.Parent!, argument)));
 
     /// <summary>Resolves the diagnostic to an argument whose removal is order-safe.</summary>
     /// <param name="root">The syntax root.</param>
@@ -86,6 +89,7 @@ public sealed class Sst1448CallerInfoArgumentCodeFixProvider : CodeFixProvider, 
     /// <param name="list">The original argument list.</param>
     /// <param name="argument">The argument to remove.</param>
     /// <returns>The rewritten argument list.</returns>
-    private static ArgumentListSyntax RemoveArgument(ArgumentListSyntax list, ArgumentSyntax argument)
-        => list.WithArguments(list.Arguments.Remove(argument));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArgumentListSyntax RemoveArgument(ArgumentListSyntax list, ArgumentSyntax argument) =>
+        list.WithArguments(list.Arguments.Remove(argument));
 }

@@ -6,9 +6,7 @@ using System.Collections.Generic;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports a read of mutable state from inside a <c>GetHashCode()</c> override (SST1482).
-/// </summary>
+/// <summary>Reports a read of mutable state from inside a <c>GetHashCode()</c> override (SST1482).</summary>
 /// <remarks>
 /// <para>
 /// A hash-based collection puts an object in a bucket when it is added and looks in that bucket when it is
@@ -79,16 +77,16 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
     /// Ordered cheapest first: the name rejects almost every method on a single string comparison, so the
     /// modifier scan is only reached by a member that is already named like the hash.
     /// </remarks>
-    private static bool IsHashOverride(MethodDeclarationSyntax method)
-        => method.Identifier.ValueText == GetHashCodeName
+    private static bool IsHashOverride(MethodDeclarationSyntax method) =>
+        method.Identifier.ValueText == GetHashCodeName
             && method.ParameterList.Parameters.Count == 0
             && ModifierListHelper.Contains(method.Modifiers, SyntaxKind.OverrideKeyword);
 
     /// <summary>Gets the code a hash override runs, whichever body form it uses.</summary>
     /// <param name="method">The method declaration.</param>
     /// <returns>The body, or <see langword="null"/> when the override declares none.</returns>
-    private static SyntaxNode? GetBody(MethodDeclarationSyntax method)
-        => (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression;
+    private static SyntaxNode? GetBody(MethodDeclarationSyntax method) =>
+        (SyntaxNode?)method.Body ?? method.ExpressionBody?.Expression;
 
     /// <summary>Visits a hash override's body, binding only the names that could name this object's state.</summary>
     /// <param name="node">The node to visit.</param>
@@ -135,10 +133,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
                 return;
             }
 
-            case NameColonSyntax:
-            case NameEqualsSyntax:
-            case QualifiedNameSyntax:
-            case AliasQualifiedNameSyntax:
+            case NameColonSyntax or NameEqualsSyntax or QualifiedNameSyntax or AliasQualifiedNameSyntax:
                 return;
 
             case SimpleNameSyntax name:
@@ -237,14 +232,14 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is <c>nameof(...)</c>.</summary>
     /// <param name="invocation">The invocation.</param>
     /// <returns><see langword="true"/> when the operand is a name rather than a value.</returns>
-    private static bool IsNameOf(InvocationExpressionSyntax invocation)
-        => invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: NameOfKeyword };
+    private static bool IsNameOf(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is IdentifierNameSyntax { Identifier.ValueText: NameOfKeyword };
 
     /// <summary>Returns whether an initializer assigns members of the object being built.</summary>
     /// <param name="initializer">The initializer.</param>
     /// <returns><see langword="true"/> for an object initializer or a <c>with</c> initializer.</returns>
-    private static bool IsMemberInitializer(InitializerExpressionSyntax initializer)
-        => initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
+    private static bool IsMemberInitializer(InitializerExpressionSyntax initializer) =>
+        initializer.IsKind(SyntaxKind.ObjectInitializerExpression)
             || initializer.IsKind(SyntaxKind.WithInitializerExpression);
 
     /// <summary>Carries the context through the walk and remembers which members have been reported.</summary>
@@ -277,7 +272,7 @@ public sealed class Sst1482MutableGetHashCodeAnalyzer : DiagnosticAnalyzer
             }
             else
             {
-                reported = new List<ISymbol>(InitialReportedMemberCapacity);
+                reported = new(InitialReportedMemberCapacity);
                 Reported = reported;
             }
 

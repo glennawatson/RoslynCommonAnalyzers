@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for unread-parameter analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UnusedParameterBenchmarks: {Members}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UnusedParameterBenchmarks
@@ -24,11 +26,13 @@ public class UnusedParameterBenchmarks
 
     /// <summary>Benchmarks parameters that are read.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnusedParameter_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks parameters that are never read.</summary>
     /// <returns>The diagnostic count.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnusedParameter_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 
@@ -39,8 +43,8 @@ public class UnusedParameterBenchmarks
         /// <param name="members">The number of synthetic methods to emit.</param>
         /// <param name="violating">Whether to emit unread parameters.</param>
         /// <returns>The generated source text.</returns>
-        public static string Generate(int members, bool violating)
-            => $$"""
+        public static string Generate(int members, bool violating) =>
+            $$"""
                namespace Bench;
 
                internal sealed class C
@@ -53,8 +57,8 @@ public class UnusedParameterBenchmarks
         /// <param name="index">The synthetic method index.</param>
         /// <param name="violating">Whether to emit the unread-parameter form.</param>
         /// <returns>The generated method declaration.</returns>
-        private static string GenerateMethod(int index, bool violating)
-            => violating
+        private static string GenerateMethod(int index, bool violating) =>
+            violating
                 ? $"    private int M{index}(int value{index}) => {index};"
                 : $"    private int M{index}(int value{index}) => value{index};";
     }
@@ -65,7 +69,8 @@ public class UnusedParameterBenchmarks
         /// <summary>Creates the prepared benchmark state for the requested method count.</summary>
         /// <param name="members">The synthetic method count.</param>
         /// <returns>The prepared benchmark state.</returns>
-        public static SingleAnalyzerBenchmarkState Create(int members)
-            => SingleAnalyzerBenchmarkCases.Create(new Sst1461UnusedParameterAnalyzer(), Source.Generate, members);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SingleAnalyzerBenchmarkState Create(int members) =>
+            SingleAnalyzerBenchmarkCases.Create(new Sst1461UnusedParameterAnalyzer(), Source.Generate, members);
     }
 }

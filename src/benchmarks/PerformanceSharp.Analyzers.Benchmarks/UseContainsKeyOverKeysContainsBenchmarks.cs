@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for use-ContainsKey-over-Keys.Contains analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseContainsKeyOverKeysContainsBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UseContainsKeyOverKeysContainsBenchmarks
@@ -24,11 +26,13 @@ public class UseContainsKeyOverKeysContainsBenchmarks
 
     /// <summary>Benchmarks the clean use-ContainsKey-over-Keys.Contains path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseContainsKeyOverKeysContains_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating use-ContainsKey-over-Keys.Contains path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseContainsKeyOverKeysContains_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

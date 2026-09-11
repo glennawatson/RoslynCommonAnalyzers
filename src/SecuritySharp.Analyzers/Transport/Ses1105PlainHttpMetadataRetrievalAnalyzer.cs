@@ -58,7 +58,7 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
     /// <summary>Reports SES1105 for an unguarded <c>RequireHttpsMetadata = false</c> on a gated option type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionTypes">The gated authentication option types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] optionTypes)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] optionTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -87,14 +87,11 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
     /// <summary>Returns the assignment's left expression when it names <c>RequireHttpsMetadata</c>.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>
     /// <returns>The left expression to bind, or <see langword="null"/> when it is not the guarded member.</returns>
-    private static ExpressionSyntax? GetRequireHttpsMetadataTarget(ExpressionSyntax left)
-        => left switch
+    private static ExpressionSyntax? GetRequireHttpsMetadataTarget(ExpressionSyntax left) =>
+        left switch
         {
             // 'options.RequireHttpsMetadata = false'.
-            MemberAccessExpressionSyntax { Name.Identifier.ValueText: RequireHttpsMetadataPropertyName } => left,
-
-            // 'new JwtBearerOptions { RequireHttpsMetadata = false }' (object-initializer member).
-            IdentifierNameSyntax { Identifier.ValueText: RequireHttpsMetadataPropertyName } => left,
+            MemberAccessExpressionSyntax { Name.Identifier.ValueText: RequireHttpsMetadataPropertyName } or IdentifierNameSyntax { Identifier.ValueText: RequireHttpsMetadataPropertyName } => left,
 
             _ => null,
         };
@@ -150,7 +147,7 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
         }
 
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             condition,
             ref found,
             static (InvocationExpressionSyntax invocation, ref bool state) =>
@@ -170,14 +167,14 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
     /// <param name="node">The candidate node.</param>
     /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node)
-        => node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
+    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
+        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
 
     /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked)
-        => invoked switch
+    private static string? GetInvokedName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
@@ -193,11 +190,13 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < OptionMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(OptionMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(OptionMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[OptionMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[OptionMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

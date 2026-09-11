@@ -8,9 +8,7 @@ using VerifyInjected = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
 
 namespace StyleSharp.Analyzers.Tests;
 
-/// <summary>
-/// Tests for <see cref="Sst2712SetterlessInjectedPropertyCodeFixProvider"/> (SST2712 add a private setter).
-/// </summary>
+/// <summary>Tests for <see cref="Sst2712SetterlessInjectedPropertyCodeFixProvider"/> (SST2712 add a private setter).</summary>
 public class Sst2712SetterlessInjectedPropertyCodeFixUnitTest
 {
     /// <summary>The marker stub added to both the test and fixed documents so the markers resolve.</summary>

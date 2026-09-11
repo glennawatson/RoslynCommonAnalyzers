@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyTrailingComma = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1413TrailingCommaAnalyzer,
     StyleSharp.Analyzers.Sst1413TrailingCommaCodeFixProvider>;
@@ -81,9 +82,10 @@ public class MaintainabilityTrailingCommaUnitTest
 
     /// <summary>Verifies a multi-line initializer that already has a trailing comma is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingCommaPresentIsCleanAsync()
-        => await VerifyTrailingComma.VerifyAnalyzerAsync(
+    public Task TrailingCommaPresentIsCleanAsync() =>
+        VerifyTrailingComma.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -97,9 +99,10 @@ public class MaintainabilityTrailingCommaUnitTest
 
     /// <summary>Verifies a single-line initializer is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleLineInitializerIsCleanAsync()
-        => await VerifyTrailingComma.VerifyAnalyzerAsync(
+    public Task SingleLineInitializerIsCleanAsync() =>
+        VerifyTrailingComma.VerifyAnalyzerAsync(
             """
             internal class C
             {

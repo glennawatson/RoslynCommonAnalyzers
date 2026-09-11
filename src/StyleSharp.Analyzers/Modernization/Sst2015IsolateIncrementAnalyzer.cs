@@ -67,10 +67,7 @@ public sealed class Sst2015IsolateIncrementAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the increment happens once, with nothing to be ordered against.</returns>
     private static bool IsStandalone(SyntaxNode parent, SyntaxNode value) => parent switch
     {
-        ExpressionStatementSyntax => true,
-        ForStatementSyntax => true,
-        ReturnStatementSyntax => true,
-        ArrowExpressionClauseSyntax => true,
+        ExpressionStatementSyntax or ForStatementSyntax or ReturnStatementSyntax or ArrowExpressionClauseSyntax => true,
         LambdaExpressionSyntax lambda => lambda.Body == value,
         EqualsValueClauseSyntax equals => equals.Value == value,
         AssignmentExpressionSyntax assignment => IsWholeValueOfStatementAssignment(assignment, value),
@@ -109,8 +106,8 @@ public sealed class Sst2015IsolateIncrementAnalyzer : DiagnosticAnalyzer
     /// A compound assignment (<c>total += i++</c>) reads its target as well as writing it, so the order is
     /// back in question and the increment is reported.
     /// </remarks>
-    private static bool IsWholeValueOfStatementAssignment(AssignmentExpressionSyntax assignment, SyntaxNode value)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+    private static bool IsWholeValueOfStatementAssignment(AssignmentExpressionSyntax assignment, SyntaxNode value) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && assignment.Right == value
             && assignment.Parent is ExpressionStatementSyntax;
 

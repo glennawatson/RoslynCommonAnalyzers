@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -26,38 +28,33 @@ public sealed class Sst2412LoopStepsAwayFromBoundCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Flip the comparison so the loop steps toward the bound",
             nameof(Sst2412LoopStepsAwayFromBoundCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported comparison and negates its operator.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the reported shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison
-            || Negate(comparison.Kind()) is not { } negated)
-        {
-            return null;
-        }
-
-        return new NodeReplacement(comparison, Flip(comparison, negated), current => Rewrite(current, negated));
-    }
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) => root.FindNode(diagnostic.Location.SourceSpan) is not BinaryExpressionSyntax comparison
+            || Negate(comparison.Kind()) is not { } negated
+        ? null
+        : new NodeReplacement(comparison, Flip(comparison, negated), current => Rewrite(current, negated));
 
     /// <summary>Re-applies the flip after any nested batch edit.</summary>
     /// <param name="current">The current node.</param>
     /// <param name="negated">The negated comparison kind.</param>
     /// <returns>The flipped comparison, or the node unchanged.</returns>
-    private static SyntaxNode Rewrite(SyntaxNode current, SyntaxKind negated)
-        => current is BinaryExpressionSyntax comparison ? Flip(comparison, negated) : current;
+    private static SyntaxNode Rewrite(SyntaxNode current, SyntaxKind negated) =>
+        current is BinaryExpressionSyntax comparison ? Flip(comparison, negated) : current;
 
     /// <summary>Builds the flipped comparison, keeping both operands and the operator's trivia.</summary>
     /// <param name="comparison">The original comparison.</param>

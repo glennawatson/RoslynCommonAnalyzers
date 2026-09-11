@@ -58,17 +58,11 @@ public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvid
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (!CreateReplacement(root, diagnostic, out var switchStatement, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) => !CreateReplacement(root, diagnostic, out var switchStatement, out var replacement)
             || switchStatement is null
-            || replacement is null)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(root.ReplaceNode(switchStatement, replacement));
-    }
+            || replacement is null
+        ? document
+        : document.WithSyntaxRoot(root.ReplaceNode(switchStatement, replacement));
 
     /// <summary>Builds the switch-expression return statement.</summary>
     /// <param name="root">The syntax root.</param>

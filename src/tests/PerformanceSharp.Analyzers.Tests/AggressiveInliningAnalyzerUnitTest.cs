@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -13,9 +14,6 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1410AggressiveInliningAnalyzer"/> (PSH1410 aggressive inlining, opt-in).</summary>
 public class AggressiveInliningAnalyzerUnitTest
 {
-    /// <summary>The path the opt-in editorconfig takes in the test's virtual file system.</summary>
-    private const string OptInConfigPath = "/.editorconfig";
-
     /// <summary>The editorconfig that opts into the disabled-by-default rule.</summary>
     private const string OptInConfig = """
         root = true
@@ -97,11 +95,11 @@ public class AggressiveInliningAnalyzerUnitTest
         {
             TestCode = Source,
             FixedCode = FixedSource,
-            ReferenceAssemblies = framework == "net8.0" ? ReferenceAssemblies.Net.Net80 : ReferenceAssemblies.NetStandard.NetStandard20
+            ReferenceAssemblies = framework == "net8.0" ? ReferenceAssemblies.Net.Net80 : ReferenceAssemblies.NetStandard.NetStandard20,
         };
 
-        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
-        test.FixedState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
+        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         await test.RunAsync(CancellationToken.None);
     }
 
@@ -359,9 +357,10 @@ public class AggressiveInliningAnalyzerUnitTest
     /// some compilations would take the edit, which leaves Roslyn reconciling a linked document that gained
     /// the attribute in one framework and not another, and it writes conflict markers into the source.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberInsideAConditionalRegionIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task MemberInsideAConditionalRegionIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -386,9 +385,10 @@ public class AggressiveInliningAnalyzerUnitTest
     /// If the eligibility check only recognises the short spelling the member is reported again and a
     /// second application yields CS0579, a duplicate attribute.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedMethodImplAttributeIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task QualifiedMethodImplAttributeIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -403,9 +403,10 @@ public class AggressiveInliningAnalyzerUnitTest
 
     /// <summary>Verifies a member that already carries a MethodImpl attribute stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExistingMethodImplIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task ExistingMethodImplIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -418,9 +419,10 @@ public class AggressiveInliningAnalyzerUnitTest
 
     /// <summary>Verifies a virtual member stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VirtualMemberIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task VirtualMemberIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -430,9 +432,10 @@ public class AggressiveInliningAnalyzerUnitTest
 
     /// <summary>Verifies a block-bodied method stays clean; only expression bodies are forwarders.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BlockBodiedMethodIsCleanAsync()
-        => await VerifyOptInAsync(
+    public Task BlockBodiedMethodIsCleanAsync() =>
+        VerifyOptInAsync(
             """
             public class C
             {
@@ -446,8 +449,8 @@ public class AggressiveInliningAnalyzerUnitTest
     /// <summary>Verifies the rule ships disabled by default; blanket inlining is an opinionated convention.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]
-    public async Task RuleIsOffByDefaultAsync()
-        => await Assert.That(ApiSelectionRules.InlineTrivialForwarders.IsEnabledByDefault).IsFalse();
+    public async Task RuleIsOffByDefaultAsync() =>
+        await Assert.That(ApiSelectionRules.InlineTrivialForwarders.IsEnabledByDefault).IsFalse();
 
     /// <summary>Runs an opted-in verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The test source.</param>
@@ -455,16 +458,12 @@ public class AggressiveInliningAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyOptInAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
-        test.TestState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;
-            test.FixedState.AnalyzerConfigFiles.Add((OptInConfigPath, OptInConfig));
+            test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", OptInConfig));
         }
 
         await test.RunAsync(CancellationToken.None);

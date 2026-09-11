@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyJoin = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2250JoinDeclarationAndAssignmentAnalyzer,
     StyleSharp.Analyzers.Sst2250JoinDeclarationAndAssignmentCodeFixProvider>;
@@ -154,9 +155,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a multi-declarator declaration is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclaratorsAreCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task MultipleDeclaratorsAreCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -171,9 +173,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies an already-initialized declaration is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InitializedDeclarationIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task InitializedDeclarationIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -188,9 +191,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a conditional first write keeps the declaration and assignment apart.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalFirstAssignmentIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task ConditionalFirstAssignmentIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -213,9 +217,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a use of the local before the assignment keeps them apart.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UseBetweenDeclarationAndAssignmentIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task UseBetweenDeclarationAndAssignmentIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -231,9 +236,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a declaration that is the last statement in its block is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationAsLastStatementIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task DeclarationAsLastStatementIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -246,9 +252,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a following assignment to a different local is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentToDifferentLocalIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task AssignmentToDifferentLocalIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -265,9 +272,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a following member assignment is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FollowingMemberAssignmentIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task FollowingMemberAssignmentIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -285,9 +293,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a following non-assignment statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FollowingNonAssignmentStatementIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task FollowingNonAssignmentStatementIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -303,9 +312,10 @@ public class JoinDeclarationAndAssignmentAnalyzerUnitTest
 
     /// <summary>Verifies a declaration in a switch section, which is not a block, is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationInSwitchSectionIsCleanAsync()
-        => await VerifyJoin.VerifyAnalyzerAsync(
+    public Task DeclarationInSwitchSectionIsCleanAsync() =>
+        VerifyJoin.VerifyAnalyzerAsync(
             """
             internal class C
             {

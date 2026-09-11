@@ -8,8 +8,8 @@ namespace StyleSharp.Analyzers;
 internal enum NamingConvention
 {
     /// <summary>PascalCase — begins with an upper-case letter.</summary>
-    PascalCase,
+    PascalCase = 0,
 
-    /// <summary>camelCase — begins with a lower-case letter.</summary>
-    CamelCase
+    /// <summary>CamelCase — begins with a lower-case letter.</summary>
+    CamelCase = 1,
 }

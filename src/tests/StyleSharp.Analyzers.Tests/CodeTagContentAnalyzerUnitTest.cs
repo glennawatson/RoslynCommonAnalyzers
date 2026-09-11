@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1661CodeTagContentAnalyzer,
     StyleSharp.Analyzers.Sst1661CodeTagContentCodeFixProvider>;
@@ -13,9 +14,10 @@ public class CodeTagContentAnalyzerUnitTest
 {
     /// <summary>Verifies inline single-line <c>&lt;c&gt;</c> and a multi-line <c>&lt;code&gt;</c> are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MatchingTagsAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MatchingTagsAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             internal class C
             {

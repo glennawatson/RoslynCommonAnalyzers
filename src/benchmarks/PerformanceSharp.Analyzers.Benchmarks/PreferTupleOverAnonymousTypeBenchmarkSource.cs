@@ -11,8 +11,8 @@ internal static class PreferTupleOverAnonymousTypeBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -26,8 +26,8 @@ internal static class PreferTupleOverAnonymousTypeBenchmarkSource
     /// The escaping local stays in both corpora so the measured cost always includes the escape scan
     /// rejecting a candidate, which is the work the clean path actually does.
     /// </remarks>
-    private static string GenerateType(int index, bool violating)
-        => $$"""
+    private static string GenerateType(int index, bool violating) =>
+        $$"""
            public class Case{{index}}
            {
                public object Escaping{{index}}()

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -62,26 +64,21 @@ public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProv
     /// <summary>Returns whether the diagnostic asks for the collection-expression form.</summary>
     /// <param name="diagnostic">The diagnostic to inspect.</param>
     /// <returns><see langword="true"/> when the analyzer stamped the collection-expression property.</returns>
-    private static bool UsesCollectionExpression(Diagnostic diagnostic)
-        => diagnostic.Properties.ContainsKey(Psh1112SeedCollectionFromSourceAnalyzer.UseCollectionExpressionKey);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool UsesCollectionExpression(Diagnostic diagnostic) =>
+        diagnostic.Properties.ContainsKey(Psh1112SeedCollectionFromSourceAnalyzer.UseCollectionExpressionKey);
 
     /// <summary>Resolves the reported invocation back into the declaration/creation/statement triple.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The shape, or <see langword="null"/> when it no longer matches.</returns>
-    private static SeedShape? TryGetShape(SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation
-            || !Psh1112SeedCollectionFromSourceAnalyzer.TryGetSeedShape(invocation, out _, out var creation))
-        {
-            return null;
-        }
-
-        return new SeedShape(
+    private static SeedShape? TryGetShape(SyntaxNode root, Diagnostic diagnostic) => root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation
+            || !Psh1112SeedCollectionFromSourceAnalyzer.TryGetSeedShape(invocation, out _, out var creation)
+        ? null
+        : new SeedShape(
             creation,
             (ExpressionStatementSyntax)invocation.Parent!,
             invocation.ArgumentList.Arguments[0].Expression);
-    }
 
     /// <summary>Applies both edits — seed the initializer, drop the bulk-add statement — to the root.</summary>
     /// <param name="document">The document being fixed.</param>

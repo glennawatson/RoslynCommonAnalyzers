@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeSystemPrompt = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -111,9 +112,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a ChatMessage built with ChatRole.System and a parameter as content is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionsChatMessageSystemRoleNonConstantReportedAsync()
-        => await VerifyExtensionsAsync(
+    public Task ExtensionsChatMessageSystemRoleNonConstantReportedAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -125,9 +127,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a target-typed ChatMessage system message with non-constant content is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionsChatMessageTargetTypedNewReportedAsync()
-        => await VerifyExtensionsAsync(
+    public Task ExtensionsChatMessageTargetTypedNewReportedAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -143,9 +146,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated string in the system channel is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionsChatMessageInterpolatedContentReportedAsync()
-        => await VerifyExtensionsAsync(
+    public Task ExtensionsChatMessageInterpolatedContentReportedAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -157,9 +161,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies the content is reported when the role and content are passed by name in reverse order.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionsChatMessageNamedArgumentsReportedAsync()
-        => await VerifyExtensionsAsync(
+    public Task ExtensionsChatMessageNamedArgumentsReportedAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -171,9 +176,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a Semantic Kernel ChatHistory.AddSystemMessage with non-constant content is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelAddSystemMessageNonConstantReportedAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelAddSystemMessageNonConstantReportedAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -185,9 +191,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a Semantic Kernel ChatHistory.AddMessage with AuthorRole.System is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelAddMessageSystemRoleReportedAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelAddMessageSystemRoleReportedAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -199,9 +206,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a Semantic Kernel ChatMessageContent built with AuthorRole.System is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelChatMessageContentSystemRoleReportedAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelChatMessageContentSystemRoleReportedAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel;
             using Microsoft.SemanticKernel.ChatCompletion;
@@ -214,9 +222,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal system prompt is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantLiteralSystemPromptIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task ConstantLiteralSystemPromptIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -228,9 +237,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a system prompt referencing a const is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstReferenceSystemPromptIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task ConstReferenceSystemPromptIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -244,9 +254,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies non-constant content on a non-system role is not reported (user data belongs there).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UserRoleNonConstantContentIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task UserRoleNonConstantContentIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -258,9 +269,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a ChatMessage built from a non-string content overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonStringContentOverloadIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task NonStringContentOverloadIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -272,9 +284,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated two-argument construction is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedTwoArgumentConstructionIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task UnrelatedTwoArgumentConstructionIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             public sealed class Pair
             {
@@ -291,9 +304,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a construction whose constructor does not bind statically (a dynamic argument) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DynamicallyBoundConstructionIsCleanAsync()
-        => await VerifyExtensionsAsync(
+    public Task DynamicallyBoundConstructionIsCleanAsync() =>
+        VerifyExtensionsAsync(
             """
             using Microsoft.Extensions.AI;
 
@@ -305,9 +319,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a Semantic Kernel AddMessage bound to a non-string content overload is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelAddMessageNonStringOverloadIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelAddMessageNonStringOverloadIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -319,9 +334,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies an invocation with no member-access receiver (a local function call) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonMemberInvocationIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task NonMemberInvocationIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             public class C
             {
@@ -338,9 +354,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a same-named zero-argument message call is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroArgumentMessageCallIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task ZeroArgumentMessageCallIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             public sealed class Notifier
             {
@@ -357,9 +374,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies AddMessage with a non-system role and non-constant content is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelAddMessageUserRoleIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelAddMessageUserRoleIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -371,9 +389,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a constant AddSystemMessage is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SemanticKernelConstantAddSystemMessageIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SemanticKernelConstantAddSystemMessageIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -385,9 +404,10 @@ public class NonConstantSystemPromptAnalyzerUnitTest
 
     /// <summary>Verifies a same-named AddSystemMessage on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnUnrelatedTypeIsCleanAsync()
-        => await VerifySemanticKernelAsync(
+    public Task SameNamedMethodOnUnrelatedTypeIsCleanAsync() =>
+        VerifySemanticKernelAsync(
             """
             public sealed class Logger
             {
@@ -432,11 +452,13 @@ public class NonConstantSystemPromptAnalyzerUnitTest
     /// <summary>Runs an analyzer-only verification with the Microsoft.Extensions.AI stubs appended.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task VerifyExtensionsAsync(string source) => RunAsync(source + ExtensionsAiStubs);
 
     /// <summary>Runs an analyzer-only verification with the Semantic Kernel stubs appended.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Task VerifySemanticKernelAsync(string source) => RunAsync(source + SemanticKernelStubs);
 
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies.</summary>
@@ -444,11 +466,7 @@ public class NonConstantSystemPromptAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source)
     {
-        var test = new AnalyzeSystemPrompt.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeSystemPrompt.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

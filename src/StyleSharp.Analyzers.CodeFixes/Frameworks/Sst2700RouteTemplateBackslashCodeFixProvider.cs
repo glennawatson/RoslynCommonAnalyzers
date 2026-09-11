@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,16 +22,17 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Replace the backslash with a forward slash",
             nameof(Sst2700RouteTemplateBackslashCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported route-template literal and swaps its backslashes for forward slashes.</summary>
     /// <param name="root">The syntax root.</param>
@@ -56,8 +59,8 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
     /// <summary>Resolves the route-template string literal from the reported node or its enclosing attribute argument.</summary>
     /// <param name="node">The innermost node at the reported span.</param>
     /// <returns>The string literal to rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static LiteralExpressionSyntax? ResolveTemplateLiteral(SyntaxNode node)
-        => node switch
+    private static LiteralExpressionSyntax? ResolveTemplateLiteral(SyntaxNode node) =>
+        node switch
         {
             LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } matched => matched,
             AttributeArgumentSyntax { Expression: LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } argument } => argument,

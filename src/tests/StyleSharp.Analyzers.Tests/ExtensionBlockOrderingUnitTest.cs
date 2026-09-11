@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyOrdering = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.MemberOrderingAnalyzer>;
 
@@ -12,9 +13,10 @@ public class ExtensionBlockOrderingUnitTest
 {
     /// <summary>Verifies a method before a property inside an extension block is reported (SST1201).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodBeforePropertyInExtensionReportedAsync()
-        => await VerifyOrdering.VerifyAnalyzerAsync(
+    public Task MethodBeforePropertyInExtensionReportedAsync() =>
+        VerifyOrdering.VerifyAnalyzerAsync(
             """
             public static class Ext
             {
@@ -31,9 +33,10 @@ public class ExtensionBlockOrderingUnitTest
 
     /// <summary>Verifies correctly ordered extension members are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrderedExtensionMembersAreCleanAsync()
-        => await VerifyOrdering.VerifyAnalyzerAsync(
+    public Task OrderedExtensionMembersAreCleanAsync() =>
+        VerifyOrdering.VerifyAnalyzerAsync(
             """
             public static class Ext
             {

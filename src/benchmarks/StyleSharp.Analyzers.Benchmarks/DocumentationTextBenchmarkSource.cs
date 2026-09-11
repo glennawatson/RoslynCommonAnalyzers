@@ -11,7 +11,7 @@ internal static class DocumentationTextBenchmarkSource
     /// <param name="members">The number of documented methods to emit.</param>
     /// <param name="violating">Whether to emit low-quality summary text.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
+    internal static string Generate(int members, bool violating)
     {
         var summary = violating ? "singleword" : "Does the work here.";
         return $$"""
@@ -27,8 +27,8 @@ internal static class DocumentationTextBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="summary">The summary text to emit.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, string summary)
-        => $$"""
+    private static string GenerateMember(int index, string summary) =>
+        $$"""
            /// <summary>{{summary}}</summary>
            internal void M{{index}}()
            {

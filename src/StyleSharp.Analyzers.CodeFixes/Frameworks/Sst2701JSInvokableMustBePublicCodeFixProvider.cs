@@ -4,9 +4,7 @@
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Makes a <c>[JSInvokable]</c> method public so JavaScript interop can reach it (SST2701).
-/// </summary>
+/// <summary>Makes a <c>[JSInvokable]</c> method public so JavaScript interop can reach it (SST2701).</summary>
 /// <remarks>
 /// The fix replaces whatever accessibility the method declared with <c>public</c>, which is the accessibility the
 /// attribute already implied. A method that explicitly implements an interface carries no accessibility modifier to
@@ -56,7 +54,7 @@ public sealed class Sst2701JSInvokableMustBePublicCodeFixProvider : CodeFixProvi
             return;
         }
 
-        editor.ReplaceNode(method, (current, generator) => generator.WithAccessibility(current, Accessibility.Public));
+        editor.ReplaceNode(method, static (current, generator) => generator.WithAccessibility(current, Accessibility.Public));
     }
 
     /// <summary>Applies the fix for one non-public invokable method.</summary>
@@ -74,8 +72,8 @@ public sealed class Sst2701JSInvokableMustBePublicCodeFixProvider : CodeFixProvi
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The method declaration, or <see langword="null"/> when the shape no longer matches or is an explicit implementation.</returns>
-    private static MethodDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is { ExplicitInterfaceSpecifier: null } method
+    private static MethodDeclarationSyntax? FindDeclaration(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is { ExplicitInterfaceSpecifier: null } method
             ? method
             : null;
 }

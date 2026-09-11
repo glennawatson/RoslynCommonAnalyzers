@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyEmptyStatement = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1106EmptyStatementAnalyzer,
     StyleSharp.Analyzers.Sst1106EmptyStatementCodeFixProvider>;
@@ -73,9 +74,10 @@ public class EmptyStatementAnalyzerUnitTest
 
     /// <summary>Verifies a normal statement is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NormalStatementIsCleanAsync()
-        => await VerifyEmptyStatement.VerifyAnalyzerAsync(
+    public Task NormalStatementIsCleanAsync() =>
+        VerifyEmptyStatement.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Immutable;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -13,12 +14,6 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests the shared two-argument swap used by the transposed-argument code fixes.</summary>
 public sealed class SwappedArgumentCodeFixUnitTest
 {
-    /// <summary>A call with two swappable arguments, the shape every swap in these tests operates on.</summary>
-    private const string TwoArgumentCallSource = "class C { void M() { N(a, b); } }";
-
-    /// <summary>The diagnostic-property key under which an analyzer records the position to swap with.</summary>
-    private const string SwapWithPropertyKey = "SwapWith";
-
     /// <summary>An existing descriptor, reused only to build a diagnostic that carries the swap position.</summary>
     private static readonly DiagnosticDescriptor TestRule = CorrectnessRules.SwappedArguments;
 
@@ -27,7 +22,7 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task SwapExchangesTheTwoArgumentExpressionsAsync()
     {
-        var list = ParseFirstArgumentList(TwoArgumentCallSource);
+        var list = ParseFirstArgumentList("class C { void M() { N(a, b); } }");
 
         var swapped = SwappedArgumentCodeFix.Swap(list, 0, 1);
 
@@ -41,7 +36,7 @@ public sealed class SwappedArgumentCodeFixUnitTest
     {
         const int PositionPastLastArgument = 5;
 
-        var list = ParseFirstArgumentList(TwoArgumentCallSource);
+        var list = ParseFirstArgumentList("class C { void M() { N(a, b); } }");
 
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 1)).IsTrue();
         await Assert.That(SwappedArgumentCodeFix.IsSwappablePair(list, 0, 0)).IsFalse();
@@ -54,12 +49,12 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task TryBuildSwapReordersUsingThePropertyPosition()
     {
-        var root = SyntaxFactory.ParseCompilationUnit(TwoArgumentCallSource);
+        var root = SyntaxFactory.ParseCompilationUnit("class C { void M() { N(a, b); } }");
         var list = FirstArgumentList(root);
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(SwapWithPropertyKey, "1");
+        var properties = ImmutableDictionary<string, string?>.Empty.Add("SwapWith", "1");
         var diagnostic = Diagnostic.Create(TestRule, list.Arguments[0].GetLocation(), properties);
 
-        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, SwapWithPropertyKey);
+        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, "SwapWith");
 
         await Assert.That(edit.HasValue).IsTrue();
         await Assert.That(edit!.Value.Replacement.ToString()).IsEqualTo("(b, a)");
@@ -70,11 +65,11 @@ public sealed class SwappedArgumentCodeFixUnitTest
     [Test]
     public async Task TryBuildSwapReturnsNullWhenThePropertyIsAbsent()
     {
-        var root = SyntaxFactory.ParseCompilationUnit(TwoArgumentCallSource);
+        var root = SyntaxFactory.ParseCompilationUnit("class C { void M() { N(a, b); } }");
         var list = FirstArgumentList(root);
         var diagnostic = Diagnostic.Create(TestRule, list.Arguments[0].GetLocation());
 
-        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, SwapWithPropertyKey);
+        var edit = SwappedArgumentCodeFix.TryBuildSwap(root, diagnostic, "SwapWith");
 
         await Assert.That(edit.HasValue).IsFalse();
     }
@@ -82,8 +77,9 @@ public sealed class SwappedArgumentCodeFixUnitTest
     /// <summary>Parses the first argument list from a single-type snippet, detached from a tree.</summary>
     /// <param name="source">The source snippet.</param>
     /// <returns>The first argument list.</returns>
-    private static ArgumentListSyntax ParseFirstArgumentList(string source)
-        => FirstArgumentList(SyntaxFactory.ParseCompilationUnit(source));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArgumentListSyntax ParseFirstArgumentList(string source) =>
+        FirstArgumentList(SyntaxFactory.ParseCompilationUnit(source));
 
     /// <summary>Gets the first argument list under a compilation unit root.</summary>
     /// <param name="root">The compilation unit root.</param>

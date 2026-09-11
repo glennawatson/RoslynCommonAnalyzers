@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -76,8 +78,8 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <param name="options">The tree's configuration.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, AnalyzerConfigOptions options, Diagnostic diagnostic)
-        => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent switch
+    private static NodeReplacement? TryRewrite(SyntaxNode root, AnalyzerConfigOptions options, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent switch
         {
             MethodDeclarationSyntax method when ExpressionBodyAnalyzer.TryGetMethodExpression(method, out var expression)
                 => new NodeReplacement(
@@ -152,16 +154,18 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <summary>Builds the arrow clause for the collapsed body.</summary>
     /// <param name="expression">The surviving expression.</param>
     /// <returns>An <c>=&gt; expr</c> clause whose arrow keeps a single trailing space.</returns>
-    private static ArrowExpressionClauseSyntax Arrow(ExpressionSyntax expression)
-        => SyntaxFactory.ArrowExpressionClause(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ArrowExpressionClauseSyntax Arrow(ExpressionSyntax expression) =>
+        SyntaxFactory.ArrowExpressionClause(
             SyntaxFactory.Token(default, SyntaxKind.EqualsGreaterThanToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             expression.WithoutTrivia());
 
     /// <summary>Builds the closing semicolon, carrying the collapsed body's trailing trivia.</summary>
     /// <param name="closeBrace">The close brace whose trailing trivia the member ends with.</param>
     /// <returns>A semicolon token that keeps the member's trailing trivia.</returns>
-    private static SyntaxToken Semicolon(SyntaxToken closeBrace)
-        => SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(closeBrace.TrailingTrivia);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken Semicolon(SyntaxToken closeBrace) =>
+        SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(closeBrace.TrailingTrivia);
 
     /// <summary>Lays the new expression body out, wrapping it when one line would run past the maximum.</summary>
     /// <param name="original">The member as it was written.</param>
@@ -214,10 +218,9 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
 
         var expressionText = expression.ToString();
         var firstBreak = expressionText.IndexOf('\n');
-        var head = firstBreak < 0 ? expressionText : expressionText.Substring(0, firstBreak).TrimEnd();
-        var terminator = firstBreak < 0 ? 1 : 0;
+        var head = firstBreak < 0 ? expressionText : expressionText[0..(0 + firstBreak)].TrimEnd();
 
-        return signature.Length + ArrowWidth + head.Length + terminator <= SizeLimitOptions.ReadMaxLineLength(options);
+        return signature.Length + ArrowWidth + head.Length + (firstBreak < 0 ? 1 : 0) <= SizeLimitOptions.ReadMaxLineLength(options);
     }
 
     /// <summary>Gets the indentation a wrapped continuation line uses.</summary>
@@ -227,8 +230,7 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     {
         var text = original.SyntaxTree.GetText();
         var line = text.Lines.GetLineFromPosition(original.SpanStart);
-        var indent = original.SpanStart - line.Start;
-        return new string(' ', indent + IndentWidth);
+        return new(' ', original.SpanStart - line.Start + IndentWidth);
     }
 
     /// <summary>Puts the arrow at the head of the continuation line.</summary>
@@ -236,8 +238,9 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <param name="newLine">The tree's line ending.</param>
     /// <param name="indent">The continuation indentation.</param>
     /// <returns>The member wrapped before its arrow.</returns>
-    private static SyntaxNode BreakBeforeArrow(SyntaxNode member, string newLine, string indent)
-        => ReplaceArrow(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxNode BreakBeforeArrow(SyntaxNode member, string newLine, string indent) =>
+        ReplaceArrow(
             member,
             (previous, arrow) => (
                 previous.WithTrailingTrivia(SyntaxFactory.EndOfLine(newLine), SyntaxFactory.Whitespace(indent)),
@@ -248,8 +251,9 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <param name="newLine">The tree's line ending.</param>
     /// <param name="indent">The continuation indentation.</param>
     /// <returns>The member wrapped after its arrow.</returns>
-    private static SyntaxNode BreakAfterArrow(SyntaxNode member, string newLine, string indent)
-        => ReplaceArrow(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxNode BreakAfterArrow(SyntaxNode member, string newLine, string indent) =>
+        ReplaceArrow(
             member,
             (previous, arrow) => (
                 previous.WithTrailingTrivia(SyntaxFactory.Space),
@@ -300,7 +304,7 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <summary>Reduces a token's trailing trivia to a single space, keeping any comment it carried.</summary>
     /// <param name="trailing">The trailing trivia that used to sit before the block's open brace.</param>
     /// <returns>The trivia with newlines and stray whitespace collapsed to one trailing space.</returns>
-    private static SyntaxTriviaList SingleSpaceKeepingComments(SyntaxTriviaList trailing)
+    private static SyntaxTriviaList SingleSpaceKeepingComments(in SyntaxTriviaList trailing)
     {
         var kept = new List<SyntaxTrivia>(trailing.Count + 1);
         foreach (var trivia in trailing)

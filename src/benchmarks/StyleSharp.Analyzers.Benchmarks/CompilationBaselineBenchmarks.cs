@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -14,6 +15,7 @@ namespace StyleSharp.Analyzers.Benchmarks;
 /// This is the driver/bind floor: subtract it from the per-analyzer numbers to
 /// see what each analyzer actually adds on top of full compilation binding.
 /// </summary>
+[System.Diagnostics.DebuggerDisplay("CompilationBaselineBenchmarks: {Types}")]
 [MemoryDiagnoser]
 public class CompilationBaselineBenchmarks
 {
@@ -38,6 +40,7 @@ public class CompilationBaselineBenchmarks
 
     /// <summary>Fully binds the compilation with no analyzers and returns the diagnostic count.</summary>
     /// <returns>The number of compiler diagnostics produced by the full bind.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public int Bind() => _compilation.GetDiagnostics().Length;
 }

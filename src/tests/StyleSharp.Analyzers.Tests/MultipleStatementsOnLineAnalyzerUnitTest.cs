@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyMultipleStatements = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1107MultipleStatementsOnLineAnalyzer>;
 
@@ -12,9 +13,10 @@ public class MultipleStatementsOnLineAnalyzerUnitTest
 {
     /// <summary>Verifies a second statement sharing a line is reported (SST1107).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecondStatementOnSameLineReportedAsync()
-        => await VerifyMultipleStatements.VerifyAnalyzerAsync(
+    public Task SecondStatementOnSameLineReportedAsync() =>
+        VerifyMultipleStatements.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -29,9 +31,10 @@ public class MultipleStatementsOnLineAnalyzerUnitTest
 
     /// <summary>Verifies a statement sharing a line inside a switch section is reported (SST1107).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchSectionSameLineReportedAsync()
-        => await VerifyMultipleStatements.VerifyAnalyzerAsync(
+    public Task SwitchSectionSameLineReportedAsync() =>
+        VerifyMultipleStatements.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -51,9 +54,10 @@ public class MultipleStatementsOnLineAnalyzerUnitTest
 
     /// <summary>Verifies statements on separate lines are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparateLinesAreCleanAsync()
-        => await VerifyMultipleStatements.VerifyAnalyzerAsync(
+    public Task SeparateLinesAreCleanAsync() =>
+        VerifyMultipleStatements.VerifyAnalyzerAsync(
             """
             internal class C
             {

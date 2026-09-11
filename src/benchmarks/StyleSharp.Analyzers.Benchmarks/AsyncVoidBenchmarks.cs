@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for async-void analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("AsyncVoidBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class AsyncVoidBenchmarks
@@ -24,11 +26,13 @@ public class AsyncVoidBenchmarks
 
     /// <summary>Benchmarks the clean async-void path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AsyncVoid_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating async-void path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> AsyncVoid_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

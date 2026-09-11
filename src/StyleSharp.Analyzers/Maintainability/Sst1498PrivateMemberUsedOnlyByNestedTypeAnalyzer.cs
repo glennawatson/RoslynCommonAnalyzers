@@ -51,8 +51,7 @@ public sealed class Sst1498PrivateMemberUsedOnlyByNestedTypeAnalyzer : Diagnosti
     /// <param name="context">The syntax node analysis context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var type = (TypeDeclarationSyntax)context.Node;
-        if (NestedTypeOnlyMembers.Collect(context.SemanticModel, type, context.CancellationToken) is not { } members)
+        if (NestedTypeOnlyMembers.Collect(context.SemanticModel, (TypeDeclarationSyntax)context.Node, context.CancellationToken) is not { } members)
         {
             return;
         }

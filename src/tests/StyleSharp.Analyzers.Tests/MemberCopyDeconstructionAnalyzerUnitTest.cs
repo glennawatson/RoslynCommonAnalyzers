@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -171,9 +172,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies a single member read is left alone; there is nothing to deconstruct.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleMemberReadIsCleanAsync()
-        => await RunAsync(
+    public Task SingleMemberReadIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -187,9 +189,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies members read out of positional order are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReorderedMemberReadsAreCleanAsync()
-        => await RunAsync(
+    public Task ReorderedMemberReadsAreCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -204,9 +207,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies a partial read that omits a tuple position is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTupleReadIsCleanAsync()
-        => await RunAsync(
+    public Task PartialTupleReadIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -221,9 +225,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies member copies off a value with no matching deconstruction are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonDeconstructibleSourceIsCleanAsync()
-        => await RunAsync(
+    public Task NonDeconstructibleSourceIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class Box
             {
@@ -245,9 +250,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies copies whose member names do not match the Deconstruct parameters are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeconstructNameMismatchIsCleanAsync()
-        => await RunAsync(
+    public Task DeconstructNameMismatchIsCleanAsync() =>
+        RunAsync(
             """
             public readonly struct Span
             {
@@ -281,9 +287,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies copies from two different sources are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentSourcesAreCleanAsync()
-        => await RunAsync(
+    public Task DifferentSourcesAreCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -298,9 +305,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies explicitly typed member copies are left alone; folding could change the inferred types.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitlyTypedCopiesAreCleanAsync()
-        => await RunAsync(
+    public Task ExplicitlyTypedCopiesAreCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -315,9 +323,10 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
 
     /// <summary>Verifies a value declared in the immediately preceding statement is left to the tuple-temporary rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SourceDeclaredJustBeforeIsCleanAsync()
-        => await RunAsync(
+    public Task SourceDeclaredJustBeforeIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class C
             {
@@ -366,11 +375,7 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
                                   }
                               }
                               """;
-        var test = new VerifyMemberCopyDeconstruction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyMemberCopyDeconstruction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {
             var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
@@ -385,11 +390,7 @@ public class MemberCopyDeconstructionAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task RunAsync(string source, string? fixedSource = null)
     {
-        var test = new VerifyMemberCopyDeconstruction.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        };
+        var test = new VerifyMemberCopyDeconstruction.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source };
 
         if (fixedSource is not null)
         {

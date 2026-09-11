@@ -19,7 +19,7 @@ internal static class NamingDiagnostic
     /// <param name="rule">The diagnostic descriptor to report.</param>
     /// <param name="identifier">The identifier token being named incorrectly.</param>
     /// <param name="suggestedName">The suggested replacement name.</param>
-    public static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken identifier, string suggestedName)
+    internal static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken identifier, string suggestedName)
     {
         var properties = ImmutableDictionary<string, string?>.Empty.Add(NewNameKey, suggestedName);
         context.ReportDiagnostic(DiagnosticHelper.Create(rule, identifier.SyntaxTree!, identifier.Span, properties, identifier.ValueText));
@@ -31,7 +31,7 @@ internal static class NamingDiagnostic
     /// <param name="identifier">The identifier token being named incorrectly.</param>
     /// <param name="name">The current display name.</param>
     /// <param name="suggestedName">The suggested replacement name.</param>
-    public static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken identifier, string name, string suggestedName)
+    internal static void Report(in SyntaxNodeAnalysisContext context, DiagnosticDescriptor rule, SyntaxToken identifier, string name, string suggestedName)
     {
         var properties = ImmutableDictionary<string, string?>.Empty.Add(NewNameKey, suggestedName);
         context.ReportDiagnostic(DiagnosticHelper.Create(rule, identifier.SyntaxTree!, identifier.Span, properties, name));

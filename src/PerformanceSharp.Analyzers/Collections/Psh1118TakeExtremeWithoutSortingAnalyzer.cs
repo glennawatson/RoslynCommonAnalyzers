@@ -79,8 +79,8 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether an invocation has the sort-then-take-one chain shape, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when a predicate-free extreme terminal directly follows a one-lambda sort.</returns>
-    internal static bool IsExtremeChainShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsExtremeChainShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax terminal
             && IsExtremeTerminalName(terminal.Name.Identifier.ValueText)
             && IsSingleKeySort(terminal.Expression);
@@ -107,14 +107,14 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether a member name is one of the four extreme-element terminals.</summary>
     /// <param name="name">The invoked member name.</param>
     /// <returns><see langword="true"/> for <c>First</c>, <c>FirstOrDefault</c>, <c>Last</c>, or <c>LastOrDefault</c>.</returns>
-    private static bool IsExtremeTerminalName(string name)
-        => name is FirstMethodName or FirstOrDefaultMethodName or LastMethodName or LastOrDefaultMethodName;
+    private static bool IsExtremeTerminalName(string name) =>
+        name is FirstMethodName or FirstOrDefaultMethodName or LastMethodName or LastOrDefaultMethodName;
 
     /// <summary>Returns whether an expression is a one-lambda <c>OrderBy</c>/<c>OrderByDescending</c> invocation.</summary>
     /// <param name="expression">The terminal's receiver expression.</param>
     /// <returns><see langword="true"/> when the receiver is a single-key sort call.</returns>
-    private static bool IsSingleKeySort(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax sort
+    private static bool IsSingleKeySort(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax sort
             && sort.ArgumentList.Arguments.Count == 1
             && sort.Expression is MemberAccessExpressionSyntax sortAccess
             && sortAccess.Name.Identifier.ValueText is OrderByMethodName or OrderByDescendingMethodName
@@ -123,15 +123,15 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether an expression is a one-parameter key-selector lambda.</summary>
     /// <param name="expression">The candidate selector expression.</param>
     /// <returns><see langword="true"/> for simple lambdas and one-parameter parenthesized lambdas.</returns>
-    private static bool IsKeySelectorLambda(ExpressionSyntax expression)
-        => expression is SimpleLambdaExpressionSyntax
+    private static bool IsKeySelectorLambda(ExpressionSyntax expression) =>
+        expression is SimpleLambdaExpressionSyntax
             or ParenthesizedLambdaExpressionSyntax { ParameterList.Parameters.Count: 1 };
 
     /// <summary>Returns whether an expression is a lambda that returns its own single parameter.</summary>
     /// <param name="expression">The candidate selector expression.</param>
     /// <returns><see langword="true"/> for <c>x =&gt; x</c> in simple or parenthesized form.</returns>
-    private static bool IsIdentityLambda(ExpressionSyntax expression)
-        => expression switch
+    private static bool IsIdentityLambda(ExpressionSyntax expression) =>
+        expression switch
         {
             SimpleLambdaExpressionSyntax simple =>
                 simple.ExpressionBody is IdentifierNameSyntax body
@@ -159,7 +159,7 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The LINQ extension class.</param>
     /// <param name="hasMinBy">Whether the compilation's <c>Enumerable</c> exposes <c>MinBy</c>.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType, bool hasMinBy)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType, bool hasMinBy)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsExtremeChainShape(invocation))
@@ -194,12 +194,12 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <param name="enumerableType">The LINQ extension class.</param>
     /// <returns><see langword="true"/> when the chain is safe to report.</returns>
     private static bool BindsToReportableChain(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         MemberAccessExpressionSyntax terminal,
         InvocationExpressionSyntax sort,
-        INamedTypeSymbol enumerableType)
-        => context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol terminalMethod
+        INamedTypeSymbol enumerableType) =>
+        context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol terminalMethod
             && SymbolEqualityComparer.Default.Equals(terminalMethod.ContainingType, enumerableType)
             && terminalMethod.TypeArguments is [{ } elementType]
             && context.SemanticModel.GetSymbolInfo(sort, context.CancellationToken).Symbol is IMethodSymbol sortMethod

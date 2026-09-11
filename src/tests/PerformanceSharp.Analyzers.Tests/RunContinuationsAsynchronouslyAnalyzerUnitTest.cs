@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -47,9 +48,10 @@ public class RunContinuationsAsynchronouslyAnalyzerUnitTest
 
     /// <summary>Verifies a completion source that already passes the flag is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FlaggedCompletionSourceIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task FlaggedCompletionSourceIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -161,9 +163,10 @@ public class RunContinuationsAsynchronouslyAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant options argument stays clean because the flag may arrive at runtime.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OpaqueOptionsVariableIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task OpaqueOptionsVariableIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -243,11 +246,7 @@ public class RunContinuationsAsynchronouslyAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

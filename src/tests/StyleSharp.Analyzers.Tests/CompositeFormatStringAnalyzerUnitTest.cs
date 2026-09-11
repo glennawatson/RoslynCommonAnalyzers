@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCompositeFormatString = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1454CompositeFormatStringAnalyzer>;
 
@@ -12,9 +13,10 @@ public class CompositeFormatStringAnalyzerUnitTest
 {
     /// <summary>Verifies a placeholder beyond the supplied argument count is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PlaceholderWithoutArgumentIsReportedAsync()
-        => await VerifyCompositeFormatString.VerifyAnalyzerAsync(
+    public Task PlaceholderWithoutArgumentIsReportedAsync() =>
+        VerifyCompositeFormatString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -24,9 +26,10 @@ public class CompositeFormatStringAnalyzerUnitTest
 
     /// <summary>Verifies escaped braces and satisfied placeholders are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SatisfiedPlaceholdersAreCleanAsync()
-        => await VerifyCompositeFormatString.VerifyAnalyzerAsync(
+    public Task SatisfiedPlaceholdersAreCleanAsync() =>
+        VerifyCompositeFormatString.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

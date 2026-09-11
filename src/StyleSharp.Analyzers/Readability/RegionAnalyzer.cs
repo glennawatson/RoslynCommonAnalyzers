@@ -54,6 +54,6 @@ public sealed class RegionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the region directive sits inside a statement block (a code element body).</summary>
     /// <param name="trivia">The region directive trivia.</param>
     /// <returns><see langword="true"/> when the region is nested inside executable code.</returns>
-    private static bool IsWithinElement(SyntaxTrivia trivia)
-        => trivia.Token.Parent?.FirstAncestorOrSelf<BlockSyntax>() is not null;
+    private static bool IsWithinElement(in SyntaxTrivia trivia) =>
+        trivia.Token.Parent?.FirstAncestorOrSelf<BlockSyntax>() is not null;
 }

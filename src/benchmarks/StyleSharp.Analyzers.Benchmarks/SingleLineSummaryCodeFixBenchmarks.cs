@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -10,6 +11,7 @@ using Microsoft.CodeAnalysis.Text;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the SST1653 code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("SingleLineSummaryCodeFixBenchmarks: {Types}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class SingleLineSummaryCodeFixBenchmarks : IDisposable
@@ -38,7 +40,7 @@ public class SingleLineSummaryCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, SingleLineSummaryCodeFixBenchmarkSource.Generate(Types));
 
         var root = await _document.GetSyntaxRootAsync().ConfigureAwait(false);
@@ -46,6 +48,7 @@ public class SingleLineSummaryCodeFixBenchmarks : IDisposable
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -84,6 +87,7 @@ public class SingleLineSummaryCodeFixBenchmarks : IDisposable
     /// <summary>Finds the middle summary element in the benchmark document.</summary>
     /// <param name="root">The syntax root.</param>
     /// <returns>The selected summary element.</returns>
+    /// <exception cref="InvalidOperationException">The member at the middle position is not a type declaration carrying a summary element.</exception>
     private static XmlElementSyntax FindTargetSummary(SyntaxNode root)
     {
         var namespaceDeclaration = (BaseNamespaceDeclarationSyntax)((CompilationUnitSyntax)root).Members[0];

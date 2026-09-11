@@ -25,8 +25,8 @@ public sealed class Sst2459OptionalByRefParameterAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.OptionalByRefParameter);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -87,7 +87,7 @@ public sealed class Sst2459OptionalByRefParameterAnalyzer : DiagnosticAnalyzer
     /// <summary>Names the by-reference modifier whose callers cannot omit the argument.</summary>
     /// <param name="modifiers">The parameter's modifiers.</param>
     /// <returns><c>"out"</c>, <c>"ref"</c> for a bare <c>ref</c>, or <see langword="null"/> otherwise.</returns>
-    private static string? ByReferenceModifier(SyntaxTokenList modifiers)
+    private static string? ByReferenceModifier(in SyntaxTokenList modifiers)
     {
         var hasRef = false;
         var hasReadOnly = false;

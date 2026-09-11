@@ -100,9 +100,7 @@ public sealed class Sst2311PublicConstantFieldAnalyzer : DiagnosticAnalyzer
         {
             switch (current.DeclaredAccessibility)
             {
-                case Accessibility.Public:
-                case Accessibility.Protected:
-                case Accessibility.ProtectedOrInternal:
+                case Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal:
                 {
                     break;
                 }

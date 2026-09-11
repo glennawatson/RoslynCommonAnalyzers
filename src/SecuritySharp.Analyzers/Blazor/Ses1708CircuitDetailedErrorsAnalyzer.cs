@@ -48,7 +48,7 @@ public sealed class Ses1708CircuitDetailedErrorsAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1708 for <c>DetailedErrors = true</c> on the gated circuit-options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="circuitOptions">The gated <c>CircuitOptions</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, INamedTypeSymbol circuitOptions)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol circuitOptions)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 

@@ -17,7 +17,7 @@ internal static class BlazorComponentHelper
     /// <param name="type">The candidate type (an attribute class or a component type).</param>
     /// <param name="target">The base or marker type to match.</param>
     /// <returns><see langword="true"/> when <paramref name="type"/> is the target or a subclass of it.</returns>
-    public static bool IsOrDerivesFrom(INamedTypeSymbol? type, INamedTypeSymbol target)
+    internal static bool IsOrDerivesFrom(INamedTypeSymbol? type, INamedTypeSymbol target)
     {
         for (var current = type; current is not null; current = current.BaseType)
         {
@@ -35,6 +35,6 @@ internal static class BlazorComponentHelper
     /// <param name="attribute">The attribute syntax to bind.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The bound attribute class, or <see langword="null"/> when the attribute does not resolve.</returns>
-    public static INamedTypeSymbol? GetAttributeType(SemanticModel model, AttributeSyntax attribute, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(attribute, cancellationToken).Symbol is IMethodSymbol { ContainingType: { } attributeType } ? attributeType : null;
+    internal static INamedTypeSymbol? GetAttributeType(SemanticModel model, AttributeSyntax attribute, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(attribute, cancellationToken).Symbol is IMethodSymbol { ContainingType: { } attributeType } ? attributeType : null;
 }

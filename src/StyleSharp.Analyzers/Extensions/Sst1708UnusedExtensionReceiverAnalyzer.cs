@@ -53,7 +53,7 @@ public sealed class Sst1708UnusedExtensionReceiverAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new ReceiverUsageScan(receiverName);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref ReceiverUsageScan state) => state.Observe(token));
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref ReceiverUsageScan state) => state.Observe(token));
         if (scan.Used)
         {
             return;
@@ -67,7 +67,11 @@ public sealed class Sst1708UnusedExtensionReceiverAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>Tracks whether an identifier token naming the receiver has been seen in the body.</summary>
-    private struct ReceiverUsageScan : IEquatable<ReceiverUsageScan>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct ReceiverUsageScan
     {
         /// <summary>The receiver parameter name to look for.</summary>
         private readonly string _receiverName;
@@ -85,17 +89,6 @@ public sealed class Sst1708UnusedExtensionReceiverAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets a value indicating whether the receiver name was read.</summary>
         public readonly bool Used => _used;
-
-        /// <summary>Returns whether two scan states are equivalent.</summary>
-        /// <param name="other">The other state.</param>
-        /// <returns><see langword="true"/> when the tracked state is equal.</returns>
-        public readonly bool Equals(ReceiverUsageScan other) => _used == other._used && string.Equals(_receiverName, other._receiverName, StringComparison.Ordinal);
-
-        /// <inheritdoc/>
-        public override readonly bool Equals(object? obj) => obj is ReceiverUsageScan other && Equals(other);
-
-        /// <inheritdoc/>
-        public override readonly int GetHashCode() => unchecked((_receiverName.GetHashCode() * 397) ^ (_used ? 1 : 0));
 
         /// <summary>Observes one token and returns whether scanning should continue.</summary>
         /// <param name="token">The token.</param>

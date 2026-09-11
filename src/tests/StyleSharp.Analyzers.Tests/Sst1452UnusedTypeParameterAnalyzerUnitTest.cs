@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1452UnusedTypeParameterAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 {
     /// <summary>Verifies an unused method type parameter is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedMethodTypeParameterIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnusedMethodTypeParameterIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -26,9 +28,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies a type parameter used in the signature is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SignatureUsageIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SignatureUsageIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -38,9 +41,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies a type parameter used only in the body is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyUsageIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BodyUsageIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -50,9 +54,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies a parameter appearing only as its own constraint clause name is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstraintOnlyParameterIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ConstraintOnlyParameterIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -64,9 +69,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies usage inside another parameter's constraint counts.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsageInOtherConstraintIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UsageInOtherConstraintIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -80,9 +86,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies an unused class type parameter is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnusedClassTypeParameterIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task UnusedClassTypeParameterIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Holder<{|SST1452:T|}>
             {
@@ -92,9 +99,10 @@ public class Sst1452UnusedTypeParameterAnalyzerUnitTest
 
     /// <summary>Verifies polymorphic and partial declarations are skipped.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PolymorphicAndPartialDeclarationsAreSkippedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PolymorphicAndPartialDeclarationsAreSkippedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public abstract class B
             {

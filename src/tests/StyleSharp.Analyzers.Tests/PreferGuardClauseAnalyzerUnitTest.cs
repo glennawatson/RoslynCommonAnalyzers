@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -738,9 +739,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies a nested embedded <c>if</c> — whose parent is another <c>if</c>, not a block — is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedEmbeddedIfIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NestedEmbeddedIfIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -792,9 +794,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies an <c>if</c> with an <c>else</c> branch is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ElseBranchIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task ElseBranchIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -815,9 +818,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies a trailing <c>if</c> wrapping a single statement is left alone by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleWrappedStatementIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task SingleWrappedStatementIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -833,9 +837,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies an <c>if</c> that is not the last statement is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StatementsAfterIfAreCleanAsync()
-        => await VerifyCleanAsync(
+    public Task StatementsAfterIfAreCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -854,9 +859,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies a block nested inside a <c>try</c> is not an exit boundary and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonBodyBlockIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task NonBodyBlockIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -880,9 +886,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies an iterator method, where a bare <c>return;</c> is not valid, is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IteratorMethodIsCleanAsync()
-        => await VerifyCleanAsync(
+    public Task IteratorMethodIsCleanAsync() =>
+        VerifyCleanAsync(
             """
             using System.Collections.Generic;
 
@@ -901,9 +908,10 @@ public class PreferGuardClauseAnalyzerUnitTest
 
     /// <summary>Verifies a raised <c>min_wrapped_statements</c> keeps a two-statement body silent.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RaisedThresholdKeepsTwoStatementBodyCleanAsync()
-        => await VerifyCleanAsync(
+    public Task RaisedThresholdKeepsTwoStatementBodyCleanAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -925,9 +933,10 @@ public class PreferGuardClauseAnalyzerUnitTest
     /// Unwrapping moves the body's declarations into the enclosing scope, and a name a sibling block declares
     /// stops compiling once one of the two encloses the other.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TrailingIfIsCleanWhenAnotherBlockDeclaresTheSameNameAsync()
-        => await VerifyCleanAsync(
+    public Task TrailingIfIsCleanWhenAnotherBlockDeclaresTheSameNameAsync() =>
+        VerifyCleanAsync(
             """
             public sealed class C
             {
@@ -976,10 +985,7 @@ public class PreferGuardClauseAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyGuard.Test CreateTest(string source, string? optionLine)
     {
-        var test = new VerifyGuard.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyGuard.Test { TestCode = source, };
 
         var config = """
                      root = true
@@ -990,7 +996,7 @@ public class PreferGuardClauseAnalyzerUnitTest
                      """;
         if (optionLine is not null)
         {
-            config += optionLine + "\n";
+            config += $"{optionLine}\n";
         }
 
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));

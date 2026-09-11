@@ -35,7 +35,7 @@ internal static class SideEffectFreeExpression
     /// Anything that is not one of the recursive shapes falls through to <see cref="IsPlainRead"/>, which is
     /// where the leaves — and the rejection of everything else — live.
     /// </remarks>
-    public static bool IsSideEffectFree(ExpressionSyntax expression) => expression switch
+    internal static bool IsSideEffectFree(ExpressionSyntax expression) => expression switch
     {
         MemberAccessExpressionSyntax member => IsSideEffectFree(member.Expression),
         ParenthesizedExpressionSyntax parenthesized => IsSideEffectFree(parenthesized.Expression),
@@ -54,15 +54,15 @@ internal static class SideEffectFreeExpression
     /// in one test. Everything else — an invocation, an element access, an object creation, an assignment, an
     /// <c>await</c>, a lambda — is rejected by falling off the end.
     /// </remarks>
-    private static bool IsPlainRead(ExpressionSyntax expression)
-        => expression is TypeSyntax or LiteralExpressionSyntax or ThisExpressionSyntax or BaseExpressionSyntax;
+    private static bool IsPlainRead(ExpressionSyntax expression) =>
+        expression is TypeSyntax or LiteralExpressionSyntax or ThisExpressionSyntax or BaseExpressionSyntax;
 
     /// <summary>Returns whether a prefix operator only reads its operand.</summary>
     /// <param name="kind">The prefix expression's syntax kind.</param>
     /// <returns><see langword="true"/> for <c>!</c>, <c>~</c>, <c>-</c> and <c>+</c>.</returns>
     /// <remarks><c>++</c>, <c>--</c>, <c>&amp;</c> and <c>*</c> are excluded: they mutate, or they reach through a pointer.</remarks>
-    private static bool IsPureUnaryKind(SyntaxKind kind)
-        => kind is SyntaxKind.LogicalNotExpression
+    private static bool IsPureUnaryKind(SyntaxKind kind) =>
+        kind is SyntaxKind.LogicalNotExpression
             or SyntaxKind.BitwiseNotExpression
             or SyntaxKind.UnaryMinusExpression
             or SyntaxKind.UnaryPlusExpression;

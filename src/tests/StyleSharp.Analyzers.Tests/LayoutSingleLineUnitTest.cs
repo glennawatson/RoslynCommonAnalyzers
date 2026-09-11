@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAccessor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1504AccessorConsistencyAnalyzer,
     StyleSharp.Analyzers.Sst1504AccessorConsistencyCodeFixProvider>;
@@ -91,9 +92,10 @@ public class LayoutSingleLineUnitTest
 
     /// <summary>Verifies a multi-line embedded block is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultiLineEmbeddedBlockIsCleanAsync()
-        => await VerifyStatement.VerifyAnalyzerAsync(
+    public Task MultiLineEmbeddedBlockIsCleanAsync() =>
+        VerifyStatement.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -132,9 +134,10 @@ public class LayoutSingleLineUnitTest
 
     /// <summary>Verifies an empty single-line body is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptySingleLineBodyIsCleanAsync()
-        => await VerifyElement.VerifyAnalyzerAsync(
+    public Task EmptySingleLineBodyIsCleanAsync() =>
+        VerifyElement.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -249,9 +252,10 @@ public class LayoutSingleLineUnitTest
 
     /// <summary>Verifies consistently single-line accessors are not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConsistentAccessorsAreCleanAsync()
-        => await VerifyAccessor.VerifyAnalyzerAsync(
+    public Task ConsistentAccessorsAreCleanAsync() =>
+        VerifyAccessor.VerifyAnalyzerAsync(
             """
             internal class C
             {

@@ -93,12 +93,7 @@ public class EnumSwitchCoverageAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new VerifyEnumSwitchCoverage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyEnumSwitchCoverage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -139,12 +134,7 @@ public class EnumSwitchCoverageAnalyzerUnitTest
                                        };
                                    }
                                    """;
-        var test = new VerifyEnumSwitchCoverage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource
-        };
+        var test = new VerifyEnumSwitchCoverage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -181,11 +171,7 @@ public class EnumSwitchCoverageAnalyzerUnitTest
                                   };
                               }
                               """;
-        var test = new VerifyEnumSwitchCoverage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source
-        };
+        var test = new VerifyEnumSwitchCoverage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }

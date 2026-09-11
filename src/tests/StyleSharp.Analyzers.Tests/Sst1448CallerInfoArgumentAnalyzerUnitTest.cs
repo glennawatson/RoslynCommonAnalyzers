@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1448CallerInfoArgumentAnalyzer,
     StyleSharp.Analyzers.Sst1448CallerInfoArgumentCodeFixProvider>;
@@ -41,15 +42,17 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an explicit caller-member-name argument is flagged.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitCallerMemberNameArgumentIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(ExplicitMemberNameSource);
+    public Task ExplicitCallerMemberNameArgumentIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(ExplicitMemberNameSource);
 
     /// <summary>Verifies letting the compiler fill the parameter is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompilerSuppliedCallerInfoIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task CompilerSuppliedCallerInfoIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -65,9 +68,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies forwarding the enclosing member's caller-info parameter is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardingCallerInfoParameterIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForwardingCallerInfoParameterIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -83,9 +87,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an explicit caller-line-number argument is flagged, including named form.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitCallerLineNumberArgumentIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExplicitCallerLineNumberArgumentIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -101,9 +106,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies ordinary optional arguments are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OrdinaryOptionalArgumentIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OrdinaryOptionalArgumentIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -117,9 +123,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a name stated inside a constructor is clean, since the compiler supplies <c>.ctor</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberNameStatedInAConstructorIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberNameStatedInAConstructorIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -141,9 +148,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a name stated about another member is clean, since the compiler supplies this one.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberNameStatedAboutAnotherMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberNameStatedAboutAnotherMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -159,9 +167,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies an accessor stating its own property is still reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberNameStatedInItsOwnAccessorIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberNameStatedInItsOwnAccessorIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System.Runtime.CompilerServices;
 
@@ -175,9 +184,10 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a lambda takes the name from the member containing it.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MemberNameStatedInsideALambdaFollowsTheEnclosingMemberAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task MemberNameStatedInsideALambdaFollowsTheEnclosingMemberAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
             using System.Runtime.CompilerServices;
@@ -198,7 +208,8 @@ public class Sst1448CallerInfoArgumentAnalyzerUnitTest
 
     /// <summary>Verifies the fix removes the explicit argument.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixRemovesExplicitArgumentAsync()
-        => await Verify.VerifyCodeFixAsync(ExplicitMemberNameSource, ExplicitMemberNameFixed);
+    public Task FixRemovesExplicitArgumentAsync() =>
+        Verify.VerifyCodeFixAsync(ExplicitMemberNameSource, ExplicitMemberNameFixed);
 }

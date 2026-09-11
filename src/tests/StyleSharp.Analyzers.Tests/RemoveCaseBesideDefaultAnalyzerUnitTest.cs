@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyRemoveCaseBesideDefault = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1466RemoveCaseBesideDefaultAnalyzer,
     StyleSharp.Analyzers.Sst1466RemoveCaseBesideDefaultCodeFixProvider>;
@@ -131,9 +132,10 @@ public class RemoveCaseBesideDefaultAnalyzerUnitTest
 
     /// <summary>Verifies a default label alone in its own section is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DefaultAloneIsCleanAsync()
-        => await VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
+    public Task DefaultAloneIsCleanAsync() =>
+        VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -152,9 +154,10 @@ public class RemoveCaseBesideDefaultAnalyzerUnitTest
 
     /// <summary>Verifies case labels sharing a section without default are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CaseLabelsInOtherSectionsAreCleanAsync()
-        => await VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
+    public Task CaseLabelsInOtherSectionsAreCleanAsync() =>
+        VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -174,9 +177,10 @@ public class RemoveCaseBesideDefaultAnalyzerUnitTest
 
     /// <summary>Verifies a switch containing a 'goto case' statement is skipped entirely.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GotoCaseSkipsSwitchAsync()
-        => await VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
+    public Task GotoCaseSkipsSwitchAsync() =>
+        VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -196,9 +200,10 @@ public class RemoveCaseBesideDefaultAnalyzerUnitTest
 
     /// <summary>Verifies a switch containing a 'goto default' statement is skipped entirely.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GotoDefaultSkipsSwitchAsync()
-        => await VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
+    public Task GotoDefaultSkipsSwitchAsync() =>
+        VerifyRemoveCaseBesideDefault.VerifyAnalyzerAsync(
             """
             public class C
             {

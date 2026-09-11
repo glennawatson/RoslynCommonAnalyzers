@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile (EventPipe) benchmarks for conditional-delegate-invocation analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ConditionalDelegateInvocationProfiledAllocBenchmarks: {Nodes}")]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 [ShortRunJob]
 public class ConditionalDelegateInvocationProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class ConditionalDelegateInvocationProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean conditional-delegate-invocation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ConditionalDelegateInvocation_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating conditional-delegate-invocation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ConditionalDelegateInvocation_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

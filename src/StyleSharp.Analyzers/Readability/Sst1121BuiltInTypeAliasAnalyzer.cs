@@ -74,7 +74,7 @@ public sealed class Sst1121BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports the type node when it binds to a special type that has a keyword alias.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The candidate type node.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxNode node)
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxNode node)
     {
         if (IsNameofOperand(node)
             || context.SemanticModel.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
@@ -93,8 +93,8 @@ public sealed class Sst1121BuiltInTypeAliasAnalyzer : DiagnosticAnalyzer
     /// <c>nameof</c> takes a name, and a keyword is not one: <c>nameof(object)</c> does not compile, so the
     /// framework spelling is the only one that works there.
     /// </remarks>
-    private static bool IsNameofOperand(SyntaxNode node)
-        => node.Parent is ArgumentSyntax
+    private static bool IsNameofOperand(SyntaxNode node) =>
+        node.Parent is ArgumentSyntax
         {
             Parent.Parent: InvocationExpressionSyntax { Expression: IdentifierNameSyntax { Identifier.ValueText: "nameof" } },
         };

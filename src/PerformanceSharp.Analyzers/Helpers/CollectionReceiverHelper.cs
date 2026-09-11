@@ -24,7 +24,7 @@ internal static class CollectionReceiverHelper
     /// <param name="type">The receiver's static type.</param>
     /// <param name="propertyName">The count property name when one is found.</param>
     /// <returns><see langword="true"/> when the static type exposes an accessible <see cref="int"/> Count or Length.</returns>
-    public static bool TryGetCountSourceName(ITypeSymbol type, out string propertyName)
+    internal static bool TryGetCountSourceName(ITypeSymbol type, out string propertyName)
     {
         if (type is IArrayTypeSymbol || type.SpecialType == SpecialType.System_String)
         {
@@ -40,11 +40,13 @@ internal static class CollectionReceiverHelper
                 return true;
             }
 
-            if (HasDirectCountProperty(current, LengthPropertyName))
+            if (!HasDirectCountProperty(current, LengthPropertyName))
             {
-                propertyName = LengthPropertyName;
-                return true;
+                continue;
             }
+
+            propertyName = LengthPropertyName;
+            return true;
         }
 
         if ((type.TypeKind == TypeKind.Interface || type.TypeKind == TypeKind.TypeParameter)
@@ -61,7 +63,7 @@ internal static class CollectionReceiverHelper
     /// <summary>Returns whether a receiver's static type can be indexed like a list.</summary>
     /// <param name="type">The receiver's static type.</param>
     /// <returns><see langword="true"/> for rank-1 arrays, <see cref="string"/>, and types that are or implement <c>IList&lt;T&gt;</c>/<c>IReadOnlyList&lt;T&gt;</c>.</returns>
-    public static bool IsListLike(ITypeSymbol type)
+    internal static bool IsListLike(ITypeSymbol type)
     {
         if (type is IArrayTypeSymbol array)
         {
@@ -128,14 +130,14 @@ internal static class CollectionReceiverHelper
     /// <summary>Returns whether a type is <c>ICollection&lt;T&gt;</c> or <c>IReadOnlyCollection&lt;T&gt;</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for the two generic count-bearing collection interfaces.</returns>
-    private static bool IsCountInterface(ITypeSymbol type)
-        => type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_ICollection_T
+    private static bool IsCountInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_ICollection_T
             or SpecialType.System_Collections_Generic_IReadOnlyCollection_T;
 
     /// <summary>Returns whether a type is <c>IList&lt;T&gt;</c> or <c>IReadOnlyList&lt;T&gt;</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for the two generic indexer-bearing list interfaces.</returns>
-    private static bool IsListInterface(ITypeSymbol type)
-        => type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IList_T
+    private static bool IsListInterface(ITypeSymbol type) =>
+        type.OriginalDefinition.SpecialType is SpecialType.System_Collections_Generic_IList_T
             or SpecialType.System_Collections_Generic_IReadOnlyList_T;
 }

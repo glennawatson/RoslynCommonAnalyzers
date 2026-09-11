@@ -162,8 +162,8 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
     /// <param name="formatIndex">The format argument's index.</param>
     /// <param name="cultureSpelling">The spelling of the current culture to use when the call has no provider.</param>
     /// <returns>The provider expression.</returns>
-    internal static ExpressionSyntax GetProvider(InvocationExpressionSyntax invocation, int formatIndex, string cultureSpelling)
-        => formatIndex == 1
+    internal static ExpressionSyntax GetProvider(InvocationExpressionSyntax invocation, int formatIndex, string cultureSpelling) =>
+        formatIndex == 1
             ? invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()
             : SyntaxFactory.ParseExpression(cultureSpelling);
 
@@ -228,20 +228,15 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The <c>Format</c> invocation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The bound method, or <see langword="null"/> when it is not the framework's own format.</returns>
-    private static IMethodSymbol? BindStringFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
-    {
-        if (model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol format
+    private static IMethodSymbol? BindStringFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol format
             || !format.IsStatic
             || format.Name != FormatMethodName
             || format.ReturnType.SpecialType != SpecialType.System_String
             || format.ContainingType.SpecialType != SpecialType.System_String
-            || format.Parameters.Length == 0)
-        {
-            return null;
-        }
-
-        return format;
-    }
+            || format.Parameters.IsEmpty
+            ? null
+            : format;
 
     /// <summary>Returns whether <see cref="string"/> declares a <c>Format</c> overload taking a parsed format.</summary>
     /// <param name="compilation">The analyzed compilation.</param>
@@ -265,8 +260,8 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is <see cref="IFormatProvider"/>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <c>System.IFormatProvider</c>.</returns>
-    private static bool IsFormatProvider(ITypeSymbol type)
-        => type is INamedTypeSymbol
+    private static bool IsFormatProvider(ITypeSymbol type) =>
+        type is INamedTypeSymbol
         {
             Name: nameof(IFormatProvider),
             TypeKind: TypeKind.Interface,

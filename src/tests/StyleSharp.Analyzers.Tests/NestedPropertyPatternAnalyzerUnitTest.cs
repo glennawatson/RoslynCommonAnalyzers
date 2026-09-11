@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyNestedPropertyPattern = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -17,9 +18,10 @@ public class NestedPropertyPatternAnalyzerUnitTest
 {
     /// <summary>Verifies a nested property-only pattern is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedPropertyPatternIsReportedAsync()
-        => await RunAsync(
+    public Task NestedPropertyPatternIsReportedAsync() =>
+        RunAsync(
             """
             public sealed class Person
             {
@@ -39,9 +41,10 @@ public class NestedPropertyPatternAnalyzerUnitTest
 
     /// <summary>Verifies declaration patterns are clean because flattening would change the pattern shape.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DeclarationPatternIsCleanAsync()
-        => await RunAsync(
+    public Task DeclarationPatternIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class Person
             {
@@ -56,9 +59,10 @@ public class NestedPropertyPatternAnalyzerUnitTest
 
     /// <summary>Verifies a typed nested pattern is clean, because the path form drops the type test.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypedNestedPatternIsCleanAsync()
-        => await RunAsync(
+    public Task TypedNestedPatternIsCleanAsync() =>
+        RunAsync(
             """
             public sealed class Person
             {
@@ -78,9 +82,10 @@ public class NestedPropertyPatternAnalyzerUnitTest
 
     /// <summary>Verifies a nested clause holding two subpatterns is clean, since one path cannot carry both.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleNestedSubpatternsAreCleanAsync()
-        => await RunAsync(
+    public Task MultipleNestedSubpatternsAreCleanAsync() =>
+        RunAsync(
             """
             public sealed class Person
             {
@@ -137,21 +142,13 @@ public class NestedPropertyPatternAnalyzerUnitTest
                                        public bool M(Person person) => person is { Address.City: "Melbourne" };
                                    }
                                    """;
-        await new VerifyNestedPropertyPatternFix.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = Source,
-            FixedCode = FixedSource,
-        }.RunAsync(CancellationToken.None);
+        await new VerifyNestedPropertyPatternFix.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource, }.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs the analyzer verifier with modern reference assemblies.</summary>
     /// <param name="source">The source code to analyze.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
-    private static async Task RunAsync(string source)
-        => await new VerifyNestedPropertyPattern.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source
-        }.RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task RunAsync(string source) =>
+        new VerifyNestedPropertyPattern.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source }.RunAsync(CancellationToken.None);
 }

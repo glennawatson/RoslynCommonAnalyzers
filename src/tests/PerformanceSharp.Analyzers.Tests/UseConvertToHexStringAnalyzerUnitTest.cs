@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -113,11 +114,12 @@ public class UseConvertToHexStringAnalyzerUnitTest
         await VerifyAsync(Source, FixedSource);
     }
 
-    /// <summary>Verifies the separated form kept as-is is not reported — it is a different string.</summary>
+    /// <summary>Verifies the separated form kept as-is not reported — it is a different string.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SeparatedHexKeptAsIsIsCleanAsync()
-        => await VerifyAsync(
+    public Task SeparatedHexKeptAsIsIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -129,9 +131,10 @@ public class UseConvertToHexStringAnalyzerUnitTest
 
     /// <summary>Verifies replacing a different separator is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentSeparatorIsCleanAsync()
-        => await VerifyAsync(
+    public Task DifferentSeparatorIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -143,9 +146,10 @@ public class UseConvertToHexStringAnalyzerUnitTest
 
     /// <summary>Verifies a ToString on something other than BitConverter is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OtherToStringIsCleanAsync()
-        => await VerifyAsync(
+    public Task OtherToStringIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -155,10 +159,7 @@ public class UseConvertToHexStringAnalyzerUnitTest
             }
             """);
 
-    /// <summary>
-    /// Verifies the rule registers nothing against netstandard2.0, where <c>Convert.ToHexString</c>
-    /// does not exist.
-    /// </summary>
+    /// <summary>Verifies the rule registers nothing against netstandard2.0, where <c>Convert.ToHexString</c> does not exist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>
     /// The hand-rolled chain is exactly what an author on netstandard2.0 or .NET Framework <i>has</i>
@@ -190,11 +191,7 @@ public class UseConvertToHexStringAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

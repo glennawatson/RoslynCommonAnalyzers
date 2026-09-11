@@ -18,8 +18,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(ModernSyntaxRules.UseForOverWhile.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(ModernSyntaxRules.UseForOverWhile.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;

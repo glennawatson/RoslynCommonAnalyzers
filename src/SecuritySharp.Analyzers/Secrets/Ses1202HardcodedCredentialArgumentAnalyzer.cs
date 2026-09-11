@@ -48,7 +48,7 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
         "token", "accesstoken", "access_token", "sastoken", "sas_token",
         "connectionstring", "connection_string",
         "accesskey", "access_key", "accountkey", "account_key",
-        "privatekey", "private_key"
+        "privatekey", "private_key",
     };
 
     /// <summary>Exact literal values treated as obvious placeholders rather than real secrets (case-insensitive).</summary>
@@ -56,7 +56,7 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
     {
         "changeme", "change-me", "changeit",
         "placeholder", "example", "sample", "dummy",
-        "test", "todo", "tbd", "none", "null", "n/a"
+        "test", "todo", "tbd", "none", "null", "n/a",
     };
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
@@ -88,7 +88,7 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
     /// <summary>Reports SES1202 for each string-literal argument bound to a credential position.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="credentialTypes">The resolved credential types whose constructor <c>key</c> position is guarded, or <see langword="null"/> when none resolve.</param>
-    private static void AnalyzeCall(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[]? credentialTypes)
+    private static void AnalyzeCall(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[]? credentialTypes)
     {
         // Syntactic prefilter: bind nothing unless the call carries a reportable string-literal argument.
         if (GetArgumentList(context.Node) is not { Arguments: { Count: > 0 } arguments }
@@ -150,8 +150,8 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
     /// <summary>Returns the argument list of a call/creation node, or <see langword="null"/> when it has none.</summary>
     /// <param name="node">The invocation or object-creation node.</param>
     /// <returns>The argument list, or <see langword="null"/>.</returns>
-    private static ArgumentListSyntax? GetArgumentList(SyntaxNode node)
-        => node switch
+    private static ArgumentListSyntax? GetArgumentList(SyntaxNode node) =>
+        node switch
         {
             InvocationExpressionSyntax invocation => invocation.ArgumentList,
             ObjectCreationExpressionSyntax objectCreation => objectCreation.ArgumentList,
@@ -185,8 +185,8 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
     private static (ImmutableArray<IArgumentOperation> Arguments, INamedTypeSymbol? ContainingType) GetBoundCall(
         SemanticModel model,
         SyntaxNode node,
-        CancellationToken cancellationToken)
-        => model.GetOperation(node, cancellationToken) switch
+        CancellationToken cancellationToken) =>
+        model.GetOperation(node, cancellationToken) switch
         {
             IInvocationOperation invocation => (invocation.Arguments, invocation.TargetMethod.ContainingType),
             IObjectCreationOperation { Constructor: { } constructor } creation => (creation.Arguments, constructor.ContainingType),
@@ -197,15 +197,15 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
     /// <param name="parameterName">The bound parameter name.</param>
     /// <param name="isCredentialType">Whether the containing type is a gated credential type.</param>
     /// <returns><see langword="true"/> when the parameter is a credential position.</returns>
-    private static bool IsCredentialParameter(string parameterName, bool isCredentialType)
-        => CredentialParameterNames.Contains(parameterName)
+    private static bool IsCredentialParameter(string parameterName, bool isCredentialType) =>
+        CredentialParameterNames.Contains(parameterName)
             || (isCredentialType && string.Equals(parameterName, GatedSecretParameterName, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Returns whether a literal value is empty or an obvious placeholder.</summary>
     /// <param name="value">The decoded literal value.</param>
     /// <returns><see langword="true"/> when the value should not be treated as a real secret.</returns>
-    private static bool IsPlaceholderOrEmpty(string value)
-        => value.Length == 0
+    private static bool IsPlaceholderOrEmpty(string value) =>
+        value.Length == 0
             || IsAllSameCharacter(value)
             || value[0] == '<'
             || value.StartsWith("your", StringComparison.OrdinalIgnoreCase)
@@ -258,11 +258,13 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < CredentialTypeMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(CredentialTypeMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(CredentialTypeMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[CredentialTypeMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[CredentialTypeMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

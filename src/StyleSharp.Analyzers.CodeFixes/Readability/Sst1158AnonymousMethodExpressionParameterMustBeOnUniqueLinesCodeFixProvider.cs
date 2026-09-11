@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// A code fix provider for the <see cref="Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.
-/// </summary>
+/// <summary>A code fix provider for the <see cref="Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesAnalyzer"/> analyzer.</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider))]
 [Shared]
 public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
@@ -18,35 +18,38 @@ public sealed class Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLines
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, nameof(Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider) + "-Add", TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, $"{nameof(Sst1158AnonymousMethodExpressionParameterMustBeOnUniqueLinesCodeFixProvider)}-Add", TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Rewrites the anonymous method expression so each parameter is placed on its own line.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root of the document.</param>
     /// <param name="node">The anonymous method expression to rewrite.</param>
     /// <returns>A task producing the updated document.</returns>
-    internal static Task<Document> FixAsync(Document document, SyntaxNode root, AnonymousMethodExpressionSyntax node)
-        => Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task<Document> FixAsync(Document document, SyntaxNode root, AnonymousMethodExpressionSyntax node) =>
+        Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
 
     /// <summary>Resolves the reported anonymous method expression and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is AnonymousMethodExpressionSyntax node
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is AnonymousMethodExpressionSyntax node
             ? new NodeReplacement(node, Rewrite(node), static current => Rewrite((AnonymousMethodExpressionSyntax)current))
             : null;
 
     /// <summary>Builds the anonymous method expression with each parameter moved to its own line.</summary>
     /// <param name="node">The anonymous method expression to rewrite.</param>
     /// <returns>The rewritten expression, or the original when it has no parameter list.</returns>
-    private static AnonymousMethodExpressionSyntax Rewrite(AnonymousMethodExpressionSyntax node)
-        => UniqueLineCodeFixerHelper.SplitParametersOntoOwnLines(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static AnonymousMethodExpressionSyntax Rewrite(AnonymousMethodExpressionSyntax node) =>
+        UniqueLineCodeFixerHelperExtensions.SplitParametersOntoOwnLines(
             node,
             static inner => inner.ParameterList,
             static (inner, list) => inner.WithParameterList(list));

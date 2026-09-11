@@ -4,9 +4,7 @@
 
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>
-/// Rewrites a written type name into the expression the parser would have produced for the same text.
-/// </summary>
+/// <summary>Rewrites a written type name into the expression the parser would have produced for the same text.</summary>
 /// <remarks>
 /// A code fix that turns <c>new System.Random()</c> into <c>System.Random.Shared</c> is tempted to reuse the
 /// <see cref="QualifiedNameSyntax"/> it already has: it is an <see cref="ExpressionSyntax"/>, and the result
@@ -24,7 +22,7 @@ internal static class TypeNameExpression
     /// An alias qualifier (<c>global::System</c>) is already an expression in its own right, and is left as
     /// the innermost receiver of the chain rather than taken apart.
     /// </remarks>
-    public static ExpressionSyntax From(NameSyntax name) => name switch
+    internal static ExpressionSyntax From(NameSyntax name) => name switch
     {
         QualifiedNameSyntax qualified => SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,

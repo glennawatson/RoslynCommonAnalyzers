@@ -89,8 +89,8 @@ public sealed class Psh1004HoistConstantArrayArgumentsAnalyzer : DiagnosticAnaly
     /// <summary>Gets the initializer of an explicit or implicit array creation.</summary>
     /// <param name="creation">The creation expression.</param>
     /// <returns>The initializer, or <see langword="null"/> when the creation has none.</returns>
-    private static InitializerExpressionSyntax? GetInitializer(ExpressionSyntax creation)
-        => creation switch
+    private static InitializerExpressionSyntax? GetInitializer(ExpressionSyntax creation) =>
+        creation switch
         {
             ArrayCreationExpressionSyntax array => array.Initializer,
             ImplicitArrayCreationExpressionSyntax implicitArray => implicitArray.Initializer,
@@ -117,21 +117,19 @@ public sealed class Psh1004HoistConstantArrayArgumentsAnalyzer : DiagnosticAnaly
     /// <summary>Returns whether an element's syntax shape can denote a compile-time constant.</summary>
     /// <param name="expression">The initializer element to inspect.</param>
     /// <returns><see langword="true"/> for literals, prefix-unary literals, identifiers, and member accesses.</returns>
-    private static bool CouldBeConstantElement(ExpressionSyntax expression)
-        => expression switch
+    private static bool CouldBeConstantElement(ExpressionSyntax expression) =>
+        expression switch
         {
-            LiteralExpressionSyntax => true,
+            LiteralExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax => true,
             PrefixUnaryExpressionSyntax prefix => prefix.Operand is LiteralExpressionSyntax,
-            IdentifierNameSyntax => true,
-            MemberAccessExpressionSyntax => true,
             _ => false
         };
 
     /// <summary>Returns whether the creation is an argument to an invocation or object creation.</summary>
     /// <param name="creation">The creation expression.</param>
     /// <returns><see langword="true"/> when the creation sits in an argument list of a call.</returns>
-    private static bool IsArgumentToCall(ExpressionSyntax creation)
-        => creation.Parent is ArgumentSyntax
+    private static bool IsArgumentToCall(ExpressionSyntax creation) =>
+        creation.Parent is ArgumentSyntax
         {
             Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax }
         };

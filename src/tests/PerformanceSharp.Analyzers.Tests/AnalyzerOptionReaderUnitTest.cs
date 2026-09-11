@@ -8,10 +8,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace PerformanceSharp.Analyzers.Tests;
 
-/// <summary>
-/// Direct tests for <see cref="AnalyzerOptionReader"/>, the editorconfig readers shared by the
-/// option records (PSH1007, PSH1017, PSH1411).
-/// </summary>
+/// <summary>Direct tests for <see cref="AnalyzerOptionReader"/>, the editorconfig readers shared by the option records (PSH1007, PSH1017, PSH1411).</summary>
 public class AnalyzerOptionReaderUnitTest
 {
     /// <summary>A rule-specific key used by the tests.</summary>
@@ -85,7 +82,7 @@ public class AnalyzerOptionReaderUnitTest
             values[key] = value;
         }
 
-        return new FakeConfigOptions(values);
+        return new(values);
     }
 
     /// <summary>An in-memory <see cref="AnalyzerConfigOptions"/> backed by a dictionary.</summary>

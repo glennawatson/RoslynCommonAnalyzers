@@ -14,8 +14,8 @@ internal static class EnumSwitchCoverageBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit reportable switches.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal enum Mode
@@ -35,8 +35,8 @@ internal static class EnumSwitchCoverageBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a reportable shape.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => (index % SwitchShapeCount, violating) switch
+    private static string GenerateMember(int index, bool violating) =>
+        (index % SwitchShapeCount, violating) switch
         {
             (0, true) => $$"""
                            public int Statement{{index}}(Mode mode)

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace RoslynCommon.Analyzers;
 
 /// <summary>
@@ -23,7 +25,8 @@ internal static class ImmutableArrays
     /// <typeparam name="T">The element type.</typeparam>
     /// <param name="item">The only element.</param>
     /// <returns>An immutable array containing <paramref name="item"/>.</returns>
-    public static ImmutableArray<T> Of<T>(T item)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImmutableArray<T> Of<T>(T item)
 #if ROSLYN_4_14_OR_GREATER
         => [item];
 #else
@@ -34,7 +37,8 @@ internal static class ImmutableArrays
     /// <typeparam name="T">The element type.</typeparam>
     /// <param name="items">The elements.</param>
     /// <returns>An immutable array containing <paramref name="items"/>.</returns>
-    public static ImmutableArray<T> Of<T>(params T[] items)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static ImmutableArray<T> Of<T>(params T[] items)
 #if ROSLYN_4_14_OR_GREATER
         => [.. items];
 #else

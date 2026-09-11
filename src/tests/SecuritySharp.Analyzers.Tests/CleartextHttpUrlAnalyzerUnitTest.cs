@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeUrl = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 {
     /// <summary>Verifies a cleartext string URL passed to GetAsync is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringUrlToGetAsyncReportedAsync()
-        => await VerifyNet90Async(
+    public Task StringUrlToGetAsyncReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -32,9 +34,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext string URL passed to PostAsync is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StringUrlToPostAsyncReportedAsync()
-        => await VerifyNet90Async(
+    public Task StringUrlToPostAsyncReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -50,9 +53,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext URL passed by the requestUri: name is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedRequestUriArgumentReportedAsync()
-        => await VerifyNet90Async(
+    public Task NamedRequestUriArgumentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -68,9 +72,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext new Uri(...) argument to a request method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewUriArgumentToGetAsyncReportedAsync()
-        => await VerifyNet90Async(
+    public Task NewUriArgumentToGetAsyncReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -87,9 +92,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext new Uri(...) assigned to BaseAddress is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseAddressAssignmentReportedAsync()
-        => await VerifyNet90Async(
+    public Task BaseAddressAssignmentReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -105,9 +111,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a bare <c>BaseAddress = new Uri(uriString: …)</c> inside an HttpClient subclass is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SubclassBareBaseAddressWithNamedUriStringReportedAsync()
-        => await VerifyNet90Async(
+    public Task SubclassBareBaseAddressWithNamedUriStringReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -123,9 +130,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a verbatim cleartext string URL is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VerbatimStringUrlReportedAsync()
-        => await VerifyNet90Async(
+    public Task VerbatimStringUrlReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -141,9 +149,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a raw cleartext string URL is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RawStringUrlReportedAsync()
-        => await VerifyNet90Async(
+    public Task RawStringUrlReportedAsync() =>
+        VerifyNet90Async(
             """"
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -159,9 +168,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a mixed-case HTTP scheme is reported (the scheme match is case-insensitive).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MixedCaseSchemeReportedAsync()
-        => await VerifyNet90Async(
+    public Task MixedCaseSchemeReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -177,9 +187,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies an https URL is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HttpsUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task HttpsUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -195,9 +206,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext localhost URL is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LocalhostUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LocalhostUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -218,9 +230,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext URL with no host (empty authority) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyHostUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task EmptyHostUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -236,9 +249,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies HttpClient calls and assignments that are not URL sinks are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonSinkShapesAreCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonSinkShapesAreCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -283,9 +297,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a URL held in a variable (not a literal) is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task VariableUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task VariableUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -301,9 +316,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies an interpolated URL string is not reported (only literals are tracked).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterpolatedUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InterpolatedUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -319,9 +335,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext URL to a same-named method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedGetAsyncIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedGetAsyncIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -342,9 +359,10 @@ public class CleartextHttpUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext new Uri(...) assigned to an unrelated BaseAddress member is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedBaseAddressIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task UnrelatedBaseAddressIsCleanAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -386,11 +404,7 @@ public class CleartextHttpUrlAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeUrl.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10,
-            TestCode = Source
-        };
+        var test = new AnalyzeUrl.Test { ReferenceAssemblies = ReferenceAssemblies.NetStandard.NetStandard10, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -400,11 +414,7 @@ public class CleartextHttpUrlAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeUrl.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeUrl.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

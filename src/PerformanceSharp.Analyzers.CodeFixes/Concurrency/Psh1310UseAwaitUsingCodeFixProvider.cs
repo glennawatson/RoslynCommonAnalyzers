@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,27 +22,29 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use await using", nameof(Psh1310UseAwaitUsingCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use await using", nameof(Psh1310UseAwaitUsingCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Inserts the await keyword on the reported using statement or declaration.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="statement">The reported using statement or using declaration.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, StatementSyntax statement)
-        => document.WithSyntaxRoot(root.ReplaceNode(statement, Rewrite(statement)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, StatementSyntax statement) =>
+        document.WithSyntaxRoot(root.ReplaceNode(statement, Rewrite(statement)));
 
     /// <summary>Resolves the reported statement and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => TryGetStatement(root, diagnostic) is { } statement
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetStatement(root, diagnostic) is { } statement
             ? new NodeReplacement(statement, Rewrite(statement), static current => Rewrite((StatementSyntax)current))
             : null;
 
@@ -48,8 +52,8 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The statement to rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static StatementSyntax? TryGetStatement(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) switch
+    private static StatementSyntax? TryGetStatement(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) switch
         {
             UsingStatementSyntax usingStatement when usingStatement.AwaitKeyword.IsKind(SyntaxKind.None) => usingStatement,
             LocalDeclarationStatementSyntax declarationStatement when declarationStatement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
@@ -60,8 +64,8 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Rewrites either reported statement form to its awaited equivalent.</summary>
     /// <param name="statement">The using statement or using declaration to rewrite.</param>
     /// <returns>The rewritten statement.</returns>
-    private static StatementSyntax Rewrite(StatementSyntax statement)
-        => statement switch
+    private static StatementSyntax Rewrite(StatementSyntax statement) =>
+        statement switch
         {
             UsingStatementSyntax usingStatement => RewriteUsingStatement(usingStatement),
             LocalDeclarationStatementSyntax declarationStatement => RewriteUsingDeclaration(declarationStatement),
@@ -71,8 +75,9 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Inserts the await keyword on a using statement, keeping the statement's leading trivia on it.</summary>
     /// <param name="usingStatement">The using statement to rewrite.</param>
     /// <returns>The rewritten using statement.</returns>
-    private static UsingStatementSyntax RewriteUsingStatement(UsingStatementSyntax usingStatement)
-        => usingStatement
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static UsingStatementSyntax RewriteUsingStatement(UsingStatementSyntax usingStatement) =>
+        usingStatement
             .WithAwaitKeyword(CreateAwaitKeyword(usingStatement.UsingKeyword))
             .WithUsingKeyword(usingStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
@@ -80,8 +85,9 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Inserts the await keyword on a using declaration, keeping the statement's leading trivia on it.</summary>
     /// <param name="declarationStatement">The using declaration to rewrite.</param>
     /// <returns>The rewritten using declaration.</returns>
-    private static LocalDeclarationStatementSyntax RewriteUsingDeclaration(LocalDeclarationStatementSyntax declarationStatement)
-        => declarationStatement
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LocalDeclarationStatementSyntax RewriteUsingDeclaration(LocalDeclarationStatementSyntax declarationStatement) =>
+        declarationStatement
             .WithAwaitKeyword(CreateAwaitKeyword(declarationStatement.UsingKeyword))
             .WithUsingKeyword(declarationStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
@@ -89,8 +95,9 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Builds the await keyword carrying the original using keyword's leading trivia.</summary>
     /// <param name="usingKeyword">The original using keyword.</param>
     /// <returns>The await keyword to insert.</returns>
-    private static SyntaxToken CreateAwaitKeyword(SyntaxToken usingKeyword)
-        => SyntaxFactory.Token(SyntaxKind.AwaitKeyword)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken CreateAwaitKeyword(SyntaxToken usingKeyword) =>
+        SyntaxFactory.Token(SyntaxKind.AwaitKeyword)
             .WithLeadingTrivia(usingKeyword.LeadingTrivia)
             .WithTrailingTrivia(SyntaxFactory.Space);
 }

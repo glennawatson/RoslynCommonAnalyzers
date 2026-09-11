@@ -41,7 +41,7 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChang
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    "Prefix summary with '" + prefix.TrimEnd() + "'",
+                    $"Prefix summary with '{prefix.TrimEnd()}'",
                     cancellationToken => ApplyAsync(context.Document, summary, prefix, cancellationToken),
                     equivalenceKey: nameof(PropertySummaryCodeFixProvider)),
                 diagnostic);
@@ -97,7 +97,7 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChang
             return false;
         }
 
-        change = new TextChange(new(position, 1), prefix + char.ToLowerInvariant(first));
+        change = new(new(position, 1), prefix + char.ToLowerInvariant(first));
         return true;
     }
 }

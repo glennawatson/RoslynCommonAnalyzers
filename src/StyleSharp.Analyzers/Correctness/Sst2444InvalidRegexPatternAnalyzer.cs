@@ -103,7 +103,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsType">The options enum, when it resolves.</param>
     /// <param name="cache">The per-compilation validation cache.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol regexType,
         INamedTypeSymbol? optionsType,
         ConcurrentDictionary<(string Pattern, int Options), string?> cache)
@@ -137,7 +137,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="patternLocation">The location of the pattern expression.</param>
     /// <returns><see langword="true"/> when the call binds to the engine with a constant pattern.</returns>
     private static bool TryReadPatternAndOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ArgumentListSyntax arguments,
         INamedTypeSymbol regexType,
         INamedTypeSymbol? optionsType,
@@ -180,22 +180,22 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a parameter is the engine's string pattern parameter.</summary>
     /// <param name="parameter">The bound parameter.</param>
     /// <returns><see langword="true"/> when it is the pattern parameter.</returns>
-    private static bool IsPatternParameter(IParameterSymbol parameter)
-        => parameter.Name == PatternParameterName && parameter.Type.SpecialType == SpecialType.System_String;
+    private static bool IsPatternParameter(IParameterSymbol parameter) =>
+        parameter.Name == PatternParameterName && parameter.Type.SpecialType == SpecialType.System_String;
 
     /// <summary>Returns whether a parameter is the engine's options parameter.</summary>
     /// <param name="parameter">The bound parameter.</param>
     /// <param name="optionsType">The options enum, when it resolves.</param>
     /// <returns><see langword="true"/> when it is the options parameter.</returns>
-    private static bool IsOptionsParameter(IParameterSymbol parameter, INamedTypeSymbol? optionsType)
-        => optionsType is not null && SymbolEqualityComparer.Default.Equals(parameter.Type, optionsType);
+    private static bool IsOptionsParameter(IParameterSymbol parameter, INamedTypeSymbol? optionsType) =>
+        optionsType is not null && SymbolEqualityComparer.Default.Equals(parameter.Type, optionsType);
 
     /// <summary>Reads a constant string from an expression.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="expression">The argument expression.</param>
     /// <param name="value">The constant string when present.</param>
     /// <returns><see langword="true"/> when the expression is a constant string.</returns>
-    private static bool TryGetConstantString(SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, out string value)
+    private static bool TryGetConstantString(in SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, out string value)
     {
         if (expression is not null
             && context.SemanticModel.GetConstantValue(expression, context.CancellationToken) is { HasValue: true, Value: string constant })
@@ -213,7 +213,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The argument expression.</param>
     /// <param name="options">The constant options when present.</param>
     /// <returns><see langword="true"/> when the expression is a constant integer.</returns>
-    private static bool TryReadOptions(SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, out int options)
+    private static bool TryReadOptions(in SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, out int options)
     {
         if (expression is not null
             && context.SemanticModel.GetConstantValue(expression, context.CancellationToken) is { HasValue: true, Value: int constant })

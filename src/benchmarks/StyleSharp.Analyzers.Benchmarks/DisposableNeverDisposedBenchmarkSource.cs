@@ -11,8 +11,8 @@ internal static class DisposableNeverDisposedBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Collections.Generic;
            using System.IO;
@@ -31,8 +31,8 @@ internal static class DisposableNeverDisposedBenchmarkSource
     /// collection, and a local of a type that is not disposable at all — which the interface walk must
     /// reject.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                public void Write(byte[] bytes)
@@ -78,8 +78,8 @@ internal static class DisposableNeverDisposedBenchmarkSource
     /// <summary>Builds one type whose disposables are created and dropped.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public void Write(byte[] bytes)

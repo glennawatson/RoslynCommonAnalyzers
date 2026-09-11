@@ -35,8 +35,8 @@ public sealed class Sst2245UseWhileOverForAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a <c>for</c> statement is a <c>while</c> loop wearing empty clauses.</summary>
     /// <param name="statement">The loop to inspect.</param>
     /// <returns><see langword="true"/> when the loop has a condition and nothing else.</returns>
-    internal static bool IsConditionOnlyLoop(ForStatementSyntax statement)
-        => statement.Condition is not null
+    internal static bool IsConditionOnlyLoop(ForStatementSyntax statement) =>
+        statement.Condition is not null
             && statement.Declaration is null
             && statement.Initializers.Count == 0
             && statement.Incrementors.Count == 0;

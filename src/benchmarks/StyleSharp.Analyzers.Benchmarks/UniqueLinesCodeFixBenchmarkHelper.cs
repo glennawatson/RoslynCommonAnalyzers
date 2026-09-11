@@ -16,7 +16,7 @@ internal static class UniqueLinesCodeFixBenchmarkHelper
     /// <param name="sourceFactory">Builds the synthetic source text.</param>
     /// <param name="allowUnsafe">Whether the benchmark document should allow unsafe code.</param>
     /// <returns>The prepared benchmark context.</returns>
-    public static async Task<UniqueLinesCodeFixBenchmarkContext<TNode>> CreateAsync<TNode>(
+    internal static async Task<UniqueLinesCodeFixBenchmarkContext<TNode>> CreateAsync<TNode>(
         int members,
         Func<int, string> sourceFactory,
         bool allowUnsafe = false)
@@ -34,13 +34,14 @@ internal static class UniqueLinesCodeFixBenchmarkHelper
         }
 
         var root = (await document.GetSyntaxRootAsync().ConfigureAwait(false))!;
-        return new UniqueLinesCodeFixBenchmarkContext<TNode>(workspace, document, root, FindMiddleNode<TNode>(root));
+        return new(workspace, document, root, FindMiddleNode<TNode>(root));
     }
 
     /// <summary>Finds the middle node of the requested type so each benchmark applies the fix to a representative violation.</summary>
     /// <typeparam name="TNode">The syntax node type to locate.</typeparam>
     /// <param name="root">The root node to search.</param>
     /// <returns>The selected syntax node.</returns>
+    /// <exception cref="InvalidOperationException"><paramref name="root"/> contains no <typeparamref name="TNode"/> to select.</exception>
     private static TNode FindMiddleNode<TNode>(SyntaxNode root)
         where TNode : SyntaxNode
     {

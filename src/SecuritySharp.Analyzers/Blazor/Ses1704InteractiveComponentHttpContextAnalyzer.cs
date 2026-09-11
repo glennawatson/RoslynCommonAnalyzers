@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -46,13 +48,13 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     private enum HttpContextCapture
     {
         /// <summary>The member carries neither marker.</summary>
-        None,
+        None = 0,
 
         /// <summary>The member is <c>[Inject]</c>ed and is a candidate <c>IHttpContextAccessor</c>.</summary>
-        Injected,
+        Injected = 1,
 
         /// <summary>The member is a <c>[CascadingParameter]</c> and is a candidate <c>HttpContext</c>.</summary>
-        Cascaded,
+        Cascaded = 2,
     }
 
     /// <inheritdoc/>
@@ -87,7 +89,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <summary>Reports SES1704 for each <c>HttpContext</c> capture on an interactive component.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="markers">The resolved marker types for the compilation.</param>
-    private static void AnalyzeType(SyntaxNodeAnalysisContext context, BlazorHttpContextMarkers markers)
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, in BlazorHttpContextMarkers markers)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
 
@@ -112,7 +114,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="attributeLists">The declaration's attribute lists.</param>
     /// <param name="renderMode">The resolved base <c>RenderModeAttribute</c> type.</param>
     /// <returns><see langword="true"/> when a fixed render mode is declared on the component.</returns>
-    private static bool HasRenderModeAttribute(SyntaxNodeAnalysisContext context, SyntaxList<AttributeListSyntax> attributeLists, INamedTypeSymbol renderMode)
+    private static bool HasRenderModeAttribute(in SyntaxNodeAnalysisContext context, SyntaxList<AttributeListSyntax> attributeLists, INamedTypeSymbol renderMode)
     {
         for (var i = 0; i < attributeLists.Count; i++)
         {
@@ -134,7 +136,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="declaration">The component declaration.</param>
     /// <param name="markers">The resolved marker types for the compilation.</param>
-    private static void AnalyzeMembers(SyntaxNodeAnalysisContext context, TypeDeclarationSyntax declaration, BlazorHttpContextMarkers markers)
+    private static void AnalyzeMembers(in SyntaxNodeAnalysisContext context, TypeDeclarationSyntax declaration, in BlazorHttpContextMarkers markers)
     {
         var members = declaration.Members;
         for (var i = 0; i < members.Count; i++)
@@ -174,11 +176,11 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="identifier">The member's name token, used as the report location.</param>
     /// <param name="markers">The resolved marker types for the compilation.</param>
     private static void AnalyzeAttributedMember(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         TypeSyntax memberType,
         SyntaxToken identifier,
-        BlazorHttpContextMarkers markers)
+        in BlazorHttpContextMarkers markers)
     {
         if (attributeLists.Count == 0)
         {
@@ -210,7 +212,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="cascading">The resolved <c>CascadingParameterAttribute</c> type.</param>
     /// <returns>Whether the member is injected, cascaded, or carries neither marker.</returns>
     private static HttpContextCapture ClassifyMemberCapture(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
         INamedTypeSymbol inject,
         INamedTypeSymbol cascading)
@@ -246,7 +248,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="constructor">The component's constructor.</param>
     /// <param name="accessor">The resolved <c>IHttpContextAccessor</c> type.</param>
-    private static void AnalyzeConstructorParameters(SyntaxNodeAnalysisContext context, ConstructorDeclarationSyntax constructor, INamedTypeSymbol accessor)
+    private static void AnalyzeConstructorParameters(in SyntaxNodeAnalysisContext context, ConstructorDeclarationSyntax constructor, INamedTypeSymbol accessor)
     {
         var parameters = constructor.ParameterList.Parameters;
         for (var i = 0; i < parameters.Count; i++)
@@ -263,8 +265,9 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The member's name token, used as the report location.</param>
     /// <param name="capturedTypeName">The captured type's name for the message.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxToken identifier, string capturedTypeName)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken identifier, string capturedTypeName) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             SecurityRules.InteractiveComponentHttpContext,
             identifier.GetLocation(),
             capturedTypeName));

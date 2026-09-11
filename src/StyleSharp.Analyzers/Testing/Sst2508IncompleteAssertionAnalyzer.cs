@@ -94,8 +94,7 @@ public sealed class Sst2508IncompleteAssertionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
-        var statement = (ExpressionStatementSyntax)context.Node;
-        if (statement.Expression is not InvocationExpressionSyntax invocation
+        if (((ExpressionStatementSyntax)context.Node).Expression is not InvocationExpressionSyntax invocation
             || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
             || memberAccess.Name.Identifier.ValueText != ShouldMethodName)
         {

@@ -20,7 +20,7 @@ internal static class TupleHelpers
     /// <param name="name">The accessed member name.</param>
     /// <param name="position">The 1-based tuple position when the name is <c>ItemN</c>.</param>
     /// <returns><see langword="true"/> when <paramref name="name"/> is <c>Item</c> followed by digits.</returns>
-    public static bool TryGetItemPosition(string name, out int position)
+    internal static bool TryGetItemPosition(string name, out int position)
     {
         position = 0;
         if (name.Length <= ItemPrefix.Length || !name.StartsWith(ItemPrefix, StringComparison.Ordinal))
@@ -44,15 +44,12 @@ internal static class TupleHelpers
         return value > 0;
     }
 
-    /// <summary>
-    /// Resolves the preferred tuple element name for a positional field such as <c>Item1</c>
-    /// without materializing <see cref="INamedTypeSymbol.TupleElements"/>.
-    /// </summary>
+    /// <summary>Resolves the preferred tuple element name for a positional field such as <c>Item1</c> without materializing <see cref="INamedTypeSymbol.TupleElements"/>.</summary>
     /// <param name="tupleType">The tuple type.</param>
     /// <param name="positionalName">The positional tuple field name.</param>
     /// <param name="preferredName">The preferred tuple element name when one exists.</param>
     /// <returns><see langword="true"/> when the positional field maps to a named tuple element.</returns>
-    public static bool TryGetPreferredTupleElementName(INamedTypeSymbol tupleType, string positionalName, out string? preferredName)
+    internal static bool TryGetPreferredTupleElementName(INamedTypeSymbol tupleType, string positionalName, out string? preferredName)
     {
         preferredName = null;
 
@@ -68,12 +65,14 @@ internal static class TupleHelpers
                 continue;
             }
 
-            if (correspondingTupleField.Name == positionalName
-                && field.Name != positionalName)
+            if (correspondingTupleField.Name != positionalName
+                || field.Name == positionalName)
             {
-                preferredName = field.Name;
-                return true;
+                continue;
             }
+
+            preferredName = field.Name;
+            return true;
         }
 
         return false;

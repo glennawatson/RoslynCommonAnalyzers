@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyChain = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ChainedBlockSpacingAnalyzer,
     StyleSharp.Analyzers.ChainedBlockSpacingCodeFixProvider>;
@@ -201,9 +202,10 @@ public class LayoutFileAndChainUnitTest
 
     /// <summary>Verifies an 'else' that directly follows the if block is not flagged.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AdjacentElseIsCleanAsync()
-        => await VerifyChain.VerifyAnalyzerAsync(
+    public Task AdjacentElseIsCleanAsync() =>
+        VerifyChain.VerifyAnalyzerAsync(
             """
             internal class C
             {

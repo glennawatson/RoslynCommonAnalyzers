@@ -71,8 +71,8 @@ public sealed class Sst1469ValueTypeNullComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type can never be null on either side of a lifted comparison.</summary>
     /// <param name="type">The operand type.</param>
     /// <returns><see langword="true"/> for non-nullable value types.</returns>
-    private static bool IsNonNullableValueType(ITypeSymbol type)
-        => type.IsValueType
+    private static bool IsNonNullableValueType(ITypeSymbol type) =>
+        type.IsValueType
             && type.OriginalDefinition.SpecialType != SpecialType.System_Nullable_T
             && type.TypeKind is not (TypeKind.Pointer or TypeKind.FunctionPointer or TypeKind.TypeParameter);
 }

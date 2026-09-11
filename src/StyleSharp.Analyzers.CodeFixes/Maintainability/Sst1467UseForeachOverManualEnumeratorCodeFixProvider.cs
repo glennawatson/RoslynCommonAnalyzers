@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -83,19 +85,13 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        if (!TryFindLoop(root, diagnostic, out var whileStatement, out var declaration)
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) => !TryFindLoop(root, diagnostic, out var whileStatement, out var declaration)
             || whileStatement is null
             || declaration is null
             || !TryCreateForeach(declaration, whileStatement, out var replacement)
-            || replacement is null)
-        {
-            return document;
-        }
-
-        return document.WithSyntaxRoot(ReplaceLoop(root, declaration, whileStatement, replacement));
-    }
+            || replacement is null
+        ? document
+        : document.WithSyntaxRoot(ReplaceLoop(root, declaration, whileStatement, replacement));
 
     /// <summary>Resolves the while statement and enumerator declaration reported by an SST1467 diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
@@ -159,14 +155,11 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     private static ExpressionSyntax? GetSourceExpression(LocalDeclarationStatementSyntax declaration)
     {
         var variables = declaration.Declaration.Variables;
-        if (variables.Count != 1
+        return variables.Count != 1
             || variables[0].Initializer is not { Value: InvocationExpressionSyntax invocation }
-            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
-        {
-            return null;
-        }
-
-        return memberAccess.Expression;
+            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
+            ? null
+            : memberAccess.Expression;
     }
 
     /// <summary>Builds a foreach that reuses the loop's own leading <c>var x = e.Current;</c> declaration as the iteration variable.</summary>
@@ -220,7 +213,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         var body = whileStatement.Statement;
         if (accesses.Count > 0)
         {
-            body = body.ReplaceNodes(accesses, (original, _) => SyntaxFactory.IdentifierName(FallbackItemName).WithTriviaFrom(original));
+            body = body.ReplaceNodes(accesses, static (original, _) => SyntaxFactory.IdentifierName(FallbackItemName).WithTriviaFrom(original));
         }
 
         return CreateForeach(SyntaxFactory.IdentifierName("var"), SyntaxFactory.Identifier(FallbackItemName), source, body, declaration);
@@ -233,13 +226,14 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     /// <param name="body">The rewritten loop body.</param>
     /// <param name="declaration">The enumerator declaration supplying the leading trivia.</param>
     /// <returns>The foreach statement.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ForEachStatementSyntax CreateForeach(
         TypeSyntax type,
         SyntaxToken identifier,
         ExpressionSyntax source,
         StatementSyntax body,
-        LocalDeclarationStatementSyntax declaration)
-        => SyntaxFactory.ForEachStatement(
+        LocalDeclarationStatementSyntax declaration) =>
+        SyntaxFactory.ForEachStatement(
                 type.WithoutTrivia(),
                 identifier.WithLeadingTrivia(default(SyntaxTriviaList)).WithTrailingTrivia(default(SyntaxTriviaList)),
                 source.WithoutTrivia(),
@@ -257,8 +251,8 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         SyntaxNode root,
         LocalDeclarationStatementSyntax declaration,
         WhileStatementSyntax whileStatement,
-        ForEachStatementSyntax replacement)
-        => whileStatement.Parent switch
+        ForEachStatementSyntax replacement) =>
+        whileStatement.Parent switch
         {
             BlockSyntax block => root.ReplaceNode(block, block.WithStatements(BuildStatements(block.Statements, declaration, replacement))),
             SwitchSectionSyntax section => root.ReplaceNode(section, section.WithStatements(BuildStatements(section.Statements, declaration, replacement))),
@@ -288,7 +282,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         const int InitialCurrentAccessCapacity = 4;
 
         var state = new CurrentAccessCollector(name, new List<MemberAccessExpressionSyntax>(InitialCurrentAccessCapacity));
-        DescendantTraversalHelper.VisitDescendants(body, ref state, CurrentAccessVisitor);
+        _ = DescendantTraversalHelper.VisitDescendants(body, ref state, CurrentAccessVisitor);
         return state.Accesses;
     }
 
@@ -315,7 +309,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     private static bool ContainsItemIdentifier(SyntaxNode node)
     {
         var state = new ItemTokenSearch(Found: false);
-        DescendantTraversalHelper.VisitDescendantTokens(node, ref state, ItemTokenVisitor);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref state, ItemTokenVisitor);
         return state.Found;
     }
 
@@ -330,7 +324,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
             return true;
         }
 
-        state = new ItemTokenSearch(Found: true);
+        state = new(Found: true);
         return false;
     }
 

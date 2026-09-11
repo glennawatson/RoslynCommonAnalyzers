@@ -19,16 +19,16 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds distributed trivial-auto-property source for property-focused code-fix benchmarks.</summary>
     /// <param name="members">The number of violating properties to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateTrivialAutoPropertyCodeFix(int members)
+    internal static string GenerateTrivialAutoPropertyCodeFix(int members)
     {
         var builder = new System.Text.StringBuilder();
-        builder.AppendLine("namespace Bench;").AppendLine();
+        _ = builder.AppendLine("namespace Bench;").AppendLine();
 
         var typeIndex = 0;
         var memberIndex = 0;
         while (memberIndex < members)
         {
-            builder.Append("internal sealed class TrivialAutoPropertyBench")
+            _ = builder.Append("internal sealed class TrivialAutoPropertyBench")
                 .Append(typeIndex)
                 .AppendLine()
                 .AppendLine("{");
@@ -38,18 +38,18 @@ internal static class ModernizationCodeFixBenchmarkSource
             {
                 if (i > 0)
                 {
-                    builder.AppendLine().AppendLine();
+                    _ = builder.AppendLine().AppendLine();
                 }
 
                 AppendTrivialAutoPropertyMember(builder, memberIndex + i);
             }
 
-            builder.AppendLine().AppendLine("}");
+            _ = builder.AppendLine().AppendLine("}");
             memberIndex += typeMemberCount;
             typeIndex++;
             if (memberIndex < members)
             {
-                builder.AppendLine();
+                _ = builder.AppendLine();
             }
         }
 
@@ -59,8 +59,8 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds stacked switch labels for the prefer-or-pattern code-fix benchmark.</summary>
     /// <param name="sections">The number of violating switch sections to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GeneratePreferOrPattern(int sections)
-        => $$"""
+    internal static string GeneratePreferOrPattern(int sections) =>
+        $$"""
            namespace Bench;
 
            internal static class PreferOrPatternBench
@@ -81,8 +81,8 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <param name="members">The number of violating members to emit.</param>
     /// <param name="attribute">Whether to emit empty attribute argument lists instead of delegate parameter lists.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateRedundantParentheses(int members, bool attribute)
-        => $$"""
+    internal static string GenerateRedundantParentheses(int members, bool attribute) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -96,8 +96,8 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds casted numeric literals for the literal-suffix code-fix benchmark.</summary>
     /// <param name="members">The number of violating members to emit.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateUseLiteralSuffix(int members)
-        => $$"""
+    internal static string GenerateUseLiteralSuffix(int members) =>
+        $$"""
            namespace Bench;
 
            internal static class UseLiteralSuffixBench
@@ -110,8 +110,8 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <param name="members">The number of violating members to emit.</param>
     /// <param name="explicitCollection">Whether to emit explicit collection initializers instead of empty collections.</param>
     /// <returns>The generated source text.</returns>
-    public static string GenerateCollectionExpression(int members, bool explicitCollection)
-        => $$"""
+    internal static string GenerateCollectionExpression(int members, bool explicitCollection) =>
+        $$"""
            namespace Bench;
 
            internal static class CollectionExpressionBench
@@ -123,8 +123,8 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds one switch section containing a stacked-label violation.</summary>
     /// <param name="index">The zero-based switch-section index.</param>
     /// <returns>The generated switch-section source.</returns>
-    private static string GeneratePreferOrPatternSection(int index)
-        => $$"""
+    private static string GeneratePreferOrPatternSection(int index) =>
+        $$"""
                        case {{index * LabelsPerSection}}:
                        case {{(index * LabelsPerSection) + 1}}:
                            return {{index}};
@@ -133,16 +133,16 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds one anonymous-delegate member with redundant empty parentheses.</summary>
     /// <param name="index">The zero-based member index.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateRedundantParenthesesDelegateMember(int index)
-        => $$"""
+    private static string GenerateRedundantParenthesesDelegateMember(int index) =>
+        $$"""
            internal static Action M{{index}}() => delegate() { };
            """;
 
     /// <summary>Builds one attributed member with redundant empty attribute parentheses.</summary>
     /// <param name="index">The zero-based member index.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateRedundantParenthesesAttributeMember(int index)
-        => $$"""
+    private static string GenerateRedundantParenthesesAttributeMember(int index) =>
+        $$"""
            [Obsolete()]
            internal static void M{{index}}()
            {
@@ -152,17 +152,15 @@ internal static class ModernizationCodeFixBenchmarkSource
     /// <summary>Builds one casted numeric-literal member for the literal-suffix benchmark.</summary>
     /// <param name="index">The zero-based member index.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateUseLiteralSuffixMember(int index)
-        => $$"""
+    private static string GenerateUseLiteralSuffixMember(int index) =>
+        $$"""
            internal static long M{{index}}() => (long){{index + 1}};
            """;
 
     /// <summary>Appends one violating backing-field/property pair for the property code-fix benchmarks.</summary>
     /// <param name="builder">The destination source builder.</param>
     /// <param name="index">The zero-based property index.</param>
-    private static void AppendTrivialAutoPropertyMember(System.Text.StringBuilder builder, int index)
-    {
-        builder.Append("    private int _value")
+    private static void AppendTrivialAutoPropertyMember(System.Text.StringBuilder builder, int index) => _ = builder.Append("    private int _value")
             .Append(index)
             .AppendLine(";")
             .AppendLine()
@@ -177,21 +175,20 @@ internal static class ModernizationCodeFixBenchmarkSource
             .Append(index)
             .AppendLine(" = value;")
             .Append("    }");
-    }
 
     /// <summary>Builds one member that returns an empty collection via a factory call.</summary>
     /// <param name="index">The zero-based member index.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateEmptyCollectionMember(int index)
-        => $$"""
+    private static string GenerateEmptyCollectionMember(int index) =>
+        $$"""
            internal static int[] M{{index}}() => System.Array.Empty<int>();
            """;
 
     /// <summary>Builds one member that returns an explicit collection initializer.</summary>
     /// <param name="index">The zero-based member index.</param>
     /// <returns>The generated member source.</returns>
-    private static string GenerateExplicitCollectionMember(int index)
-        => $$"""
+    private static string GenerateExplicitCollectionMember(int index) =>
+        $$"""
            internal static int[] M{{index}}() => new[] { {{index}}, {{index + 1}}, {{index + ThirdCollectionValueOffset}} };
            """;
 }

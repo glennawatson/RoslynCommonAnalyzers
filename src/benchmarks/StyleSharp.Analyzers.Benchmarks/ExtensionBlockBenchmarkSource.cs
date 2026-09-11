@@ -14,8 +14,8 @@ internal static class ExtensionBlockBenchmarkSource
     /// <param name="members">The number of extension containers to emit.</param>
     /// <param name="violating">Whether to emit extension-block rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            {{BenchmarkSourceText.JoinBlocks(members, i => GenerateContainer(i, violating))}}
            """;
 
@@ -23,14 +23,14 @@ internal static class ExtensionBlockBenchmarkSource
     /// <param name="index">The synthetic container index.</param>
     /// <param name="violating">Whether to emit a violating container.</param>
     /// <returns>The generated container block.</returns>
-    private static string GenerateContainer(int index, bool violating)
-        => violating ? GenerateViolatingContainer(index) : GenerateCleanContainer(index);
+    private static string GenerateContainer(int index, bool violating) =>
+        violating ? GenerateViolatingContainer(index) : GenerateCleanContainer(index);
 
     /// <summary>Builds one clean extension-block container.</summary>
     /// <param name="index">The synthetic container index.</param>
     /// <returns>The generated container block.</returns>
-    private static string GenerateCleanContainer(int index)
-        => $$"""
+    private static string GenerateCleanContainer(int index) =>
+        $$"""
            public static class Sample{{index}}{{(index % AlternatingSuffixDivisor == 0 ? ExtensionContainerNaming.ExtensionsSuffix : ExtensionContainerNaming.MixinsSuffix)}}
            {
                extension(int value)
@@ -48,8 +48,8 @@ internal static class ExtensionBlockBenchmarkSource
     /// <summary>Builds one violating extension-block container.</summary>
     /// <param name="index">The synthetic container index.</param>
     /// <returns>The generated container block.</returns>
-    private static string GenerateViolatingContainer(int index)
-        => $$"""
+    private static string GenerateViolatingContainer(int index) =>
+        $$"""
            public static class Sample{{index}}
            {
                extension(string text)

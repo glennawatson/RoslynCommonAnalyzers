@@ -61,15 +61,15 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="type">The field's type.</param>
     /// <param name="mutableTypes">The known mutable collection types.</param>
     /// <returns><see langword="true"/> when the field, or the collection it holds, can be rewritten.</returns>
-    internal static bool IsMutable(FieldDeclarationSyntax declaration, ITypeSymbol type, MutableCollectionTypes mutableTypes)
-        => !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword) || mutableTypes.IsMutable(type);
+    internal static bool IsMutable(FieldDeclarationSyntax declaration, ITypeSymbol type, MutableCollectionTypes mutableTypes) =>
+        !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword) || mutableTypes.IsMutable(type);
 
     /// <summary>Reports a visible static field whose value or contents can be changed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="mutableTypes">The known mutable collection types.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void Analyze(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         MutableCollectionTypes mutableTypes,
         ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
     {
@@ -148,8 +148,8 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an accessibility lets code in another assembly see the declaration.</summary>
     /// <param name="accessibility">The declared accessibility.</param>
     /// <returns><see langword="true"/> when the declaration is part of the assembly's public surface.</returns>
-    private static bool IsVisibleBeyondAssembly(Accessibility accessibility)
-        => accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
+    private static bool IsVisibleBeyondAssembly(Accessibility accessibility) =>
+        accessibility is Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal;
 
     /// <summary>Returns whether a field declaration carries the per-thread attribute.</summary>
     /// <param name="lists">The declaration's attribute lists.</param>
@@ -188,7 +188,7 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
     private static MutableStaticFieldOptions GetOptions(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
     {
         var tree = context.Node.SyntaxTree;
@@ -198,7 +198,7 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
         }
 
         options = MutableStaticFieldOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        optionsByTree.TryAdd(tree, options);
+        _ = optionsByTree.TryAdd(tree, options);
         return options;
     }
 }

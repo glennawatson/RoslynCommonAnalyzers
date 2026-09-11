@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNullEventRaise = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2436NullEventRaiseAnalyzer,
     StyleSharp.Analyzers.Sst2436NullEventRaiseCodeFixProvider>;
@@ -115,33 +116,38 @@ public class Sst2436NullEventRaiseAnalyzerUnitTest
 
     /// <summary>Verifies a null sender is reported and replaced with <c>this</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullSenderIsFixedAsync()
-        => await VerifyNullEventRaise.VerifyCodeFixAsync(NullSenderSource, NullSenderFixed);
+    public Task NullSenderIsFixedAsync() =>
+        VerifyNullEventRaise.VerifyCodeFixAsync(NullSenderSource, NullSenderFixed);
 
     /// <summary>Verifies a null-forgiving null sender is reported and replaced with <c>this</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullBangSenderIsFixedAsync()
-        => await VerifyNullEventRaise.VerifyCodeFixAsync(NullBangSenderSource, NullBangSenderFixed);
+    public Task NullBangSenderIsFixedAsync() =>
+        VerifyNullEventRaise.VerifyCodeFixAsync(NullBangSenderSource, NullBangSenderFixed);
 
     /// <summary>Verifies null event args are reported and replaced with <c>EventArgs.Empty</c>.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullArgsIsFixedAsync()
-        => await VerifyNullEventRaise.VerifyCodeFixAsync(NullArgsSource, NullArgsFixed);
+    public Task NullArgsIsFixedAsync() =>
+        VerifyNullEventRaise.VerifyCodeFixAsync(NullArgsSource, NullArgsFixed);
 
     /// <summary>Verifies Fix All repairs every null-sender raise in the document.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixAllRepairsEveryRaiseAsync()
-        => await VerifyNullEventRaise.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
+    public Task FixAllRepairsEveryRaiseAsync() =>
+        VerifyNullEventRaise.VerifyCodeFixAsync(FixAllSource, FixAllFixed);
 
     /// <summary>Verifies raising with <c>EventArgs.Empty</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventArgsEmptyIsCleanAsync()
-        => await VerifyNullEventRaise.VerifyAnalyzerAsync(
+    public Task EventArgsEmptyIsCleanAsync() =>
+        VerifyNullEventRaise.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -155,9 +161,10 @@ public class Sst2436NullEventRaiseAnalyzerUnitTest
 
     /// <summary>Verifies a static event raised with a null sender is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticEventNullSenderIsCleanAsync()
-        => await VerifyNullEventRaise.VerifyAnalyzerAsync(
+    public Task StaticEventNullSenderIsCleanAsync() =>
+        VerifyNullEventRaise.VerifyAnalyzerAsync(
             """
             using System;
 

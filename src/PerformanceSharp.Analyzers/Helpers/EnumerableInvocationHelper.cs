@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -15,8 +17,8 @@ internal static class EnumerableInvocationHelper
     /// <summary>Returns whether a named type is <c>System.Linq.Enumerable</c>.</summary>
     /// <param name="type">The type.</param>
     /// <returns><see langword="true"/> for <c>System.Linq.Enumerable</c>.</returns>
-    public static bool IsSystemLinqEnumerable(INamedTypeSymbol? type)
-        => type?.Name == "Enumerable"
+    internal static bool IsSystemLinqEnumerable(INamedTypeSymbol? type) =>
+        type?.Name == "Enumerable"
             && type.ContainingNamespace?.Name == "Linq"
             && type.ContainingNamespace.ContainingNamespace?.Name == "System"
             && type.ContainingNamespace.ContainingNamespace.ContainingNamespace.IsGlobalNamespace;
@@ -27,7 +29,7 @@ internal static class EnumerableInvocationHelper
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <param name="method">The bound method symbol when the call is an in-memory LINQ operator.</param>
     /// <returns><see langword="true"/> when the target is an in-memory LINQ method.</returns>
-    public static bool TryGetEnumerableMethod(
+    internal static bool TryGetEnumerableMethod(
         InvocationExpressionSyntax invocation,
         SemanticModel model,
         CancellationToken cancellationToken,
@@ -44,8 +46,7 @@ internal static class EnumerableInvocationHelper
             return false;
         }
 
-        var original = bound.ReducedFrom ?? bound;
-        if (!IsSystemLinqEnumerable(original.ContainingType))
+        if (!IsSystemLinqEnumerable((bound.ReducedFrom ?? bound).ContainingType))
         {
             return false;
         }
@@ -59,6 +60,7 @@ internal static class EnumerableInvocationHelper
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the target is an in-memory LINQ method.</returns>
-    public static bool IsEnumerableInvocation(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
-        => TryGetEnumerableMethod(invocation, model, cancellationToken, out _);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool IsEnumerableInvocation(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken) =>
+        TryGetEnumerableMethod(invocation, model, cancellationToken, out _);
 }

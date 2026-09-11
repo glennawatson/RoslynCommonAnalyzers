@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.FindSymbols;
 
 namespace StyleSharp.Analyzers;
@@ -30,8 +31,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : CodeFixProvider
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(MaintainabilityRules.AbstractTypeWithoutAbstractMembers.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(MaintainabilityRules.AbstractTypeWithoutAbstractMembers.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
@@ -86,13 +87,14 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The class declaration, or <see langword="null"/>.</returns>
-    private static ClassDeclarationSyntax? FindClass(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ClassDeclarationSyntax>();
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ClassDeclarationSyntax? FindClass(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ClassDeclarationSyntax>();
 
     /// <summary>Gets the position of the <c>abstract</c> modifier in a modifier list.</summary>
     /// <param name="modifiers">The class's modifiers.</param>
     /// <returns>The index, or -1 when the modifier is absent.</returns>
-    private static int IndexOfAbstract(SyntaxTokenList modifiers)
+    private static int IndexOfAbstract(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -180,12 +182,9 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
             return declaration.WithModifiers(modifiers);
         }
 
-        if (modifiers.Count > 0)
-        {
-            return declaration.WithModifiers(modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(modifier.LeadingTrivia)));
-        }
-
-        return declaration
+        return modifiers.Count > 0
+            ? declaration.WithModifiers(modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(modifier.LeadingTrivia)))
+            : declaration
             .WithModifiers(modifiers)
             .WithKeyword(declaration.Keyword.WithLeadingTrivia(modifier.LeadingTrivia));
     }

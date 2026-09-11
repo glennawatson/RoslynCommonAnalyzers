@@ -89,8 +89,7 @@ public sealed class Sst2464EqualityOperatorOnMutableClassAnalyzer : DiagnosticAn
 
             switch (member)
             {
-                case IFieldSymbol { IsImplicitlyDeclared: false, IsConst: false, IsReadOnly: false }:
-                case IPropertySymbol { SetMethod.IsInitOnly: false }:
+                case IFieldSymbol { IsImplicitlyDeclared: false, IsConst: false, IsReadOnly: false } or IPropertySymbol { SetMethod.IsInitOnly: false }:
                     return true;
             }
         }

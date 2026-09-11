@@ -328,7 +328,7 @@ public class Psh1317PassCancellationTokenAnalyzerUnitTest
     [Test]
     public async Task ConditionalAccessCallReportsWithoutOfferingAFixAsync()
     {
-        var source = $$"""
+        const string? source = $$"""
                        using System.Threading;
 
                        {{TrailingTokenTarget}}
@@ -349,7 +349,7 @@ public class Psh1317PassCancellationTokenAnalyzerUnitTest
     [Test]
     public async Task CallThatAlreadyPassesTheTokenIsNotReportedAsync()
     {
-        var source = $$"""
+        const string? source = $$"""
                        using System.Threading;
 
                        {{TrailingTokenTarget}}
@@ -593,12 +593,7 @@ public class Psh1317PassCancellationTokenAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyToken.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-            FixedCode = fixedSource
-        };
+        var test = new VerifyToken.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -59,10 +61,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     };
 
     /// <summary>The call names that materialize a sequence, so a local initialized from one is safe to re-read.</summary>
-    private static readonly HashSet<string> MaterializingMethodNames = new(StringComparer.Ordinal)
-    {
-        "AsReadOnly", "ToArray", "ToDictionary", "ToHashSet", "ToList", "ToLookup",
-    };
+    private static readonly HashSet<string> MaterializingMethodNames = new(StringComparer.Ordinal) { "AsReadOnly", "ToArray", "ToDictionary", "ToHashSet", "ToList", "ToLookup", };
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.MultipleEnumeration);
@@ -129,14 +128,14 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a type is one of the two lazy sequence contracts the rule reports on.</summary>
     /// <param name="type">The declared symbol's type.</param>
     /// <returns><see langword="true"/> only for <c>IEnumerable&lt;T&gt;</c> and the non-generic <c>IEnumerable</c>.</returns>
-    internal static bool IsLazySequenceType(ITypeSymbol type)
-        => type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
+    internal static bool IsLazySequenceType(ITypeSymbol type) =>
+        type.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T
             || type.SpecialType == SpecialType.System_Collections_IEnumerable;
 
     /// <summary>Reports PSH1125 for each lazy-sequence parameter or local the member body walks twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeMember(SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
     {
         var shape = GetAnalyzableShape(context.Node);
         if (shape.Body is not { } body || !MentionsEnumerable(shape.PrepassScope ?? body))
@@ -187,8 +186,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="body">The block body, when the declaration has one.</param>
     /// <param name="expressionBody">The expression body, when the declaration has one.</param>
     /// <returns>The body to walk, or <see langword="null"/> when the declaration has neither.</returns>
-    private static SyntaxNode? PickBody(BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody)
-        => body ?? (SyntaxNode?)expressionBody;
+    private static SyntaxNode? PickBody(BlockSyntax? body, ArrowExpressionClauseSyntax? expressionBody) =>
+        body ?? (SyntaxNode?)expressionBody;
 
     /// <summary>Builds the shape of an accessor, whose locals are analyzed but whose index parameters are not.</summary>
     /// <param name="accessor">The accessor declaration.</param>
@@ -201,8 +200,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// the accessor: widening it to the owning property would re-scan every token of that property once
     /// per accessor, and again for the property's own registration.
     /// </remarks>
-    private static MemberShape CreateAccessorShape(AccessorDeclarationSyntax accessor)
-        => new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor, true);
+    private static MemberShape CreateAccessorShape(AccessorDeclarationSyntax accessor) =>
+        new(default, PickBody(accessor.Body, accessor.ExpressionBody), accessor, true);
 
     /// <summary>Runs the free syntax prepass, which asks whether the declaration mentions <c>IEnumerable</c> at all.</summary>
     /// <param name="scope">The declaration to scan.</param>
@@ -210,7 +209,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     private static bool MentionsEnumerable(SyntaxNode scope)
     {
         var state = default(MentionScanState);
-        DescendantTraversalHelper.VisitDescendantTokens(scope, ref state, VisitTypeNameToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(scope, ref state, VisitTypeNameToken);
         return state.Found;
     }
 
@@ -234,7 +233,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="parameters">The declaring member's parameters.</param>
     /// <param name="candidates">The candidate set to add to.</param>
     private static void CollectParameterCandidates(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SeparatedSyntaxList<ParameterSyntax> parameters,
         List<WalkCandidate> candidates)
     {
@@ -250,7 +249,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            candidates.Add(new WalkCandidate(symbol, parameter.Identifier.ValueText));
+            candidates.Add(new(symbol, parameter.Identifier.ValueText));
         }
     }
 
@@ -258,13 +257,13 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="body">The method's body or expression body.</param>
     /// <param name="candidates">The candidate set to add to.</param>
-    private static void CollectLocalCandidates(SyntaxNodeAnalysisContext context, SyntaxNode body, List<WalkCandidate> candidates)
+    private static void CollectLocalCandidates(in SyntaxNodeAnalysisContext context, SyntaxNode body, List<WalkCandidate> candidates)
     {
         const int InitialLocalDeclarationCapacity = 2;
 
         var declarations = new List<LocalDeclarationStatementSyntax>(InitialLocalDeclarationCapacity);
         var state = new LocalScanState(declarations);
-        DescendantTraversalHelper.VisitDescendants<LocalDeclarationStatementSyntax, LocalScanState>(body, ref state, VisitLocalDeclaration);
+        _ = DescendantTraversalHelper.VisitDescendants<LocalDeclarationStatementSyntax, LocalScanState>(body, ref state, VisitLocalDeclaration);
 
         for (var i = 0; i < declarations.Count; i++)
         {
@@ -292,7 +291,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="declaration">The local declaration to inspect.</param>
     /// <param name="candidates">The candidate set to add to.</param>
     private static void CollectLocalDeclarationCandidates(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         LocalDeclarationStatementSyntax declaration,
         List<WalkCandidate> candidates)
     {
@@ -307,7 +306,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            candidates.Add(new WalkCandidate(symbol, variable.Identifier.ValueText));
+            candidates.Add(new(symbol, variable.Identifier.ValueText));
         }
     }
 
@@ -340,13 +339,13 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// times to answer questions a single pass answers together.
     /// </remarks>
     private static void ScanAndReport(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         SyntaxNode body,
         List<WalkCandidate> candidates,
         INamedTypeSymbol? enumerableType)
     {
         var state = new UsageScanState(candidates, context.SemanticModel, enumerableType, candidates.Count, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScanState>(body, ref state, VisitIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, UsageScanState>(body, ref state, VisitIdentifier);
 
         for (var i = 0; i < candidates.Count; i++)
         {
@@ -412,16 +411,16 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// irrelevant. The name match alone is not enough to skip the bind, because a different symbol may
     /// share the name in a nested scope.
     /// </remarks>
-    private static bool CanChangeTheOutcome(IdentifierNameSyntax identifier)
-        => IsForEachSource(identifier)
+    private static bool CanChangeTheOutcome(IdentifierNameSyntax identifier) =>
+        IsForEachSource(identifier)
             || (identifier.Parent is MemberAccessExpressionSyntax access && access.Expression == identifier)
             || IsWrittenThrough(identifier);
 
     /// <summary>Returns whether a usage rebinds the candidate, which makes any later walk a walk of something else.</summary>
     /// <param name="identifier">The identifier usage.</param>
     /// <returns><see langword="true"/> for an assignment target or a ref/out/in argument.</returns>
-    private static bool IsWrittenThrough(IdentifierNameSyntax identifier)
-        => (identifier.Parent is AssignmentExpressionSyntax assignment && assignment.Left == identifier)
+    private static bool IsWrittenThrough(IdentifierNameSyntax identifier) =>
+        (identifier.Parent is AssignmentExpressionSyntax assignment && assignment.Left == identifier)
             || (identifier.Parent is ArgumentSyntax argument && !argument.RefKindKeyword.IsKind(SyntaxKind.None));
 
     /// <summary>Returns whether a usage actually walks the sequence.</summary>
@@ -465,8 +464,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a node is the source expression of a foreach loop.</summary>
     /// <param name="node">The node to test.</param>
     /// <returns><see langword="true"/> when the node is what the loop walks.</returns>
-    private static bool IsForEachSource(SyntaxNode node)
-        => node.Parent is CommonForEachStatementSyntax forEach && forEach.Expression == node;
+    private static bool IsForEachSource(SyntaxNode node) =>
+        node.Parent is CommonForEachStatementSyntax forEach && forEach.Expression == node;
 
     /// <summary>Returns whether an invocation binds to a reduced <c>System.Linq.Enumerable</c> extension.</summary>
     /// <param name="model">The semantic model.</param>
@@ -478,8 +477,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol? enumerableType,
-        CancellationToken cancellationToken)
-        => enumerableType is not null
+        CancellationToken cancellationToken) =>
+        enumerableType is not null
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
@@ -524,8 +523,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The branch holding the earlier walk.</param>
     /// <param name="second">The branch holding the later walk.</param>
     /// <returns><see langword="true"/> when the branching construct runs at most one of them.</returns>
-    private static bool IsExclusiveBranching(SyntaxNode ancestor, SyntaxNode first, SyntaxNode second)
-        => ancestor switch
+    private static bool IsExclusiveBranching(SyntaxNode ancestor, SyntaxNode first, SyntaxNode second) =>
+        ancestor switch
         {
             IfStatementSyntax ifStatement => IsBranchPair(ifStatement.Statement, ifStatement.Else, first, second),
             ConditionalExpressionSyntax conditional => IsBranchPair(conditional.WhenTrue, conditional.WhenFalse, first, second),
@@ -541,8 +540,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The branch holding the earlier walk.</param>
     /// <param name="second">The branch holding the later walk.</param>
     /// <returns><see langword="true"/> when the branches are the two alternatives.</returns>
-    private static bool IsBranchPair(SyntaxNode whenTrue, SyntaxNode? whenFalse, SyntaxNode first, SyntaxNode second)
-        => whenFalse is not null
+    private static bool IsBranchPair(SyntaxNode whenTrue, SyntaxNode? whenFalse, SyntaxNode first, SyntaxNode second) =>
+        whenFalse is not null
             && ((first == whenTrue && second == whenFalse) || (first == whenFalse && second == whenTrue));
 
     /// <summary>Returns whether one walk is in a try body and the other in a catch, which only runs on failure.</summary>
@@ -550,8 +549,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <param name="first">The branch holding the earlier walk.</param>
     /// <param name="second">The branch holding the later walk.</param>
     /// <returns><see langword="true"/> when the two branches are the try body and a catch clause.</returns>
-    private static bool IsCatchPair(TryStatementSyntax tryStatement, SyntaxNode first, SyntaxNode second)
-        => (first == tryStatement.Block && second is CatchClauseSyntax)
+    private static bool IsCatchPair(TryStatementSyntax tryStatement, SyntaxNode first, SyntaxNode second) =>
+        (first == tryStatement.Block && second is CatchClauseSyntax)
             || (second == tryStatement.Block && first is CatchClauseSyntax);
 
     /// <summary>Finds the nearest node that contains both walks.</summary>
@@ -611,7 +610,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Collects the IEnumerable-typed local declarations of a method body.</summary>
     /// <param name="Declarations">The declarations found so far.</param>
-    private record struct LocalScanState(List<LocalDeclarationStatementSyntax> Declarations);
+    private readonly record struct LocalScanState(List<LocalDeclarationStatementSyntax> Declarations);
 
     /// <summary>Tracks every candidate's walks while scanning the member body once.</summary>
     /// <param name="Candidates">The candidates being tracked.</param>
@@ -675,7 +674,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Records one walk of this candidate.</summary>
         /// <param name="identifier">The identifier that walks it.</param>
-        public void AddWalk(IdentifierNameSyntax identifier)
-            => (Walks ??= new List<IdentifierNameSyntax>(MinimumWalkCount)).Add(identifier);
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddWalk(IdentifierNameSyntax identifier) =>
+            (Walks ??= new List<IdentifierNameSyntax>(MinimumWalkCount)).Add(identifier);
     }
 }

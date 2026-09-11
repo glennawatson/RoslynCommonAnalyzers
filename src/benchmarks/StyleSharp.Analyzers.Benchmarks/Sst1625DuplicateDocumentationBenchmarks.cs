@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for duplicate-documentation analysis (SST1625).</summary>
+[System.Diagnostics.DebuggerDisplay("Sst1625DuplicateDocumentationBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class Sst1625DuplicateDocumentationBenchmarks
@@ -24,11 +26,13 @@ public class Sst1625DuplicateDocumentationBenchmarks
 
     /// <summary>Benchmarks the clean duplicate-documentation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1625DuplicateDocumentation_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating duplicate-documentation path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> Sst1625DuplicateDocumentation_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

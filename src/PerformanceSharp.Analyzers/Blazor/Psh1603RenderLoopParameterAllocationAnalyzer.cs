@@ -70,7 +70,7 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
     /// <summary>Reports PSH1603 when a component-parameter value inside a render loop is a non-delegate allocation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gate">The resolved render-tree builder and query types gating the rule.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, AllocationGate gate)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AllocationGate gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
@@ -130,8 +130,8 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
     /// <summary>Returns whether an invocation names a collection-materializing method.</summary>
     /// <param name="invocation">The candidate call.</param>
     /// <returns><see langword="true"/> when the invoked member is a <c>To*</c> materializer.</returns>
-    private static bool IsMaterializingCallName(InvocationExpressionSyntax invocation)
-        => invocation.Expression is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText switch
+    private static bool IsMaterializingCallName(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText switch
         {
             "ToList" or "ToArray" or "ToHashSet" or "ToDictionary" or "ToLookup" => true,
             _ => false,
@@ -168,12 +168,10 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
         {
             switch (current)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
                     return null;
 
-                case ForStatementSyntax:
-                case CommonForEachStatementSyntax:
+                case ForStatementSyntax or CommonForEachStatementSyntax:
                     return current;
 
                 case MemberDeclarationSyntax:

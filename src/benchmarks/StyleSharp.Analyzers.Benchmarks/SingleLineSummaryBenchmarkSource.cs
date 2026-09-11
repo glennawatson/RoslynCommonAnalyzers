@@ -11,8 +11,8 @@ internal static class SingleLineSummaryBenchmarkSource
     /// <param name="types">The number of types to emit.</param>
     /// <param name="violating">Whether to emit avoidable multi-line summaries.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -22,14 +22,14 @@ internal static class SingleLineSummaryBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit an avoidable multi-line summary.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one clean documented type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            /// <summary>Short summary {{index}}.</summary>
            public sealed class C{{index}}
            {
@@ -39,8 +39,8 @@ internal static class SingleLineSummaryBenchmarkSource
     /// <summary>Builds one violating documented type.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            /// <summary>
            /// Short summary {{index}}.
            /// </summary>

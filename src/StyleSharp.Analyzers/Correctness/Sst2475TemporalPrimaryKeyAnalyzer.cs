@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -51,8 +53,8 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.TemporalPrimaryKey);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -89,7 +91,7 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a temporal primary key found by the explicit attribute or the entity convention.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="facts">The resolved key attribute, offset type, and entity set.</param>
-    private static void AnalyzeProperty(SymbolAnalysisContext context, TemporalKeyFacts facts)
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, TemporalKeyFacts facts)
     {
         var property = (IPropertySymbol)context.Symbol;
         if (!TryGetTemporalTypeName(property.Type, facts.DateTimeOffset, out var temporalName))
@@ -117,8 +119,9 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="property">The reported key property.</param>
     /// <param name="temporalName">The temporal type's display name.</param>
-    private static void Report(SymbolAnalysisContext context, IPropertySymbol property, string temporalName)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SymbolAnalysisContext context, IPropertySymbol property, string temporalName) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.TemporalPrimaryKey,
             property.Locations[0],
             property.Name,
@@ -259,7 +262,7 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
                 && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, dbSet)
                 && arguments[0] is INamedTypeSymbol entity)
             {
-                entities.Add(entity);
+                _ = entities.Add(entity);
             }
         }
     }

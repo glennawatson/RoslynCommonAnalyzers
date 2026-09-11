@@ -67,8 +67,8 @@ public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The reported invocation to rewrite.</param>
     /// <returns>The updated document, unchanged when no enclosing type declaration exists.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => Rewrite(invocation) is { } replacement
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        Rewrite(invocation) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(invocation, replacement))
             : document;
 
@@ -76,8 +76,8 @@ public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The reported invocation, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static InvocationExpressionSyntax? TryGetInvocation(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
+    private static InvocationExpressionSyntax? TryGetInvocation(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is InvocationExpressionSyntax invocation
             && Psh1404PreferTypeofAssemblyAnalyzer.IsGetExecutingAssemblyShape(invocation)
             ? invocation
             : null;

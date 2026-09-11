@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeMetadata = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -43,9 +44,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies a plain <c>RequireHttpsMetadata = false</c> on JwtBearerOptions is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JwtBearerAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task JwtBearerAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -60,9 +62,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies the object-initializer form on JwtBearerOptions is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task JwtBearerObjectInitializerReportedAsync()
-        => await VerifyAsync(
+    public Task JwtBearerObjectInitializerReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -75,9 +78,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies a plain <c>RequireHttpsMetadata = false</c> on OpenIdConnectOptions is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OpenIdConnectAssignmentReportedAsync()
-        => await VerifyAsync(
+    public Task OpenIdConnectAssignmentReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.OpenIdConnect;
 
@@ -92,9 +96,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies an assignment guarded by <c>env.IsDevelopment()</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DevelopmentGuardedAssignmentIsCleanAsync()
-        => await VerifyAsync(
+    public Task DevelopmentGuardedAssignmentIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -112,9 +117,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies a chained <c>builder.Environment.IsDevelopment()</c> guard is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChainedEnvironmentGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task ChainedEnvironmentGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -132,9 +138,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies a conditional-expression guard using <c>IsDevelopment</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalExpressionGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConditionalExpressionGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -149,9 +156,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies setting <c>RequireHttpsMetadata</c> to true is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AssignmentToTrueIsCleanAsync()
-        => await VerifyAsync(
+    public Task AssignmentToTrueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -166,9 +174,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies setting an unrelated option property to false is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedPropertyIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedPropertyIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -183,9 +192,10 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
 
     /// <summary>Verifies a same-named property on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedPropertyOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Authentication.JwtBearer;
 
@@ -223,11 +233,7 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeMetadata.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeMetadata.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -237,11 +243,7 @@ public class PlainHttpMetadataRetrievalAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeMetadata.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetStubs
-        };
+        var test = new AnalyzeMetadata.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

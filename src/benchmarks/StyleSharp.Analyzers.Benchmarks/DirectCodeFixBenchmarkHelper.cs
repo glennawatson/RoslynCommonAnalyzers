@@ -16,7 +16,7 @@ internal static class DirectCodeFixBenchmarkHelper
     /// <param name="sourceFactory">Builds the synthetic source text.</param>
     /// <param name="targetFactory">Selects the representative benchmark target from the parsed root.</param>
     /// <returns>The prepared benchmark context.</returns>
-    public static async Task<DirectCodeFixBenchmarkContext<TTarget>> CreateAsync<TTarget>(
+    internal static async Task<DirectCodeFixBenchmarkContext<TTarget>> CreateAsync<TTarget>(
         int count,
         Func<int, string> sourceFactory,
         Func<Document, CompilationUnitSyntax, int, Task<TTarget>> targetFactory)
@@ -26,6 +26,6 @@ internal static class DirectCodeFixBenchmarkHelper
         var document = CodeFixBenchmarkDocumentFactory.CreateDocument(workspace, sourceFactory(count));
         var root = (CompilationUnitSyntax)(await document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var target = await targetFactory(document, root, count / MiddleGeneratedNodeDivisor).ConfigureAwait(false);
-        return new DirectCodeFixBenchmarkContext<TTarget>(workspace, document, root, target);
+        return new(workspace, document, root, target);
     }
 }

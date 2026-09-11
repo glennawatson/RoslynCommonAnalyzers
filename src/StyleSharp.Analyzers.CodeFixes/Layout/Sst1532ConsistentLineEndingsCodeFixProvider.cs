@@ -77,9 +77,9 @@ public sealed class Sst1532ConsistentLineEndingsCodeFixProvider : CodeFixProvide
         {
             var line = lines[i];
             var span = TextSpan.FromBounds(line.End, line.EndIncludingLineBreak);
-            if (span.Length != 0 && text.ToString(span) != target)
+            if (!span.IsEmpty && text.ToString(span) != target)
             {
-                changes.Add(new TextChange(span, target));
+                changes.Add(new(span, target));
             }
         }
     }

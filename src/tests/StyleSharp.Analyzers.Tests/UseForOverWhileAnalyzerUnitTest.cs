@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyUseForOverWhile = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2287UseForOverWhileAnalyzer,
     StyleSharp.Analyzers.Sst2287UseForOverWhileCodeFixProvider>;
@@ -155,9 +156,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a counter read after the loop keeps the while form; a for header would scope it away.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterReadAfterLoopIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task CounterReadAfterLoopIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -177,9 +179,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a body holding a continue is left alone; a for header would run the step it skips.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyWithContinueIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task BodyWithContinueIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -249,9 +252,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a loop whose condition ignores the declared local is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionWithoutCounterIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task ConditionWithoutCounterIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -269,9 +273,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a loop that does not end by stepping the counter is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopWithoutTrailingStepIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task LoopWithoutTrailingStepIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -289,9 +294,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a loop with no declaration above it is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopWithoutPrecedingDeclarationIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task LoopWithoutPrecedingDeclarationIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -309,9 +315,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a declaration of two variables is left alone; a for header declares one group.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleDeclaratorsAreCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task MultipleDeclaratorsAreCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -329,9 +336,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies an uninitialized declaration is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UninitializedDeclarationIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task UninitializedDeclarationIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -350,9 +358,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a single-statement body is left alone; there is no work left once the step moves out.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleStatementBodyIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task SingleStatementBodyIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -369,9 +378,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a brace-less loop body is left alone; there is no trailing statement to lift.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmbeddedLoopBodyIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task EmbeddedLoopBodyIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -386,9 +396,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a step whose amount reads the counter itself is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SelfReferencingStepIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task SelfReferencingStepIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {
@@ -406,9 +417,10 @@ public class UseForOverWhileAnalyzerUnitTest
 
     /// <summary>Verifies a counter written after the loop keeps the while form.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterWrittenAfterLoopIsCleanAsync()
-        => await VerifyUseForOverWhile.VerifyAnalyzerAsync(
+    public Task CounterWrittenAfterLoopIsCleanAsync() =>
+        VerifyUseForOverWhile.VerifyAnalyzerAsync(
             """
             internal class C
             {

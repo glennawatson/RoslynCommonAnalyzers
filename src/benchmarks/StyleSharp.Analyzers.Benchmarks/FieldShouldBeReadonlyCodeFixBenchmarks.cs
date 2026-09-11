@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the field-should-be-readonly code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("FieldShouldBeReadonlyCodeFixBenchmarks: {Fields}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class FieldShouldBeReadonlyCodeFixBenchmarks
@@ -27,13 +29,14 @@ public class FieldShouldBeReadonlyCodeFixBenchmarks
     /// never emitted, and setup threw before the benchmark could run.
     /// </remarks>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await StructuralCodeFixBenchmarkHelper.CreateAsync(
             Fields,
             static count => FieldShouldBeReadonlyBenchmarkSource.Generate(count, violating: true),
-            static (root, index) => CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<FieldDeclarationSyntax>(root, index)).ConfigureAwait(false);
+            CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<FieldDeclarationSyntax>).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 

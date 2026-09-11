@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for unreachable-code analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UnreachableCodeBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class UnreachableCodeBenchmarks
@@ -24,11 +26,13 @@ public class UnreachableCodeBenchmarks
 
     /// <summary>Benchmarks the clean unreachable-code path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnreachableCode_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating unreachable-code path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UnreachableCode_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

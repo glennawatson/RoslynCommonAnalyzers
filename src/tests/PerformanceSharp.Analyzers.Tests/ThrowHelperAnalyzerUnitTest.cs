@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -204,9 +205,10 @@ public class ThrowHelperAnalyzerUnitTest
 
     /// <summary>Verifies a guard naming a different parameter stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MismatchedParamNameIsCleanAsync()
-        => await VerifyAsync(
+    public Task MismatchedParamNameIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
 
@@ -278,12 +280,7 @@ public class ThrowHelperAnalyzerUnitTest
                                        }
                                    }
                                    """;
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net50,
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net50, TestCode = Source, FixedCode = FixedSource, };
         test.TestState.Sources.Add(PolyfillSource);
         test.TestState.Sources.Add(AliasSource);
         test.FixedState.Sources.Add(PolyfillSource);
@@ -293,9 +290,10 @@ public class ThrowHelperAnalyzerUnitTest
 
     /// <summary>Verifies a null guard on a System.Threading.Lock is left alone — ThrowIfNull would not compile (CS9216).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullGuardOnLockIsCleanAsync()
-        => await VerifyAsync(
+    public Task NullGuardOnLockIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading;
@@ -318,11 +316,7 @@ public class ThrowHelperAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

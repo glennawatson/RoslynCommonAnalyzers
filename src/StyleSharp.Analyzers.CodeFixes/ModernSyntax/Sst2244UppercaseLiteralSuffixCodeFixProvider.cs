@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -21,20 +23,21 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces one reported literal with its upper-cased form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="literal">The reported literal.</param>
     /// <returns>The updated document, or the original document when the shape no longer matches.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
-        => Rewrite(literal) is { } replacement
+    internal static Document Apply(Document document, SyntaxNode root, LiteralExpressionSyntax literal) =>
+        Rewrite(literal) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(literal, replacement))
             : document;
 
@@ -64,7 +67,7 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
             return null;
         }
 
-        var upperCased = text.Substring(0, suffixStart) + text.Substring(suffixStart).ToUpperInvariant();
+        var upperCased = text[0..(0 + suffixStart)] + text[suffixStart..].ToUpperInvariant();
         return SyntaxFactory.ParseExpression(upperCased).WithTriviaFrom(literal);
     }
 }

@@ -147,20 +147,17 @@ internal static class HardcodedSecretClassifier
             return null;
         }
 
-        if (settings.IsAllowedExample(value)
-            || (settings.AllowDocumentationExamples && IsDocumentationExample(value, 0, value.Length)))
-        {
-            return null;
-        }
-
-        return ClassifyPrefixed(value) ?? ClassifyEmbedded(value);
+        return settings.IsAllowedExample(value)
+            || (settings.AllowDocumentationExamples && IsDocumentationExample(value, 0, value.Length))
+            ? null
+            : ClassifyPrefixed(value) ?? ClassifyEmbedded(value);
     }
 
     /// <summary>Matches the fixed-prefix families by dispatching on the first character.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns>The matched kind label, or <see langword="null"/>.</returns>
-    private static string? ClassifyPrefixed(string value)
-        => value[0] switch
+    private static string? ClassifyPrefixed(string value) =>
+        value[0] switch
         {
             's' => IsOpenAiKey(value) ? OpenAiApiKey : null,
             'A' => ClassifyAwsOrGoogle(value),
@@ -210,8 +207,8 @@ internal static class HardcodedSecretClassifier
     /// <summary>Returns whether the content is an angle-bracket template such as <c>&lt;your-key&gt;</c>.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content is a template.</returns>
-    private static bool IsAngleBracketTemplate(string value)
-        => value.IndexOf('<') >= 0 && value.IndexOf('>') >= 0;
+    private static bool IsAngleBracketTemplate(string value) =>
+        value.IndexOf('<') >= 0 && value.IndexOf('>') >= 0;
 
     /// <summary>Returns whether the content is an OpenAI-style <c>sk-</c> key of at least 20 base62 characters.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -300,8 +297,8 @@ internal static class HardcodedSecretClassifier
     /// <summary>Returns whether the content holds an Azure <c>SharedAccessKey=</c> or <c>AccountKey=</c> base64 body.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when the content matches.</returns>
-    private static bool IsAzureAccessKey(string value)
-        => HasBase64Assignment(value, "SharedAccessKey=") || HasBase64Assignment(value, "AccountKey=");
+    private static bool IsAzureAccessKey(string value) =>
+        HasBase64Assignment(value, "SharedAccessKey=") || HasBase64Assignment(value, "AccountKey=");
 
     /// <summary>Returns whether an assignment marker is followed by a base64-shaped body of at least 20 characters.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -356,8 +353,8 @@ internal static class HardcodedSecretClassifier
     /// <summary>Returns whether the content carries a connection-string endpoint marker.</summary>
     /// <param name="value">The decoded literal content.</param>
     /// <returns><see langword="true"/> when a recognised endpoint marker is present.</returns>
-    private static bool HasConnectionStringMarker(string value)
-        => value.IndexOf("Server=", StringComparison.Ordinal) >= 0
+    private static bool HasConnectionStringMarker(string value) =>
+        value.IndexOf("Server=", StringComparison.Ordinal) >= 0
             || value.IndexOf("Data Source=", StringComparison.Ordinal) >= 0
             || value.IndexOf("Initial Catalog=", StringComparison.Ordinal) >= 0
             || value.IndexOf("Host=", StringComparison.Ordinal) >= 0;
@@ -367,8 +364,8 @@ internal static class HardcodedSecretClassifier
     /// <param name="start">The inclusive start of the password span.</param>
     /// <param name="end">The exclusive end of the password span.</param>
     /// <returns><see langword="true"/> when the span reads as a placeholder.</returns>
-    private static bool IsPlaceholderPassword(string value, int start, int end)
-        => IsSingleRepeatedCharacter(value, start, end) || IsPlaceholderWord(value, start, end);
+    private static bool IsPlaceholderPassword(string value, int start, int end) =>
+        IsSingleRepeatedCharacter(value, start, end) || IsPlaceholderWord(value, start, end);
 
     /// <summary>Returns whether a span is one character repeated for its whole length.</summary>
     /// <param name="value">The decoded literal content.</param>
@@ -411,8 +408,8 @@ internal static class HardcodedSecretClassifier
     /// <param name="start">The inclusive start of the body span.</param>
     /// <param name="end">The exclusive end of the body span.</param>
     /// <returns><see langword="true"/> when the body reads as a high-entropy secret rather than a placeholder.</returns>
-    private static bool IsHighEntropyBody(string value, int start, int end)
-        => !HasLongIdenticalRun(value, start, end)
+    private static bool IsHighEntropyBody(string value, int start, int end) =>
+        !HasLongIdenticalRun(value, start, end)
             && CountDistinctAsciiCharacters(value, start, end) >= MinDistinctBodyCharacters;
 
     /// <summary>Returns whether a keyed body carries the marker vendors reserve for their published samples.</summary>
@@ -592,14 +589,14 @@ internal static class HardcodedSecretClassifier
     /// <param name="c">The character to test.</param>
     /// <param name="classMask">The class mask to test against.</param>
     /// <returns><see langword="true"/> when the character is in the class.</returns>
-    private static bool IsInClass(char c, int classMask)
-        => c < AsciiRange && (CharacterClassTable[c] & classMask) != 0;
+    private static bool IsInClass(char c, int classMask) =>
+        c < AsciiRange && (CharacterClassTable[c] & classMask) != 0;
 
     /// <summary>Lower-cases an ASCII letter, leaving every other character untouched.</summary>
     /// <param name="c">The character to fold.</param>
     /// <returns>The lower-cased character.</returns>
-    private static char ToLowerAscii(char c)
-        => c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
+    private static char ToLowerAscii(char c) =>
+        c is >= 'A' and <= 'Z' ? (char)(c + ('a' - 'A')) : c;
 
     /// <summary>Builds the per-character class-flag table for the ASCII range.</summary>
     /// <returns>The table, indexed by code point.</returns>

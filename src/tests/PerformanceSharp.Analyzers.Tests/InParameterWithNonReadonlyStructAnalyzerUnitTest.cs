@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyInParameter = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 {
     /// <summary>Verifies an <c>in</c> parameter of a mutable struct is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InParameterOfMutableStructReportedAsync()
-        => await VerifyNet90Async(
+    public Task InParameterOfMutableStructReportedAsync() =>
+        VerifyNet90Async(
             """
             public struct Point
             {
@@ -31,9 +33,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies an <c>in</c> parameter of a readonly struct is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InParameterOfReadonlyStructIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InParameterOfReadonlyStructIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public readonly struct Point
             {
@@ -48,9 +51,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies an <c>in</c> parameter of a primitive type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InParameterOfPrimitiveIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InParameterOfPrimitiveIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public static class C
             {
@@ -60,9 +64,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a C# 12 <c>ref readonly</c> parameter of a mutable struct is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RefReadonlyParameterOfMutableStructReportedAsync()
-        => await VerifyNet90Async(
+    public Task RefReadonlyParameterOfMutableStructReportedAsync() =>
+        VerifyNet90Async(
             """
             public struct Point
             {
@@ -77,9 +82,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies a by-value parameter of a mutable struct is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ByValueMutableStructParameterIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ByValueMutableStructParameterIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public struct Point
             {
@@ -94,9 +100,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies an <c>in</c> parameter of an enum type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InParameterOfEnumIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InParameterOfEnumIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public enum Color
             {
@@ -111,9 +118,10 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
 
     /// <summary>Verifies an <c>in</c> parameter of a reference type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InParameterOfReferenceTypeIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task InParameterOfReferenceTypeIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public static class C
             {
@@ -126,11 +134,7 @@ public class InParameterWithNonReadonlyStructAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new VerifyInParameter.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new VerifyInParameter.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

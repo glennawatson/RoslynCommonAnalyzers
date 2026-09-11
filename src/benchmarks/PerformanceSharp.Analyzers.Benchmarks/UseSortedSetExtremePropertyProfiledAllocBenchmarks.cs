@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for sorted-set extreme-property analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("UseSortedSetExtremePropertyProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class UseSortedSetExtremePropertyProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class UseSortedSetExtremePropertyProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean extreme-element path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseSortedSetExtremeProperty_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating extreme-element path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> UseSortedSetExtremeProperty_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -67,7 +67,7 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1021 for a call that manually drives the garbage collector.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="gcType">The compilation's GC type symbol.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetForcedGcMemberName(invocation) is not { } memberName)

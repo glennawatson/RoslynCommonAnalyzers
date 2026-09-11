@@ -48,8 +48,8 @@ public sealed class Sst1139UseLiteralSuffixAnalyzer : DiagnosticAnalyzer
     /// <summary>Removes a single layer of parentheses from an expression.</summary>
     /// <param name="expression">The expression to unwrap.</param>
     /// <returns>The inner expression when parenthesized, otherwise the expression itself.</returns>
-    internal static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-        => expression is ParenthesizedExpressionSyntax parenthesized ? parenthesized.Expression : expression;
+    internal static ExpressionSyntax Unwrap(ExpressionSyntax expression) =>
+        expression is ParenthesizedExpressionSyntax parenthesized ? parenthesized.Expression : expression;
 
     /// <summary>Returns the literal suffix for a predefined numeric keyword and literal form.</summary>
     /// <param name="keyword">The cast's predefined-type keyword kind.</param>

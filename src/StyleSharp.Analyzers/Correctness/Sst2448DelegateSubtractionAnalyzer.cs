@@ -2,11 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Reports delegate subtractions whose outcome depends on the order handlers were combined (SST2448).
-/// </summary>
+/// <summary>Reports delegate subtractions whose outcome depends on the order handlers were combined (SST2448).</summary>
 /// <remarks>
 /// <para>
 /// Two shapes are reported. A binary <c>a - b</c> between delegate values is reported outright: composing
@@ -36,8 +36,8 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DelegateSubtraction);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -104,8 +104,8 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// A lambda or anonymous method is included here even though removing one takes off nothing at
     /// all — that is a separate defect, not an ordering problem.
     /// </remarks>
-    private static bool IsSubscriptionMirror(ExpressionSyntax removed)
-        => removed is AnonymousFunctionExpressionSyntax
+    private static bool IsSubscriptionMirror(ExpressionSyntax removed) =>
+        removed is AnonymousFunctionExpressionSyntax
             or MemberAccessExpressionSyntax
             or ConditionalAccessExpressionSyntax
             or ElementAccessExpressionSyntax
@@ -121,7 +121,7 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// subtraction is reported on its own.
     /// </remarks>
     private static void AnalyzeBinaryRemoval(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         AssignmentExpressionSyntax assignment,
         BinaryExpressionSyntax binary)
     {
@@ -148,12 +148,12 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// the same delegate-typed symbol — so a shadowing name or a numeric sum never reports.
     /// </remarks>
     private static void AnalyzeIdentifierRemoval(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         AssignmentExpressionSyntax assignment,
         IdentifierNameSyntax identifier)
     {
         var scan = new CombinationScan(identifier.Identifier.ValueText);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, CombinationScan>(
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, CombinationScan>(
             GetCombinationScanRoot(assignment),
             ref scan,
             VisitCombination);
@@ -173,8 +173,8 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="scan">The completed combination scan.</param>
     /// <returns>The combined symbol, or <see langword="null"/> when it does not bind.</returns>
-    private static ISymbol? ResolveCombinedSymbol(SyntaxNodeAnalysisContext context, CombinationScan scan)
-        => scan.Declarator is { } declarator
+    private static ISymbol? ResolveCombinedSymbol(in SyntaxNodeAnalysisContext context, CombinationScan scan) =>
+        scan.Declarator is { } declarator
             ? context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken)
             : context.SemanticModel.GetSymbolInfo(scan.AssignedTarget!, context.CancellationToken).Symbol;
 
@@ -207,8 +207,8 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="candidate">The assignment to inspect.</param>
     /// <param name="name">The removed name.</param>
     /// <returns><see langword="true"/> for <c>name += x</c> and <c>name = a + b</c>.</returns>
-    private static bool IsCombinationAssignment(AssignmentExpressionSyntax candidate, string name)
-        => GetAssignedName(candidate.Left) == name
+    private static bool IsCombinationAssignment(AssignmentExpressionSyntax candidate, string name) =>
+        GetAssignedName(candidate.Left) == name
             && (candidate.IsKind(SyntaxKind.AddAssignmentExpression)
                 || (candidate.IsKind(SyntaxKind.SimpleAssignmentExpression)
                     && StripEnclosure(candidate.Right).IsKind(SyntaxKind.AddExpression)));
@@ -217,8 +217,8 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="declarator">The declarator to inspect.</param>
     /// <param name="name">The removed name.</param>
     /// <returns><see langword="true"/> for <c>var name = a + b</c>.</returns>
-    private static bool IsCombinationDeclarator(VariableDeclaratorSyntax declarator, string name)
-        => declarator.Identifier.ValueText == name
+    private static bool IsCombinationDeclarator(VariableDeclaratorSyntax declarator, string name) =>
+        declarator.Identifier.ValueText == name
             && declarator.Initializer is { Value: { } value }
             && StripEnclosure(value).IsKind(SyntaxKind.AddExpression);
 
@@ -259,7 +259,7 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="assignment">The subtract-assignment.</param>
     /// <param name="removed">The expression whose type decides the report.</param>
     private static void ReportWhenDelegate(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         AssignmentExpressionSyntax assignment,
         ExpressionSyntax removed)
     {
@@ -275,11 +275,12 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="assignment">The subtract-assignment.</param>
     /// <param name="removed">The removed delegate expression, for the message.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void ReportRemoval(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         AssignmentExpressionSyntax assignment,
-        ExpressionSyntax removed)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+        ExpressionSyntax removed) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.DelegateSubtraction,
             assignment.Right.GetLocation(),
             removed.ToString()));
@@ -288,14 +289,14 @@ public sealed class Sst2448DelegateSubtractionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="expression">The expression to bind.</param>
     /// <returns><see langword="true"/> when the expression's type is a delegate.</returns>
-    private static bool IsDelegateTyped(SyntaxNodeAnalysisContext context, ExpressionSyntax expression)
-        => context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is { TypeKind: TypeKind.Delegate };
+    private static bool IsDelegateTyped(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is { TypeKind: TypeKind.Delegate };
 
     /// <summary>Returns whether an operand can be rejected without binding.</summary>
     /// <param name="expression">The operand to test.</param>
     /// <returns><see langword="true"/> for literals, interpolated strings, and unary operands — none of which is a delegate.</returns>
-    private static bool CannotBeDelegate(ExpressionSyntax expression)
-        => StripEnclosure(expression) is LiteralExpressionSyntax
+    private static bool CannotBeDelegate(ExpressionSyntax expression) =>
+        StripEnclosure(expression) is LiteralExpressionSyntax
             or InterpolatedStringExpressionSyntax
             or PrefixUnaryExpressionSyntax
             or PostfixUnaryExpressionSyntax;

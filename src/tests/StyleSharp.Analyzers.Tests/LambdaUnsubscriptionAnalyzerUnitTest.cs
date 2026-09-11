@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLambdaUnsubscription = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2449LambdaUnsubscriptionAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 {
     /// <summary>Verifies unsubscribing an event with a lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventUnsubscribedWithLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task EventUnsubscribedWithLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -27,9 +29,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing an event with an anonymous method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventUnsubscribedWithAnonymousMethodIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task EventUnsubscribedWithAnonymousMethodIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -43,9 +46,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing another object's event with a parenthesized lambda is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedEventUnsubscribedWithParenthesizedLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task QualifiedEventUnsubscribedWithParenthesizedLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -64,9 +68,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a lambda from a delegate-typed local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateLocalSubtractedWithLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task DelegateLocalSubtractedWithLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -83,9 +88,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a lambda from a delegate-typed field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateFieldSubtractedWithLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task DelegateFieldSubtractedWithLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -101,9 +107,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a lambda from a delegate-typed property is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegatePropertySubtractedWithLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task DelegatePropertySubtractedWithLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -117,9 +124,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a lambda from a delegate-typed parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateParameterSubtractedWithLambdaIsReportedAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task DelegateParameterSubtractedWithLambdaIsReportedAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -135,9 +143,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing with a method group is clean: it compares equal by method and target.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MethodGroupUnsubscriptionIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task MethodGroupUnsubscriptionIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -157,9 +166,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subscribing with a lambda is clean: only the removal is this rule's business.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LambdaSubscriptionIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task LambdaSubscriptionIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -175,9 +185,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies unsubscribing with a stored delegate is clean: it is the same reference that was added.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StoredDelegateUnsubscriptionIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task StoredDelegateUnsubscriptionIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -199,9 +210,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies arithmetic compound subtraction is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NumericCompoundSubtractionIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task NumericCompoundSubtractionIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -213,9 +225,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies a custom subtraction operator that accepts a delegate is clean: nothing is being unsubscribed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CustomSubtractionOperatorTakingDelegateIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task CustomSubtractionOperatorTakingDelegateIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -234,9 +247,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies subtracting a lambda from a delegate array element is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DelegateArrayElementSubtractionIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task DelegateArrayElementSubtractionIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -250,9 +264,10 @@ public class LambdaUnsubscriptionAnalyzerUnitTest
 
     /// <summary>Verifies a target that does not bind is not reported: broken code is the compiler's to explain.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnresolvedTargetIsCleanAsync()
-        => await VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
+    public Task UnresolvedTargetIsCleanAsync() =>
+        VerifyLambdaUnsubscription.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

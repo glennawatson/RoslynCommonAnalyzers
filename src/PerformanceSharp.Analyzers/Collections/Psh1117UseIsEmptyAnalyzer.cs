@@ -58,8 +58,8 @@ public sealed class Psh1117UseIsEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns a member access when it reads <c>Count</c> or <c>Length</c>.</summary>
     /// <param name="expression">The comparison operand.</param>
     /// <returns>The member access, or <see langword="null"/>.</returns>
-    private static MemberAccessExpressionSyntax? TryGetCountAccess(ExpressionSyntax expression)
-        => expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+    private static MemberAccessExpressionSyntax? TryGetCountAccess(ExpressionSyntax expression) =>
+        expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText is CountPropertyName or LengthPropertyName
             ? access
             : null;

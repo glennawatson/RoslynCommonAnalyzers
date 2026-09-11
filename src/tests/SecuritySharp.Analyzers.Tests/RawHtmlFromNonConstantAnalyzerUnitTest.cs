@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeRawHtml = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -37,14 +38,12 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
         }
         """;
 
-    /// <summary>The in-memory path the sanitizer-option tests add their <c>.editorconfig</c> at.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies <c>new MarkupString(x)</c> over a non-constant value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task ConstructorNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -56,9 +55,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a fully-qualified constructor over a non-constant value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedConstructorNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task QualifiedConstructorNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -69,9 +69,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant interpolated value passed to the constructor is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorInterpolatedReportedAsync()
-        => await VerifyAsync(
+    public Task ConstructorInterpolatedReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -83,9 +84,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies the explicit <c>(MarkupString)x</c> conversion over a non-constant value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task CastNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -97,9 +99,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies <c>RenderTreeBuilder.AddMarkupContent(seq, x)</c> over a non-constant value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddMarkupContentNonConstantReportedAsync()
-        => await VerifyAsync(
+    public Task AddMarkupContentNonConstantReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Rendering;
 
@@ -111,9 +114,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal passed to the constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstructorLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -125,9 +129,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a <c>const</c>-field value passed to the constructor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstructorConstFieldIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConstructorConstFieldIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -141,9 +146,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal cast is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CastLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task CastLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -155,9 +161,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a constant literal passed to <c>AddMarkupContent</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AddMarkupContentLiteralIsCleanAsync()
-        => await VerifyAsync(
+    public Task AddMarkupContentLiteralIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components.Rendering;
 
@@ -185,7 +192,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             securitysharp.SES1701.sanitizers = Sanitize, Clean
@@ -218,7 +225,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             securitysharp.sanitizers = Clean
@@ -230,9 +237,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies the same wrapped call is reported when no sanitizer allow-list is configured.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SanitizerCallWithoutOptionReportedAsync()
-        => await VerifyAsync(
+    public Task SanitizerCallWithoutOptionReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Components;
 
@@ -263,7 +271,7 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
             """);
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             securitysharp.SES1701.sanitizers = Sanitize
@@ -275,9 +283,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a constructor of a same-named type in another namespace is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedTypeConstructorIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedTypeConstructorIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -297,9 +306,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a cast to a same-named type in another namespace is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedTypeCastIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedTypeCastIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -319,9 +329,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a non-<c>MarkupString</c> object creation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedObjectCreationIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnrelatedObjectCreationIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Text;
 
@@ -333,9 +344,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a parameterless object creation is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterlessObjectCreationIsCleanAsync()
-        => await VerifyAsync(
+    public Task ParameterlessObjectCreationIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -345,9 +357,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a cast to a predefined type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PredefinedTypeCastIsCleanAsync()
-        => await VerifyAsync(
+    public Task PredefinedTypeCastIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -357,9 +370,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>AddMarkupContent</c> of a lower arity on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LowerArityAddMarkupContentIsCleanAsync()
-        => await VerifyAsync(
+    public Task LowerArityAddMarkupContentIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -374,9 +388,10 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>AddMarkupContent</c> on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedAddMarkupContentOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedAddMarkupContentOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             public class C
             {
@@ -419,16 +434,13 @@ public class RawHtmlFromNonConstantAnalyzerUnitTest
     /// <summary>Builds an analyzer test with the Blazor stub appended and .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>The configured test.</returns>
-    private static AnalyzeRawHtml.Test MakeTest(string source)
-        => new()
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + BlazorStub,
-        };
+    private static AnalyzeRawHtml.Test MakeTest(string source) =>
+        new() { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + BlazorStub, };
 
     /// <summary>Runs an analyzer-only verification with the inline Blazor stub appended.</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
-    private static async Task VerifyAsync(string source)
-        => await MakeTest(source).RunAsync(CancellationToken.None);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Task VerifyAsync(string source) =>
+        MakeTest(source).RunAsync(CancellationToken.None);
 }

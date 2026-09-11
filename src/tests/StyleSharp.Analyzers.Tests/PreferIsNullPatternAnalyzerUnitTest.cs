@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using VerifyNull = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -47,9 +48,10 @@ public class PreferIsNullPatternAnalyzerUnitTest
 
     /// <summary>Verifies null comparisons inside expression-tree lambdas are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionTreeNullComparisonIsCleanAsync()
-        => await VerifyNull.VerifyAnalyzerAsync(
+    public Task ExpressionTreeNullComparisonIsCleanAsync() =>
+        VerifyNull.VerifyAnalyzerAsync(
             """
             using System;
             using System.Linq.Expressions;

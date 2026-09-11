@@ -106,16 +106,16 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     private enum InvocationSinkKind
     {
         /// <summary>Not a sink invocation.</summary>
-        None,
+        None = 0,
 
         /// <summary>A <c>Process.Start</c> call.</summary>
-        ProcessStart,
+        ProcessStart = 1,
 
         /// <summary>A <c>System.IO.File</c> member call.</summary>
-        FilePath,
+        FilePath = 2,
 
         /// <summary>An EF Core raw-SQL call.</summary>
-        RawSql,
+        RawSql = 3,
     }
 
     /// <inheritdoc/>
@@ -169,7 +169,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <summary>Reports SES1602 for a sink invocation whose dangerous argument is model output.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -231,7 +231,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <param name="invocation">The <c>Start</c> invocation.</param>
     /// <param name="method">The bound invoked method.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeProcessStart(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
+    private static void AnalyzeProcessStart(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
     {
         if (method.Name != StartMethodName || !SymbolEqualityComparer.Default.Equals(method.ContainingType, sinks.ProcessType))
         {
@@ -247,11 +247,11 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <param name="invocation">The <c>File</c> member invocation.</param>
     /// <param name="method">The bound invoked method.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeFilePath(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
+    private static void AnalyzeFilePath(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
     {
         // The path is the first parameter of every gated File member, and it is always a string.
         if (!SymbolEqualityComparer.Default.Equals(method.ContainingType, sinks.FileType)
-            || method.Parameters.Length == 0
+            || method.Parameters.IsEmpty
             || method.Parameters[0].Type.SpecialType != SpecialType.System_String)
         {
             return;
@@ -265,7 +265,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <param name="invocation">The raw-SQL invocation.</param>
     /// <param name="method">The bound invoked method.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeRawSql(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
+    private static void AnalyzeRawSql(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, IMethodSymbol method, ModelOutputSinkContext sinks)
     {
         if (!RawSqlMethodNames.Contains(method.Name)
             || !(SymbolEqualityComparer.Default.Equals(method.ContainingType, sinks.EfFacadeExtensionsType)
@@ -282,7 +282,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <summary>Reports SES1602 for a <c>ProcessStartInfo.FileName</c>/<c>.Arguments</c> assignment whose value is model output.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
-    private static void AnalyzeAssignment(SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, ModelOutputSinkContext sinks)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -312,7 +312,7 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <param name="expression">The candidate sink expression, or <see langword="null"/> when absent.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
     /// <param name="sinkLabel">The sink label placed in the diagnostic message.</param>
-    private static void ReportIfModelOutput(SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, ModelOutputSinkContext sinks, string sinkLabel)
+    private static void ReportIfModelOutput(in SyntaxNodeAnalysisContext context, ExpressionSyntax? expression, ModelOutputSinkContext sinks, string sinkLabel)
     {
         if (expression is null || !IsModelOutput(context.SemanticModel, expression, sinks, context.CancellationToken))
         {
@@ -431,8 +431,8 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
     /// <param name="type">The property's containing type.</param>
     /// <param name="sinks">The resolved source and sink types for the compilation.</param>
     /// <returns><see langword="true"/> when the type is the gated <c>ChatResponse</c> or <c>ChatMessage</c>.</returns>
-    private static bool IsGuardedResponseType(INamedTypeSymbol type, ModelOutputSinkContext sinks)
-        => SymbolEqualityComparer.Default.Equals(type, sinks.ChatResponseType)
+    private static bool IsGuardedResponseType(INamedTypeSymbol type, ModelOutputSinkContext sinks) =>
+        SymbolEqualityComparer.Default.Equals(type, sinks.ChatResponseType)
             || SymbolEqualityComparer.Default.Equals(type, sinks.ChatMessageType);
 
     /// <summary>Returns the argument bound to a named parameter, honouring an explicit name-colon and positional order.</summary>
@@ -455,11 +455,13 @@ public sealed class Ses1602ModelOutputToDangerousSinkAnalyzer : DiagnosticAnalyz
         var ordinal = -1;
         for (var i = 0; i < parameters.Length; i++)
         {
-            if (parameters[i].Name == parameterName)
+            if (parameters[i].Name != parameterName)
             {
-                ordinal = i;
-                break;
+                continue;
             }
+
+            ordinal = i;
+            break;
         }
 
         return ordinal >= 0 && ordinal < arguments.Count && arguments[ordinal].NameColon is null

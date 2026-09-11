@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2465LoopConditionVariableReassignedAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 {
     /// <summary>Verifies a body assignment to the loop's bound local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundReassignedInBodyIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BoundReassignedInBodyIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
             using System.Collections.Generic;
@@ -34,9 +36,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a body assignment to the counter itself is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterReassignedInBodyIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CounterReassignedInBodyIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -55,9 +58,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a body compound assignment to the counter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterCompoundAssignedInBodyIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CounterCompoundAssignedInBodyIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -75,9 +79,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a body decrement of the bound parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundDecrementedInBodyIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BoundDecrementedInBodyIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -95,9 +100,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies an unconditional counter reassignment in a single-statement body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleStatementBodyCounterReassignedIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task SingleStatementBodyCounterReassignedIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -111,9 +117,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a counter reassignment inside a bare nested block is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedBareBlockCounterReassignedIsReportedAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task NestedBareBlockCounterReassignedIsReportedAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -131,9 +138,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a well-formed counted loop that only reads its variables is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WellFormedLoopIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task WellFormedLoopIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -151,9 +159,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a counter reassignment guarded by an if is left alone (possible early advance).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterReassignedInsideIfIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CounterReassignedInsideIfIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -172,9 +181,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a bound reassignment guarded by a nested loop is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BoundReassignedInsideNestedLoopIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BoundReassignedInsideNestedLoopIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -193,9 +203,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a write to a non-condition local is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteToUnrelatedLocalIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task WriteToUnrelatedLocalIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -212,9 +223,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a write to a field the condition reads is clean: something else may own it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteToConditionFieldIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task WriteToConditionFieldIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -232,9 +244,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a loop that steps its counter in the body with no incrementer is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodyDrivenLoopWithNoIncrementerIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task BodyDrivenLoopWithNoIncrementerIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -250,9 +263,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a loop with no condition is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NoConditionIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task NoConditionIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -272,9 +286,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a condition with a method-call bound is clean: its shape is not the counted form.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionWithCallBoundIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task ConditionWithCallBoundIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -293,9 +308,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a compound condition is clean: the controlling variable is not unambiguous.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CompoundConditionIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CompoundConditionIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -311,9 +327,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a two-counter loop with multiple incrementers is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MultipleIncrementersIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task MultipleIncrementersIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -329,9 +346,10 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
 
     /// <summary>Verifies a counter reassignment inside a body lambda is clean: it does not run in loop order.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CounterReassignedInsideLambdaIsCleanAsync()
-        => await VerifyLoop.VerifyAnalyzerAsync(
+    public Task CounterReassignedInsideLambdaIsCleanAsync() =>
+        VerifyLoop.VerifyAnalyzerAsync(
             """
             using System;
 

@@ -231,8 +231,8 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     /// <param name="node">A syntax node in the tree.</param>
     /// <param name="version">The numeric language version.</param>
     /// <returns><see langword="true"/> when the feature is available.</returns>
-    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version)
-        => node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
+    private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
+        node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
     /// <summary>Finds the identifier checked against <see langword="null"/>.</summary>
     /// <param name="condition">The condition expression.</param>
@@ -364,8 +364,8 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     /// <param name="scope">The containing scope.</param>
     /// <param name="node">The node to test.</param>
     /// <returns><see langword="true"/> when the node's span is contained by the scope span.</returns>
-    private static bool IsInside(SyntaxNode scope, SyntaxNode node)
-        => scope.SpanStart <= node.SpanStart && node.Span.End <= scope.Span.End;
+    private static bool IsInside(SyntaxNode scope, SyntaxNode node) =>
+        scope.SpanStart <= node.SpanStart && node.Span.End <= scope.Span.End;
 
     /// <summary>Finds the syntax scope that would contain an inline declaration expression.</summary>
     /// <param name="node">The node inside the target declaration expression.</param>
@@ -381,11 +381,13 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
                 return true;
             }
 
-            if (ancestor is BlockSyntax ancestorBlock)
+            if (ancestor is not BlockSyntax ancestorBlock)
             {
-                scope = ancestorBlock;
-                return true;
+                continue;
             }
+
+            scope = ancestorBlock;
+            return true;
         }
 
         scope = null!;
@@ -396,8 +398,8 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
     /// <param name="ancestor">The ancestor to inspect.</param>
     /// <param name="node">The declaration expression node.</param>
     /// <returns><see langword="true"/> when the inline declaration would not escape the ancestor statement.</returns>
-    private static bool IsRestrictedDeclarationExpressionScope(SyntaxNode ancestor, SyntaxNode node)
-        => ancestor switch
+    private static bool IsRestrictedDeclarationExpressionScope(SyntaxNode ancestor, SyntaxNode node) =>
+        ancestor switch
         {
             IfStatementSyntax statement => IsInside(statement.Condition, node),
             WhileStatementSyntax statement => IsInside(statement.Condition, node),

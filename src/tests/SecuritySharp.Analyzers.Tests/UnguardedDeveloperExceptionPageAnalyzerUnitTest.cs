@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeDeveloperPage = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -42,9 +43,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies an unguarded <c>app.UseDeveloperExceptionPage()</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnguardedCallReportedAsync()
-        => await VerifyAsync(
+    public Task UnguardedCallReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -59,9 +61,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies the static-invocation form on the extensions type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticInvocationFormReportedAsync()
-        => await VerifyAsync(
+    public Task StaticInvocationFormReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -76,9 +79,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies the options overload is reported when unguarded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OptionsOverloadReportedAsync()
-        => await VerifyAsync(
+    public Task OptionsOverloadReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -93,9 +97,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a call inside a non-development <c>if</c> is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnguardedInsideUnrelatedIfReportedAsync()
-        => await VerifyAsync(
+    public Task UnguardedInsideUnrelatedIfReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -113,9 +118,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a call guarded by <c>app.Environment.IsDevelopment()</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EnvironmentIsDevelopmentGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task EnvironmentIsDevelopmentGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -133,9 +139,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a call guarded by a parameter's <c>env.IsDevelopment()</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ParameterIsDevelopmentGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task ParameterIsDevelopmentGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -153,9 +160,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a conditional-expression guard using <c>IsDevelopment</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalExpressionGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConditionalExpressionGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -168,9 +176,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a null-conditional <c>env?.IsDevelopment()</c> guard is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConditionalAccessGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task ConditionalAccessGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -188,9 +197,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies an unqualified <c>IsDevelopment()</c> guard is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnqualifiedIsDevelopmentGuardIsCleanAsync()
-        => await VerifyAsync(
+    public Task UnqualifiedIsDevelopmentGuardIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -210,9 +220,10 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
 
     /// <summary>Verifies a same-named method on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMethodOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMethodOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Builder;
 
@@ -256,11 +267,7 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeDeveloperPage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeDeveloperPage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -270,11 +277,7 @@ public class UnguardedDeveloperExceptionPageAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeDeveloperPage.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetStubs
-        };
+        var test = new AnalyzeDeveloperPage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

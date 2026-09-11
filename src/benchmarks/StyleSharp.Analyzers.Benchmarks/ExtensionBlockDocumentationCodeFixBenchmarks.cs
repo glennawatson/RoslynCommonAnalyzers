@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for inserting an extension-block <c>&lt;param&gt;</c> stub (SST1655).</summary>
+[System.Diagnostics.DebuggerDisplay("ExtensionBlockDocumentationCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ExtensionBlockDocumentationCodeFixBenchmarks
@@ -22,13 +24,14 @@ public class ExtensionBlockDocumentationCodeFixBenchmarks
     /// <summary>Builds the benchmark document and selects one representative undocumented receiver parameter.</summary>
     /// <returns>A task that represents the asynchronous setup operation.</returns>
     [GlobalSetup]
-    public async Task SetupAsync()
-        => _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
+    public async Task SetupAsync() =>
+        _context = await DirectCodeFixBenchmarkHelper.CreateAsync(
             Nodes,
             ExtensionBlockDocumentationBenchmarkSource.GenerateUndocumentedParameter,
             static (_, root, index) => Task.FromResult(FindTarget(root, index))).ConfigureAwait(false);
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => _context.Dispose();
 
@@ -45,6 +48,7 @@ public class ExtensionBlockDocumentationCodeFixBenchmarks
     /// <param name="root">The benchmark syntax root.</param>
     /// <param name="index">The zero-based container index to select.</param>
     /// <returns>The selected extension block and documentation element text.</returns>
+    /// <exception cref="InvalidOperationException">The container at <paramref name="index"/> holds no extension block that declares a parameter.</exception>
     private static (TypeDeclarationSyntax Block, string Element) FindTarget(CompilationUnitSyntax root, int index)
     {
         var container = (ClassDeclarationSyntax)root.Members[index];
@@ -54,7 +58,7 @@ public class ExtensionBlockDocumentationCodeFixBenchmarks
                 && ExtensionBlockHelper.IsExtensionBlock(block)
                 && block.ParameterList?.Parameters is { Count: > 0 } parameters)
             {
-                return (block, "<param name=\"" + parameters[0].Identifier.ValueText + "\"></param>");
+                return (block, $"<param name=\"{parameters[0].Identifier.ValueText}\"></param>");
             }
         }
 

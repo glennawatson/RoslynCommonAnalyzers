@@ -11,8 +11,8 @@ internal static class Sst1633FileHeaderBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit a file missing its configured header.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => violating
+    internal static string Generate(int types, bool violating) =>
+        violating
             ? $$"""
               namespace Bench;
 
@@ -28,8 +28,8 @@ internal static class Sst1633FileHeaderBenchmarkSource
     /// <summary>Builds one well-formed type to give the file realistic content.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index)
-        => $$"""
+    private static string GenerateType(int index) =>
+        $$"""
            internal class C{{index}}
            {
                public void M()

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyStaticFieldWrite = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2402StaticFieldWrittenInConstructorAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 {
     /// <summary>Verifies an instance constructor overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task StaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -25,9 +27,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies the write is found wherever in the constructor it hides.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NestedStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task NestedStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -45,9 +48,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a qualified write to the type's own static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task QualifiedStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -59,9 +63,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a static constructor is the right place to set static state.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticConstructorIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task StaticConstructorIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -73,9 +78,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies writing the object's own instance state is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceFieldWriteIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task InstanceFieldWriteIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -89,9 +95,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a first-one-wins lazy initializer is clean, in both of the shapes it is written.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyInitializationGuardIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task LazyInitializationGuardIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -118,9 +125,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an accumulating counter is clean: it adds to the field rather than redefining it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceCounterIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task InstanceCounterIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -136,9 +144,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies per-thread state is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadStaticFieldIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task ThreadStaticFieldIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -153,9 +162,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a write that only runs when a delegate is invoked is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteInsideLambdaIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task WriteInsideLambdaIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -171,9 +181,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a local that shadows nothing but shares a static field's name is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedLocalIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task UnrelatedLocalIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class Other
             {
@@ -195,9 +206,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an instance method overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceMethodStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task InstanceMethodStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -212,9 +224,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied instance method overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedMethodStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedMethodStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -226,9 +239,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a property setter overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PropertySetterStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task PropertySetterStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -244,9 +258,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied getter overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedPropertyStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedPropertyStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -258,9 +273,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an indexer setter overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IndexerSetterStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task IndexerSetterStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -276,9 +292,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an expression-bodied indexer overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExpressionBodiedIndexerStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task ExpressionBodiedIndexerStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -290,9 +307,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies event accessors overwriting a static field are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EventAccessorStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task EventAccessorStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -322,9 +340,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a finalizer overwriting a static field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DestructorStaticFieldWriteIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task DestructorStaticFieldWriteIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -338,9 +357,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a write inside a lambda created by an instance method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteInsideLambdaInMethodIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task WriteInsideLambdaInMethodIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -354,9 +374,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a write inside a local function declared in an instance method is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WriteInsideLocalFunctionInMethodIsReportedAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task WriteInsideLocalFunctionInMethodIsReportedAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -373,9 +394,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a static method writing a static field is clean: static state belongs to static code.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticMethodStaticFieldWriteIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task StaticMethodStaticFieldWriteIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -387,9 +409,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a static property setter writing a static field is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticPropertySetterStaticFieldWriteIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task StaticPropertySetterStaticFieldWriteIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -405,9 +428,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an instance method writing the object's own instance state is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceMethodInstanceFieldWriteIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task InstanceMethodInstanceFieldWriteIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -421,9 +445,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies a first-one-wins lazy initializer in an instance method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LazyInitializationGuardInMethodIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task LazyInitializationGuardInMethodIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -448,9 +473,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies an accumulating counter in an instance method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceCounterInMethodIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task InstanceCounterInMethodIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -466,9 +492,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies per-thread state written from an instance method is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreadStaticWriteInMethodIsCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task ThreadStaticWriteInMethodIsCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -483,9 +510,10 @@ public class StaticFieldWrittenInConstructorAnalyzerUnitTest
 
     /// <summary>Verifies members without bodies are clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BodylessMembersAreCleanAsync()
-        => await VerifyStaticFieldWrite.VerifyAnalyzerAsync(
+    public Task BodylessMembersAreCleanAsync() =>
+        VerifyStaticFieldWrite.VerifyAnalyzerAsync(
             """
             public interface IWorker
             {

@@ -60,8 +60,8 @@ public sealed class Psh1206StringConcatenationInLoopAnalyzer : DiagnosticAnalyze
     /// <summary>Returns whether the assignment target is an identifier or a simple member access.</summary>
     /// <param name="target">The assignment target.</param>
     /// <returns><see langword="true"/> for a target shape the rule tracks.</returns>
-    private static bool IsSimpleTarget(ExpressionSyntax target)
-        => target is IdentifierNameSyntax
+    private static bool IsSimpleTarget(ExpressionSyntax target) =>
+        target is IdentifierNameSyntax
             || (target is MemberAccessExpressionSyntax member && member.IsKind(SyntaxKind.SimpleMemberAccessExpression));
 
     /// <summary>

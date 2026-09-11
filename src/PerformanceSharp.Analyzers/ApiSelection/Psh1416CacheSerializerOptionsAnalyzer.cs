@@ -106,49 +106,59 @@ public sealed class Psh1416CacheSerializerOptionsAnalyzer : DiagnosticAnalyzer
     {
         foreach (var node in creation.DescendantNodes())
         {
-            if (node is ThisExpressionSyntax or BaseExpressionSyntax)
+            if (ReadsCallerState(node, model, cancellationToken))
             {
                 return true;
-            }
-
-            if (node is not IdentifierNameSyntax identifier || IsPropertyBeingSet(identifier) || IsMemberName(identifier))
-            {
-                continue;
-            }
-
-            switch (model.GetSymbolInfo(identifier, cancellationToken).Symbol)
-            {
-                case ILocalSymbol:
-                case IParameterSymbol:
-                case IFieldSymbol { IsStatic: false }:
-                case IPropertySymbol { IsStatic: false }:
-                    return true;
-
-                default:
-                    continue;
             }
         }
 
         return false;
     }
 
+    /// <summary>Returns whether one node inside the construction reads state the caller brought with it.</summary>
+    /// <param name="node">The node inside the construction.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns><see langword="true"/> when the node names the enclosing instance or a per-caller symbol.</returns>
+    private static bool ReadsCallerState(SyntaxNode node, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (node is ThisExpressionSyntax or BaseExpressionSyntax)
+        {
+            return true;
+        }
+
+        if (node is not IdentifierNameSyntax identifier || IsPropertyBeingSet(identifier) || IsMemberName(identifier))
+        {
+            return false;
+        }
+
+        return IsPerCallerSymbol(model.GetSymbolInfo(identifier, cancellationToken).Symbol);
+    }
+
+    /// <summary>Returns whether a bound symbol holds a value that differs from one caller to the next.</summary>
+    /// <param name="symbol">The symbol the identifier bound to.</param>
+    /// <returns><see langword="true"/> for a local, a parameter, and instance fields and properties.</returns>
+    private static bool IsPerCallerSymbol(ISymbol? symbol) =>
+        symbol is ILocalSymbol or IParameterSymbol
+            or IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
+
     /// <summary>Returns whether an identifier names a property the initializer is setting.</summary>
     /// <param name="identifier">The identifier.</param>
     /// <returns><see langword="true"/> for the <c>Foo</c> in <c>new() { Foo = value }</c>.</returns>
-    private static bool IsPropertyBeingSet(IdentifierNameSyntax identifier)
-        => identifier.Parent is AssignmentExpressionSyntax { Parent: InitializerExpressionSyntax } assignment
+    private static bool IsPropertyBeingSet(IdentifierNameSyntax identifier) =>
+        identifier.Parent is AssignmentExpressionSyntax { Parent: InitializerExpressionSyntax } assignment
             && assignment.Left == identifier;
 
     /// <summary>Returns whether an identifier is the member half of an access rather than the receiver.</summary>
     /// <param name="identifier">The identifier.</param>
     /// <returns><see langword="true"/> for the <c>CamelCase</c> in <c>JsonNamingPolicy.CamelCase</c>.</returns>
-    private static bool IsMemberName(IdentifierNameSyntax identifier)
-        => identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier;
+    private static bool IsMemberName(IdentifierNameSyntax identifier) =>
+        identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier;
 
     /// <summary>Reports PSH1416 for a serializer options instance built on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsType">The <c>JsonSerializerOptions</c> type in the current compilation.</param>
-    private static void AnalyzeCreation(SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsConstructedPerCall(creation)

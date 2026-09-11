@@ -7,10 +7,7 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>
-/// Removes the blank line before a chained <c>else</c>/<c>catch</c>/<c>finally</c> (SST1510)
-/// or the <c>while</c> footer of a do/while loop (SST1511).
-/// </summary>
+/// <summary>Removes the blank line before a chained <c>else</c>/<c>catch</c>/<c>finally</c> (SST1510) or the <c>while</c> footer of a do/while loop (SST1511).</summary>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(ChainedBlockSpacingCodeFixProvider))]
 [Shared]
 public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
@@ -86,7 +83,7 @@ public sealed class ChainedBlockSpacingCodeFixProvider : CodeFixProvider, ITextC
         }
 
         var span = TextSpan.FromBounds(text.Lines[first].Start, text.Lines[last].EndIncludingLineBreak);
-        change = new TextChange(span, string.Empty);
+        change = new(span, string.Empty);
         return true;
     }
 }

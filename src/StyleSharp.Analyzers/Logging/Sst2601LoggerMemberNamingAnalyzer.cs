@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -73,7 +75,7 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Dispatches a field or property declaration to the matching check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="loggerType">The resolved logger type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol loggerType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol loggerType)
     {
         if (context.Node is FieldDeclarationSyntax field)
         {
@@ -89,7 +91,7 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="field">The field declaration.</param>
     /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeField(SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, INamedTypeSymbol loggerType)
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, INamedTypeSymbol loggerType)
     {
         if (!IsLoggerTypeName(field.Declaration.Type))
         {
@@ -114,7 +116,7 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
     /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeProperty(SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, INamedTypeSymbol loggerType)
+    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, INamedTypeSymbol loggerType)
     {
         if (property.ExplicitInterfaceSpecifier is not null || !IsLoggerTypeName(property.Type))
         {
@@ -138,7 +140,7 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The member's identifier token, where the diagnostic is reported.</param>
     /// <param name="options">The analyzer config options for the tree.</param>
     private static void Evaluate(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         bool isPrivateInstance,
         SyntaxToken identifier,
         AnalyzerConfigOptions options)
@@ -168,8 +170,9 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="identifier">The member's identifier token.</param>
     /// <param name="name">The member's current name.</param>
     /// <param name="expected">The expected name for the member's convention.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxToken identifier, string name, string expected)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken identifier, string name, string expected) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             LoggingRules.LoggerMemberNaming,
             identifier.GetLocation(),
             name,
@@ -178,7 +181,7 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a field's modifiers describe a private, non-static field.</summary>
     /// <param name="modifiers">The field's modifiers.</param>
     /// <returns><see langword="true"/> when no non-private accessibility and no <c>static</c>/<c>const</c> is present.</returns>
-    private static bool IsPrivateInstance(SyntaxTokenList modifiers)
+    private static bool IsPrivateInstance(in SyntaxTokenList modifiers)
     {
         var isPrivate = true;
         var isStatic = false;

@@ -8,11 +8,11 @@ namespace PerformanceSharp.Analyzers.Benchmarks;
 public enum LinqUsageBenchmarkShape
 {
     /// <summary>LINQ Where followed by a predicate terminal.</summary>
-    WhereTerminal,
+    WhereTerminal = 0,
 
     /// <summary>LINQ type check followed by Cast.</summary>
-    TypeFilter,
+    TypeFilter = 1,
 
     /// <summary>LINQ call in hot-path code.</summary>
-    HotPathLinq
+    HotPathLinq = 2,
 }

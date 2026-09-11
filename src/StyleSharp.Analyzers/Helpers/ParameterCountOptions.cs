@@ -41,7 +41,7 @@ internal readonly record struct ParameterCountOptions(
     /// An unset or unparsable value yields the default rather than a permissive or a punitive extreme, so a
     /// typo neither disables the rule nor turns every three-parameter method into a diagnostic.
     /// </remarks>
-    public static ParameterCountOptions Read(AnalyzerConfigOptions options) => new(
+    internal static ParameterCountOptions Read(AnalyzerConfigOptions options) => new(
         ReadPositiveInt(options, MaximumRuleKey, MaximumGeneralKey, DefaultMaximum),
         ReadBool(options, CheckRecordsRuleKey, CheckRecordsGeneralKey, fallback: false),
         ReadBool(options, CountOptionalRuleKey, CountOptionalGeneralKey, fallback: true));

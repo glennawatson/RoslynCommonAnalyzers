@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -113,7 +115,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
     /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -162,8 +164,8 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// an internal wrapper therefore does not remove unreachable surface; it removes the member from
     /// every payload, silently, while still compiling. A method is safe: nothing serializes one.
     /// </remarks>
-    private static bool CarriesDataToReflection(ISymbol member)
-        => member is IPropertySymbol or IFieldSymbol;
+    private static bool CarriesDataToReflection(ISymbol member) =>
+        member is IPropertySymbol or IFieldSymbol;
 
     /// <summary>Returns the modifier location to report for a member wider than its container, or null to leave it alone.</summary>
     /// <param name="member">The declared member.</param>
@@ -212,13 +214,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         // are all unreachable from the enclosing type (CS0122), so 'internal' is the minimum that compiles and
         // demanding less is unsatisfiable. Report such a member only when nothing outside its declaring type
         // names it, where making it private would actually compile.
-        if ((containerReach & SameAssemblyOther) == 0 && IsReferencedOutsideDeclaringType(member, cancellationToken))
-        {
-            return null;
-        }
-
-        // Syntax is read only now, to point the diagnostic at the offending modifier keyword.
-        return AccessModifierLocation(member, cancellationToken);
+        return (containerReach & SameAssemblyOther) == 0 && IsReferencedOutsideDeclaringType(member, cancellationToken) ? null : AccessModifierLocation(member, cancellationToken);
     }
 
     /// <summary>Returns whether a member is one whose author-written accessibility this rule can weigh.</summary>
@@ -258,8 +254,8 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="memberReach">The member's caller set.</param>
     /// <param name="containerReach">The container's effective caller set.</param>
     /// <returns><see langword="true"/> when the member promises reach the container cannot deliver.</returns>
-    private static bool IsWider(int memberReach, int containerReach)
-        => memberReach != containerReach && (memberReach & containerReach) == containerReach;
+    private static bool IsWider(int memberReach, int containerReach) =>
+        memberReach != containerReach && (memberReach & containerReach) == containerReach;
 
     /// <summary>Returns the set of caller categories an accessibility admits, as a bit mask.</summary>
     /// <param name="accessibility">The accessibility to model.</param>
@@ -291,8 +287,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <summary>Builds the property bag naming one target accessibility.</summary>
     /// <param name="keyword">The keyword text the fix should write.</param>
     /// <returns>The property bag.</returns>
-    private static ImmutableDictionary<string, string?> TargetProperties(string keyword)
-        => ImmutableDictionary<string, string?>.Empty.Add(TargetAccessibilityKey, keyword);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ImmutableDictionary<string, string?> TargetProperties(string keyword) =>
+        ImmutableDictionary<string, string?>.Empty.Add(TargetAccessibilityKey, keyword);
 
     /// <summary>Gets the cached property bag for a caller-set mask.</summary>
     /// <param name="reach">The container's effective caller set, which is never the full reach here.</param>
@@ -357,11 +354,13 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         var count = 0;
         for (var i = 0; i < PublicMandatingAttributeMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is not { } type)
             {
-                resolved[count] = type;
-                count++;
+                continue;
             }
+
+            resolved[count] = type;
+            count++;
         }
 
         if (count == resolved.Length)
@@ -462,7 +461,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 if (type.FindImplementationForInterfaceMember(interfaceMembers[j]) is { } implementation
                     && !SymbolEqualityComparer.Default.Equals(implementation.ContainingType, type))
                 {
-                    result.Add(implementation.OriginalDefinition);
+                    _ = result.Add(implementation.OriginalDefinition);
                 }
             }
         }

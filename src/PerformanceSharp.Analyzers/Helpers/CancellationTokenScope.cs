@@ -29,7 +29,7 @@ internal static class CancellationTokenScope
     /// <summary>Finds the nearest parameter in scope that is declared as a cancellation token.</summary>
     /// <param name="node">The node to search outward from.</param>
     /// <returns>The parameter, or <see langword="null"/> when no enclosing function declares one.</returns>
-    public static ParameterSyntax? TryFindInScope(SyntaxNode node)
+    internal static ParameterSyntax? TryFindInScope(SyntaxNode node)
     {
         ParameterSyntax? found = null;
         for (var current = node.Parent; current is not null; current = current.Parent)
@@ -68,12 +68,12 @@ internal static class CancellationTokenScope
     /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The parameter's name, or <see langword="null"/> when it binds to some other type.</returns>
-    public static string? TryResolveName(
+    internal static string? TryResolveName(
         SemanticModel model,
         ParameterSyntax parameter,
         INamedTypeSymbol tokenType,
-        CancellationToken cancellationToken)
-        => model.GetDeclaredSymbol(parameter, cancellationToken) is { } symbol
+        CancellationToken cancellationToken) =>
+        model.GetDeclaredSymbol(parameter, cancellationToken) is { } symbol
             && SymbolEqualityComparer.Default.Equals(symbol.Type, tokenType)
             ? symbol.Name
             : null;
@@ -98,7 +98,7 @@ internal static class CancellationTokenScope
     /// <summary>Returns whether a parameter can simply be handed to another call.</summary>
     /// <param name="modifiers">The parameter's modifiers.</param>
     /// <returns><see langword="false"/> for a by-reference parameter, which a nested function cannot capture.</returns>
-    private static bool IsPassableByValue(SyntaxTokenList modifiers)
+    private static bool IsPassableByValue(in SyntaxTokenList modifiers)
     {
         for (var i = 0; i < modifiers.Count; i++)
         {

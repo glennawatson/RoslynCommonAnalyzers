@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNestedSwitch = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2252NestedSwitchAnalyzer>;
 
@@ -12,9 +13,10 @@ public class NestedSwitchAnalyzerUnitTest
 {
     /// <summary>Verifies a switch statement in a section of another switch statement is reported on its keyword.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchStatementNestedInASectionIsReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task SwitchStatementNestedInASectionIsReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -40,9 +42,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies each inner switch in a three-deep nest is reported, once per enclosing switch found.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EachSwitchNestedInsideAnotherIsReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task EachSwitchNestedInsideAnotherIsReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -75,9 +78,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies two switch statements side by side in one method are not nesting and are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SiblingSwitchStatementsAreNotReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task SiblingSwitchStatementsAreNotReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -110,9 +114,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a switch inside a lambda declared in a section belongs to the lambda, not the outer switch.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchInsideALambdaInASectionIsNotReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task SwitchInsideALambdaInASectionIsNotReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -144,9 +149,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a switch inside a local function declared in a section belongs to that function.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchInsideALocalFunctionInASectionIsNotReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task SwitchInsideALocalFunctionInASectionIsNotReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -177,9 +183,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a switch expression inside a switch statement's section is left alone as the preferred form.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SwitchExpressionInsideASectionIsNotReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task SwitchExpressionInsideASectionIsNotReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -203,9 +210,10 @@ public class NestedSwitchAnalyzerUnitTest
 
     /// <summary>Verifies a single switch statement with no enclosing switch is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoneSwitchStatementIsNotReportedAsync()
-        => await VerifyNestedSwitch.VerifyAnalyzerAsync(
+    public Task LoneSwitchStatementIsNotReportedAsync() =>
+        VerifyNestedSwitch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2422BackingFieldMismatchAnalyzer,
     StyleSharp.Analyzers.Sst2422BackingFieldMismatchCodeFixProvider>;
@@ -44,15 +45,17 @@ public class BackingFieldMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a getter and setter using different fields is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task MismatchedFieldsIsReportedAsync()
-        => await VerifyMismatch.VerifyAnalyzerAsync(MismatchSource);
+    public Task MismatchedFieldsIsReportedAsync() =>
+        VerifyMismatch.VerifyAnalyzerAsync(MismatchSource);
 
     /// <summary>Verifies a property that round-trips one field is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameFieldIsCleanAsync()
-        => await VerifyMismatch.VerifyAnalyzerAsync(
+    public Task SameFieldIsCleanAsync() =>
+        VerifyMismatch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -68,9 +71,10 @@ public class BackingFieldMismatchAnalyzerUnitTest
 
     /// <summary>Verifies the change-notification shape, which round-trips one field, is clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ChangeNotificationShapeIsCleanAsync()
-        => await VerifyMismatch.VerifyAnalyzerAsync(
+    public Task ChangeNotificationShapeIsCleanAsync() =>
+        VerifyMismatch.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -99,9 +103,10 @@ public class BackingFieldMismatchAnalyzerUnitTest
 
     /// <summary>Verifies a computed getter is clean: it does not reduce to one field read.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ComputedGetterIsCleanAsync()
-        => await VerifyMismatch.VerifyAnalyzerAsync(
+    public Task ComputedGetterIsCleanAsync() =>
+        VerifyMismatch.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -118,7 +123,8 @@ public class BackingFieldMismatchAnalyzerUnitTest
 
     /// <summary>Verifies the fix points the getter at the setter's field.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FixPointsGetterAtSetterFieldAsync()
-        => await VerifyFix.VerifyCodeFixAsync(MismatchSource, MismatchFixed);
+    public Task FixPointsGetterAtSetterFieldAsync() =>
+        VerifyFix.VerifyCodeFixAsync(MismatchSource, MismatchFixed);
 }

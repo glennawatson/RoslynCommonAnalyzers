@@ -61,7 +61,7 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one raw handle read through a safe handle's dangerous accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="safeHandleType">The compilation's safe-handle type.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol safeHandleType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol safeHandleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0 || GetInvokedName(invocation) != DangerousGetHandleName)

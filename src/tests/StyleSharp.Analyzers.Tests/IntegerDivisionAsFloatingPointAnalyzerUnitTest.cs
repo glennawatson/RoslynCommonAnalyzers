@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyDivision = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1477IntegerDivisionAsFloatingPointAnalyzer,
     StyleSharp.Analyzers.Sst1477IntegerDivisionAsFloatingPointCodeFixProvider>;
@@ -13,9 +14,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 {
     /// <summary>Verifies a division widened to a double is reported and one that stays integral is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WideningToDoubleIsReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task WideningToDoubleIsReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -31,9 +33,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
     /// The rule does not enumerate these shapes; each of them is the same fact in the semantic model, so
     /// this test is really checking that the one question the analyzer asks covers all of them.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryWideningContextIsReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task EveryWideningContextIsReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -92,9 +95,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 
     /// <summary>Verifies an unsigned and a long division are reported, since both truncate.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryIntegralOperandTypeIsReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task EveryIntegralOperandTypeIsReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -112,9 +116,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
     /// The literal check that clears <c>value / 2e1</c> without the semantic model must not clear
     /// <c>value / 0xE</c>, whose 'E' is a digit rather than an exponent.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HexadecimalDivisorIsReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task HexadecimalDivisorIsReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -126,9 +131,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 
     /// <summary>Verifies a division with a floating-point operand already divides exactly and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FloatingPointOperandIsCleanAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task FloatingPointOperandIsCleanAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -148,9 +154,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 
     /// <summary>Verifies a division whose result stays integral is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IntegralContextIsCleanAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task IntegralContextIsCleanAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -172,9 +179,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
     /// actually attached to, which keeps it precise and keeps it from guessing at arithmetic it cannot see
     /// the end of.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TruncationInsideAnIntegralExpressionIsNotReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task TruncationInsideAnIntegralExpressionIsNotReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -184,9 +192,10 @@ public class IntegerDivisionAsFloatingPointAnalyzerUnitTest
 
     /// <summary>Verifies a nullable division is not reported, since the lifted operator has no special type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NullableOperandsAreNotReportedAsync()
-        => await VerifyDivision.VerifyAnalyzerAsync(
+    public Task NullableOperandsAreNotReportedAsync() =>
+        VerifyDivision.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

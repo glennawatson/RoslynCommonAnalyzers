@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -72,8 +73,9 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="outer">The outer if statement.</param>
     /// <param name="inner">The inner if statement.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax outer, IfStatementSyntax inner)
-        => document.WithSyntaxRoot(root.ReplaceNode(outer, Merge(outer, inner)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, IfStatementSyntax outer, IfStatementSyntax inner) =>
+        document.WithSyntaxRoot(root.ReplaceNode(outer, Merge(outer, inner)));
 
     /// <summary>Resolves the reported outer <c>if</c> and the inner one it wraps.</summary>
     /// <param name="root">The syntax root.</param>
@@ -141,8 +143,8 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Wraps an operand in parentheses when it binds looser than <c>&amp;&amp;</c>.</summary>
     /// <param name="expression">The condition operand.</param>
     /// <returns>The operand, parenthesized only where the grouping would otherwise change.</returns>
-    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression)
-        => NeedsParentheses(expression)
+    private static ExpressionSyntax Parenthesize(ExpressionSyntax expression) =>
+        NeedsParentheses(expression)
             ? SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression)
             : expression;
 
@@ -151,9 +153,7 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <returns><see langword="true"/> when omitting parentheses would regroup the condition.</returns>
     private static bool NeedsParentheses(ExpressionSyntax expression) => expression switch
     {
-        AssignmentExpressionSyntax => true,
-        ConditionalExpressionSyntax => true,
-        SwitchExpressionSyntax => true,
+        AssignmentExpressionSyntax or ConditionalExpressionSyntax or SwitchExpressionSyntax => true,
         BinaryExpressionSyntax binary => binary.IsKind(SyntaxKind.LogicalOrExpression) || binary.IsKind(SyntaxKind.CoalesceExpression),
         _ => false,
     };
@@ -185,7 +185,7 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Appends every comment in a trivia list to the running collection.</summary>
     /// <param name="comments">The running collection.</param>
     /// <param name="trivia">The trivia to scan.</param>
-    private static void AddComments(List<SyntaxTrivia> comments, SyntaxTriviaList trivia)
+    private static void AddComments(List<SyntaxTrivia> comments, in SyntaxTriviaList trivia)
     {
         for (var i = 0; i < trivia.Count; i++)
         {

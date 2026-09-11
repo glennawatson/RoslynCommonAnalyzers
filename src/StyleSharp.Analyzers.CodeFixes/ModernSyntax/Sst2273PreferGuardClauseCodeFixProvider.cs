@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Formatting;
 
 namespace StyleSharp.Analyzers;
@@ -27,16 +28,17 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Convert to an early-exit guard clause",
             nameof(Sst2273PreferGuardClauseCodeFixProvider),
             (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
 
     /// <summary>Resolves the reported <c>if</c> and rewrites its block with the guard and the lifted work.</summary>
     /// <param name="root">The syntax root.</param>
@@ -168,12 +170,9 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             _ => (SyntaxKind.None, SyntaxKind.None),
         };
 
-        if (resultKind == SyntaxKind.None)
-        {
-            return null;
-        }
-
-        return SyntaxFactory.BinaryExpression(
+        return resultKind == SyntaxKind.None
+            ? null
+            : SyntaxFactory.BinaryExpression(
             resultKind,
             Regroup(Negate(binary.Left, model), resultKind),
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
@@ -184,8 +183,8 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     /// <param name="operand">The negated operand.</param>
     /// <param name="outerKind">The logical operator the operand is being placed under.</param>
     /// <returns>The operand, parenthesized when precedence requires it.</returns>
-    private static ExpressionSyntax Regroup(ExpressionSyntax operand, SyntaxKind outerKind)
-        => outerKind == SyntaxKind.LogicalAndExpression && operand.IsKind(SyntaxKind.LogicalOrExpression)
+    private static ExpressionSyntax Regroup(ExpressionSyntax operand, SyntaxKind outerKind) =>
+        outerKind == SyntaxKind.LogicalAndExpression && operand.IsKind(SyntaxKind.LogicalOrExpression)
             ? SyntaxFactory.ParenthesizedExpression(operand)
             : operand;
 
@@ -202,14 +201,11 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
 
         // '!(a < b)' is true when an operand is NaN and 'a >= b' is false, so a relational flip needs both
         // operands to be values that can be neither null nor NaN. Equality agrees either way.
-        if (ExpressionSimplificationAnalyzer.IsRelational(binary.Kind())
+        return ExpressionSimplificationAnalyzer.IsRelational(binary.Kind())
             && (ExpressionSimplificationAnalyzer.IsUnsafeRelationalOperand(binary.Left, model, CancellationToken.None)
-                || ExpressionSimplificationAnalyzer.IsUnsafeRelationalOperand(binary.Right, model, CancellationToken.None)))
-        {
-            return null;
-        }
-
-        return SyntaxFactory.BinaryExpression(
+                || ExpressionSimplificationAnalyzer.IsUnsafeRelationalOperand(binary.Right, model, CancellationToken.None))
+            ? null
+            : SyntaxFactory.BinaryExpression(
             expressionKind,
             binary.Left.WithoutTrivia(),
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
@@ -236,22 +232,17 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     /// <summary>Negates a classic <c>x is T</c> type check as the <c>x is not T</c> pattern.</summary>
     /// <param name="typeCheck">The <c>is</c> type check.</param>
     /// <returns>The negated pattern, or <see langword="null"/> below C# 9, where <c>not</c> patterns do not exist.</returns>
-    private static IsPatternExpressionSyntax? TryNegateTypeCheck(BinaryExpressionSyntax typeCheck)
-    {
-        if (typeCheck.Right is not TypeSyntax type
-            || typeCheck.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
-        {
-            return null;
-        }
-
-        return SyntaxFactory.IsPatternExpression(
+    private static IsPatternExpressionSyntax? TryNegateTypeCheck(BinaryExpressionSyntax typeCheck) => typeCheck.Right is not TypeSyntax type
+            || typeCheck.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 }
+        ? null
+        : SyntaxFactory.IsPatternExpression(
             typeCheck.Left.WithoutTrivia(),
             SyntaxFactory.UnaryPattern(SyntaxFactory.TypePattern(type.WithoutTrivia())));
-    }
 
     /// <summary>Strips enclosing parentheses to reach the inner expression.</summary>
     /// <param name="expression">The expression to unwrap.</param>
     /// <returns>The innermost non-parenthesized expression.</returns>
-    private static ExpressionSyntax Unwrap(ExpressionSyntax expression)
-        => ExpressionSimplificationAnalyzer.Unwrap(expression);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax Unwrap(ExpressionSyntax expression) =>
+        ExpressionSimplificationAnalyzer.Unwrap(expression);
 }

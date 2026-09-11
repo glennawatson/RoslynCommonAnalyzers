@@ -14,8 +14,8 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst2332PrivateSetterOnlyWrittenDuringConstructionCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(DesignRules.PrivateSetterOnlyWrittenDuringConstruction.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(DesignRules.PrivateSetterOnlyWrittenDuringConstruction.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;

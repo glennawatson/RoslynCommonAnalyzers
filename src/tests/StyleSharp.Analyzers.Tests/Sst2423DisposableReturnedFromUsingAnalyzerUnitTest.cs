@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyReturnedFromUsing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2423DisposableReturnedFromUsingAnalyzer,
     StyleSharp.Analyzers.Sst2423DisposableReturnedFromUsingCodeFixProvider>;
@@ -50,9 +51,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies returning a using-declaration local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationReturnReportedAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task UsingDeclarationReturnReportedAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -66,9 +68,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies returning a using-statement local is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingStatementReturnReportedAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task UsingStatementReturnReportedAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -84,9 +87,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies a using local returned inside a tuple is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingLocalInTupleReportedAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task UsingLocalInTupleReportedAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -100,9 +104,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies a using local yielded out of an iterator is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingLocalYieldReturnedReportedAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task UsingLocalYieldReturnedReportedAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             using System.Collections.Generic;
 
@@ -118,9 +123,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies returning a member of the local, rather than the local, is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturningAMemberIsCleanAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task ReturningAMemberIsCleanAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -134,9 +140,10 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies returning a different object is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturningADifferentObjectIsCleanAsync()
-        => await VerifyReturnedFromUsing.VerifyAnalyzerAsync(
+    public Task ReturningADifferentObjectIsCleanAsync() =>
+        VerifyReturnedFromUsing.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -151,7 +158,8 @@ public class Sst2423DisposableReturnedFromUsingAnalyzerUnitTest
 
     /// <summary>Verifies the fix drops the using to transfer ownership to the caller.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UsingDeclarationFixedByTransferringOwnershipAsync()
-        => await VerifyReturnedFromUsing.VerifyCodeFixAsync(ReturnedUsingSource, ReturnedUsingFixed);
+    public Task UsingDeclarationFixedByTransferringOwnershipAsync() =>
+        VerifyReturnedFromUsing.VerifyCodeFixAsync(ReturnedUsingSource, ReturnedUsingFixed);
 }

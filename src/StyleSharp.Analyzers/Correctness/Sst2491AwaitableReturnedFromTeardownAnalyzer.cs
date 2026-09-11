@@ -30,8 +30,8 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.AwaitableReturnedFromTeardown);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -54,7 +54,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
     /// <summary>Reports one return that hands a pending task out of a teardown scope in a non-async task method.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="taskTypes">The resolved task types for this compilation.</param>
-    private static void AnalyzeReturn(SyntaxNodeAnalysisContext context, in TeardownTaskTypes taskTypes)
+    private static void AnalyzeReturn(in SyntaxNodeAnalysisContext context, in TeardownTaskTypes taskTypes)
     {
         var returnStatement = (ReturnStatementSyntax)context.Node;
         if (returnStatement.Expression is not { } expression
@@ -77,7 +77,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
     /// <param name="functionNode">The enclosing function-like node.</param>
     /// <param name="taskTypes">The resolved task types for this compilation.</param>
     /// <returns><see langword="true"/> when awaiting the returned task would fix the teardown race.</returns>
-    private static bool IsNonAsyncTaskMethod(SyntaxNodeAnalysisContext context, SyntaxNode functionNode, in TeardownTaskTypes taskTypes)
+    private static bool IsNonAsyncTaskMethod(in SyntaxNodeAnalysisContext context, SyntaxNode functionNode, in TeardownTaskTypes taskTypes)
     {
         var modifiers = functionNode switch
         {
@@ -125,8 +125,8 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
     /// <summary>Returns whether a node begins a new function body, bounding the search upward.</summary>
     /// <param name="node">The node to test.</param>
     /// <returns><see langword="true"/> when the node owns the return's function scope.</returns>
-    private static bool IsFunctionBoundary(SyntaxNode node)
-        => node is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax or AccessorDeclarationSyntax;
+    private static bool IsFunctionBoundary(SyntaxNode node) =>
+        node is BaseMethodDeclarationSyntax or LocalFunctionStatementSyntax or AnonymousFunctionExpressionSyntax or AccessorDeclarationSyntax;
 
     /// <summary>Returns the teardown keyword a scope contributes for the child that holds the return.</summary>
     /// <param name="node">The candidate teardown scope.</param>
@@ -215,7 +215,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
         /// <summary>Resolves the task types from a compilation.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The resolved task types.</returns>
-        public static TeardownTaskTypes Resolve(Compilation compilation) => new(
+        internal static TeardownTaskTypes Resolve(Compilation compilation) => new(
             compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),
             compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"),
             compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask"),
@@ -224,7 +224,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
         /// <summary>Returns whether a return type is one of the resolved task types.</summary>
         /// <param name="returnType">The declared return type.</param>
         /// <returns><see langword="true"/> when awaiting the returned value would remove the teardown race.</returns>
-        public bool IsTaskType(ITypeSymbol returnType)
+        internal bool IsTaskType(ITypeSymbol returnType)
         {
             if (returnType is not INamedTypeSymbol named)
             {

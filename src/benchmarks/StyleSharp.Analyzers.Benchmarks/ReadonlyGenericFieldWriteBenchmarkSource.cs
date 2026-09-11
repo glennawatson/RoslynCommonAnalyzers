@@ -15,8 +15,8 @@ internal static class ReadonlyGenericFieldWriteBenchmarkSource
     /// A single shared <c>IPoint</c> interface backs every generated holder; the clean holder constrains its
     /// type parameter to a reference type, so the write lands and the rule stays silent.
     /// </remarks>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            public interface IPoint
@@ -30,8 +30,8 @@ internal static class ReadonlyGenericFieldWriteBenchmarkSource
     /// <summary>Builds one reference-constrained holder whose write lands on the referenced instance.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}<T>
                where T : class, IPoint
            {
@@ -46,8 +46,8 @@ internal static class ReadonlyGenericFieldWriteBenchmarkSource
     /// <summary>Builds one unconstrained holder whose write lands on a defensive struct copy.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}<T>
                where T : IPoint
            {

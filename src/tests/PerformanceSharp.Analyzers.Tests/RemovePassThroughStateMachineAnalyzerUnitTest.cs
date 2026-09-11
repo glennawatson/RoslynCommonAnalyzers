@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -183,9 +184,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies a body with a statement before the tail await stays clean.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TwoStatementBodyIsCleanAsync()
-        => await VerifyAsync(
+    public Task TwoStatementBodyIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -203,9 +205,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies an await inside a using statement stays clean; the task must not outlive the resource.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AwaitInsideUsingIsCleanAsync()
-        => await VerifyAsync(
+    public Task AwaitInsideUsingIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -225,9 +228,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies an async void method stays clean; there is no task to forward.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncVoidIsCleanAsync()
-        => await VerifyAsync(
+    public Task AsyncVoidIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -241,9 +245,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies awaiting a ValueTask in a Task-returning method stays clean; the types do not match.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ValueTaskAwaitInTaskMethodIsCleanAsync()
-        => await VerifyAsync(
+    public Task ValueTaskAwaitInTaskMethodIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -260,9 +265,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies a covariant generic forward stays clean; Task&lt;string&gt; is not Task&lt;object&gt;.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CovariantGenericTaskIsCleanAsync()
-        => await VerifyAsync(
+    public Task CovariantGenericTaskIsCleanAsync() =>
+        VerifyAsync(
             """
             using System.Threading.Tasks;
 
@@ -279,9 +285,10 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
 
     /// <summary>Verifies an async lambda stays clean; only methods and local functions are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AsyncLambdaIsCleanAsync()
-        => await VerifyAsync(
+    public Task AsyncLambdaIsCleanAsync() =>
+        VerifyAsync(
             """
             using System;
             using System.Threading.Tasks;
@@ -300,11 +307,7 @@ public class RemovePassThroughStateMachineAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source, string? fixedSource = null)
     {
-        var test = new Verify.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source,
-        };
+        var test = new Verify.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, };
         if (fixedSource is not null)
         {
             test.FixedCode = fixedSource;

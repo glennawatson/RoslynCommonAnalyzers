@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -58,7 +60,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes one event declaration.</summary>
     /// <param name="context">The symbol context.</param>
     /// <param name="index">The compilation's index of names used as values.</param>
-    private static void AnalyzeEvent(SymbolAnalysisContext context, RaisedNameIndex index)
+    private static void AnalyzeEvent(in SymbolAnalysisContext context, RaisedNameIndex index)
     {
         var symbol = (IEventSymbol)context.Symbol;
         if (!IsRaisableWhereDeclared(symbol) || !IsFieldLike(symbol, context.CancellationToken))
@@ -72,7 +74,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
         }
 
         var locations = symbol.Locations;
-        if (locations.Length == 0 || !locations[0].IsInSource)
+        if (locations.IsEmpty || !locations[0].IsInSource)
         {
             return;
         }
@@ -89,7 +91,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
             || symbol.IsExtern
             || symbol.IsOverride
             || symbol.IsImplicitlyDeclared
-            || symbol.ExplicitInterfaceImplementations.Length > 0
+            || !symbol.ExplicitInterfaceImplementations.IsEmpty
             || symbol.ContainingType is not { } containingType
             || containingType.TypeKind == TypeKind.Interface)
         {
@@ -155,9 +157,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>
-    /// The names the compilation uses as values, built once and shared by every event analyzed in it.
-    /// </summary>
+    /// <summary>The names the compilation uses as values, built once and shared by every event analyzed in it.</summary>
     /// <remarks>
     /// Deliberately syntactic. Binding every name in the compilation to decide whether it is <em>this</em>
     /// event would cost far more than the rule is worth, and the answer would only ever make the rule report
@@ -182,6 +182,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
         /// <param name="name">The event's name.</param>
         /// <param name="cancellationToken">A token that cancels analysis.</param>
         /// <returns><see langword="true"/> when something might raise it.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool Contains(string name, CancellationToken cancellationToken) => Build(cancellationToken).Contains(name);
 
         /// <summary>Records one name that is used as a value.</summary>
@@ -195,7 +196,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                 return true;
             }
 
-            names.Add(identifier.Identifier.ValueText);
+            _ = names.Add(identifier.Identifier.ValueText);
             return true;
         }
 
@@ -235,7 +236,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                 foreach (var tree in _compilation.SyntaxTrees)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(
+                    _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, HashSet<string>>(
                         tree.GetRoot(cancellationToken),
                         ref names,
                         VisitIdentifier);

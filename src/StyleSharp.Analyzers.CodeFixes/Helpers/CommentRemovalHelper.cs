@@ -16,7 +16,7 @@ internal static class CommentRemovalHelper
     /// The whole line (or lines) when the comment is all that is written on them, and otherwise the comment
     /// together with the whitespace that separated it from the code it trailed.
     /// </returns>
-    public static TextSpan ComputeRemoval(SourceText text, TextSpan span)
+    internal static TextSpan ComputeRemoval(SourceText text, TextSpan span)
     {
         var lineStart = FindLineStart(text, span.Start);
         var lineEnd = FindLineEnd(text, span.End);

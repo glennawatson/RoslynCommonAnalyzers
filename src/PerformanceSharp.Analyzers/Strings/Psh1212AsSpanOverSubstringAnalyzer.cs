@@ -38,7 +38,7 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             if (start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
                 || extensions.GetMembers(AsSpanMethodName).IsEmpty)
@@ -53,8 +53,8 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation is a plain <c>x.Substring(...)</c> in an argument position, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    internal static bool IsSubstringArgumentShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count is >= 1 and <= MaxSliceArgumentCount
+    internal static bool IsSubstringArgumentShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count is >= 1 and <= MaxSliceArgumentCount
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == SubstringMethodName
             && invocation.Parent is ArgumentSyntax { NameColon: null };
@@ -92,19 +92,16 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The Substring invocation.</param>
     /// <param name="outer">The consuming invocation.</param>
     /// <returns>The consumer's method symbol, or <see langword="null"/>.</returns>
-    private static IMethodSymbol? TryBindConsumer(SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, InvocationExpressionSyntax outer)
+    private static IMethodSymbol? TryBindConsumer(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, InvocationExpressionSyntax outer)
     {
         var model = context.SemanticModel;
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
-        if (model.GetTypeInfo(access.Expression, context.CancellationToken).Type?.SpecialType != SpecialType.System_String
+        return model.GetTypeInfo(access.Expression, context.CancellationToken).Type?.SpecialType != SpecialType.System_String
             || model.GetSymbolInfo(outer, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.IsExtensionMethod
-            || method.ReducedFrom is not null)
-        {
-            return null;
-        }
-
-        return method;
+            || method.ReducedFrom is not null
+            ? null
+            : method;
     }
 
     /// <summary>Scans the method group for a sibling overload taking a char span at the slot.</summary>
@@ -164,7 +161,7 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the extension form binds after the rename.</returns>
     private static bool ResolvesAsSpan(SemanticModel model, int position)
     {
-        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: "MemoryExtensions"))
+        foreach (var candidate in model.LookupNamespacesAndTypes(position, name: nameof(MemoryExtensions)))
         {
             if (candidate is INamedTypeSymbol { ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true } })
             {

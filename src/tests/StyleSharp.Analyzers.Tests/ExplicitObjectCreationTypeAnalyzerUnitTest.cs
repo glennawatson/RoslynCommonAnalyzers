@@ -283,11 +283,7 @@ public class ExplicitObjectCreationTypeAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyExplicitObjectCreationType.Test CreateTest(string source)
     {
-        var test = new VerifyExplicitObjectCreationType.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
-            TestCode = source,
-        };
+        var test = new VerifyExplicitObjectCreationType.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = source, };
 
         Enable(test);
         return test;

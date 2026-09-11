@@ -78,7 +78,7 @@ public sealed class Sst2321LibraryProcessTerminationAnalyzer : DiagnosticAnalyze
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="environmentType">The resolved <c>System.Environment</c> symbol.</param>
     /// <param name="hostLifetimeAvailable">Whether the hosted-application lifetime resolves in the compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol environmentType, bool hostLifetimeAvailable)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol environmentType, bool hostLifetimeAvailable)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ExitMemberName or FailFastMemberName })

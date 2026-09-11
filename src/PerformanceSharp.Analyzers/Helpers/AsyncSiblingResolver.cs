@@ -25,7 +25,7 @@ internal static class AsyncSiblingResolver
     /// <param name="sync">The bound synchronous method.</param>
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <returns>The matching asynchronous sibling, or <see langword="null"/> when the type has none that fits.</returns>
-    public static IMethodSymbol? TryResolveAsyncSibling(IMethodSymbol sync, in TaskTypes tasks)
+    internal static IMethodSymbol? TryResolveAsyncSibling(IMethodSymbol sync, in TaskTypes tasks)
     {
         if (!IsReplaceableSyncMethod(sync, tasks))
         {
@@ -48,7 +48,7 @@ internal static class AsyncSiblingResolver
     /// <param name="type">The type to classify.</param>
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <returns><see langword="true"/> when the type is a task or value task, generic or not.</returns>
-    public static bool IsAwaitable(ITypeSymbol type, in TaskTypes tasks)
+    internal static bool IsAwaitable(ITypeSymbol type, in TaskTypes tasks)
     {
         var definition = type.OriginalDefinition;
         return SymbolEqualityComparer.Default.Equals(definition, tasks.Task)
@@ -61,8 +61,8 @@ internal static class AsyncSiblingResolver
     /// <param name="sync">The bound synchronous method.</param>
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <returns><see langword="true"/> when the method is non-generic, not already async, and not PSH1310's Dispose.</returns>
-    private static bool IsReplaceableSyncMethod(IMethodSymbol sync, in TaskTypes tasks)
-        => !sync.IsGenericMethod
+    private static bool IsReplaceableSyncMethod(IMethodSymbol sync, in TaskTypes tasks) =>
+        !sync.IsGenericMethod
             && sync.Name.Length > 0
             && sync.Name != DisposeMethodName
             && !sync.Name.EndsWith(AsyncSuffix, StringComparison.Ordinal)
@@ -73,8 +73,8 @@ internal static class AsyncSiblingResolver
     /// <param name="sync">The bound synchronous method.</param>
     /// <param name="tasks">The task types resolved for the compilation.</param>
     /// <returns><see langword="true"/> when the candidate matches on staticness, awaited result, and arguments.</returns>
-    private static bool IsMatchingSibling(IMethodSymbol candidate, IMethodSymbol sync, in TaskTypes tasks)
-        => !candidate.IsGenericMethod
+    private static bool IsMatchingSibling(IMethodSymbol candidate, IMethodSymbol sync, in TaskTypes tasks) =>
+        !candidate.IsGenericMethod
             && candidate.IsStatic == sync.IsStatic
             && candidate.DeclaredAccessibility == Accessibility.Public
             && AwaitsTo(candidate.ReturnType, sync.ReturnType, tasks)
@@ -158,8 +158,8 @@ internal static class AsyncSiblingResolver
         /// <summary>Resolves the task types from a compilation, once.</summary>
         /// <param name="compilation">The compilation being analyzed.</param>
         /// <returns>The resolved task types, or <see langword="null"/> when the framework has no task type at all.</returns>
-        public static TaskTypes? Create(Compilation compilation)
-            => compilation.GetTypeByMetadataName(TaskMetadataName) is { } task
+        internal static TaskTypes? Create(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(TaskMetadataName) is { } task
                 ? new TaskTypes(
                     task,
                     compilation.GetTypeByMetadataName(TaskOfTMetadataName),

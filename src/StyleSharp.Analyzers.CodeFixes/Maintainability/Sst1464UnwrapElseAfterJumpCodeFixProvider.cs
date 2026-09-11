@@ -127,8 +127,8 @@ public sealed class Sst1464UnwrapElseAfterJumpCodeFixProvider : CodeFixProvider,
     /// <param name="index">The if statement's index in the block.</param>
     /// <param name="elseClause">The else clause being unwrapped.</param>
     /// <returns><see langword="true"/> when the else declares nothing or no statements follow the if.</returns>
-    private static bool IsScopeSafe(BlockSyntax block, int index, ElseClauseSyntax elseClause)
-        => !DeclaresLocals(elseClause.Statement) || index == block.Statements.Count - 1;
+    private static bool IsScopeSafe(BlockSyntax block, int index, ElseClauseSyntax elseClause) =>
+        !DeclaresLocals(elseClause.Statement) || index == block.Statements.Count - 1;
 
     /// <summary>Returns whether an else body directly declares locals or local functions.</summary>
     /// <param name="statement">The else clause's statement.</param>

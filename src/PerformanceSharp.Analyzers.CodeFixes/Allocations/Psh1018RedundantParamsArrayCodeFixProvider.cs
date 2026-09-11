@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,20 +23,22 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces one reported call with its unwrapped form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="invocation">The reported call.</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation)
-        => document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
+        document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
 
     /// <summary>Resolves the reported call and builds its unwrapped replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -58,8 +62,8 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
     /// <summary>Rewrites the current call during batch FixAll composition.</summary>
     /// <param name="current">The current call node, possibly carrying nested edits.</param>
     /// <returns>The rewritten call, or the node unchanged when the shape no longer matches.</returns>
-    private static SyntaxNode RewriteCurrent(SyntaxNode current)
-        => current is InvocationExpressionSyntax invocation && Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out _)
+    private static SyntaxNode RewriteCurrent(SyntaxNode current) =>
+        current is InvocationExpressionSyntax invocation && Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out _)
             ? Rewrite(invocation)
             : current;
 
@@ -68,7 +72,7 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
     /// <returns>The rewritten call.</returns>
     private static InvocationExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
     {
-        Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out var arrayExpression);
+        _ = Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out var arrayExpression);
         var elements = Psh1018RedundantParamsArrayAnalyzer.GetArrayElements(arrayExpression!);
 
         return invocation

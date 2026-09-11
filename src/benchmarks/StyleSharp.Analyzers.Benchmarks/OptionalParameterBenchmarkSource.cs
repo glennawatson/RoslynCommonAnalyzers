@@ -11,8 +11,8 @@ internal static class OptionalParameterBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
            using System.Runtime.CompilerServices;
 
@@ -25,8 +25,8 @@ internal static class OptionalParameterBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose defaults live inside the callee.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -37,8 +37,8 @@ internal static class OptionalParameterBenchmarkSource
     /// that this rule asks for, a <c>params</c> array, which has no explicit default, a caller-info parameter,
     /// which has to stay optional, and an optional parameter that no outside caller can see.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public class C{{index}}
            {
                private const int DefaultTimeout = 30;
@@ -62,8 +62,8 @@ internal static class OptionalParameterBenchmarkSource
     /// <summary>Builds one type whose defaults every caller compiles into itself.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public class V{{index}}
            {
                public V{{index}}(string name, int retries = 3)

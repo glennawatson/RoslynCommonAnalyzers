@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCatchNullReference = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2401CatchNullReferenceAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class CatchNullReferenceAnalyzerUnitTest
 {
     /// <summary>Verifies a catch clause naming the type is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CatchClauseIsReportedAsync()
-        => await VerifyCatchNullReference.VerifyAnalyzerAsync(
+    public Task CatchClauseIsReportedAsync() =>
+        VerifyCatchNullReference.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -37,9 +39,10 @@ public class CatchNullReferenceAnalyzerUnitTest
 
     /// <summary>Verifies a fully qualified catch clause is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task QualifiedCatchClauseIsReportedAsync()
-        => await VerifyCatchNullReference.VerifyAnalyzerAsync(
+    public Task QualifiedCatchClauseIsReportedAsync() =>
+        VerifyCatchNullReference.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -63,9 +66,10 @@ public class CatchNullReferenceAnalyzerUnitTest
 
     /// <summary>Verifies a filter that reaches the type is reported, not just a clause that names it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionFilterIsReportedAsync()
-        => await VerifyCatchNullReference.VerifyAnalyzerAsync(
+    public Task ExceptionFilterIsReportedAsync() =>
+        VerifyCatchNullReference.VerifyAnalyzerAsync(
             """
             #nullable enable
 
@@ -89,9 +93,10 @@ public class CatchNullReferenceAnalyzerUnitTest
 
     /// <summary>Verifies a specific exception type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SpecificExceptionIsCleanAsync()
-        => await VerifyCatchNullReference.VerifyAnalyzerAsync(
+    public Task SpecificExceptionIsCleanAsync() =>
+        VerifyCatchNullReference.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -113,9 +118,10 @@ public class CatchNullReferenceAnalyzerUnitTest
 
     /// <summary>Verifies a type of the project's own with the same name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedProjectTypeIsCleanAsync()
-        => await VerifyCatchNullReference.VerifyAnalyzerAsync(
+    public Task SameNamedProjectTypeIsCleanAsync() =>
+        VerifyCatchNullReference.VerifyAnalyzerAsync(
             """
             namespace Custom
             {

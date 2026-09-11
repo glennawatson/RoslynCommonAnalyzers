@@ -11,8 +11,8 @@ internal static class LiteralFormattingBenchmarkSource
     /// <param name="members">The number of synthetic methods to emit.</param>
     /// <param name="violating">Whether to emit long separator-free integer literals.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int members, bool violating)
-        => $$"""
+    internal static string Generate(int members, bool violating) =>
+        $$"""
            namespace Bench;
 
            internal static class LiteralFormattingBench
@@ -25,8 +25,8 @@ internal static class LiteralFormattingBenchmarkSource
     /// <param name="index">The synthetic member index.</param>
     /// <param name="violating">Whether to emit a long separator-free integer literal.</param>
     /// <returns>The generated member block.</returns>
-    private static string GenerateMember(int index, bool violating)
-        => violating
+    private static string GenerateMember(int index, bool violating) =>
+        violating
             ? $"internal static int M{index}() => 1000000;"
             : $"internal static int M{index}() => {index};";
 }

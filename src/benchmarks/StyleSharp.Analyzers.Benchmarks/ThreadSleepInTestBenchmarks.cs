@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for thread-sleep-in-test analysis (SST2506).</summary>
+[System.Diagnostics.DebuggerDisplay("ThreadSleepInTestBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class ThreadSleepInTestBenchmarks
@@ -24,11 +26,13 @@ public class ThreadSleepInTestBenchmarks
 
     /// <summary>Benchmarks the clean thread-sleep-in-test path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ThreadSleepInTest_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating thread-sleep-in-test path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ThreadSleepInTest_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -62,7 +62,7 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
     /// <summary>Reports SES1510 for a controller redirect helper whose URL argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="controllerBase">The resolved <c>ControllerBase</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol controllerBase)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol controllerBase)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -98,8 +98,8 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
     /// <summary>Returns the invoked member's simple name for an <c>Identifier(...)</c> or <c>x.Identifier(...)</c> call.</summary>
     /// <param name="expression">The invocation's callee expression.</param>
     /// <returns>The simple name, or <see langword="null"/> when the callee is not a plain member reference.</returns>
-    private static string? GetInvokedName(ExpressionSyntax expression)
-        => expression switch
+    private static string? GetInvokedName(ExpressionSyntax expression) =>
+        expression switch
         {
             IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,

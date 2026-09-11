@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for concat-over-empty-join analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("ConcatOverEmptyJoinProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class ConcatOverEmptyJoinProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class ConcatOverEmptyJoinProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean concat-over-empty-join path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ConcatOverEmptyJoin_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating concat-over-empty-join path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> ConcatOverEmptyJoin_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -94,7 +94,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     internal static bool HasForeachCompatibleBody(WhileStatementSyntax whileStatement, string name)
     {
         var state = new BodyScanState(name, Valid: true);
-        DescendantTraversalHelper.VisitDescendants(whileStatement.Statement, ref state, BodyVisitor);
+        _ = DescendantTraversalHelper.VisitDescendants(whileStatement.Statement, ref state, BodyVisitor);
         return state.Valid;
     }
 
@@ -113,7 +113,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
         for (var i = index + 1; i < statements.Count; i++)
         {
             var state = new LaterUseState(name, Found: false);
-            DescendantTraversalHelper.VisitDescendants(statements[i], ref state, LaterUseVisitor);
+            _ = DescendantTraversalHelper.VisitDescendants(statements[i], ref state, LaterUseVisitor);
             if (state.Found)
             {
                 return true;
@@ -235,8 +235,8 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <summary>Returns whether an identifier is the receiver of a read-only <c>Current</c> member access.</summary>
     /// <param name="identifier">The identifier to inspect.</param>
     /// <returns><see langword="true"/> for <c>id.Current</c> reads.</returns>
-    private static bool IsCurrentReadAccess(IdentifierNameSyntax identifier)
-        => identifier.Parent is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } memberAccess
+    private static bool IsCurrentReadAccess(IdentifierNameSyntax identifier) =>
+        identifier.Parent is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } memberAccess
             && memberAccess.Expression == identifier
             && memberAccess.Name is IdentifierNameSyntax { Identifier.ValueText: "Current" }
             && IsReadOnlyUse(memberAccess);
@@ -264,22 +264,22 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <summary>Returns whether a postfix operator leaves its <c>Current</c> operand unmodified.</summary>
     /// <param name="postfix">The postfix expression whose operand is the access.</param>
     /// <returns><see langword="true"/> unless the operator is an increment or decrement.</returns>
-    private static bool IsReadOnlyPostfixUse(PostfixUnaryExpressionSyntax postfix)
-        => !postfix.IsKind(SyntaxKind.PostIncrementExpression) && !postfix.IsKind(SyntaxKind.PostDecrementExpression);
+    private static bool IsReadOnlyPostfixUse(PostfixUnaryExpressionSyntax postfix) =>
+        !postfix.IsKind(SyntaxKind.PostIncrementExpression) && !postfix.IsKind(SyntaxKind.PostDecrementExpression);
 
     /// <summary>Returns whether a prefix operator leaves its <c>Current</c> operand unmodified and unaliased.</summary>
     /// <param name="prefix">The prefix expression whose operand is the access.</param>
     /// <returns><see langword="true"/> unless the operator is an increment, a decrement, or address-of.</returns>
-    private static bool IsReadOnlyPrefixUse(PrefixUnaryExpressionSyntax prefix)
-        => !prefix.IsKind(SyntaxKind.PreIncrementExpression)
+    private static bool IsReadOnlyPrefixUse(PrefixUnaryExpressionSyntax prefix) =>
+        !prefix.IsKind(SyntaxKind.PreIncrementExpression)
             && !prefix.IsKind(SyntaxKind.PreDecrementExpression)
             && !prefix.IsKind(SyntaxKind.AddressOfExpression);
 
     /// <summary>Returns whether an argument passes its <c>Current</c> expression by value rather than by <c>ref</c>/<c>out</c>.</summary>
     /// <param name="argument">The argument carrying the access.</param>
     /// <returns><see langword="true"/> for a plain by-value argument.</returns>
-    private static bool IsByValueArgument(ArgumentSyntax argument)
-        => !argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword) && !argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword);
+    private static bool IsByValueArgument(ArgumentSyntax argument) =>
+        !argument.RefOrOutKeyword.IsKind(SyntaxKind.RefKeyword) && !argument.RefOrOutKeyword.IsKind(SyntaxKind.OutKeyword);
 
     /// <summary>Returns whether an expression is an assignment target, directly or through tuple deconstruction.</summary>
     /// <param name="expression">The expression to inspect.</param>
@@ -299,8 +299,8 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <param name="node">The node to inspect.</param>
     /// <param name="name">The enumerator local's name.</param>
     /// <returns><see langword="true"/> when the node redeclares the name.</returns>
-    private static bool DeclaresName(SyntaxNode node, string name)
-        => node switch
+    private static bool DeclaresName(SyntaxNode node, string name) =>
+        node switch
         {
             ParameterSyntax parameter => Matches(parameter.Identifier, name),
             VariableDeclaratorSyntax variable => Matches(variable.Identifier, name),
@@ -315,8 +315,8 @@ public sealed class Sst1467UseForeachOverManualEnumeratorAnalyzer : DiagnosticAn
     /// <param name="identifier">The identifier token.</param>
     /// <param name="name">The enumerator local's name.</param>
     /// <returns><see langword="true"/> when the token matches.</returns>
-    private static bool Matches(SyntaxToken identifier, string name)
-        => identifier.RawKind != 0 && string.Equals(identifier.ValueText, name, StringComparison.Ordinal);
+    private static bool Matches(SyntaxToken identifier, string name) =>
+        identifier.RawKind != 0 && string.Equals(identifier.ValueText, name, StringComparison.Ordinal);
 
     /// <summary>Records an enumerator use after the loop.</summary>
     /// <param name="identifier">The visited identifier.</param>

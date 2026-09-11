@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2490MergeableAdjacentTryAnalyzer>;
 
@@ -12,9 +13,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 {
     /// <summary>Verifies two adjacent tries with an identical typed catch report the second.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalTypedCatchIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalTypedCatchIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -30,9 +32,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies an identical general catch that carries a body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalGeneralCatchBodyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalGeneralCatchBodyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -48,9 +51,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a typed catch with an empty body is reported (catching the type is real handling).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task TypedCatchEmptyBodyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task TypedCatchEmptyBodyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -66,9 +70,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies an identical exception filter with an empty body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalFilterEmptyBodyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalFilterEmptyBodyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -86,9 +91,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies two adjacent tries with an identical non-empty finally are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalFinallyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalFinallyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -104,9 +110,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a matching catch and finally together are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IdenticalCatchAndFinallyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task IdenticalCatchAndFinallyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -122,9 +129,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies three identical tries in a row report the second and the third.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ThreeIdenticalTriesReportEachFollowerAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ThreeIdenticalTriesReportEachFollowerAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -141,9 +149,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies catches over different exception types are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentCaughtTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentCaughtTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -159,9 +168,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies catch bodies that differ are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentCatchBodyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentCatchBodyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -177,9 +187,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a differing catch count is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentCatchCountIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentCatchCountIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -195,9 +206,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies catches whose only difference is the exception variable name are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentExceptionVariableNameIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentExceptionVariableNameIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -213,9 +225,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a finally on only one of the two tries is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FinallyOnlyOnFirstIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task FinallyOnlyOnFirstIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -231,9 +244,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a finally on only the second of the two tries is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FinallyOnlyOnSecondIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task FinallyOnlyOnSecondIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -249,9 +263,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies matching catches with differing finally bodies are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DifferentFinallyBodyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DifferentFinallyBodyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -267,9 +282,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies two adjacent bare try/catch with an empty handler add nothing and are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BareEmptyCatchIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BareEmptyCatchIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -285,9 +301,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies two adjacent try/finally with an empty finally add nothing and are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmptyFinallyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmptyFinallyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -303,9 +320,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a try whose next sibling is not a try is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NextSiblingNotATryIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NextSiblingNotATryIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -321,9 +339,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies two identical tries separated by another statement are left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonAdjacentIdenticalTriesAreCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonAdjacentIdenticalTriesAreCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -340,9 +359,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a single try is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleTryIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleTryIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -357,9 +377,10 @@ public class MergeableAdjacentTryAnalyzerUnitTest
 
     /// <summary>Verifies a try that is an embedded statement (its parent is not a block) is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EmbeddedTryWithoutBlockParentIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EmbeddedTryWithoutBlockParentIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {

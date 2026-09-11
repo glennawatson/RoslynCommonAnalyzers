@@ -12,8 +12,8 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionExpressionRules.UseExplicitCollectionExpression);
 
     /// <inheritdoc/>
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics
-        => SupportedDiagnosticsValue;
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
+        SupportedDiagnosticsValue;
 
     /// <inheritdoc/>
     public override void Initialize(AnalysisContext context)
@@ -50,7 +50,7 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
     /// <summary>Reports an accepted explicit collection creation.</summary>
     /// <param name="context">The syntax context.</param>
     /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
@@ -77,7 +77,7 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
     /// still compiles and quietly does something else. The rewritten call is bound before the suggestion
     /// is offered, and anything that does not land back on the same member is left alone.
     /// </remarks>
-    private static bool ChangesOverloadResolution(SyntaxNodeAnalysisContext context, ExpressionSyntax expression, InitializerExpressionSyntax initializer)
+    private static bool ChangesOverloadResolution(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, InitializerExpressionSyntax initializer)
     {
         if (expression.Parent is not ArgumentSyntax argument
             || argument.Parent is not BaseArgumentListSyntax list

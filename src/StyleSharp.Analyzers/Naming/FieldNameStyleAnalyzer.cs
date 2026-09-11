@@ -49,7 +49,7 @@ public sealed class FieldNameStyleAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports each style violation for a single field identifier.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The field identifier token.</param>
-    private static void CheckName(SyntaxNodeAnalysisContext context, SyntaxToken identifier)
+    private static void CheckName(in SyntaxNodeAnalysisContext context, SyntaxToken identifier)
     {
         var name = identifier.ValueText;
         if (name.Length == 0)

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -33,23 +35,24 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
     private const string AttributeSuffix = "Attribute";
 
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(CorrectnessRules.DefaultValueOnParameter.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Use [DefaultParameterValue]",
             nameof(Sst2460DefaultValueOnParameterCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported attribute and rewrites it to the interop attribute.</summary>
     /// <param name="root">The syntax root.</param>
@@ -93,7 +96,7 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
         // the name must be qualified, and it is qualified from the root so it binds regardless of local names.
         var text = interopAttribute.ToMinimalDisplayString(model, position).IndexOf('.') < 0
             ? baseName
-            : "global::" + InteropNamespace + "." + baseName;
+            : $"global::{InteropNamespace}.{baseName}";
 
         return SyntaxFactory.ParseName(text).WithTriviaFrom(originalName);
     }

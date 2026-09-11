@@ -11,8 +11,8 @@ internal static class HidingGeneralOverloadBenchmarkSource
     /// <param name="types">The number of synthetic base/derived pairs to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => violating ? GenerateViolatingPair(i) : GenerateCleanPair(i))}}
@@ -21,8 +21,8 @@ internal static class HidingGeneralOverloadBenchmarkSource
     /// <summary>Builds one base/derived pair whose derived method overrides the base, hiding nothing.</summary>
     /// <param name="index">The synthetic pair index.</param>
     /// <returns>The generated pair block.</returns>
-    private static string GenerateCleanPair(int index)
-        => $$"""
+    private static string GenerateCleanPair(int index) =>
+        $$"""
            public class Base{{index}}
            {
                public virtual void Handle(string message)
@@ -41,8 +41,8 @@ internal static class HidingGeneralOverloadBenchmarkSource
     /// <summary>Builds one base/derived pair whose derived overload is general enough to hide the base overload.</summary>
     /// <param name="index">The synthetic pair index.</param>
     /// <returns>The generated pair block.</returns>
-    private static string GenerateViolatingPair(int index)
-        => $$"""
+    private static string GenerateViolatingPair(int index) =>
+        $$"""
            public class Base{{index}}
            {
                public virtual void Handle(string message)

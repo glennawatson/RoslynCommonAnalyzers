@@ -54,7 +54,7 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
     /// <summary>Reports SES1506 for an unguarded <c>UseDeveloperExceptionPage</c> call on the gated extensions type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="extensionsType">The gated extensions type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol extensionsType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol extensionsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -111,7 +111,7 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
         }
 
         var found = false;
-        DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, bool>(
+        _ = DescendantTraversalHelper.VisitDescendants(
             condition,
             ref found,
             static (InvocationExpressionSyntax invocation, ref bool state) =>
@@ -131,14 +131,14 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
     /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
     /// <param name="node">The candidate node.</param>
     /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node)
-        => node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
+    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
+        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
 
     /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>
     /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked)
-        => invoked switch
+    private static string? GetInvokedName(ExpressionSyntax invoked) =>
+        invoked switch
         {
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,

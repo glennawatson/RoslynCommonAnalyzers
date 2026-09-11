@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -85,9 +86,10 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
 
     /// <summary>Verifies a local that is returned is left alone, since its type is part of a contract.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ReturnedLocalIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ReturnedLocalIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -101,9 +103,10 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
 
     /// <summary>Verifies a local passed on as an argument is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PassedLocalIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PassedLocalIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -121,9 +124,10 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
 
     /// <summary>Verifies a single-member anonymous type is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SingleMemberIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task SingleMemberIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -137,9 +141,10 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
 
     /// <summary>Verifies an anonymous type that is not a local's initializer is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonLocalAnonymousTypeIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NonLocalAnonymousTypeIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public sealed class C
             {
@@ -177,11 +182,7 @@ public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
                                    }
                                    """;
 
-        var test = new Verify.Test
-        {
-            TestCode = Source,
-            FixedCode = FixedSource,
-        };
+        var test = new Verify.Test { TestCode = Source, FixedCode = FixedSource, };
 
         test.SolutionTransforms.Add(static (solution, projectId) =>
         {

@@ -81,11 +81,11 @@ public sealed class Sst1138FreeStandingBlockCodeFixProvider : CodeFixProvider, I
     /// A directive inside the block declines the fix: splicing drops the braces, and the <c>#endif</c> or
     /// <c>#endregion</c> closing a region inside is the leading trivia of the brace that goes.
     /// </remarks>
-    private static BlockSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic)
-        => root.FindNode(diagnostic.Location.SourceSpan) is BlockSyntax { Parent: BlockSyntax } block
+    private static BlockSyntax? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is BlockSyntax { Parent: BlockSyntax } block
             && !DirectiveBoundaries.Cross(block, block.FullSpan)
-                ? block
-                : null;
+            ? block
+            : null;
 
     /// <summary>Rebuilds a parent block with the child block at the given index spliced in.</summary>
     /// <param name="parent">The enclosing block.</param>

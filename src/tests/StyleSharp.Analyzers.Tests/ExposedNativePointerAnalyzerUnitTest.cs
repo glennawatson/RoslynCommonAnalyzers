@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2328ExposedNativePointerAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -11,9 +12,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 {
     /// <summary>Verifies a public <c>IntPtr</c> instance field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicIntPtrFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicIntPtrFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -25,9 +27,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>UIntPtr</c> instance field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicUIntPtrFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicUIntPtrFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -39,9 +42,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>nint</c> instance field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNintFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNintFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class NativeOwner
             {
@@ -51,9 +55,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>nuint</c> instance field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNuintFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNuintFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class NativeOwner
             {
@@ -63,9 +68,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a protected <c>IntPtr</c> field is reported, its handle being reachable by a derived type.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedIntPtrFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedIntPtrFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -77,9 +83,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a protected internal <c>IntPtr</c> field is reported, its handle reaching outside the assembly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ProtectedInternalIntPtrFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ProtectedInternalIntPtrFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -91,9 +98,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies every declarator of a multi-declarator native field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryDeclaratorOfMultiNativeFieldIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task EveryDeclaratorOfMultiNativeFieldIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -105,9 +113,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public read/write <c>IntPtr</c> property is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicReadWriteIntPtrPropertyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicReadWriteIntPtrPropertyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -119,9 +128,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public get-only <c>IntPtr</c> property is reported: reading the pointer alone is enough to corrupt it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicGetOnlyIntPtrPropertyIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicGetOnlyIntPtrPropertyIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -133,9 +143,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>IntPtr</c> property with a private setter is still reported on its readable half.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicIntPtrPropertyWithPrivateSetterIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicIntPtrPropertyWithPrivateSetterIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -147,9 +158,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public <c>IntPtr</c> field on a struct is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicIntPtrFieldOnStructIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicIntPtrFieldOnStructIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -161,9 +173,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a positional record parameter of native pointer type, surfaced as a public property, is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PositionalRecordNativePointerParameterIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PositionalRecordNativePointerParameterIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -172,9 +185,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a public virtual native property is reported, while its override is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task OverridingNativePropertyIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task OverridingNativePropertyIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -191,9 +205,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a private native field is not reported, the handle staying under the type's control.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateIntPtrFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateIntPtrFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -207,9 +222,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies an internal native field is not reported, the handle staying inside the assembly.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InternalIntPtrFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InternalIntPtrFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -221,9 +237,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a private protected native field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PrivateProtectedIntPtrFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PrivateProtectedIntPtrFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -235,9 +252,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a static native field is not reported: it is not part of an instance's surface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticIntPtrFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticIntPtrFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -249,9 +267,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a visible field of a non-pointer type is not reported, distinguishing this from a general visible-field rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNonPointerFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNonPointerFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Data
             {
@@ -261,9 +280,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a visible property of a non-pointer type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PublicNonPointerPropertyIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task PublicNonPointerPropertyIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Data
             {
@@ -273,9 +293,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a native-pointer indexer is not reported: it hands back a computed value, not a stored handle.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NativePointerIndexerIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task NativePointerIndexerIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -287,9 +308,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies an explicitly-implemented interface native property is not reported: it is private and reachable only through the interface.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExplicitInterfaceNativePropertyIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ExplicitInterfaceNativePropertyIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -306,9 +328,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies an interface declaring a native property is not reported: an interface owns no memory to hide.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InterfaceNativePropertyIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task InterfaceNativePropertyIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -320,9 +343,10 @@ public class ExposedNativePointerAnalyzerUnitTest
 
     /// <summary>Verifies a static class with a public native field is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassNativeFieldIsNotReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task StaticClassNativeFieldIsNotReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             using System;
 

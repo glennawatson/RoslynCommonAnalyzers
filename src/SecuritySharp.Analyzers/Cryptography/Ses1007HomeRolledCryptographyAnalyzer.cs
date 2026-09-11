@@ -67,11 +67,13 @@ public sealed class Ses1007HomeRolledCryptographyAnalyzer : DiagnosticAnalyzer
         var count = 0;
         for (var i = 0; i < PrimitiveBaseMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(PrimitiveBaseMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(PrimitiveBaseMetadataNames[i]) is not { } type)
             {
-                resolved[count] = type;
-                count++;
+                continue;
             }
+
+            resolved[count] = type;
+            count++;
         }
 
         if (count == 0)
@@ -92,7 +94,7 @@ public sealed class Ses1007HomeRolledCryptographyAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1007 for a class whose base chain reaches an abstract primitive base through source-only intermediates.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="primitiveBases">The resolved abstract primitive base symbols to match against.</param>
-    private static void AnalyzeClass(SyntaxNodeAnalysisContext context, INamedTypeSymbol[] primitiveBases)
+    private static void AnalyzeClass(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] primitiveBases)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
 

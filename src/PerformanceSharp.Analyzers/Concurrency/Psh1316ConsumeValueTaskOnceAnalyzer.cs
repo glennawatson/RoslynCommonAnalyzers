@@ -54,7 +54,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a ValueTask local awaited inside a loop it was declared outside of.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeLoop(SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    private static void AnalyzeLoop(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
     {
         if (GetLoopBody(context.Node) is not { } body)
         {
@@ -62,7 +62,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new LoopScan(context, valueTaskTypes, context.Node);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LoopScan>(body, ref scan, VisitLoopConsume);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, LoopScan>(body, ref scan, VisitLoopConsume);
     }
 
     /// <summary>Classifies one identifier inside a loop body, reporting a stale ValueTask consume.</summary>
@@ -89,7 +89,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports a ValueTask local copied into a second local where both are consumed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeCopy(SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    private static void AnalyzeCopy(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (!declaration.UsingKeyword.IsKind(SyntaxKind.None))
@@ -108,7 +108,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
     /// <param name="variable">The copy declarator.</param>
-    private static void AnalyzeCopyVariable(SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes, VariableDeclaratorSyntax variable)
+    private static void AnalyzeCopyVariable(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes, VariableDeclaratorSyntax variable)
     {
         if (variable.Initializer?.Value is not IdentifierNameSyntax source
             || context.SemanticModel.GetSymbolInfo(source, context.CancellationToken).Symbol is not ILocalSymbol sourceLocal
@@ -150,7 +150,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     private static bool IsConsumedIn(SyntaxNode body, string name)
     {
         var state = new NameConsumeScan(name);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameConsumeScan>(body, ref state, VisitNameConsume);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, NameConsumeScan>(body, ref state, VisitNameConsume);
         return state.Found;
     }
 
@@ -183,7 +183,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         }
 
         var state = new NamePreserveScan(name);
-        DescendantTraversalHelper.VisitDescendants<MemberAccessExpressionSyntax, NamePreserveScan>(body, ref state, VisitPreserve);
+        _ = DescendantTraversalHelper.VisitDescendants<MemberAccessExpressionSyntax, NamePreserveScan>(body, ref state, VisitPreserve);
         return state.Found;
     }
 
@@ -208,8 +208,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
     /// <param name="local">The local.</param>
     /// <param name="loop">The loop node.</param>
     /// <returns><see langword="true"/> when the declaration is within the loop.</returns>
-    private static bool IsDeclaredInside(ILocalSymbol local, SyntaxNode loop)
-        => local.DeclaringSyntaxReferences is [var reference] && loop.Span.Contains(reference.Span);
+    private static bool IsDeclaredInside(ILocalSymbol local, SyntaxNode loop) =>
+        local.DeclaringSyntaxReferences is [var reference] && loop.Span.Contains(reference.Span);
 
     /// <summary>Returns whether an identifier is declared or reassigned within the loop, so the ValueTask is fresh.</summary>
     /// <param name="identifier">The consumed identifier.</param>
@@ -223,7 +223,7 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         }
 
         var state = new NameWriteScan(identifier.Identifier.ValueText);
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, NameWriteScan>(body, ref state, VisitNameWrite);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, NameWriteScan>(body, ref state, VisitNameWrite);
         return state.Found;
     }
 
@@ -323,8 +323,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         /// <summary>Returns whether a type is a <c>ValueTask</c> or <c>ValueTask&lt;T&gt;</c>.</summary>
         /// <param name="type">The type to test.</param>
         /// <returns><see langword="true"/> for either ValueTask type.</returns>
-        public bool IsValueTask(ITypeSymbol type)
-            => (ValueTask is not null && SymbolEqualityComparer.Default.Equals(type, ValueTask))
+        public bool IsValueTask(ITypeSymbol type) =>
+            (ValueTask is not null && SymbolEqualityComparer.Default.Equals(type, ValueTask))
                 || (ValueTaskOfT is not null && SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, ValueTaskOfT));
     }
 

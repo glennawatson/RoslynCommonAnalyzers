@@ -11,8 +11,8 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit event-signature rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System;
 
            namespace Bench;
@@ -24,8 +24,8 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type per exit the no-diagnostic path takes.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -34,8 +34,8 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// The framework handlers settle in two string comparisons, and the interface-dictated event is the
     /// expensive clean case: it walks the implemented interfaces before it is let go.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class ValueChangedEventArgs{{index}} : EventArgs
            {
                public int Value { get; set; }
@@ -63,8 +63,8 @@ internal static class EventHandlerSignatureBenchmarkSource
     /// Two diagnostics per type, one per message flavour: a delegate carrying a payload nothing generic can
     /// handle, and a right-shape delegate whose exact replacement is spelled out.
     /// </remarks>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class MovedEventArgs{{index}} : EventArgs
            {
                public int Value { get; set; }

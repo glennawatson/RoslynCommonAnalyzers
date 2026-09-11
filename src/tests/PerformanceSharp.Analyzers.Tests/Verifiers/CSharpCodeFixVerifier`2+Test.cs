@@ -1,9 +1,9 @@
-﻿// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
+// Copyright (c) 2026 Glenn Watson and Contributors. All rights reserved.
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp.Testing;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
@@ -16,14 +16,10 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
     where TAnalyzer : DiagnosticAnalyzer, new()
     where TCodeFix : CodeFixProvider, new()
 {
-    /// <summary>
-    /// A configured C# code fix test that enables nullable reference type warnings during validation.
-    /// </summary>
+    /// <summary>A configured C# code fix test that enables nullable reference type warnings during validation.</summary>
     public class Test : CSharpCodeFixTest<TAnalyzer, TCodeFix, DefaultVerifier>
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Test"/> class.
-        /// </summary>
+        /// <summary>Initializes a new instance of the <see cref="Test"/> class.</summary>
         public Test() =>
             SolutionTransforms.Add(static (solution, projectId) =>
             {
@@ -55,16 +51,15 @@ public static partial class CSharpCodeFixVerifier<TAnalyzer, TCodeFix>
             // A real CRLF repo pins end_of_line, which is where fix cleanup takes its newline
             // from; the nested config leaves each test's own "/.editorconfig" untouched.
             const string CrlfConfig = "[*]\nend_of_line = crlf\n";
-            const string CrlfConfigPath = "/0/.editorconfig";
-            TestState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
+            TestState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
             if (FixedState.AnalyzerConfigFiles.Count > 0)
             {
-                FixedState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
+                FixedState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
             }
 
             if (BatchFixedState.AnalyzerConfigFiles.Count > 0)
             {
-                BatchFixedState.AnalyzerConfigFiles.Add((CrlfConfigPath, CrlfConfig));
+                BatchFixedState.AnalyzerConfigFiles.Add(("/0/.editorconfig", CrlfConfig));
             }
 
             await base.RunAsync(cancellationToken).ConfigureAwait(false);

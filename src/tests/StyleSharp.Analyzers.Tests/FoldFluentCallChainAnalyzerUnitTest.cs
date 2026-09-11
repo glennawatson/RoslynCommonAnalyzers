@@ -180,10 +180,7 @@ public class FoldFluentCallChainAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyFoldFluentCallChain.Test CreateTest(string source)
     {
-        var test = new VerifyFoldFluentCallChain.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyFoldFluentCallChain.Test { TestCode = source, };
 
         const string Config = """
                               root = true

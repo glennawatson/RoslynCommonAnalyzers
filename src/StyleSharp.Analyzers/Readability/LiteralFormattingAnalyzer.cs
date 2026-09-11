@@ -228,15 +228,15 @@ public sealed class LiteralFormattingAnalyzer : DiagnosticAnalyzer
     /// <param name="width">The group width.</param>
     /// <param name="wide">Whether the literal is hexadecimal or binary.</param>
     /// <returns><see langword="true"/> for three (decimal) or four/two (hexadecimal, binary).</returns>
-    private static bool IsConventionWidth(int width, bool wide)
-        => wide ? width is WideGroupWidth or NarrowGroupWidth : width == DecimalGroupWidth;
+    private static bool IsConventionWidth(int width, bool wide) =>
+        wide ? width is WideGroupWidth or NarrowGroupWidth : width == DecimalGroupWidth;
 
     /// <summary>Returns whether a character is a digit of the literal's base.</summary>
     /// <param name="c">The character.</param>
     /// <param name="wide">Whether the literal is hexadecimal or binary.</param>
     /// <returns><see langword="true"/> for a base digit.</returns>
-    private static bool IsBaseDigit(char c, bool wide)
-        => c is >= '0' and <= '9' || (wide && (c is >= 'a' and <= 'f' || c is >= 'A' and <= 'F'));
+    private static bool IsBaseDigit(char c, bool wide) =>
+        c is >= '0' and <= '9' || (wide && (c is >= 'a' and <= 'f' || c is >= 'A' and <= 'F'));
 
     /// <summary>Reports SST1192 for a string literal that embeds a raw control character.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -259,8 +259,8 @@ public sealed class LiteralFormattingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a literal's text begins a raw string literal (three or more quotes).</summary>
     /// <param name="text">The literal token text.</param>
     /// <returns><see langword="true"/> for a raw string literal.</returns>
-    private static bool IsRawStringLiteral(string text)
-        => text.Length >= RawStringQuoteRun && text[0] == '"' && text[1] == '"' && text[RawStringQuoteRun - 1] == '"';
+    private static bool IsRawStringLiteral(string text) =>
+        text.Length >= RawStringQuoteRun && text[0] == '"' && text[1] == '"' && text[RawStringQuoteRun - 1] == '"';
 
     /// <summary>Returns whether the remainder of a numeric literal from <paramref name="start"/> is a valid integer suffix.</summary>
     /// <param name="text">The literal token text.</param>

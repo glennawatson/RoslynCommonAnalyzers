@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace RoslynCommon.Analyzers;
 
 /// <summary>
@@ -28,23 +30,26 @@ internal static class LanguageVersions
     /// <summary>Gets whether a node's tree may use C# 13 syntax.</summary>
     /// <param name="node">The syntax node.</param>
     /// <returns><see langword="true"/> when the tree was parsed as C# 13 or later.</returns>
-    public static bool SupportsCSharp13(SyntaxNode node) => IsAtLeast(node, CSharp13Version);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool SupportsCSharp13(SyntaxNode node) => IsAtLeast(node, CSharp13Version);
 
     /// <summary>Gets whether a node's tree may use C# 14 syntax.</summary>
     /// <param name="node">The syntax node.</param>
     /// <returns><see langword="true"/> when the tree was parsed as C# 14 or later.</returns>
-    public static bool SupportsCSharp14(SyntaxNode node) => IsAtLeast(node, CSharp14Version);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool SupportsCSharp14(SyntaxNode node) => IsAtLeast(node, CSharp14Version);
 
     /// <summary>Gets whether a node's tree may use C# 15 syntax.</summary>
     /// <param name="node">The syntax node.</param>
     /// <returns><see langword="true"/> when the tree was parsed as C# 15 or later.</returns>
-    public static bool SupportsCSharp15(SyntaxNode node) => IsAtLeast(node, CSharp15Version);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool SupportsCSharp15(SyntaxNode node) => IsAtLeast(node, CSharp15Version);
 
     /// <summary>Resolves a version by the name the compiler and project files spell it with.</summary>
     /// <param name="text">The version text, such as <c>15.0</c>.</param>
     /// <returns>The version, or <see langword="null"/> when the host compiler has no such version.</returns>
-    private static LanguageVersion? Resolve(string text)
-        => LanguageVersionFacts.TryParse(text, out var version) ? version : null;
+    private static LanguageVersion? Resolve(string text) =>
+        LanguageVersionFacts.TryParse(text, out var version) ? version : null;
 
     /// <summary>Gets whether a node's tree was parsed with at least the supplied language version.</summary>
     /// <param name="node">The syntax node.</param>

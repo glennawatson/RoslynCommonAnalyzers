@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -71,8 +73,9 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes an <c>x += delegate</c> event or delegate subscription.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeEventSubscription(SyntaxNodeAnalysisContext context)
-        => HandleStoredLambda(Unwrap(((AssignmentExpressionSyntax)context.Node).Right), context);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void AnalyzeEventSubscription(SyntaxNodeAnalysisContext context) =>
+        HandleStoredLambda(Unwrap(((AssignmentExpressionSyntax)context.Node).Right), context);
 
     /// <summary>Analyzes a delegate assigned to a field, property, or array element.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -102,7 +105,7 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     /// <summary>Handles a stored argument that may be a lambda or a local-function method group.</summary>
     /// <param name="expression">The unwrapped argument expression.</param>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void HandleStoredArgument(ExpressionSyntax expression, SyntaxNodeAnalysisContext context)
+    private static void HandleStoredArgument(ExpressionSyntax expression, in SyntaxNodeAnalysisContext context)
     {
         if (expression is AnonymousFunctionExpressionSyntax anonymousFunction)
         {
@@ -124,7 +127,7 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     /// <summary>Handles a stored expression, acting only when it is a lambda or anonymous method.</summary>
     /// <param name="expression">The unwrapped stored expression.</param>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void HandleStoredLambda(ExpressionSyntax expression, SyntaxNodeAnalysisContext context)
+    private static void HandleStoredLambda(ExpressionSyntax expression, in SyntaxNodeAnalysisContext context)
     {
         if (expression is not AnonymousFunctionExpressionSyntax anonymousFunction)
         {
@@ -138,7 +141,7 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     /// <param name="captureRoot">The delegate whose captures to inspect.</param>
     /// <param name="reportLocation">The location to report at.</param>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void ReportIfCapturing(SyntaxNode captureRoot, Location reportLocation, SyntaxNodeAnalysisContext context)
+    private static void ReportIfCapturing(SyntaxNode captureRoot, Location reportLocation, in SyntaxNodeAnalysisContext context)
     {
         if (!HasLoopAncestor(captureRoot))
         {
@@ -146,7 +149,7 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
         }
 
         var scan = new CaptureScan(context.SemanticModel, captureRoot, context.CancellationToken);
-        DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, CaptureScan>(captureRoot, ref scan, VisitCapturedIdentifier);
+        _ = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, CaptureScan>(captureRoot, ref scan, VisitCapturedIdentifier);
         if (scan.Result is not { } name)
         {
             return;
@@ -162,7 +165,7 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     private static bool VisitCapturedIdentifier(IdentifierNameSyntax identifier, ref CaptureScan state)
     {
         if (state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol is not ILocalSymbol local
-            || local.DeclaringSyntaxReferences.Length == 0)
+            || local.DeclaringSyntaxReferences.IsEmpty)
         {
             return true;
         }
@@ -330,14 +333,14 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a syntax kind is an increment or decrement operator.</summary>
     /// <param name="kind">The kind to test.</param>
     /// <returns><see langword="true"/> for pre/post increment or decrement.</returns>
-    private static bool IsStep(SyntaxKind kind)
-        => kind is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression or SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression;
+    private static bool IsStep(SyntaxKind kind) =>
+        kind is SyntaxKind.PreIncrementExpression or SyntaxKind.PreDecrementExpression or SyntaxKind.PostIncrementExpression or SyntaxKind.PostDecrementExpression;
 
     /// <summary>Returns whether an argument is passed by <c>ref</c> or <c>out</c>.</summary>
     /// <param name="argument">The argument to test.</param>
     /// <returns><see langword="true"/> when the argument is a writable reference.</returns>
-    private static bool IsByReference(ArgumentSyntax argument)
-        => argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
+    private static bool IsByReference(ArgumentSyntax argument) =>
+        argument.RefKindKeyword.IsKind(SyntaxKind.RefKeyword) || argument.RefKindKeyword.IsKind(SyntaxKind.OutKeyword);
 
     /// <summary>Returns whether an expression is an identifier that binds to the given local.</summary>
     /// <param name="expression">The expression to test.</param>
@@ -345,8 +348,8 @@ public sealed class Sst2479CapturedLoopVariableAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the expression names the local.</returns>
-    private static bool BindsTo(ExpressionSyntax expression, ILocalSymbol local, SemanticModel model, CancellationToken cancellationToken)
-        => Unwrap(expression) is IdentifierNameSyntax identifier
+    private static bool BindsTo(ExpressionSyntax expression, ILocalSymbol local, SemanticModel model, CancellationToken cancellationToken) =>
+        Unwrap(expression) is IdentifierNameSyntax identifier
             && identifier.Identifier.ValueText == local.Name
             && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, local);
 

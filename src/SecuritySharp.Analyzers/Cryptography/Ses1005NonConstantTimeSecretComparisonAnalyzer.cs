@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -80,7 +82,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             // Gate the whole rule on the suggested API: without CryptographicOperations there is no
             // FixedTimeEquals to recommend, so nothing is registered and the clean path costs nothing.
@@ -210,7 +212,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <param name="right">The second comparison operand.</param>
     /// <returns><see langword="true"/> when the call is a bool-returning equality with two operands.</returns>
     private static bool TryResolveComparisonOperands(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
         MemberAccessExpressionSyntax member,
         out ExpressionSyntax left,
@@ -234,7 +236,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <param name="left">The first comparison operand.</param>
     /// <param name="right">The second comparison operand.</param>
     /// <returns><see langword="true"/> when the comparison is the attacker-versus-secret shape.</returns>
-    private static bool IsGuardedComparison(SyntaxNodeAnalysisContext context, ExpressionSyntax left, ExpressionSyntax right)
+    private static bool IsGuardedComparison(in SyntaxNodeAnalysisContext context, ExpressionSyntax left, ExpressionSyntax right)
     {
         if (!IsSecretComparableType(context.SemanticModel.GetTypeInfo(left, context.CancellationToken).Type)
             || !IsSecretComparableType(context.SemanticModel.GetTypeInfo(right, context.CancellationToken).Type))
@@ -311,8 +313,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <summary>Returns whether the bound method is called in the static two-operand form.</summary>
     /// <param name="method">The bound method symbol.</param>
     /// <returns><see langword="true"/> for a non-reduced static call whose operands are its arguments.</returns>
-    private static bool IsStaticTwoOperandForm(IMethodSymbol method)
-        => method.IsStatic && method.MethodKind != MethodKind.ReducedExtension;
+    private static bool IsStaticTwoOperandForm(IMethodSymbol method) =>
+        method.IsStatic && method.MethodKind != MethodKind.ReducedExtension;
 
     /// <summary>Returns the secret operand name, honouring the verify-method guard for expectation names.</summary>
     /// <param name="node">The comparison node, used to locate the enclosing method for the guard.</param>
@@ -409,8 +411,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <summary>Returns whether a type is one the constant-time comparison heuristic covers.</summary>
     /// <param name="type">The operand type.</param>
     /// <returns><see langword="true"/> for <c>byte[]</c>, a byte span, or <c>string</c>.</returns>
-    private static bool IsSecretComparableType(ITypeSymbol? type)
-        => type is { SpecialType: SpecialType.System_String } || IsByteBuffer(type);
+    private static bool IsSecretComparableType(ITypeSymbol? type) =>
+        type is { SpecialType: SpecialType.System_String } || IsByteBuffer(type);
 
     /// <summary>Returns whether a type is a byte buffer that <c>FixedTimeEquals</c> can accept.</summary>
     /// <param name="type">The operand type.</param>
@@ -425,8 +427,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <summary>Returns whether a named type is <c>System.ReadOnlySpan&lt;byte&gt;</c> or <c>System.Span&lt;byte&gt;</c>.</summary>
     /// <param name="type">The named type.</param>
     /// <returns><see langword="true"/> for a byte span.</returns>
-    private static bool IsByteSpan(INamedTypeSymbol type)
-        => (type.Name == "ReadOnlySpan" || type.Name == "Span")
+    private static bool IsByteSpan(INamedTypeSymbol type) =>
+        (type.Name == "ReadOnlySpan" || type.Name == "Span")
             && type.ContainingNamespace is { Name: "System", ContainingNamespace.IsGlobalNamespace: true }
             && type.TypeArguments.Length == 1
             && type.TypeArguments[0].SpecialType == SpecialType.System_Byte;
@@ -435,8 +437,9 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The comparison node to report.</param>
     /// <param name="secretName">The secret operand's name.</param>
-    private static void Report(SyntaxNodeAnalysisContext context, SyntaxNode node, string secretName)
-        => context.ReportDiagnostic(DiagnosticHelper.Create(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SyntaxNode node, string secretName) =>
+        context.ReportDiagnostic(DiagnosticHelper.Create(
             SecurityRules.NonConstantTimeSecretComparison,
             node.SyntaxTree,
             node.Span,

@@ -23,6 +23,6 @@ internal readonly record struct SealNonDerivedTypeOptions(bool IncludePublic)
     /// "nothing outside this build derives from my types" — true for an application, rarely true for
     /// a library.
     /// </remarks>
-    public static SealNonDerivedTypeOptions Read(AnalyzerConfigOptions options)
-        => new(AnalyzerOptionReader.ReadBool(options, IncludePublicRuleKey, IncludePublicGeneralKey));
+    internal static SealNonDerivedTypeOptions Read(AnalyzerConfigOptions options) =>
+        new(AnalyzerOptionReader.ReadBool(options, IncludePublicRuleKey, IncludePublicGeneralKey));
 }

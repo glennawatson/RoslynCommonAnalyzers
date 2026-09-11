@@ -58,7 +58,7 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SES1001 for an AEAD <c>Encrypt</c> call whose nonce argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="aeadTypes">The gated AEAD types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] aeadTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] aeadTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -108,8 +108,8 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The nonce argument expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the nonce is a fixed value.</returns>
-    private static bool IsFixedNonce(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => expression switch
+    private static bool IsFixedNonce(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        expression switch
         {
             // An inline 'new byte[N]' has no writes before the call: no initializer means an all-zero
             // buffer, and an initializer is fixed only when every element is a compile-time constant.
@@ -147,8 +147,8 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The nonce reference expression.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> for a static readonly field reference.</returns>
-    private static bool IsStaticReadonlyField(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true, IsReadOnly: true };
+    private static bool IsStaticReadonlyField(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol { IsStatic: true, IsReadOnly: true };
 
     /// <summary>Returns the gated AEAD type when a bound method's container is one of them.</summary>
     /// <param name="containingType">The bound <c>Encrypt</c> method's containing type.</param>
@@ -175,11 +175,13 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol?[]? types = null;
         for (var i = 0; i < AeadMetadataNames.Length; i++)
         {
-            if (compilation.GetTypeByMetadataName(AeadMetadataNames[i]) is { } type)
+            if (compilation.GetTypeByMetadataName(AeadMetadataNames[i]) is not { } type)
             {
-                types ??= new INamedTypeSymbol?[AeadMetadataNames.Length];
-                types[i] = type;
+                continue;
             }
+
+            types ??= new INamedTypeSymbol?[AeadMetadataNames.Length];
+            types[i] = type;
         }
 
         return types;

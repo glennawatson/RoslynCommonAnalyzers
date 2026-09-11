@@ -17,7 +17,7 @@ internal readonly record struct FieldClassification(bool IsConst, bool IsStatic,
     /// <summary>Classifies a field from its modifier list.</summary>
     /// <param name="modifiers">The field declaration's modifiers.</param>
     /// <returns>The classification.</returns>
-    public static FieldClassification Classify(SyntaxTokenList modifiers)
+    internal static FieldClassification Classify(in SyntaxTokenList modifiers)
     {
         var isConst = false;
         var isStatic = false;
@@ -37,10 +37,6 @@ internal readonly record struct FieldClassification(bool IsConst, bool IsStatic,
             hasOtherAccess |= kind is SyntaxKind.PublicKeyword or SyntaxKind.InternalKeyword or SyntaxKind.ProtectedKeyword;
         }
 
-        // `private protected` keeps both keywords but is treated as private; a
-        // field with no access modifier is private by default.
-        var isPrivate = hasPrivate || !hasOtherAccess;
-
-        return new(isConst, isStatic, isReadOnly, isPrivate);
+        return new(isConst, isStatic, isReadOnly, hasPrivate || !hasOtherAccess);
     }
 }

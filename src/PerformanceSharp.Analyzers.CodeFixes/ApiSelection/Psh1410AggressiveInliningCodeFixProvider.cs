@@ -96,11 +96,11 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <param name="unit">The document's compilation unit.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The member, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static BaseMethodDeclarationSyntax? Resolve(CompilationUnitSyntax unit, Diagnostic diagnostic)
-        => unit.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>() is { } declaration
+    private static BaseMethodDeclarationSyntax? Resolve(CompilationUnitSyntax unit, Diagnostic diagnostic) =>
+        unit.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseMethodDeclarationSyntax>() is { } declaration
             && Psh1410AggressiveInliningAnalyzer.IsEligibleForwarder(declaration)
-                ? declaration
-                : null;
+            ? declaration
+            : null;
 
     /// <summary>Builds the member with the attribute on the line above it.</summary>
     /// <param name="declaration">The member as it was written.</param>
@@ -111,7 +111,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// carries an attribute holds its doc comment and any directives on that first list, so inserting
     /// ahead of the original lists would leave a second copy of both above the one this fix writes.
     /// </remarks>
-    private static BaseMethodDeclarationSyntax WithAttribute(BaseMethodDeclarationSyntax declaration, SyntaxTrivia lineBreak)
+    private static BaseMethodDeclarationSyntax WithAttribute(BaseMethodDeclarationSyntax declaration, in SyntaxTrivia lineBreak)
     {
         var leading = declaration.GetLeadingTrivia();
         var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{AttributeText} void P();")!).AttributeLists[0]
@@ -125,8 +125,8 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <summary>Returns the indentation whitespace at the end of a member's leading trivia.</summary>
     /// <param name="leading">The member's leading trivia.</param>
     /// <returns>The indentation trivia, or elastic space when none.</returns>
-    private static SyntaxTrivia GetIndentation(in SyntaxTriviaList leading)
-        => leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
+    private static SyntaxTrivia GetIndentation(in SyntaxTriviaList leading) =>
+        leading.Count > 0 && leading[leading.Count - 1].IsKind(SyntaxKind.WhitespaceTrivia)
             ? leading[leading.Count - 1]
             : SyntaxFactory.Whitespace(string.Empty);
 
@@ -134,7 +134,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <param name="unit">The compilation unit to import into.</param>
     /// <param name="lineBreak">The file's line-break trivia.</param>
     /// <returns>The compilation unit importing the namespace.</returns>
-    private static CompilationUnitSyntax WithCompilerServicesImport(CompilationUnitSyntax unit, SyntaxTrivia lineBreak)
+    private static CompilationUnitSyntax WithCompilerServicesImport(CompilationUnitSyntax unit, in SyntaxTrivia lineBreak)
     {
         if (ImportsCompilerServices(unit))
         {
@@ -177,8 +177,8 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// the file says nothing about the imports, and the position the directive is written to is fixed by
     /// the file's text, so every compilation of a linked file writes the same thing.
     /// </remarks>
-    private static bool CanWriteAttribute(CompilationUnitSyntax unit)
-        => !ImportsCarryDirectives(unit);
+    private static bool CanWriteAttribute(CompilationUnitSyntax unit) =>
+        !ImportsCarryDirectives(unit);
 
     /// <summary>Returns whether a directive stands among the file's imports.</summary>
     /// <param name="unit">The compilation unit to inspect.</param>
@@ -204,8 +204,8 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <summary>Returns whether a using directive imports a namespace outright.</summary>
     /// <param name="directive">The directive to inspect.</param>
     /// <returns><see langword="true"/> for a directive that is neither an alias nor <c>static</c>.</returns>
-    private static bool IsPlainImport(UsingDirectiveSyntax directive)
-        => directive.Alias is null && directive.StaticKeyword.IsKind(SyntaxKind.None);
+    private static bool IsPlainImport(UsingDirectiveSyntax directive) =>
+        directive.Alias is null && directive.StaticKeyword.IsKind(SyntaxKind.None);
 
     /// <summary>Writes the file's first import, moving the file header onto it.</summary>
     /// <param name="unit">The compilation unit to import into.</param>
@@ -216,7 +216,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// With no imports of its own the file's header comment leads the first member, so the header has
     /// to move onto the directive; a blank line takes its place above the member.
     /// </remarks>
-    private static CompilationUnitSyntax InsertFirstImport(CompilationUnitSyntax unit, UsingDirectiveSyntax directive, SyntaxTrivia lineBreak)
+    private static CompilationUnitSyntax InsertFirstImport(CompilationUnitSyntax unit, UsingDirectiveSyntax directive, in SyntaxTrivia lineBreak)
     {
         if (unit.Members.Count == 0)
         {
@@ -271,8 +271,8 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     /// <summary>Returns whether a namespace belongs to the <c>System</c> group.</summary>
     /// <param name="name">The namespace name.</param>
     /// <returns><see langword="true"/> for <c>System</c> and anything beneath it.</returns>
-    private static bool IsSystemNamespace(string name)
-        => name == SystemNamespace || name.StartsWith(SystemNamespace + ".", StringComparison.Ordinal);
+    private static bool IsSystemNamespace(string name) =>
+        name == SystemNamespace || name.StartsWith($"{SystemNamespace}.", StringComparison.Ordinal);
 
     /// <summary>Applies every reported member in a document in one pass, so the import is written once.</summary>
     private sealed class DocumentFixAll : DocumentBasedFixAllProvider

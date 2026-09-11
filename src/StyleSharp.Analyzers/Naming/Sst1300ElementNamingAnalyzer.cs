@@ -108,7 +108,7 @@ public sealed class Sst1300ElementNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports SST1300 when <paramref name="identifier"/> does not begin with an upper-case letter.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="identifier">The identifier token to check.</param>
-    private static void CheckPascalCase(SyntaxNodeAnalysisContext context, SyntaxToken identifier)
+    private static void CheckPascalCase(in SyntaxNodeAnalysisContext context, SyntaxToken identifier)
     {
         var name = GetIdentifierText(identifier);
         if (NamingHelper.IsAllUnderscores(name) || NamingHelper.BeginsWithUpperCase(name))
@@ -123,12 +123,12 @@ public sealed class Sst1300ElementNamingAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The member's modifiers.</param>
     /// <param name="explicitInterface">The member's explicit interface specifier, if any.</param>
     /// <returns><see langword="true"/> when the member should be skipped.</returns>
-    private static bool IsInherited(SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface)
-        => explicitInterface is not null || ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword);
+    private static bool IsInherited(in SyntaxTokenList modifiers, ExplicitInterfaceSpecifierSyntax? explicitInterface) =>
+        explicitInterface is not null || ModifierListHelper.Contains(modifiers, SyntaxKind.OverrideKeyword);
 
     /// <summary>Returns the source identifier text, unescaping verbatim identifiers only when needed.</summary>
     /// <param name="identifier">The identifier token.</param>
     /// <returns>The comparison-ready identifier text.</returns>
-    private static string GetIdentifierText(SyntaxToken identifier)
-        => identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
+    private static string GetIdentifierText(SyntaxToken identifier) =>
+        identifier.Text is ['@', ..] ? identifier.ValueText : identifier.Text;
 }

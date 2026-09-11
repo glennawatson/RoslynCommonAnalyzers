@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -106,8 +108,9 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <param name="separatedHex">The inner <c>BitConverter.ToString</c> call.</param>
     /// <param name="convertSpelling">The spelling of the <c>Convert</c> type to emit.</param>
     /// <returns>The rewritten call.</returns>
-    internal static InvocationExpressionSyntax BuildHexCall(InvocationExpressionSyntax separatedHex, string convertSpelling)
-        => SyntaxFactory.InvocationExpression(
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static InvocationExpressionSyntax BuildHexCall(InvocationExpressionSyntax separatedHex, string convertSpelling) =>
+        SyntaxFactory.InvocationExpression(
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.ParseExpression(convertSpelling),
@@ -119,8 +122,8 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The reported expression's position.</param>
     /// <param name="rewritten">The rewritten call.</param>
     /// <returns><see langword="true"/> when the fix compiles.</returns>
-    internal static bool RewriteBindsToHexString(SemanticModel model, int position, InvocationExpressionSyntax rewritten)
-        => model.GetSpeculativeSymbolInfo(position, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol
+    internal static bool RewriteBindsToHexString(SemanticModel model, int position, InvocationExpressionSyntax rewritten) =>
+        model.GetSpeculativeSymbolInfo(position, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol is IMethodSymbol
         {
             IsStatic: true,
             Name: ToHexStringMethodName,
@@ -131,8 +134,8 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is a plain <c>X.ToString(...)</c> call.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> when the shape matches.</returns>
-    private static bool IsSeparatedHexShape(ExpressionSyntax expression)
-        => expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } inner
+    private static bool IsSeparatedHexShape(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: > 0 } inner
             && inner.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } innerAccess
             && innerAccess.Name.Identifier.ValueText == ToStringMethodName;
 
@@ -192,31 +195,25 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the string literal <c>"-"</c>.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for the hyphen literal.</returns>
-    private static bool IsHyphenLiteral(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+    private static bool IsHyphenLiteral(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
             && (string?)literal.Token.Value == HyphenSeparator;
 
     /// <summary>Returns whether an expression is the empty string, however it is spelled.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for <c>""</c> or <c>string.Empty</c>.</returns>
-    private static bool IsEmptyStringExpression(ExpressionSyntax expression)
-    {
-        if (expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal)
-        {
-            return literal.Token.Value is string value && value.Length == 0;
-        }
-
-        return expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
+    private static bool IsEmptyStringExpression(ExpressionSyntax expression) => expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+        ? literal.Token.Value is string value && value.Length == 0
+        : expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == nameof(string.Empty);
-    }
 
     /// <summary>Returns whether the outer call is the framework's two-string <c>string.Replace</c>.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="invocation">The <c>Replace</c> invocation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the call is the expected replace.</returns>
-    private static bool IsStringReplace(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsStringReplace(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: false,
             Name: ReplaceMethodName,
@@ -229,8 +226,8 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <param name="separatedHex">The inner invocation.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the call is the expected separated-hex builder.</returns>
-    private static bool IsBitConverterToString(SemanticModel model, InvocationExpressionSyntax separatedHex, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(separatedHex, cancellationToken).Symbol is IMethodSymbol
+    private static bool IsBitConverterToString(SemanticModel model, InvocationExpressionSyntax separatedHex, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(separatedHex, cancellationToken).Symbol is IMethodSymbol
         {
             IsStatic: true,
             Name: ToStringMethodName,

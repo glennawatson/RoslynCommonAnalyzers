@@ -166,7 +166,7 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
             SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.IdentifierName("System"),
-                SyntaxFactory.IdentifierName("Array")),
+                SyntaxFactory.IdentifierName(nameof(Array))),
             SyntaxFactory.IdentifierName(methodName));
         var arguments = SyntaxFactory.SeparatedList(
             [
@@ -182,8 +182,8 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
     /// <summary>Reads the analyzer's replacement target name from the diagnostic.</summary>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The target name, or an empty string when the diagnostic carries no fix.</returns>
-    private static string GetTargetName(Diagnostic diagnostic)
-        => diagnostic.Properties.TryGetValue(CollectionNativeMethodAnalyzer.TargetNameKey, out var name) && name is not null
+    private static string GetTargetName(Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(CollectionNativeMethodAnalyzer.TargetNameKey, out var name) && name is not null
             ? name
             : string.Empty;
 }

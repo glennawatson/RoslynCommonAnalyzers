@@ -67,7 +67,7 @@ public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnal
     /// <summary>Reports PSH1600 when an anonymous function inside a render loop captures a loop-declared variable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="renderTreeBuilder">The resolved render-tree builder type gating the rule.</param>
-    private static void AnalyzeAnonymousFunction(SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
+    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
     {
         var anonymousFunction = (AnonymousFunctionExpressionSyntax)context.Node;
 
@@ -105,12 +105,10 @@ public sealed class Psh1600RenderLoopDelegateAllocationAnalyzer : DiagnosticAnal
         {
             switch (current)
             {
-                case AnonymousFunctionExpressionSyntax:
-                case LocalFunctionStatementSyntax:
+                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
                     return null;
 
-                case ForStatementSyntax:
-                case CommonForEachStatementSyntax:
+                case ForStatementSyntax or CommonForEachStatementSyntax:
                     return current;
 
                 case MemberDeclarationSyntax:

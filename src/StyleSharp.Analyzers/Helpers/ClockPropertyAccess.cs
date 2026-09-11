@@ -54,23 +54,23 @@ internal static class ClockPropertyAccess
     internal enum LocalInstant
     {
         /// <summary>Not a local-instant read.</summary>
-        None,
+        None = 0,
 
         /// <summary><c>DateTime.Now</c> or <c>DateTimeOffset.Now</c>.</summary>
-        Now,
+        Now = 1,
 
         /// <summary><c>DateTime.Today</c> — local midnight, which discards the offset exactly as <c>Now</c> does.</summary>
-        Today,
+        Today = 2,
 
         /// <summary><c>DateTimeOffset.Now.DateTime</c> — the local <c>DateTime</c> taken out of an offset-carrying value, throwing the offset away.</summary>
-        OffsetLocalDateTime,
+        OffsetLocalDateTime = 3,
     }
 
     /// <summary>Returns whether a member access is spelled like a clock read.</summary>
     /// <param name="access">The member access to inspect.</param>
     /// <param name="localOnly">Whether only the local clock (<c>Now</c>) counts.</param>
     /// <returns><see langword="true"/> when the spelling matches; the symbol is not yet bound.</returns>
-    public static bool MatchesSpelling(MemberAccessExpressionSyntax access, bool localOnly)
+    internal static bool MatchesSpelling(MemberAccessExpressionSyntax access, bool localOnly)
     {
         var member = access.Name.Identifier.ValueText;
         if (member != NowName && (localOnly || member != UtcNowName))
@@ -90,7 +90,7 @@ internal static class ClockPropertyAccess
     /// <see cref="LocalInstant.None"/>: each already carries the UTC instant, which is what the rule is
     /// asking for.
     /// </remarks>
-    public static LocalInstant MatchLocalInstantSpelling(MemberAccessExpressionSyntax access)
+    internal static LocalInstant MatchLocalInstantSpelling(MemberAccessExpressionSyntax access)
     {
         switch (access.Name.Identifier.ValueText)
         {
@@ -111,8 +111,8 @@ internal static class ClockPropertyAccess
                 return access.Expression is MemberAccessExpressionSyntax offsetClock
                     && offsetClock.Name.Identifier.ValueText == NowName
                     && GetSimpleName(offsetClock.Expression) == DateTimeOffsetTypeName
-                        ? LocalInstant.OffsetLocalDateTime
-                        : LocalInstant.None;
+                    ? LocalInstant.OffsetLocalDateTime
+                    : LocalInstant.None;
             }
 
             default:
@@ -129,13 +129,13 @@ internal static class ClockPropertyAccess
     /// <param name="clockTypes">The resolved clock types.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when the access reads a local instant off the framework's own clock types.</returns>
-    public static bool BindsToLocalInstant(
+    internal static bool BindsToLocalInstant(
         SemanticModel model,
         MemberAccessExpressionSyntax access,
         LocalInstant shape,
         in ClockTypes clockTypes,
-        CancellationToken cancellationToken)
-        => shape switch
+        CancellationToken cancellationToken) =>
+        shape switch
         {
             LocalInstant.Now or LocalInstant.Today => BindsToClock(model, access, clockTypes, cancellationToken),
             LocalInstant.OffsetLocalDateTime => BindsToOffsetLocalDateTime(model, access, clockTypes, cancellationToken),
@@ -148,7 +148,7 @@ internal static class ClockPropertyAccess
     /// <param name="clockTypes">The resolved clock types.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns><see langword="true"/> when the access reads the framework clock.</returns>
-    public static bool BindsToClock(
+    internal static bool BindsToClock(
         SemanticModel model,
         MemberAccessExpressionSyntax access,
         in ClockTypes clockTypes,
@@ -168,14 +168,14 @@ internal static class ClockPropertyAccess
     /// <param name="access">The reported member access.</param>
     /// <returns>Text of the form <c>DateTime.UtcNow</c>, or <c>DateTimeOffset.Now.DateTime</c> for a read taken off the clock.</returns>
     /// <remarks>Only reached once a diagnostic is being reported, so the concatenation never costs a clean file.</remarks>
-    public static string Describe(MemberAccessExpressionSyntax access)
+    internal static string Describe(MemberAccessExpressionSyntax access)
     {
         // A projection off the clock keeps the clock in the text: 'Now.DateTime' would name nothing.
         var receiver = access.Expression is MemberAccessExpressionSyntax clock && clock.Name.Identifier.ValueText == NowName
             ? Describe(clock)
             : GetSimpleName(access.Expression);
 
-        return receiver + "." + access.Name.Identifier.ValueText;
+        return $"{receiver}.{access.Name.Identifier.ValueText}";
     }
 
     /// <summary>Returns whether a <c>.DateTime</c> read really takes the local time out of the framework's <c>DateTimeOffset.Now</c>.</summary>
@@ -223,7 +223,7 @@ internal static class ClockPropertyAccess
         /// <summary>Resolves the clock types for one compilation.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The resolved clock types.</returns>
-        public static ClockTypes Resolve(Compilation compilation) => new(
+        internal static ClockTypes Resolve(Compilation compilation) => new(
             compilation.GetTypeByMetadataName(DateTimeMetadataName),
             compilation.GetTypeByMetadataName(DateTimeOffsetMetadataName));
     }

@@ -13,4 +13,4 @@ var config = DefaultConfig.Instance
     .AddJob(Job.ShortRun)
     .AddDiagnoser(MemoryDiagnoser.Default);
 
-BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);
+_ = BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args, config);

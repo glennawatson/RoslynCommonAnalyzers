@@ -58,8 +58,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured infinite-loop style, defaulting to <see cref="InfiniteLoopStyle.While"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static InfiniteLoopStyle ReadInfiniteLoopStyle(AnalyzerConfigOptions options)
-        => Read(options, InfiniteLoopStyleSpecificKey, InfiniteLoopStyleGeneralKey) switch
+    internal static InfiniteLoopStyle ReadInfiniteLoopStyle(AnalyzerConfigOptions options) =>
+        Read(options, InfiniteLoopStyleSpecificKey, InfiniteLoopStyleGeneralKey) switch
         {
             "for" => InfiniteLoopStyle.For,
             "while" => InfiniteLoopStyle.While,
@@ -69,8 +69,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured object-creation parentheses style, defaulting to <see cref="ObjectCreationParenthesesStyle.Omit"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static ObjectCreationParenthesesStyle ReadObjectCreationParentheses(AnalyzerConfigOptions options)
-        => Read(options, ObjectCreationParenthesesSpecificKey, ObjectCreationParenthesesGeneralKey) switch
+    internal static ObjectCreationParenthesesStyle ReadObjectCreationParentheses(AnalyzerConfigOptions options) =>
+        Read(options, ObjectCreationParenthesesSpecificKey, ObjectCreationParenthesesGeneralKey) switch
         {
             "include" => ObjectCreationParenthesesStyle.Include,
             "omit" => ObjectCreationParenthesesStyle.Omit,
@@ -80,8 +80,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured conditional-condition parentheses style, defaulting to <see cref="ConditionalConditionParenthesesStyle.OmitWhenSingleToken"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static ConditionalConditionParenthesesStyle ReadConditionalConditionParentheses(AnalyzerConfigOptions options)
-        => Read(options, ConditionalConditionParenthesesSpecificKey, ConditionalConditionParenthesesGeneralKey) switch
+    internal static ConditionalConditionParenthesesStyle ReadConditionalConditionParentheses(AnalyzerConfigOptions options) =>
+        Read(options, ConditionalConditionParenthesesSpecificKey, ConditionalConditionParenthesesGeneralKey) switch
         {
             "include" => ConditionalConditionParenthesesStyle.Include,
             "omit_when_single_token" => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
@@ -91,8 +91,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured array-creation type style, defaulting to <see cref="ArrayCreationTypeStyle.ImplicitWhenObvious"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static ArrayCreationTypeStyle ReadArrayCreationTypeStyle(AnalyzerConfigOptions options)
-        => Read(options, ArrayCreationTypeStyleSpecificKey, ArrayCreationTypeStyleGeneralKey) switch
+    internal static ArrayCreationTypeStyle ReadArrayCreationTypeStyle(AnalyzerConfigOptions options) =>
+        Read(options, ArrayCreationTypeStyleSpecificKey, ArrayCreationTypeStyleGeneralKey) switch
         {
             "explicit" => ArrayCreationTypeStyle.Explicit,
             "implicit" => ArrayCreationTypeStyle.Implicit,
@@ -103,8 +103,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured var style, defaulting to <see cref="UseVarStyle.WhenObvious"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static UseVarStyle ReadUseVar(AnalyzerConfigOptions options)
-        => Read(options, UseVarSpecificKey, UseVarGeneralKey) switch
+    internal static UseVarStyle ReadUseVar(AnalyzerConfigOptions options) =>
+        Read(options, UseVarSpecificKey, UseVarGeneralKey) switch
         {
             "always" => UseVarStyle.Always,
             "never" => UseVarStyle.Never,
@@ -115,8 +115,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured Flags-enum value style, defaulting to <see cref="EnumFlagValueStyle.Shift"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static EnumFlagValueStyle ReadEnumFlagValueStyle(AnalyzerConfigOptions options)
-        => Read(options, EnumFlagValueStyleSpecificKey, EnumFlagValueStyleGeneralKey) switch
+    internal static EnumFlagValueStyle ReadEnumFlagValueStyle(AnalyzerConfigOptions options) =>
+        Read(options, EnumFlagValueStyleSpecificKey, EnumFlagValueStyleGeneralKey) switch
         {
             "decimal" => EnumFlagValueStyle.Decimal,
             "shift" => EnumFlagValueStyle.Shift,
@@ -126,8 +126,8 @@ internal static class ModernSyntaxStyleOptions
     /// <summary>Reads the configured namespace declaration style, defaulting to <see cref="NamespaceDeclarationStyle.FileScoped"/>.</summary>
     /// <param name="options">The analyzer config options for the tree.</param>
     /// <returns>The resolved style.</returns>
-    public static NamespaceDeclarationStyle ReadNamespaceDeclarationStyle(AnalyzerConfigOptions options)
-        => Read(options, NamespaceDeclarationStyleSpecificKey, NamespaceDeclarationStyleGeneralKey) switch
+    internal static NamespaceDeclarationStyle ReadNamespaceDeclarationStyle(AnalyzerConfigOptions options) =>
+        Read(options, NamespaceDeclarationStyleSpecificKey, NamespaceDeclarationStyleGeneralKey) switch
         {
             "block_scoped" => NamespaceDeclarationStyle.BlockScoped,
             "file_scoped" => NamespaceDeclarationStyle.FileScoped,

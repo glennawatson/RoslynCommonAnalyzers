@@ -45,9 +45,9 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Empty").Length == 0)
+            if (start.Compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Empty").IsEmpty)
             {
                 return;
             }
@@ -67,12 +67,7 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (size.IsKind(SyntaxKind.OmittedArraySizeExpression))
-        {
-            return creation.Initializer is { Expressions.Count: 0 };
-        }
-
-        return IsLiteralZero(size) && creation.Initializer is null or { Expressions.Count: 0 };
+        return size.IsKind(SyntaxKind.OmittedArraySizeExpression) ? creation.Initializer is { Expressions.Count: 0 } : IsLiteralZero(size) && creation.Initializer is null or { Expressions.Count: 0 };
     }
 
     /// <summary>Returns whether a node sits inside an attribute argument, where a method call is not a valid constant.</summary>
@@ -135,15 +130,15 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <param name="creation">The reported array creation.</param>
     /// <param name="arrayType">The created array type symbol.</param>
     /// <returns><see langword="true"/> when C# 12+ collection expressions are preferred and the position is array-target-typed.</returns>
-    private static bool ShouldUseCollectionExpression(SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, IArrayTypeSymbol arrayType)
-        => creation.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp12 }
+    private static bool ShouldUseCollectionExpression(in SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, IArrayTypeSymbol arrayType) =>
+        creation.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp12 }
             && !IsCollectionExpressionPreferenceDisabled(context)
             && IsArrayTargetTypedPosition(context, creation, arrayType);
 
     /// <summary>Returns whether the collection-expression preference was explicitly switched off (it defaults to on).</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the option is set to a falsy value.</returns>
-    private static bool IsCollectionExpressionPreferenceDisabled(SyntaxNodeAnalysisContext context)
+    private static bool IsCollectionExpressionPreferenceDisabled(in SyntaxNodeAnalysisContext context)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         return options.TryGetValue(PreferCollectionExpressionsKey, out var value)
@@ -153,8 +148,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an editorconfig value is falsy.</summary>
     /// <param name="value">The option value.</param>
     /// <returns><see langword="true"/> for common falsy values.</returns>
-    private static bool IsFalse(string value)
-        => value.Equals("false", StringComparison.OrdinalIgnoreCase)
+    private static bool IsFalse(string value) =>
+        value.Equals("false", StringComparison.OrdinalIgnoreCase)
             || value.Equals("0", StringComparison.Ordinal)
             || value.Equals("no", StringComparison.OrdinalIgnoreCase);
 
@@ -163,8 +158,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <param name="creation">The reported array creation.</param>
     /// <param name="arrayType">The created array type symbol.</param>
     /// <returns><see langword="true"/> for explicitly array-typed initializers, returns, and assignment targets.</returns>
-    private static bool IsArrayTargetTypedPosition(SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, IArrayTypeSymbol arrayType)
-        => creation.Parent switch
+    private static bool IsArrayTargetTypedPosition(in SyntaxNodeAnalysisContext context, ArrayCreationExpressionSyntax creation, IArrayTypeSymbol arrayType) =>
+        creation.Parent switch
         {
             EqualsValueClauseSyntax equalsValue => MatchesDeclaredArrayType(GetDeclaredType(equalsValue), creation.Type),
             ReturnStatementSyntax returnStatement => MatchesDeclaredArrayType(GetEnclosingReturnType(returnStatement), creation.Type),
@@ -177,8 +172,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <param name="declared">The declared (target) type syntax, when one exists.</param>
     /// <param name="created">The created array type syntax.</param>
     /// <returns><see langword="true"/> when the declared type is a matching array type.</returns>
-    private static bool MatchesDeclaredArrayType(TypeSyntax? declared, ArrayTypeSyntax created)
-        => declared is ArrayTypeSyntax declaredArray && MatchesCreatedArray(declaredArray, created);
+    private static bool MatchesDeclaredArrayType(TypeSyntax? declared, ArrayTypeSyntax created) =>
+        declared is ArrayTypeSyntax declaredArray && MatchesCreatedArray(declaredArray, created);
 
     /// <summary>Returns whether an assignment is a simple assignment of the creation to a target of the same array type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -187,19 +182,19 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <param name="arrayType">The created array type symbol.</param>
     /// <returns><see langword="true"/> for a matching non-covariant assignment target.</returns>
     private static bool IsMatchingSimpleAssignment(
-        SyntaxNodeAnalysisContext context,
+        in SyntaxNodeAnalysisContext context,
         AssignmentExpressionSyntax assignment,
         ArrayCreationExpressionSyntax creation,
-        IArrayTypeSymbol arrayType)
-        => assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
+        IArrayTypeSymbol arrayType) =>
+        assignment.IsKind(SyntaxKind.SimpleAssignmentExpression)
             && assignment.Right == creation
             && IsMatchingArrayTarget(context, assignment.Left, arrayType);
 
     /// <summary>Gets the declared type behind an initializer's equals clause, for locals, fields, and properties.</summary>
     /// <param name="equalsValue">The initializer clause.</param>
     /// <returns>The declared type syntax, or <see langword="null"/> when the owner is not explicitly typed.</returns>
-    private static TypeSyntax? GetDeclaredType(EqualsValueClauseSyntax equalsValue)
-        => equalsValue.Parent switch
+    private static TypeSyntax? GetDeclaredType(EqualsValueClauseSyntax equalsValue) =>
+        equalsValue.Parent switch
         {
             VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } => declaration.Type,
             PropertyDeclarationSyntax property => property.Type,
@@ -238,8 +233,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the declared type that target-types an expression body.</summary>
     /// <param name="arrow">The arrow expression clause.</param>
     /// <returns>The owner's declared type, or <see langword="null"/> for unsupported owners.</returns>
-    private static TypeSyntax? GetArrowOwnerType(ArrowExpressionClauseSyntax arrow)
-        => arrow.Parent switch
+    private static TypeSyntax? GetArrowOwnerType(ArrowExpressionClauseSyntax arrow) =>
+        arrow.Parent switch
         {
             MethodDeclarationSyntax method => method.ReturnType,
             LocalFunctionStatementSyntax localFunction => localFunction.ReturnType,
@@ -252,8 +247,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Gets the property or indexer type that owns a get accessor.</summary>
     /// <param name="accessor">The get accessor.</param>
     /// <returns>The owning member's declared type, or <see langword="null"/>.</returns>
-    private static TypeSyntax? GetAccessorOwnerType(AccessorDeclarationSyntax accessor)
-        => accessor.Parent?.Parent switch
+    private static TypeSyntax? GetAccessorOwnerType(AccessorDeclarationSyntax accessor) =>
+        accessor.Parent?.Parent switch
         {
             PropertyDeclarationSyntax property => property.Type,
             IndexerDeclarationSyntax indexer => indexer.Type,
@@ -265,8 +260,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <param name="target">The assignment's left side.</param>
     /// <param name="arrayType">The created array type symbol.</param>
     /// <returns><see langword="true"/> when the target's type equals the created array (no covariant widening).</returns>
-    private static bool IsMatchingArrayTarget(SyntaxNodeAnalysisContext context, ExpressionSyntax target, IArrayTypeSymbol arrayType)
-        => context.SemanticModel.GetTypeInfo(target, context.CancellationToken).Type is IArrayTypeSymbol targetType
+    private static bool IsMatchingArrayTarget(in SyntaxNodeAnalysisContext context, ExpressionSyntax target, IArrayTypeSymbol arrayType) =>
+        context.SemanticModel.GetTypeInfo(target, context.CancellationToken).Type is IArrayTypeSymbol targetType
             && SymbolEqualityComparer.Default.Equals(targetType, arrayType);
 
     /// <summary>Returns whether a declared array type names the same shape as the created array type.</summary>
@@ -295,16 +290,16 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an expression is the numeric literal zero.</summary>
     /// <param name="expression">The expression to inspect.</param>
     /// <returns><see langword="true"/> for a literal <c>0</c>.</returns>
-    private static bool IsLiteralZero(ExpressionSyntax expression)
-        => expression is LiteralExpressionSyntax literal
+    private static bool IsLiteralZero(ExpressionSyntax expression) =>
+        expression is LiteralExpressionSyntax literal
             && literal.IsKind(SyntaxKind.NumericLiteralExpression)
             && literal.Token.Value is 0;
 
     /// <summary>Returns whether an element type is usable as the <c>Array.Empty&lt;T&gt;()</c> type argument.</summary>
     /// <param name="elementType">The array element type.</param>
     /// <returns><see langword="false"/> for pointer, function-pointer, and ref-like element types.</returns>
-    private static bool IsValidTypeArgument(ITypeSymbol elementType)
-        => elementType.TypeKind != TypeKind.Pointer
+    private static bool IsValidTypeArgument(ITypeSymbol elementType) =>
+        elementType.TypeKind != TypeKind.Pointer
             && elementType.TypeKind != TypeKind.FunctionPointer
             && !elementType.IsRefLikeType;
 }

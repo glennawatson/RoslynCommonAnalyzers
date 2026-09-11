@@ -16,8 +16,8 @@ internal static class DuplicatedStringLiteralBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit duplicated-string-literal rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            namespace Bench;
 
            {{BenchmarkSourceText.JoinBlocks(types, i => GenerateType(i, violating))}}
@@ -27,8 +27,8 @@ internal static class DuplicatedStringLiteralBenchmarkSource
     /// <param name="index">The synthetic type index.</param>
     /// <param name="violating">Whether to emit a violating type.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateType(int index, bool violating)
-        => violating ? GenerateViolatingType(index) : GenerateCleanType(index);
+    private static string GenerateType(int index, bool violating) =>
+        violating ? GenerateViolatingType(index) : GenerateCleanType(index);
 
     /// <summary>Builds one type whose literals are all unique or excluded.</summary>
     /// <param name="index">The synthetic type index.</param>
@@ -39,8 +39,8 @@ internal static class DuplicatedStringLiteralBenchmarkSource
     /// countable literal that is simply unique. The repeated-but-excluded literals are deliberately identical
     /// across every type, so the exclusion walk — not luck — is what keeps the file clean.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            public sealed class C{{index}}
            {
                private const string Primary = "clean-const-value-{{index}}";
@@ -68,8 +68,8 @@ internal static class DuplicatedStringLiteralBenchmarkSource
     /// <summary>Builds one type whose literal is written three times and is therefore reported once.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            public sealed class V{{index}}
            {
                public string First() => "violating-value-{{index}}";

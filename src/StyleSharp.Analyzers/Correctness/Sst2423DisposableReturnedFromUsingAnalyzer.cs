@@ -46,7 +46,7 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
     /// <summary>Analyzes one return or yield-return statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
     {
         var expression = context.Node switch
         {
@@ -83,7 +83,7 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="types">The disposal types resolved for this compilation.</param>
     /// <param name="identifier">The returned identifier.</param>
-    private static void CheckIdentifier(SyntaxNodeAnalysisContext context, in DisposableTypes types, IdentifierNameSyntax identifier)
+    private static void CheckIdentifier(in SyntaxNodeAnalysisContext context, in DisposableTypes types, IdentifierNameSyntax identifier)
     {
         if (context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not ILocalSymbol { IsUsing: true } local
             || !types.ImplementsDisposable(local.Type))

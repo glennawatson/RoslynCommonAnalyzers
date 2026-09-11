@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -24,12 +26,13 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use the throw helper", nameof(Psh1409ThrowHelperCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the throw helper", nameof(Psh1409ThrowHelperCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported guard and builds its helper-call statement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -60,7 +63,7 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="ifStatement">The reported guard.</param>
     /// <param name="shape">The classified guard.</param>
     /// <returns>The arguments.</returns>
-    private static ImmutableArray<ArgumentSyntax> BuildArguments(IfStatementSyntax ifStatement, Psh1409ThrowHelperAnalyzer.GuardShape shape)
+    private static ImmutableArray<ArgumentSyntax> BuildArguments(IfStatementSyntax ifStatement, in Psh1409ThrowHelperAnalyzer.GuardShape shape)
     {
         if (shape.Kind == Psh1409ThrowHelperAnalyzer.GuardKind.Disposed)
         {
@@ -79,15 +82,9 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
     /// <summary>Builds the disposal helper's instance argument: <c>this</c>, or <c>typeof(...)</c> in static contexts.</summary>
     /// <param name="ifStatement">The reported guard.</param>
     /// <returns>The instance expression.</returns>
-    private static ExpressionSyntax BuildInstanceExpression(IfStatementSyntax ifStatement)
-    {
-        if (!IsStaticContext(ifStatement) || ifStatement.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } type)
-        {
-            return SyntaxFactory.ThisExpression();
-        }
-
-        return SyntaxFactory.TypeOfExpression(SyntaxFactory.ParseTypeName(type.Identifier.ValueText + type.TypeParameterList));
-    }
+    private static ExpressionSyntax BuildInstanceExpression(IfStatementSyntax ifStatement) => !IsStaticContext(ifStatement) || ifStatement.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } type
+        ? SyntaxFactory.ThisExpression()
+        : SyntaxFactory.TypeOfExpression(SyntaxFactory.ParseTypeName(type.Identifier.ValueText + type.TypeParameterList));
 
     /// <summary>Returns whether the guard sits in a static member.</summary>
     /// <param name="ifStatement">The reported guard.</param>

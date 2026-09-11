@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2425BaseCallDropsOptionalArgumentAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst2425BaseCallDropsOptionalArgumentAnalyzerUnitTest
 {
     /// <summary>Verifies a base call that omits the override's optional parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DroppedOptionalArgumentIsReportedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task DroppedOptionalArgumentIsReportedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -34,9 +36,10 @@ public class Sst2425BaseCallDropsOptionalArgumentAnalyzerUnitTest
 
     /// <summary>Verifies forwarding the parameter positionally is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardedPositionallyIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForwardedPositionallyIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -56,9 +59,10 @@ public class Sst2425BaseCallDropsOptionalArgumentAnalyzerUnitTest
 
     /// <summary>Verifies forwarding the parameter by name is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForwardedByNameIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task ForwardedByNameIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {
@@ -78,9 +82,10 @@ public class Sst2425BaseCallDropsOptionalArgumentAnalyzerUnitTest
 
     /// <summary>Verifies a base call to a different method is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallToDifferentMethodIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseCallToDifferentMethodIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class Base
             {

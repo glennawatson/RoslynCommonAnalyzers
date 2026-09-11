@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeWeightsUrl = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -14,9 +15,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 {
     /// <summary>Verifies a cleartext .onnx weights URL declared as a constant is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstOnnxWeightsUrlReportedAsync()
-        => await VerifyNet90Async(
+    public Task ConstOnnxWeightsUrlReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -26,9 +28,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext .gguf weights URL held in a field is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task FieldGgufWeightsUrlReportedAsync()
-        => await VerifyNet90Async(
+    public Task FieldGgufWeightsUrlReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -38,9 +41,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext .safetensors weights URL passed to a non-HttpClient loader is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SafetensorsPassedToLoaderReportedAsync()
-        => await VerifyNet90Async(
+    public Task SafetensorsPassedToLoaderReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -54,9 +58,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext .ckpt weights URL inside a standalone new Uri(...) is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StandaloneNewUriCkptReportedAsync()
-        => await VerifyNet90Async(
+    public Task StandaloneNewUriCkptReportedAsync() =>
+        VerifyNet90Async(
             """
             using System;
 
@@ -68,9 +73,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies the .pt weights extension is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PtExtensionReportedAsync()
-        => await VerifyNet90Async(
+    public Task PtExtensionReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -80,9 +86,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies the .pth weights extension is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PthExtensionReportedAsync()
-        => await VerifyNet90Async(
+    public Task PthExtensionReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -92,9 +99,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a weights URL with a trailing query string is still reported (the path extension matches).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WeightsUrlWithQueryStringReportedAsync()
-        => await VerifyNet90Async(
+    public Task WeightsUrlWithQueryStringReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -104,9 +112,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies the scheme and extension are matched case-insensitively.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UppercaseSchemeAndExtensionReportedAsync()
-        => await VerifyNet90Async(
+    public Task UppercaseSchemeAndExtensionReportedAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -116,9 +125,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a name-colliding request method on a non-HttpClient type is still reported (the exclusion is HttpClient-specific).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonHttpClientRequestMethodReportedAsync()
-        => await VerifyNet90Async(
+    public Task NonHttpClientRequestMethodReportedAsync() =>
+        VerifyNet90Async(
             """
             using System.Threading.Tasks;
 
@@ -138,9 +148,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies an https weights URL is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HttpsWeightsUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task HttpsWeightsUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -150,9 +161,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a cleartext http URL with a non-weights extension is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonWeightsHttpUrlIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task NonWeightsHttpUrlIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -162,9 +174,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies the broad .bin extension is deliberately not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BinExtensionIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task BinExtensionIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -174,9 +187,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a loopback host weights URL is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task LoopbackHostIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task LoopbackHostIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -187,9 +201,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a weights extension that is not at the path end is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExtensionNotAtPathEndIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task ExtensionNotAtPathEndIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -199,9 +214,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies an authority-only URL with no path is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task HostOnlyNoPathIsCleanAsync()
-        => await VerifyNet90Async(
+    public Task HostOnlyNoPathIsCleanAsync() =>
+        VerifyNet90Async(
             """
             public class C
             {
@@ -211,9 +227,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies an inline weights URL passed straight to an HttpClient request is deferred to the transport rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InlineUrlToHttpClientRequestIsDeferredAsync()
-        => await VerifyNet90Async(
+    public Task InlineUrlToHttpClientRequestIsDeferredAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -229,9 +246,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a new Uri(...) weights URL passed to an HttpClient request is deferred to the transport rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewUriToHttpClientRequestIsDeferredAsync()
-        => await VerifyNet90Async(
+    public Task NewUriToHttpClientRequestIsDeferredAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -248,9 +266,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a new Uri(...) weights URL assigned to HttpClient.BaseAddress is deferred to the transport rule.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NewUriToBaseAddressIsDeferredAsync()
-        => await VerifyNet90Async(
+    public Task NewUriToBaseAddressIsDeferredAsync() =>
+        VerifyNet90Async(
             """
             using System;
             using System.Net.Http;
@@ -266,9 +285,10 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
 
     /// <summary>Verifies a weights URL held in a constant and then requested by HttpClient reports only the constant declaration.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstWeightsUrlRequestedByHttpClientReportsDeclarationAsync()
-        => await VerifyNet90Async(
+    public Task ConstWeightsUrlRequestedByHttpClientReportsDeclarationAsync() =>
+        VerifyNet90Async(
             """
             using System.Net.Http;
             using System.Threading.Tasks;
@@ -289,11 +309,7 @@ public class CleartextModelWeightsUrlAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source)
     {
-        var test = new AnalyzeWeightsUrl.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source
-        };
+        var test = new AnalyzeWeightsUrl.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

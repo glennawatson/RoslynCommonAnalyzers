@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyAbstractType = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1496AbstractTypeWithoutAbstractMembersAnalyzer,
     StyleSharp.Analyzers.Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider>;
@@ -33,9 +34,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies a class that declares an abstract member is a contract and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractMemberIsCleanAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task AbstractMemberIsCleanAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -47,9 +49,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies every kind of abstract member counts, not only methods.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryAbstractMemberKindCountsAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task EveryAbstractMemberKindCountsAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             using System;
 
@@ -71,9 +74,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies a type that leaves an inherited abstract member unimplemented is genuinely abstract.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InheritedAbstractMemberIsCleanAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task InheritedAbstractMemberIsCleanAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -89,9 +93,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
     /// <summary>Verifies a type whose base is abstract but fully implemented by the chain is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>Once the last abstract member has an override, nothing is left for a derived type to supply.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplementedInheritedAbstractMemberIsReportedAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task ImplementedInheritedAbstractMemberIsReportedAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public abstract class Shape
             {
@@ -108,9 +113,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies an abstract member declared in another part of a partial type counts.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartialTypeIsJudgedFromAllPartsAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task PartialTypeIsJudgedFromAllPartsAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public abstract partial class Handler
             {
@@ -147,9 +153,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies a static class is not reported, even though it is abstract in metadata.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticClassIsCleanAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task StaticClassIsCleanAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public static class Helpers
             {
@@ -159,9 +166,10 @@ public class AbstractTypeWithoutAbstractMembersAnalyzerUnitTest
 
     /// <summary>Verifies an abstract record base is how a closed hierarchy is spelled, and is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task AbstractRecordIsCleanAsync()
-        => await VerifyAbstractType.VerifyAnalyzerAsync(
+    public Task AbstractRecordIsCleanAsync() =>
+        VerifyAbstractType.VerifyAnalyzerAsync(
             """
             public abstract record Result;
 

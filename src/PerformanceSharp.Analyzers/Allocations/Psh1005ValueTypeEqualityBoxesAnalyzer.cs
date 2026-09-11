@@ -46,7 +46,7 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1005 for a boxing-prone struct that defines no equality members.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="equatableDefinition">The resolved <c>IEquatable`1</c> definition.</param>
-    private static void AnalyzeNamedType(SymbolAnalysisContext context, INamedTypeSymbol equatableDefinition)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol equatableDefinition)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Struct
@@ -54,7 +54,7 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
             || type.IsRecord
             || type.IsImplicitlyDeclared
             || (type.DeclaredAccessibility != Accessibility.Public && type.DeclaredAccessibility != Accessibility.Internal)
-            || type.Locations.Length == 0
+            || type.Locations.IsEmpty
             || OverridesObjectEquals(type)
             || ImplementsSelfEquatable(type, equatableDefinition))
         {

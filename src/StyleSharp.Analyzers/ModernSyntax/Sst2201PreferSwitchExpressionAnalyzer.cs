@@ -72,11 +72,10 @@ public sealed class Sst2201PreferSwitchExpressionAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the section statement can be represented as a switch expression arm expression.</summary>
     /// <param name="statement">The switch-section statement.</param>
     /// <returns><see langword="true"/> for <c>return value;</c> and <c>throw value;</c>.</returns>
-    private static bool IsSwitchExpressionArmStatement(StatementSyntax statement)
-        => statement switch
+    private static bool IsSwitchExpressionArmStatement(StatementSyntax statement) =>
+        statement switch
         {
-            ReturnStatementSyntax { Expression: not null } => true,
-            ThrowStatementSyntax { Expression: not null } => true,
+            ReturnStatementSyntax { Expression: not null } or ThrowStatementSyntax { Expression: not null } => true,
             _ => false
         };
 }

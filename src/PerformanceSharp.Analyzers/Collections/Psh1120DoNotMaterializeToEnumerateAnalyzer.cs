@@ -52,8 +52,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
     /// <summary>Returns whether an invocation is a parameterless member-access ToList/ToArray call, before any binding.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
     /// <returns><see langword="true"/> when the call has the materialization shape.</returns>
-    internal static bool IsMaterializeInvocationShape(InvocationExpressionSyntax invocation)
-        => invocation.ArgumentList.Arguments.Count == 0
+    internal static bool IsMaterializeInvocationShape(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
             && invocation.Expression is MemberAccessExpressionSyntax memberAccess
             && memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             && memberAccess.Name.Identifier.ValueText is ToListMethodName or ToArrayMethodName;
@@ -61,7 +61,7 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
     /// <summary>Reports PSH1120 for a foreach that enumerates a ToList/ToArray copy it then discards.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeForEach(SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
     {
         var forEach = (ForEachStatementSyntax)context.Node;
         if (forEach.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
@@ -101,7 +101,7 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
         }
 
         var state = new IdentifierScanState(guardIdentifier.ValueText);
-        DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitIdentifierToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref state, VisitIdentifierToken);
         return state.Found;
     }
 
@@ -174,8 +174,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
         SemanticModel model,
         InvocationExpressionSyntax invocation,
         INamedTypeSymbol enumerableType,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
 
     /// <summary>Tracks the guarded identifier while scanning the loop body.</summary>

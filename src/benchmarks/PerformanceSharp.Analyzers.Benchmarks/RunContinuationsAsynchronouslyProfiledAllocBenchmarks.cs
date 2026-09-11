@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Diagnosers;
 
 namespace PerformanceSharp.Analyzers.Benchmarks;
 
 /// <summary>Allocation-profile benchmarks for completion-source continuation options analysis.</summary>
+[System.Diagnostics.DebuggerDisplay("RunContinuationsAsynchronouslyProfiledAllocBenchmarks: {Nodes}")]
 [ShortRunJob]
 [EventPipeProfiler(EventPipeProfile.GcVerbose)]
 public class RunContinuationsAsynchronouslyProfiledAllocBenchmarks
@@ -25,11 +27,13 @@ public class RunContinuationsAsynchronouslyProfiledAllocBenchmarks
 
     /// <summary>Benchmarks the clean completion-source continuation options path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RunContinuationsAsynchronously_Clean() => SingleAnalyzerBenchmarkHelper.RunCleanAsync(_state);
 
     /// <summary>Benchmarks the violating completion-source continuation options path.</summary>
     /// <returns>The number of diagnostics produced.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Benchmark]
     public Task<int> RunContinuationsAsynchronously_Violating() => SingleAnalyzerBenchmarkHelper.RunViolatingAsync(_state);
 }

@@ -164,10 +164,7 @@ public class ObjectCreationParenthesesAnalyzerUnitTest
     /// <returns>The configured test.</returns>
     private static VerifyObjectCreationParentheses.Test CreateTest(string source, string? style)
     {
-        var test = new VerifyObjectCreationParentheses.Test
-        {
-            TestCode = source,
-        };
+        var test = new VerifyObjectCreationParentheses.Test { TestCode = source, };
 
         var config = "root = true\n\n[*.cs]\ndotnet_diagnostic.SST2268.severity = warning\n";
         if (style is not null)

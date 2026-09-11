@@ -78,7 +78,7 @@ public sealed class Sst2600LegacyTracingAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one legacy tracing call used for application logging.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="traceType">The resolved <c>System.Diagnostics.Trace</c> type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol traceType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol traceType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (GetTracingMethodName(invocation.Expression) is not { } methodName)
@@ -116,6 +116,6 @@ public sealed class Sst2600LegacyTracingAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a name is one of the legacy tracing output methods.</summary>
     /// <param name="name">The invoked simple name, or <see langword="null"/>.</param>
     /// <returns><see langword="true"/> for <c>Write</c>, <c>WriteLine</c>, <c>WriteIf</c>, or <c>WriteLineIf</c>.</returns>
-    private static bool IsTracingMethodName(string? name)
-        => name is "Write" or "WriteLine" or "WriteIf" or "WriteLineIf";
+    private static bool IsTracingMethodName(string? name) =>
+        name is "Write" or "WriteLine" or "WriteIf" or "WriteLineIf";
 }

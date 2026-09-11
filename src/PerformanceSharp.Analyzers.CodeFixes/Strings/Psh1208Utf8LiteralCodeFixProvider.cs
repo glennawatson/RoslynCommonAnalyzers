@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -31,12 +33,13 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Resolves the reported invocation and builds its u8 replacement.</summary>
     /// <param name="root">The syntax root.</param>
@@ -75,8 +78,8 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="argument">The constant argument expression.</param>
     /// <param name="value">The constant string value.</param>
     /// <returns>The literal text including the u8 suffix.</returns>
-    private static string BuildLiteralText(ExpressionSyntax argument, string value)
-        => argument is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+    private static string BuildLiteralText(ExpressionSyntax argument, string value) =>
+        argument is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
             ? literal.Token.Text + Utf8Suffix
             : SymbolDisplay.FormatLiteral(value, quote: true) + Utf8Suffix;
 
@@ -84,8 +87,8 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="invocation">The reported invocation.</param>
     /// <returns><see langword="true"/> when the u8 literal can stand alone without ToArray.</returns>
-    private static bool IsConvertedToReadOnlySpan(SemanticModel model, InvocationExpressionSyntax invocation)
-        => model.GetTypeInfo(invocation).ConvertedType is INamedTypeSymbol
+    private static bool IsConvertedToReadOnlySpan(SemanticModel model, InvocationExpressionSyntax invocation) =>
+        model.GetTypeInfo(invocation).ConvertedType is INamedTypeSymbol
         {
             Name: ReadOnlySpanTypeName,
             IsGenericType: true,

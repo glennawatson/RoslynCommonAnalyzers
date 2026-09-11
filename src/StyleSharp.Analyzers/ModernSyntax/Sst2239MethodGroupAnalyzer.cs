@@ -88,7 +88,7 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
     private static bool TheRewriteStillBindsTheSameWay(
         ExpressionSyntax lambda,
         InvocationExpressionSyntax invocation,
-        SyntaxNodeAnalysisContext context)
+        in SyntaxNodeAnalysisContext context)
     {
         if (lambda.Parent is not ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax enclosing })
         {
@@ -104,8 +104,7 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         }
 
         var model = context.SemanticModel;
-        var cancellationToken = context.CancellationToken;
-        if (model.GetSymbolInfo(enclosing, cancellationToken).Symbol is not { } before)
+        if (model.GetSymbolInfo(enclosing, context.CancellationToken).Symbol is not { } before)
         {
             return true;
         }
@@ -134,8 +133,8 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
         ExpressionSyntax lambda,
         in SeparatedSyntaxList<ArgumentSyntax> arguments,
         SemanticModel model,
-        CancellationToken cancellationToken)
-        => model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } method
+        CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { MethodKind: MethodKind.Ordinary } method
             && method.Parameters.Length == arguments.Count
             && !IsExpandedParamsCall(method, arguments, model, cancellationToken)
             && model.GetTypeInfo(lambda, cancellationToken).ConvertedType is INamedTypeSymbol { TypeKind: TypeKind.Delegate } target
@@ -275,8 +274,8 @@ public sealed class Sst2239MethodGroupAnalyzer : DiagnosticAnalyzer
     /// <param name="argument">The argument.</param>
     /// <param name="parameterName">The expected parameter name.</param>
     /// <returns><see langword="true"/> when the argument forwards the parameter unchanged.</returns>
-    private static bool IsPlainIdentifierArgument(ArgumentSyntax argument, string parameterName)
-        => argument.NameColon is null
+    private static bool IsPlainIdentifierArgument(ArgumentSyntax argument, string parameterName) =>
+        argument.NameColon is null
             && argument.RefKindKeyword.RawKind == 0
             && argument.Expression is IdentifierNameSyntax identifier
             && identifier.Identifier.ValueText == parameterName;

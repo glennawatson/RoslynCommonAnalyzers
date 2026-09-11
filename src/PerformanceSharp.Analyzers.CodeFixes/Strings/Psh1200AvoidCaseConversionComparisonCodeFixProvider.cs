@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -28,20 +30,21 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Replaces the reported comparison with its <c>string.Equals</c> form.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="comparison">The comparison expression to rewrite (binary or <c>Equals</c> invocation).</param>
     /// <returns>The updated document.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax comparison)
-        => TryGetReplacement(comparison, out var replacement)
+    internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax comparison) =>
+        TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
 
@@ -49,8 +52,8 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
-        => TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target)
             && TryGetReplacement(target!, out var replacement)
             ? new NodeReplacement(target!, replacement!)
             : null;
@@ -142,8 +145,9 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
     /// <summary>Returns the unconverted receiver of a case-conversion invocation.</summary>
     /// <param name="conversion">The conversion invocation (for example <c>a.ToLower()</c>).</param>
     /// <returns>The receiver expression (for example <c>a</c>).</returns>
-    private static ExpressionSyntax GetConversionReceiver(InvocationExpressionSyntax conversion)
-        => ((MemberAccessExpressionSyntax)conversion.Expression).Expression;
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ExpressionSyntax GetConversionReceiver(InvocationExpressionSyntax conversion) =>
+        ((MemberAccessExpressionSyntax)conversion.Expression).Expression;
 
     /// <summary>Builds <c>string.Equals(left, right, System.StringComparison.X)</c> for a conversion method.</summary>
     /// <param name="left">The left unconverted operand.</param>
@@ -167,12 +171,13 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
                 CommaWithTrailingSpace(),
                 SyntaxFactory.Argument(right.WithoutTrivia()),
                 CommaWithTrailingSpace(),
-                SyntaxFactory.Argument(comparison)
+                SyntaxFactory.Argument(comparison),
             })));
     }
 
     /// <summary>Creates a comma token followed by a single space.</summary>
     /// <returns>The comma token.</returns>
-    private static SyntaxToken CommaWithTrailingSpace()
-        => SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxToken CommaWithTrailingSpace() =>
+        SyntaxFactory.Token(default, SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

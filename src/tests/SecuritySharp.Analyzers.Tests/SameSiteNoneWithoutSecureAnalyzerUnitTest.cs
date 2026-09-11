@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using AnalyzeCookie = SecuritySharp.Analyzers.Tests.CSharpAnalyzerVerifier<
@@ -54,9 +55,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CookieOptions</c> initializer with <c>SameSite = None</c> and no <c>Secure</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CookieOptionsSameSiteNoneWithoutSecureReportedAsync()
-        => await VerifyAsync(
+    public Task CookieOptionsSameSiteNoneWithoutSecureReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -69,9 +71,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CookieBuilder</c> initializer with <c>SameSite = None</c> and no <c>SecurePolicy</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CookieBuilderSameSiteNoneWithoutSecurePolicyReportedAsync()
-        => await VerifyAsync(
+    public Task CookieBuilderSameSiteNoneWithoutSecurePolicyReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -84,9 +87,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies an implicit <c>new()</c> cookie initializer with <c>SameSite = None</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ImplicitNewCookieOptionsReportedAsync()
-        => await VerifyAsync(
+    public Task ImplicitNewCookieOptionsReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -102,9 +106,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies an explicit <c>Secure = false</c> sibling still reports the <c>SameSite = None</c> member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureExplicitlyFalseReportedAsync()
-        => await VerifyAsync(
+    public Task SecureExplicitlyFalseReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -117,9 +122,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CookieBuilder</c> with <c>SecurePolicy = None</c> still reports the <c>SameSite = None</c> member.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CookieBuilderSecurePolicyNoneReportedAsync()
-        => await VerifyAsync(
+    public Task CookieBuilderSecurePolicyNoneReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -132,9 +138,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>Secure</c> flag set on a later statement does not suppress the initializer diagnostic.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureSetOnLaterStatementStillReportedAsync()
-        => await VerifyAsync(
+    public Task SecureSetOnLaterStatementStillReportedAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -151,9 +158,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CookieOptions</c> initializer that also sets <c>Secure = true</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CookieOptionsWithSecureTrueIsCleanAsync()
-        => await VerifyAsync(
+    public Task CookieOptionsWithSecureTrueIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -166,9 +174,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies the <c>Secure = true</c> sibling secures the cookie regardless of member order.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SecureBeforeSameSiteIsCleanAsync()
-        => await VerifyAsync(
+    public Task SecureBeforeSameSiteIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -181,9 +190,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a non-constant <c>Secure</c> value is treated as securing (no false positive).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonConstantSecureIsCleanAsync()
-        => await VerifyAsync(
+    public Task NonConstantSecureIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -196,9 +206,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>CookieBuilder</c> with <c>SecurePolicy = Always</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CookieBuilderSecurePolicyAlwaysIsCleanAsync()
-        => await VerifyAsync(
+    public Task CookieBuilderSecurePolicyAlwaysIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -211,9 +222,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a <c>SameSite</c> value other than <c>None</c> is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameSiteLaxIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameSiteLaxIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -226,9 +238,10 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
 
     /// <summary>Verifies a same-named <c>SameSite</c> member on an unrelated type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task SameNamedMemberOnUnrelatedTypeIsCleanAsync()
-        => await VerifyAsync(
+    public Task SameNamedMemberOnUnrelatedTypeIsCleanAsync() =>
+        VerifyAsync(
             """
             using Microsoft.AspNetCore.Http;
 
@@ -269,11 +282,7 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeCookie.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = Source
-        };
+        var test = new AnalyzeCookie.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -283,11 +292,7 @@ public class SameSiteNoneWithoutSecureAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAsync(string source)
     {
-        var test = new AnalyzeCookie.Test
-        {
-            ReferenceAssemblies = ReferenceAssemblies.Net.Net90,
-            TestCode = source + AspNetStubs
-        };
+        var test = new AnalyzeCookie.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source + AspNetStubs };
 
         await test.RunAsync(CancellationToken.None);
     }

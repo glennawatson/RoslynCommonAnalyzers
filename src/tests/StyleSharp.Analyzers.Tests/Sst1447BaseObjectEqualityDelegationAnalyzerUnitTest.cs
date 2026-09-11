@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Verify = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1447BaseObjectEqualityDelegationAnalyzer>;
 
@@ -12,9 +13,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 {
     /// <summary>Verifies base.Equals inside Equals is flagged when the base is object.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseEqualsBindingToObjectIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseEqualsBindingToObjectIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -26,9 +28,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 
     /// <summary>Verifies base.GetHashCode inside GetHashCode is flagged when the base is object.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseGetHashCodeBindingToObjectIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseGetHashCodeBindingToObjectIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -40,9 +43,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 
     /// <summary>Verifies a base call that binds to a real base override is clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallBindingToRealOverrideIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseCallBindingToRealOverrideIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -61,9 +65,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 
     /// <summary>Verifies a base call binding to object is flagged even with an intermediate base.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallThroughSilentBaseIsFlaggedAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseCallThroughSilentBaseIsFlaggedAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class B
             {
@@ -79,9 +84,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 
     /// <summary>Verifies base calls outside equality members are clean.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task BaseCallOutsideEqualityMembersIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task BaseCallOutsideEqualityMembersIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -91,9 +97,10 @@ public class Sst1447BaseObjectEqualityDelegationAnalyzerUnitTest
 
     /// <summary>Verifies a guarded reference-equality fast path against an object base is left alone.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GuardedFastPathAgainstObjectBaseIsCleanAsync()
-        => await Verify.VerifyAnalyzerAsync(
+    public Task GuardedFastPathAgainstObjectBaseIsCleanAsync() =>
+        Verify.VerifyAnalyzerAsync(
             """
             public class C
             {

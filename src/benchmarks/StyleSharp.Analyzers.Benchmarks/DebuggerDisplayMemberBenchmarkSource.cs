@@ -11,8 +11,8 @@ internal static class DebuggerDisplayMemberBenchmarkSource
     /// <param name="types">The number of synthetic types to emit.</param>
     /// <param name="violating">Whether to emit rule violations.</param>
     /// <returns>The generated source text.</returns>
-    public static string Generate(int types, bool violating)
-        => $$"""
+    internal static string Generate(int types, bool violating) =>
+        $$"""
            using System.Diagnostics;
 
            namespace Bench;
@@ -27,8 +27,8 @@ internal static class DebuggerDisplayMemberBenchmarkSource
     /// Covers every rejection route: a plain member, one with a format specifier, a called one, an expression
     /// too complex to check, and an ordinary attribute the name comparison must reject outright.
     /// </remarks>
-    private static string GenerateCleanType(int index)
-        => $$"""
+    private static string GenerateCleanType(int index) =>
+        $$"""
            [DebuggerDisplay("{Amount,nq} {Describe()} {Amount.ToString()}")]
            [System.Serializable]
            public sealed class C{{index}}
@@ -42,8 +42,8 @@ internal static class DebuggerDisplayMemberBenchmarkSource
     /// <summary>Builds one type whose display string names a member it does not declare.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    private static string GenerateViolatingType(int index)
-        => $$"""
+    private static string GenerateViolatingType(int index) =>
+        $$"""
            [DebuggerDisplay("{Total,nq}")]
            public sealed class V{{index}}
            {

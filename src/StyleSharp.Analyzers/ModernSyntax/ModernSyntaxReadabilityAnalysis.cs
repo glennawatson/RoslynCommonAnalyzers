@@ -22,9 +22,6 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>The maximum input count supported by <c>System.HashCode.Combine</c>.</summary>
     public const int HashCodeCombineMaxInputs = 8;
 
-    /// <summary>The name of the root <c>System</c> namespace, matched while walking a symbol's containing namespaces.</summary>
-    private const string SystemNamespaceName = "System";
-
     /// <summary>The multiplier commonly used by generated hash-code implementations.</summary>
     private const int HashMultiplier397 = 397;
 
@@ -37,12 +34,15 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>The number of tuple element locals currently rewritten by the code fix.</summary>
     private const int SupportedDeconstructionElementCount = 2;
 
+    /// <summary>The name of the root framework namespace the recognized types live under.</summary>
+    private const string SystemNamespaceName = "System";
+
     /// <summary>Returns whether an expression can be replaced with a UTF-8 literal.</summary>
     /// <param name="expression">The candidate expression.</param>
     /// <param name="target">The UTF-8 target kind from the diagnostic.</param>
     /// <param name="replacement">The replacement expression.</param>
     /// <returns><see langword="true"/> when the replacement can be created syntactically.</returns>
-    public static bool TryCreateUtf8Replacement(ExpressionSyntax expression, string target, out ExpressionSyntax replacement)
+    internal static bool TryCreateUtf8Replacement(ExpressionSyntax expression, string target, out ExpressionSyntax replacement)
     {
         replacement = null!;
         if (expression is not InvocationExpressionSyntax { ArgumentList.Arguments: [ArgumentSyntax { Expression: LiteralExpressionSyntax literal }] }
@@ -52,8 +52,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        var text = literal.Token.ValueText;
-        var literalExpression = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(text));
+        var literalExpression = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(literal.Token.ValueText));
         var suffix = target == Utf8ArrayTarget ? "u8.ToArray()" : "u8";
         replacement = SyntaxFactory.ParseExpression(literalExpression.Token.Text + suffix).WithTriviaFrom(expression);
         return true;
@@ -63,7 +62,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="argument">The tuple argument.</param>
     /// <param name="inferredName">The inferred name.</param>
     /// <returns><see langword="true"/> when the name can be omitted.</returns>
-    public static bool TryGetInferredTupleElementName(ArgumentSyntax argument, out string inferredName)
+    internal static bool TryGetInferredTupleElementName(ArgumentSyntax argument, out string inferredName)
     {
         inferredName = string.Empty;
         if (argument.NameColon is null || ExpressionSimplificationAnalyzer.InferredName(argument.Expression) is not { } inferred)
@@ -81,7 +80,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <param name="candidate">The deconstruction candidate.</param>
     /// <returns><see langword="true"/> when a conservative deconstruction was found.</returns>
-    public static bool TryGetDeconstructionCandidate(
+    internal static bool TryGetDeconstructionCandidate(
         LocalDeclarationStatementSyntax local,
         SemanticModel model,
         CancellationToken cancellationToken,
@@ -99,7 +98,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        candidate = new DeconstructionCandidate(local);
+        candidate = new(local);
         return true;
     }
 
@@ -110,7 +109,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="firstAssignment">The first assignment statement.</param>
     /// <param name="secondAssignment">The second assignment statement.</param>
     /// <returns><see langword="true"/> when the local declaration starts a conservative swap.</returns>
-    public static bool TryGetTupleSwapCandidate(
+    internal static bool TryGetTupleSwapCandidate(
         LocalDeclarationStatementSyntax local,
         SemanticModel model,
         CancellationToken cancellationToken,
@@ -136,9 +135,9 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="expression">The hash expression.</param>
     /// <param name="inputs">The hash input expressions.</param>
     /// <returns><see langword="true"/> when inputs were collected.</returns>
-    public static bool TryCollectHashInputs(ExpressionSyntax expression, out List<ExpressionSyntax> inputs)
+    internal static bool TryCollectHashInputs(ExpressionSyntax expression, out List<ExpressionSyntax> inputs)
     {
-        inputs = new List<ExpressionSyntax>(HashCodeCombineMaxInputs);
+        inputs = new(HashCodeCombineMaxInputs);
         if (!TryCollectHashInputsCore(ExpressionSimplificationAnalyzer.Unwrap(expression), inputs))
         {
             inputs.Clear();
@@ -152,7 +151,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the expression is a safe <c>HashCode.Combine</c> candidate.</returns>
-    public static bool HasSafeHashCodeCombineInputs(
+    internal static bool HasSafeHashCodeCombineInputs(
         ExpressionSyntax expression,
         SemanticModel model,
         CancellationToken cancellationToken)
@@ -171,7 +170,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the invocation is the supported encoding call.</returns>
-    public static bool IsEncodingUtf8GetBytes(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
+    internal static bool IsEncodingUtf8GetBytes(InvocationExpressionSyntax invocation, SemanticModel model, CancellationToken cancellationToken)
     {
         if (invocation.Expression is not MemberAccessExpressionSyntax
             {
@@ -192,7 +191,7 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <param name="target">The target kind.</param>
     /// <returns><see langword="true"/> for byte array and read-only byte span targets.</returns>
-    public static bool TryGetUtf8Target(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken, out string target)
+    internal static bool TryGetUtf8Target(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken, out string target)
     {
         target = string.Empty;
         var type = model.GetTypeInfo(expression, cancellationToken).ConvertedType;
@@ -213,8 +212,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the containing method is <c>GetHashCode()</c>.</returns>
-    public static bool IsGetHashCodeBody(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetEnclosingSymbol(expression.SpanStart, cancellationToken) is IMethodSymbol
+    internal static bool IsGetHashCodeBody(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetEnclosingSymbol(expression.SpanStart, cancellationToken) is IMethodSymbol
         {
             Name: nameof(GetHashCode),
             Parameters.Length: 0,
@@ -224,8 +223,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>Returns whether a symbol is the <c>Encoding.UTF8</c> property.</summary>
     /// <param name="symbol">The candidate symbol.</param>
     /// <returns><see langword="true"/> when the symbol is the expected property.</returns>
-    private static bool IsUtf8EncodingProperty(ISymbol? symbol)
-        => symbol is IPropertySymbol
+    private static bool IsUtf8EncodingProperty(ISymbol? symbol) =>
+        symbol is IPropertySymbol
         {
             Name: "UTF8",
             ContainingType: { Name: "Encoding", ContainingNamespace: { Name: "Text", ContainingNamespace.Name: SystemNamespaceName } }
@@ -234,8 +233,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>Returns whether a symbol is <c>Encoding.GetBytes(string)</c>.</summary>
     /// <param name="symbol">The candidate symbol.</param>
     /// <returns><see langword="true"/> when the symbol is the supported method.</returns>
-    private static bool IsUtf8GetBytesMethod(ISymbol? symbol)
-        => symbol is IMethodSymbol
+    private static bool IsUtf8GetBytesMethod(ISymbol? symbol) =>
+        symbol is IMethodSymbol
         {
             Name: "GetBytes",
             Parameters.Length: 1,
@@ -247,8 +246,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>Returns whether a type is <c>System.ReadOnlySpan&lt;byte&gt;</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for read-only byte spans.</returns>
-    private static bool IsReadOnlySpanOfByte(ITypeSymbol? type)
-        => type is INamedTypeSymbol
+    private static bool IsReadOnlySpanOfByte(ITypeSymbol? type) =>
+        type is INamedTypeSymbol
         {
             Name: "ReadOnlySpan",
             TypeArguments: [{ SpecialType: SpecialType.System_Byte }],
@@ -279,7 +278,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        temporary = new TupleTemporary(block, tupleVariable, tupleType.TupleElements, index);
+        temporary = new(block, tupleVariable, tupleType.TupleElements, index);
         return true;
     }
 
@@ -333,8 +332,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        var canonicalField = field.CorrespondingTupleField ?? field;
-        if (!SymbolEqualityComparer.Default.Equals(canonicalField, tupleElement.CorrespondingTupleField ?? tupleElement))
+        if (!SymbolEqualityComparer.Default.Equals(field.CorrespondingTupleField ?? field, tupleElement.CorrespondingTupleField ?? tupleElement))
         {
             return false;
         }
@@ -359,7 +357,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        shape = new TupleSwapShape(
+        shape = new(
             block,
             temporary.Identifier.ValueText,
             left,
@@ -394,7 +392,7 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        assignments = new TupleSwapAssignments(first, second, right);
+        assignments = new(first, second, right);
         return true;
     }
 
@@ -433,8 +431,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> for locals and parameters.</returns>
-    private static bool IsLocalOrParameter(IdentifierNameSyntax identifier, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol or IParameterSymbol;
+    private static bool IsLocalOrParameter(IdentifierNameSyntax identifier, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetSymbolInfo(identifier, cancellationToken).Symbol is ILocalSymbol or IParameterSymbol;
 
     /// <summary>Returns whether an identifier appears in a block after a statement index.</summary>
     /// <param name="block">The containing block.</param>
@@ -466,11 +464,13 @@ internal static class ModernSyntaxReadabilityAnalysis
     {
         for (var i = 0; i < block.Statements.Count; i++)
         {
-            if (block.Statements[i].Span == statement.Span)
+            if (block.Statements[i].Span != statement.Span)
             {
-                index = i;
-                return true;
+                continue;
             }
+
+            index = i;
+            return true;
         }
 
         index = -1;
@@ -569,8 +569,8 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <summary>Returns whether an expression is a supported hash multiplier literal.</summary>
     /// <param name="expression">The expression.</param>
     /// <returns><see langword="true"/> for supported multiplier literals.</returns>
-    private static bool IsHashMultiplier(ExpressionSyntax expression)
-        => ExpressionSimplificationAnalyzer.Unwrap(expression) is LiteralExpressionSyntax literal
+    private static bool IsHashMultiplier(ExpressionSyntax expression) =>
+        ExpressionSimplificationAnalyzer.Unwrap(expression) is LiteralExpressionSyntax literal
         && literal.Token.Value is int value
         && value is HashMultiplier397 or HashMultiplier31;
 
@@ -605,12 +605,12 @@ internal static class ModernSyntaxReadabilityAnalysis
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <returns><see langword="true"/> when the receiver cannot be <see langword="null"/>.</returns>
-    private static bool IsValueTypeHashReceiver(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken)
-        => model.GetTypeInfo(expression, cancellationToken).Type is { IsValueType: true };
+    private static bool IsValueTypeHashReceiver(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        model.GetTypeInfo(expression, cancellationToken).Type is { IsValueType: true };
 
     /// <summary>Describes a deconstruction rewrite candidate.</summary>
     /// <param name="TupleLocal">The temporary tuple declaration.</param>
-    public readonly record struct DeconstructionCandidate(LocalDeclarationStatementSyntax TupleLocal);
+    internal readonly record struct DeconstructionCandidate(LocalDeclarationStatementSyntax TupleLocal);
 
     /// <summary>Details of a tuple temporary declaration.</summary>
     /// <param name="Block">The containing block.</param>

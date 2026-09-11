@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyNamedArgumentOrder = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1220NamedArgumentOrderAnalyzer,
     StyleSharp.Analyzers.Sst1220NamedArgumentOrderCodeFixProvider>;
@@ -69,9 +70,10 @@ public class NamedArgumentOrderAnalyzerUnitTest
 
     /// <summary>Verifies all-named arguments already in declaration order are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InOrderArgumentsAreCleanAsync()
-        => await VerifyNamedArgumentOrder.VerifyAnalyzerAsync(
+    public Task InOrderArgumentsAreCleanAsync() =>
+        VerifyNamedArgumentOrder.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -85,9 +87,10 @@ public class NamedArgumentOrderAnalyzerUnitTest
 
     /// <summary>Verifies a call that is not fully named is not reported, even when out of order.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PartiallyNamedCallIsCleanAsync()
-        => await VerifyNamedArgumentOrder.VerifyAnalyzerAsync(
+    public Task PartiallyNamedCallIsCleanAsync() =>
+        VerifyNamedArgumentOrder.VerifyAnalyzerAsync(
             """
             public class C
             {

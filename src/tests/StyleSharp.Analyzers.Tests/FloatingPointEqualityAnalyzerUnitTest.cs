@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyFloatingPoint = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1473FloatingPointEqualityAnalyzer,
     StyleSharp.Analyzers.Sst1473FloatingPointEqualityCodeFixProvider>;
@@ -11,14 +12,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1473 (exact floating-point comparison) and its NaN code fix.</summary>
 public class FloatingPointEqualityAnalyzerUnitTest
 {
-    /// <summary>The path the verifier gives the analyzer config the zero-comparison option is read from.</summary>
-    private const string EditorConfigPath = "/.editorconfig";
-
     /// <summary>Verifies an exact equality on <c>double</c> and on <c>float</c> is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExactEqualityIsReportedAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task ExactEqualityIsReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -34,9 +33,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a relational comparison is a legitimate floating-point operation and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RelationalComparisonIsCleanAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task RelationalComparisonIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -50,9 +50,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies <c>decimal</c> is exact and is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task DecimalIsNeverReportedAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task DecimalIsNeverReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -64,9 +65,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies comparisons of types that do not round are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonFloatingComparisonsAreCleanAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task NonFloatingComparisonsAreCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -84,9 +86,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a comparison against a literal zero tests a sign, not an arithmetic result, and is allowed by default.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ZeroComparisonIsAllowedByDefaultAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task ZeroComparisonIsAllowedByDefaultAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -106,9 +109,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a non-zero literal is still reported even though a zero one is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NonZeroLiteralIsStillReportedAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task NonZeroLiteralIsStillReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -136,7 +140,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1473.allow_zero_comparison = false
@@ -162,7 +166,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allow_zero_comparison = false
@@ -188,7 +192,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.allow_zero_comparison = false
@@ -217,7 +221,7 @@ public class FloatingPointEqualityAnalyzerUnitTest
         };
 
         test.TestState.AnalyzerConfigFiles.Add(
-            (EditorConfigPath, """
+            ("/.editorconfig", """
             root = true
             [*.cs]
             stylesharp.SST1473.allow_zero_comparison = sometimes
@@ -229,9 +233,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies every operator against NaN is reported, because every one of them answers a constant.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task EveryComparisonAgainstNanIsReportedAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task EveryComparisonAgainstNanIsReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -267,9 +272,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a name that reads <c>NaN</c> but belongs to another type is not treated as the framework's NaN.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ForeignNanFieldIsNotTreatedAsNanAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task ForeignNanFieldIsNotTreatedAsNanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class Marker
             {
@@ -490,9 +496,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a widened integer operand still makes the comparison a floating-point one.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task WidenedOperandIsReportedAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task WidenedOperandIsReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C
             {
@@ -504,9 +511,10 @@ public class FloatingPointEqualityAnalyzerUnitTest
 
     /// <summary>Verifies a generic type parameter constrained to a struct is not assumed to be floating point.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task GenericOperandIsCleanAsync()
-        => await VerifyFloatingPoint.VerifyAnalyzerAsync(
+    public Task GenericOperandIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
             """
             public class C<T>
                 where T : struct, System.IEquatable<T>

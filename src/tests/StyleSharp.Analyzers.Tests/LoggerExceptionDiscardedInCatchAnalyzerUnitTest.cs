@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyLogger = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.LoggerCallAnalyzer,
     StyleSharp.Analyzers.Sst2438ExceptionDiscardedInCatchCodeFixProvider>;
@@ -85,9 +86,10 @@ public class LoggerExceptionDiscardedInCatchAnalyzerUnitTest
 
     /// <summary>Verifies a log below the error floor is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InformationLevelIsNotReportedAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task InformationLevelIsNotReportedAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -104,9 +106,10 @@ public class LoggerExceptionDiscardedInCatchAnalyzerUnitTest
 
     /// <summary>Verifies a catch that rethrows is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RethrowingCatchIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task RethrowingCatchIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -124,9 +127,10 @@ public class LoggerExceptionDiscardedInCatchAnalyzerUnitTest
 
     /// <summary>Verifies a catch that names no exception variable is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task CatchWithoutVariableIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task CatchWithoutVariableIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -143,9 +147,10 @@ public class LoggerExceptionDiscardedInCatchAnalyzerUnitTest
 
     /// <summary>Verifies a log already passing the exception is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionAlreadyPassedIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ExceptionAlreadyPassedIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {
@@ -162,9 +167,10 @@ public class LoggerExceptionDiscardedInCatchAnalyzerUnitTest
 
     /// <summary>Verifies an exception used elsewhere in the catch is not treated as discarded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ExceptionUsedElsewhereIsCleanAsync()
-        => await VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
+    public Task ExceptionUsedElsewhereIsCleanAsync() =>
+        VerifyLogger.VerifyAnalyzerAsync(LoggingTestSource.Wrap(
             """
             public sealed class C
             {

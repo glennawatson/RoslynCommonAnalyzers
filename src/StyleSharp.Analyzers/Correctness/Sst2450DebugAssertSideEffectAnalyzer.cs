@@ -70,7 +70,7 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one Debug.Assert whose condition has a side effect.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="debugType">The resolved <c>System.Diagnostics.Debug</c> type.</param>
-    private static void Analyze(SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsAssertNamed(invocation.Expression))
@@ -124,7 +124,7 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
         }
 
         SideEffectScan scan = default;
-        DescendantTraversalHelper.VisitDescendants<SyntaxNode, SideEffectScan>(condition, ref scan, VisitNode);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, SideEffectScan>(condition, ref scan, VisitNode);
         return scan.Found;
     }
 
@@ -158,8 +158,8 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a unary kind mutates its operand.</summary>
     /// <param name="kind">The unary expression's syntax kind.</param>
     /// <returns><see langword="true"/> for <c>++</c> and <c>--</c> in either position.</returns>
-    private static bool IsIncrementOrDecrement(SyntaxKind kind)
-        => kind is SyntaxKind.PostIncrementExpression
+    private static bool IsIncrementOrDecrement(SyntaxKind kind) =>
+        kind is SyntaxKind.PostIncrementExpression
             or SyntaxKind.PostDecrementExpression
             or SyntaxKind.PreIncrementExpression
             or SyntaxKind.PreDecrementExpression;
@@ -167,26 +167,26 @@ public sealed class Sst2450DebugAssertSideEffectAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invoked expression is a state-changing collection or enumerator call.</summary>
     /// <param name="expression">The invocation's expression.</param>
     /// <returns><see langword="true"/> when a receiver method with a known mutating name is called.</returns>
-    private static bool IsStateChangingCall(ExpressionSyntax expression)
-        => expression is MemberAccessExpressionSyntax member && IsStateChangingMethodName(member.Name.Identifier.ValueText);
+    private static bool IsStateChangingCall(ExpressionSyntax expression) =>
+        expression is MemberAccessExpressionSyntax member && IsStateChangingMethodName(member.Name.Identifier.ValueText);
 
     /// <summary>Returns whether a method name is a well-known state-changing operation.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for a curated set of mutating collection and enumerator methods.</returns>
-    private static bool IsStateChangingMethodName(string name)
-        => IsMutatingMemberName(name) || IsTryMutatingMemberName(name);
+    private static bool IsStateChangingMethodName(string name) =>
+        IsMutatingMemberName(name) || IsTryMutatingMemberName(name);
 
     /// <summary>Returns whether a method name is a plain mutating collection or enumerator operation.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for <c>Add</c>, <c>Remove</c>, <c>Pop</c>, <c>Dequeue</c>, or <c>MoveNext</c>.</returns>
-    private static bool IsMutatingMemberName(string name)
-        => name is "Add" or "Remove" or "Pop" or "Dequeue" or "MoveNext";
+    private static bool IsMutatingMemberName(string name) =>
+        name is "Add" or "Remove" or "Pop" or "Dequeue" or "MoveNext";
 
     /// <summary>Returns whether a method name is one of the <c>Try*</c> mutating operations.</summary>
     /// <param name="name">The method name.</param>
     /// <returns><see langword="true"/> for the concurrent and try-mutate members.</returns>
-    private static bool IsTryMutatingMemberName(string name)
-        => name is "TryAdd" or "TryRemove" or "TryTake" or "TryPop" or "TryPush" or "TryDequeue" or "TryUpdate";
+    private static bool IsTryMutatingMemberName(string name) =>
+        name is "TryAdd" or "TryRemove" or "TryTake" or "TryPop" or "TryPush" or "TryDequeue" or "TryUpdate";
 
     /// <summary>Describes a side-effecting node for the diagnostic message.</summary>
     /// <param name="node">The offending node.</param>

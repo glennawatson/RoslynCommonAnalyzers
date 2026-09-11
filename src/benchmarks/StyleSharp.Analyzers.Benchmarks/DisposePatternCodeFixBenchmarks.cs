@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using BenchmarkDotNet.Attributes;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -9,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 namespace StyleSharp.Analyzers.Benchmarks;
 
 /// <summary>Memory benchmarks for the disposal-pattern code-fix path.</summary>
+[System.Diagnostics.DebuggerDisplay("DisposePatternCodeFixBenchmarks: {Nodes}")]
 [MemoryDiagnoser]
 [ShortRunJob]
 public class DisposePatternCodeFixBenchmarks : IDisposable
@@ -40,13 +42,14 @@ public class DisposePatternCodeFixBenchmarks : IDisposable
     [GlobalSetup]
     public async Task SetupAsync()
     {
-        _workspace = new AdhocWorkspace();
+        _workspace = new();
         _document = CodeFixBenchmarkDocumentFactory.CreateDocument(_workspace, DisposePatternBenchmarkSource.Generate(Nodes, violating: true));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         _dispose = CodeFixBenchmarkSyntaxLookup.GetNthDescendant<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor, IsDispose);
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [GlobalCleanup]
     public void Cleanup() => Dispose();
 
@@ -83,6 +86,6 @@ public class DisposePatternCodeFixBenchmarks : IDisposable
     /// <summary>Returns whether a method is the parameterless <c>Dispose()</c>.</summary>
     /// <param name="method">The candidate method.</param>
     /// <returns><see langword="true"/> for the method the fix rewrites.</returns>
-    private static bool IsDispose(MethodDeclarationSyntax method)
-        => method.Identifier.ValueText == "Dispose" && method.ParameterList.Parameters.Count == 0;
+    private static bool IsDispose(MethodDeclarationSyntax method) =>
+        method.Identifier.ValueText == "Dispose" && method.ParameterList.Parameters.Count == 0;
 }

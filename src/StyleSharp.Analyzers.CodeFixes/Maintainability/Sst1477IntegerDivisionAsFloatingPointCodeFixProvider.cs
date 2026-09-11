@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -20,31 +22,32 @@ namespace StyleSharp.Analyzers;
 public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds
-        => ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds =>
+        ImmutableArrays.Of(MaintainabilityRules.IntegerDivisionAsFloatingPoint.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context)
-        => ReplaceNodeCodeFix.RegisterAsync(
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(
             context,
             "Divide in floating point",
             nameof(Sst1477IntegerDivisionAsFloatingPointCodeFixProvider),
             TryRewrite);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-        => ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
     /// <summary>Applies one SST1477 promotion for the reported division.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original document when the diagnostic no longer resolves.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-        => TryRewrite(root, diagnostic) is { } edit
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
 
@@ -89,7 +92,7 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
     /// </remarks>
     private static CastExpressionSyntax BuildCast(SyntaxKind keyword, ExpressionSyntax left)
     {
-        ExpressionSyntax operand = left.WithoutTrivia();
+        var operand = left.WithoutTrivia();
         if (NeedsParenthesesUnderCast(left))
         {
             operand = SyntaxFactory.ParenthesizedExpression(operand);
@@ -115,15 +118,15 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
 
         return node.Parent is CastExpressionSyntax { Type: PredefinedTypeSyntax predefined } cast
             && predefined.Keyword.RawKind == (int)keyword
-                ? cast
-                : null;
+            ? cast
+            : null;
     }
 
     /// <summary>Returns whether a cast's operand must keep its grouping.</summary>
     /// <param name="operand">The operand being cast.</param>
     /// <returns><see langword="true"/> for anything that binds looser than a cast.</returns>
-    private static bool NeedsParenthesesUnderCast(ExpressionSyntax operand)
-        => operand is BinaryExpressionSyntax
+    private static bool NeedsParenthesesUnderCast(ExpressionSyntax operand) =>
+        operand is BinaryExpressionSyntax
             or ConditionalExpressionSyntax
             or AssignmentExpressionSyntax
             or IsPatternExpressionSyntax
@@ -138,8 +141,8 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
     /// a whole value — an argument, an initializer, a return, the right side of an assignment, an existing
     /// pair of parentheses — are safe to drop into unparenthesized.
     /// </remarks>
-    private static bool NeedsParenthesesUnder(SyntaxNode? parent)
-        => parent is ExpressionSyntax
+    private static bool NeedsParenthesesUnder(SyntaxNode? parent) =>
+        parent is ExpressionSyntax
             and not ParenthesizedExpressionSyntax
             and not AssignmentExpressionSyntax
             and not InitializerExpressionSyntax;

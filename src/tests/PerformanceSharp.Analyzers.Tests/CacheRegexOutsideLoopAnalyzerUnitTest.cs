@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using VerifyCacheRegexOutsideLoop = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1421CacheRegexOutsideLoopAnalyzer>;
 
@@ -12,9 +13,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 {
     /// <summary>Verifies a static match call inside a foreach body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallInForeachIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task StaticCallInForeachIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -38,9 +40,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a static replace call inside a for body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallInForIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task StaticCallInForIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -58,9 +61,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a static call inside a while body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallInWhileIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task StaticCallInWhileIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -79,9 +83,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a static call inside a do body is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallInDoIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task StaticCallInDoIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -101,9 +106,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies an instance call inside a loop is left alone; it already holds its pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task InstanceCallInLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task InstanceCallInLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -129,9 +135,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a constant pattern outside any loop is reported; it can always be hoisted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task ConstantPatternOutsideLoopIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task ConstantPatternOutsideLoopIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -143,9 +150,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a constant declared elsewhere still counts as a hoistable pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task NamedConstantPatternIsFlaggedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task NamedConstantPatternIsFlaggedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -159,9 +167,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a run-time pattern outside a loop is left alone; there is nothing to hoist.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RuntimePatternOutsideLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task RuntimePatternOutsideLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -177,9 +186,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
     /// The pattern is built at run time so the constant-pattern arm cannot fire, leaving the loop question as
     /// the only thing under test.
     /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task StaticCallInsideLambdaIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task StaticCallInsideLambdaIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System;
             using System.Text.RegularExpressions;
@@ -199,9 +209,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies Regex.Escape inside a loop is left alone, because it compiles no pattern.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegexEscapeInLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task RegexEscapeInLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -219,9 +230,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies Regex.Unescape inside a loop is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task RegexUnescapeInLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task RegexUnescapeInLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -239,9 +251,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a pattern read from the loop's iteration variable is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task IterationVariablePatternIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task IterationVariablePatternIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -259,9 +272,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a pattern built from the loop's iteration variable is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PatternBuiltFromIterationVariableIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task PatternBuiltFromIterationVariableIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -279,9 +293,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a pattern the loop reassigns is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PatternWrittenInsideLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task PatternWrittenInsideLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -301,9 +316,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies a pattern fixed before the loop is still reported, because it can be hoisted.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task PatternFixedBeforeLoopIsReportedAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task PatternFixedBeforeLoopIsReportedAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             using System.Text.RegularExpressions;
 
@@ -322,9 +338,10 @@ public class CacheRegexOutsideLoopAnalyzerUnitTest
 
     /// <summary>Verifies an unrelated static call inside a loop is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public async Task UnrelatedStaticCallInLoopIsCleanAsync()
-        => await VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
+    public Task UnrelatedStaticCallInLoopIsCleanAsync() =>
+        VerifyCacheRegexOutsideLoop.VerifyAnalyzerAsync(
             """
             internal class C
             {

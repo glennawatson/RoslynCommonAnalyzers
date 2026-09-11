@@ -15,6 +15,12 @@ internal static class MagicNumberOptions
     /// <summary>The project-wide option key.</summary>
     public const string GeneralKey = "stylesharp.magic_number_allowed_values";
 
+    /// <summary>The rule-specific key that accepts a positional capacity argument.</summary>
+    public const string AllowCapacityRuleKey = "stylesharp.SST1471.allow_capacity_arguments";
+
+    /// <summary>The project-wide key that accepts a positional capacity argument.</summary>
+    public const string AllowCapacityGeneralKey = "stylesharp.allow_capacity_arguments";
+
     /// <summary>The values a literal may take without naming it: not-found, empty and first.</summary>
     private static readonly decimal[] DefaultAllowed = [-1m, 0m, 1m];
 
@@ -33,6 +39,23 @@ internal static class MagicNumberOptions
         }
 
         return Parse(value) ?? DefaultAllowed;
+    }
+
+    /// <summary>Reads whether a positional capacity argument is accepted without a name.</summary>
+    /// <param name="options">The analyzer config options for the literal's tree.</param>
+    /// <returns><see langword="true"/> only when the option is set and parses as true.</returns>
+    /// <remarks>
+    /// Off by default: the documented way to say what a capacity means is to label it, as in
+    /// <c>new List&lt;int&gt;(capacity: 4)</c>, and that stays the answer unless a project asks otherwise.
+    /// </remarks>
+    public static bool ReadAllowCapacityArguments(AnalyzerConfigOptions options)
+    {
+        if (!options.TryGetValue(AllowCapacityRuleKey, out var value) && !options.TryGetValue(AllowCapacityGeneralKey, out value))
+        {
+            return false;
+        }
+
+        return bool.TryParse(value.Trim(), out var parsed) && parsed;
     }
 
     /// <summary>Returns whether a value is present in the allow-list.</summary>

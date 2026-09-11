@@ -21,6 +21,54 @@ public class MagicNumberAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a positional capacity argument is reported by default.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>Labelling it is the documented way to say what it means, so the bare form still asks for one.</remarks>
+    [Test]
+    public async Task PositionalCapacityIsReportedByDefaultAsync()
+        => await VerifyMagicNumber.VerifyAnalyzerAsync(
+            """
+            using System.Collections.Generic;
+
+            public class C
+            {
+                public List<int> Bare() => new List<int>({|SST1471:4|});
+
+                public List<int> Labelled() => new List<int>(capacity: 4);
+            }
+            """);
+
+    /// <summary>Verifies a project can opt into accepting a positional capacity argument.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task PositionalCapacityIsCleanWhenAllowedAsync()
+    {
+        var test = new VerifyMagicNumber.Test
+        {
+            TestCode = """
+                       using System.Collections.Generic;
+                       using System.Text;
+
+                       public class C
+                       {
+                           public List<int> Numbers() => new List<int>(4);
+
+                           public StringBuilder Builder() => new StringBuilder(256);
+
+                           public bool Stale(int age) => age > {|SST1471:90|};
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST1471.allow_capacity_arguments = true
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies the allow-listed values need no name.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

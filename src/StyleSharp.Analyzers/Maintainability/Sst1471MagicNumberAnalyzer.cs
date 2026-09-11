@@ -20,6 +20,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The parameter name a collection or builder gives its initial-capacity argument.</summary>
+    private const string CapacityParameterName = "capacity";
+
     /// <summary>The radix used when reading a literal's digits.</summary>
     private const int DecimalRadix = 10;
 
@@ -59,19 +62,19 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         var positionalTypes = new Lazy<PositionalConstructorTypes>(
             () => PositionalConstructorTypes.Create(compilation),
             LazyThreadSafetyMode.ExecutionAndPublication);
-        var allowedByTree = new ConcurrentDictionary<SyntaxTree, decimal[]>();
+        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>();
         context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, allowedByTree, positionalTypes),
+            nodeContext => Analyze(nodeContext, settingsByTree, positionalTypes),
             SyntaxKind.NumericLiteralExpression);
     }
 
     /// <summary>Reports one numeric literal when nothing in its value or position explains it.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="allowedByTree">The per-tree allow-list cache.</param>
+    /// <param name="settingsByTree">The per-tree settings cache.</param>
     /// <param name="positionalTypes">The well-known positional constructor types.</param>
     private static void Analyze(
         SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, decimal[]> allowedByTree,
+        ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree,
         Lazy<PositionalConstructorTypes> positionalTypes)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
@@ -80,11 +83,13 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var settings = GetSettings(context, settingsByTree);
         var node = Unwrap(literal, out var negated);
         if (!TryGetValue(literal.Token, negated, out var value)
-            || MagicNumberOptions.Contains(GetAllowedValues(context, allowedByTree), value)
+            || MagicNumberOptions.Contains(settings.Allowed, value)
             || IsPositionExempt(node)
             || IsAtNamedDeclarationSite(node)
+            || (settings.AllowCapacityArguments && IsCapacityArgument(node, context))
             || IsPositionalConstructorArgument(node, context, positionalTypes))
         {
             return;
@@ -93,21 +98,46 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.MagicNumber, node.GetLocation(), node.ToString()));
     }
 
-    /// <summary>Reads the allow-list for the literal's tree, parsing each tree's options at most once.</summary>
+    /// <summary>Reads the settings for the literal's tree, parsing each tree's options at most once.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="allowedByTree">The per-tree allow-list cache.</param>
-    /// <returns>The allowed values.</returns>
-    private static decimal[] GetAllowedValues(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, decimal[]> allowedByTree)
+    /// <param name="settingsByTree">The per-tree settings cache.</param>
+    /// <returns>The resolved settings.</returns>
+    private static MagicNumberSettings GetSettings(SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree)
     {
         var tree = context.Node.SyntaxTree;
-        if (allowedByTree.TryGetValue(tree, out var allowed))
+        if (settingsByTree.TryGetValue(tree, out var settings))
         {
-            return allowed;
+            return settings;
         }
 
-        allowed = MagicNumberOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        allowedByTree.TryAdd(tree, allowed);
-        return allowed;
+        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
+        settings = new MagicNumberSettings(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
+        settingsByTree.TryAdd(tree, settings);
+        return settings;
+    }
+
+    /// <summary>Returns whether the literal is the capacity a collection is constructed with.</summary>
+    /// <param name="node">The unwrapped literal.</param>
+    /// <param name="context">The syntax node context.</param>
+    /// <returns><see langword="true"/> when the matching parameter is the constructor's capacity.</returns>
+    /// <remarks>
+    /// The parameter is matched by name off the bound constructor, so this covers the collections and the
+    /// text builders without a list of types to keep current. Only consulted when a project opts in.
+    /// </remarks>
+    private static bool IsCapacityArgument(ExpressionSyntax node, SyntaxNodeAnalysisContext context)
+    {
+        if (node.Parent is not ArgumentSyntax argument
+            || argument.Parent is not ArgumentListSyntax list
+            || list.Parent is not BaseObjectCreationExpressionSyntax creation
+            || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor)
+        {
+            return false;
+        }
+
+        var index = list.Arguments.IndexOf(argument);
+        return index >= 0
+            && index < constructor.Parameters.Length
+            && string.Equals(constructor.Parameters[index].Name, CapacityParameterName, StringComparison.Ordinal);
     }
 
     /// <summary>Returns whether a literal is written as a hexadecimal or binary bit pattern.</summary>

@@ -1591,6 +1591,7 @@ dotnet_diagnostic.PSH1110.severity = error # Use the collection's own predicate 
 dotnet_diagnostic.PSH1111.severity = error # Use Contains for membership tests
 dotnet_diagnostic.PSH1112.severity = error # Seed the collection through its constructor
 dotnet_diagnostic.PSH1113.severity = error # Sort naturally instead of ordering by the element itself
+# dotnet_diagnostic.PSH1114.severity = error # Freeze static lookup collections that are never mutated (opt-in)
 dotnet_diagnostic.PSH1115.severity = error # Insert-if-absent should probe the dictionary once
 dotnet_diagnostic.PSH1116.severity = error # Probe string-keyed collections with a span through GetAlternateLookup
 dotnet_diagnostic.PSH1117.severity = error # Ask the collection whether it is empty

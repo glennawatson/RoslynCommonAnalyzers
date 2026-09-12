@@ -31,6 +31,7 @@ dotnet_diagnostic.SES1006.severity = warning # Persisted Data Protection keys mu
 dotnet_diagnostic.SES1007.severity = warning # Do not hand-implement a cryptographic primitive
 dotnet_diagnostic.SES1008.severity = warning # Verify an XML signature against a known key
 dotnet_diagnostic.SES1009.severity = warning # Passwords must use a slow, salted key-derivation function
+dotnet_diagnostic.SES1010.severity = warning # Do not implement AES key wrapping by hand
 
 # Transport
 dotnet_diagnostic.SES1102.severity = warning # Do not accept any server certificate

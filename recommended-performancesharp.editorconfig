@@ -46,6 +46,7 @@ dotnet_diagnostic.PSH1020.severity = warning # Prefer a jagged array over a mult
 dotnet_diagnostic.PSH1021.severity = warning # Do not force garbage collection
 dotnet_diagnostic.PSH1022.severity = warning # Use EventArgs.Empty instead of allocating a new EventArgs
 dotnet_diagnostic.PSH1023.severity = warning # Use a tuple instead of an anonymous type for a local value
+dotnet_diagnostic.PSH1024.severity = warning # Build a BitArray from a span instead of a temporary array
 dotnet_diagnostic.PSH1025.severity = warning # Avoid a value-typed union case, which boxes into the union's payload
 
 # Collections
@@ -125,6 +126,7 @@ dotnet_diagnostic.PSH1314.severity = warning # Read and write streams through th
 dotnet_diagnostic.PSH1315.severity = warning # Do not block on a task that may not be complete
 dotnet_diagnostic.PSH1316.severity = warning # Consume a ValueTask exactly once
 dotnet_diagnostic.PSH1317.severity = warning # Pass the cancellation token to the call that accepts one
+dotnet_diagnostic.PSH1318.severity = warning # Validate options asynchronously instead of blocking
 
 # ApiSelection
 dotnet_diagnostic.PSH1400.severity = warning # Use the static HashData method for one-shot hashing

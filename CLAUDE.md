@@ -281,6 +281,12 @@ Adding a rule: descriptor in the group's `Rules` class (or inline), an analyzer,
 tests, and a `docs/rules/<ID>.md` page. Configurable options go in
 `.editorconfig` and `docs/CONFIGURATION.md`.
 
+**Every new rule is wired into both `.editorconfig` files before it ships.** The
+repo's own root `.editorconfig` gets a severity line so this codebase is held to
+the rule, and the package's `recommended-*.editorconfig` preset gets one so
+consumers do — commented out where the rule is opt-in. A rule that ships in
+neither is enforced nowhere and nobody discovers it.
+
 There are no analyzer release-tracking files, and RS2008 is off in
 `.editorconfig`: every rule ships as soon as it is written, so the files only
 restated the descriptors. `docs/rules/` says what a rule does and the GitHub

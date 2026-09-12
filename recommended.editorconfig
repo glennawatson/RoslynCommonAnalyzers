@@ -444,6 +444,7 @@ dotnet_diagnostic.SST1661.severity = suggestion # Code documentation tag should 
 # dotnet_diagnostic.SST1663.severity = warning # A summary comment should be a documentation comment (opt-in)
 # dotnet_diagnostic.SST1664.severity = warning # Summary paragraphs should use <para> elements (opt-in)
 dotnet_diagnostic.SST1666.severity = suggestion # Documentation elements should follow the standard order
+dotnet_diagnostic.SST1665.severity = warning # Documented exceptions should describe what triggers them
 
 # Extensions
 dotnet_diagnostic.SST1700.severity = warning # Extension blocks should not be empty
@@ -456,6 +457,7 @@ dotnet_diagnostic.SST1706.severity = warning # Avoid declaring extension members
 # dotnet_diagnostic.SST1707.severity = warning # Extension blocks should be ordered by receiver type (opt-in)
 dotnet_diagnostic.SST1708.severity = warning # Extension methods should use their receiver parameter
 # dotnet_diagnostic.SST1709.severity = warning # Static helpers in an extension container should be extensions (opt-in)
+# dotnet_diagnostic.SST1710.severity = warning # Prefer an extension indexer over an accessor-shaped extension method (opt-in)
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # Record classes should be sealed (opt-in)
@@ -500,6 +502,7 @@ dotnet_diagnostic.SST2102.severity = warning # Let the span target carry stack a
 dotnet_diagnostic.SST2103.severity = warning # Use a collection expression for this factory call
 dotnet_diagnostic.SST2104.severity = warning # Return builder contents directly
 dotnet_diagnostic.SST2105.severity = warning # Use the target collection expression directly
+dotnet_diagnostic.SST2106.severity = warning # Pass the capacity or comparer through a collection expression
 
 # ModernSyntax
 # dotnet_diagnostic.SST2200.severity = warning # Prefer the field keyword (opt-in)
@@ -587,6 +590,7 @@ dotnet_diagnostic.SST2285.severity = warning # Fold a null check into a conditio
 dotnet_diagnostic.SST2286.severity = warning # Remove a ToString call on a value that is already a string
 dotnet_diagnostic.SST2287.severity = warning # Use a for loop when a while loop owns its counter
 dotnet_diagnostic.SST2288.severity = warning # Express a conditional with a literal branch as a logical operator
+dotnet_diagnostic.SST2289.severity = warning # This unsafe block no longer needs an unsafe context
 
 # Design
 dotnet_diagnostic.SST2300.severity = warning # Implement the disposal pattern correctly
@@ -625,6 +629,8 @@ dotnet_diagnostic.SST2332.severity = warning # Make a construction-only property
 # dotnet_diagnostic.SST2333.severity = warning # Provide the non-generic form of a generic comparison contract (opt-in)
 # dotnet_diagnostic.SST2334.severity = warning # Give a public type a debugger-display attribute (opt-in)
 dotnet_diagnostic.SST2336.severity = warning # An attribute type should declare where it can be applied
+# dotnet_diagnostic.SST2337.severity = warning # Declare a fully known hierarchy as closed (opt-in)
+# dotnet_diagnostic.SST2338.severity = warning # Declare a hand-rolled discriminated type as a union (opt-in)
 # dotnet_diagnostic.SST2335.severity = warning # Declare the same 'static' modifier on every part of a partial type (opt-in)
 
 # Correctness
@@ -719,6 +725,7 @@ dotnet_diagnostic.SST2495.severity = warning # A flags combination should not re
 dotnet_diagnostic.SST2496.severity = suggestion # Do not dispose a value an enclosing using already disposes
 dotnet_diagnostic.SST2497.severity = warning # Do not forward a member to itself
 dotnet_diagnostic.SST2498.severity = warning # Do not use nameof on a type parameter
+dotnet_diagnostic.SST2499.severity = warning # Read the exit status rather than the exit code when a process can be signalled
 
 # Testing
 dotnet_diagnostic.SST2500.severity = warning # A test method should verify something

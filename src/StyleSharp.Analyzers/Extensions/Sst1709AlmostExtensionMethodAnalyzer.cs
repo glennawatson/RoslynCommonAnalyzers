@@ -69,6 +69,13 @@ public sealed class Sst1709AlmostExtensionMethodAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // A receiver of delegate type extends every method group in the program, which is never what a
+        // helper taking a callback meant. The lookup runs only once the cheap syntactic gate has passed.
+        if (context.SemanticModel.GetTypeInfo(method.ParameterList.Parameters[0].Type!, context.CancellationToken).Type is { TypeKind: TypeKind.Delegate })
+        {
+            return;
+        }
+
         context.ReportDiagnostic(DiagnosticHelper.Create(
             ExtensionRules.AlmostExtensionMethod,
             method.Identifier.GetLocation(),

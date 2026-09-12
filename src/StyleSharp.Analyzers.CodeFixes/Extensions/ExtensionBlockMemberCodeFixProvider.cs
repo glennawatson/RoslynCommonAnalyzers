@@ -67,14 +67,52 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <param name="almostExtension">Whether the receiver is an ordinary first parameter rather than a <c>this</c> one.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape cannot be converted.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic, bool almostExtension)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic, bool almostExtension) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is { } method
+            && method.Parent is ClassDeclarationSyntax containingClass
+            && Convert(containingClass, method, almostExtension) is { } updated
+            ? new NodeReplacement(containingClass, updated, current => RewriteCurrentClass(current, method, almostExtension))
+            : null;
+
+    /// <summary>Redoes the conversion against the class as earlier edits in the same batch have left it.</summary>
+    /// <param name="current">The containing class after the edits already composed.</param>
+    /// <param name="method">The method as it stood in the original tree.</param>
+    /// <param name="almostExtension">Whether the receiver is an ordinary first parameter rather than a <c>this</c> one.</param>
+    /// <returns>The rewritten class, or <paramref name="current"/> when the method is no longer convertible.</returns>
+    /// <remarks>
+    /// Every conversion in a class replaces that whole class, so a batch holds several edits to one node. Each
+    /// has to be derived again from what the previous ones produced — otherwise the second is computed against
+    /// a class that no longer exists, and it neither sees the block the first opened nor keeps the order the
+    /// members were declared in.
+    /// </remarks>
+    private static SyntaxNode RewriteCurrentClass(SyntaxNode current, MethodDeclarationSyntax method, bool almostExtension)
     {
-        // The method leaves the class's member list and reappears inside a block elsewhere in it, so a
-        // directive among the members would lose the half that sits on the method.
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } method
-            || method.Parent is not ClassDeclarationSyntax containingClass
-            || DirectiveBoundaries.SeparateMembers(containingClass)
-            || !IsConvertible(method, almostExtension)
+        if (current is not ClassDeclarationSyntax containingClass)
+        {
+            return current;
+        }
+
+        foreach (var member in containingClass.Members)
+        {
+            if (member is MethodDeclarationSyntax candidate
+                && candidate.IsEquivalentTo(method)
+                && Convert(containingClass, candidate, almostExtension) is { } updated)
+            {
+                return updated;
+            }
+        }
+
+        return current;
+    }
+
+    /// <summary>Moves one method into an extension block on its containing class.</summary>
+    /// <param name="containingClass">The static class holding the extensions.</param>
+    /// <param name="method">The method to convert.</param>
+    /// <param name="almostExtension">Whether the receiver is an ordinary first parameter rather than a <c>this</c> one.</param>
+    /// <returns>The rewritten class, or <see langword="null"/> when the shape cannot be converted.</returns>
+    private static ClassDeclarationSyntax? Convert(ClassDeclarationSyntax containingClass, MethodDeclarationSyntax method, bool almostExtension)
+    {
+        if (!IsConvertible(method, almostExtension)
             || method.ParameterList.Parameters[0] is not { Type: { } receiverType } receiver
             || !TrySplitTypeParameters(method, receiverType, out var split))
         {
@@ -86,7 +124,13 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         var member = ToExtensionMember(method, split).WithAdditionalAnnotations(Formatter.Annotation);
         if (FindMatchingBlock(containingClass, receiverType, receiverName, receiverModifiers, split) is { } existing)
         {
-            return MergeIntoBlock(containingClass, existing, method, member);
+            // Only this move carries the member across the file, so what matters is the gap it travels and
+            // whatever it takes with it. A directive in the method's own trivia is one half of a pair whose
+            // other half stays behind, and a directive it has to cross is safe only when the whole region
+            // crosses with it. A directive elsewhere among the members is in neither and does not count.
+            return method.ContainsDirectives || DirectiveBoundaries.SeparateUnbalanced(method, existing)
+                ? null
+                : MergeIntoBlock(containingClass, existing, method, member);
         }
 
         if (ParseExtensionBlock(receiverType, receiverName, receiverModifiers, split) is not { } block)
@@ -95,10 +139,54 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         }
 
         var introduced = block.AddMembers(member)
-            .WithLeadingTrivia(LayoutTriviaOf(method))
+            .WithLeadingTrivia(LayoutTriviaOf(method).AddRange(BlockDocumentation(receiverType, NewLineOf(containingClass))))
             .WithTrailingTrivia(method.GetTrailingTrivia())
             .WithAdditionalAnnotations(Formatter.Annotation);
-        return new NodeReplacement(containingClass, containingClass.ReplaceNode(method, introduced));
+        return containingClass.ReplaceNode(method, introduced);
+    }
+
+    /// <summary>Builds the documentation the opened block carries.</summary>
+    /// <param name="receiverType">The receiver type the block extends.</param>
+    /// <param name="newLine">The line ending the document uses.</param>
+    /// <returns>The documentation trivia that sits above the block.</returns>
+    /// <remarks>
+    /// The block is a declaration the fix introduces, and an undocumented one is what SST1654 reports. The
+    /// receiver is named in a <c>c</c> element rather than a <c>cref</c> because a predefined alias such as
+    /// <c>string</c> does not resolve as a cref (CS1574). The comment's terminator is part of the structured
+    /// trivia rather than elastic whitespace, so the formatter never gets to normalise it and it has to be
+    /// written as the document already writes its line endings.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxTriviaList BlockDocumentation(TypeSyntax receiverType, string newLine) =>
+        SyntaxFactory.ParseLeadingTrivia(
+            $"/// <summary>Extension members for <c>{EscapeXml(receiverType.WithoutTrivia().ToString())}</c>.</summary>{newLine}");
+
+    /// <summary>Escapes the markup characters a type name can contain.</summary>
+    /// <param name="text">The type name as it is written in source.</param>
+    /// <returns>The name as XML character data.</returns>
+    /// <remarks>
+    /// A constructed generic receiver is written with angle brackets, which close the element around it and
+    /// leave the comment malformed. The ampersand goes first so the entities this introduces are not escaped
+    /// a second time.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string EscapeXml(string text) =>
+        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    /// <summary>Gets the line ending a declaration is already written with.</summary>
+    /// <param name="node">The declaration to read.</param>
+    /// <returns>The first line ending found, or a bare line feed when there is none.</returns>
+    private static string NewLineOf(SyntaxNode node)
+    {
+        foreach (var trivia in node.DescendantTrivia())
+        {
+            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return trivia.ToFullString();
+            }
+        }
+
+        return "\n";
     }
 
     /// <summary>Gets a method's leading trivia without its documentation comment.</summary>
@@ -123,18 +211,36 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         return SyntaxFactory.TriviaList(kept);
     }
 
+    /// <summary>Gets just the documentation comment from a declaration's leading trivia.</summary>
+    /// <param name="node">The declaration to read.</param>
+    /// <returns>The documentation trivia, or an empty list when the declaration has none.</returns>
+    private static SyntaxTriviaList DocumentationOf(SyntaxNode node)
+    {
+        var kept = new List<SyntaxTrivia>();
+        foreach (var trivia in node.GetLeadingTrivia())
+        {
+            if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
+                || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
+            {
+                kept.Add(trivia);
+            }
+        }
+
+        return SyntaxFactory.TriviaList(kept);
+    }
+
     /// <summary>Adds the member to an existing block and drops the method it came from.</summary>
     /// <param name="containingClass">The static class holding the extensions.</param>
     /// <param name="block">The block that already declares this receiver.</param>
     /// <param name="method">The classic extension method being moved.</param>
     /// <param name="member">The method rewritten as a block member.</param>
-    /// <returns>The nodes to swap, or <see langword="null"/> when either node is no longer a member.</returns>
+    /// <returns>The rewritten class, or <see langword="null"/> when either node is no longer a member.</returns>
     /// <remarks>
     /// Both edits are made to the member list in one step. Doing them as two tree rewrites would leave the
     /// second one holding a node from a tree that no longer exists, and it also keeps the blank line that
     /// separated the two members visible after the first is gone.
     /// </remarks>
-    private static NodeReplacement? MergeIntoBlock(
+    private static ClassDeclarationSyntax? MergeIntoBlock(
         ClassDeclarationSyntax containingClass,
         TypeDeclarationSyntax block,
         MethodDeclarationSyntax method,
@@ -148,17 +254,21 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        var updatedBlock = block.AddMembers(member);
+        // The member keeps the position it held relative to the block, so a batch that converts the later
+        // method first still leaves the block's members in the order they were declared.
+        var updatedBlock = methodIndex < blockIndex
+            ? block.WithMembers(block.Members.Insert(0, member))
+            : block.AddMembers(member);
 
         // The first member carries the layout that follows the opening brace, so hand it to whichever
-        // member inherits that position.
+        // member inherits that position — without discarding the documentation the block already carries.
         if (methodIndex == 0 && blockIndex > methodIndex)
         {
-            updatedBlock = updatedBlock.WithLeadingTrivia(LayoutTriviaOf(method));
+            updatedBlock = updatedBlock.WithLeadingTrivia(LayoutTriviaOf(method).AddRange(DocumentationOf(block)));
         }
 
         var updated = members.Replace(block, updatedBlock).RemoveAt(methodIndex);
-        return new NodeReplacement(containingClass, containingClass.WithMembers(updated));
+        return containingClass.WithMembers(updated);
     }
 
     /// <summary>Returns whether an extension method can be moved without further judgement.</summary>

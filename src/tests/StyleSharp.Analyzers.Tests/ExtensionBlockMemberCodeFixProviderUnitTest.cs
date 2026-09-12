@@ -30,6 +30,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string text)
                                        {
                                            public bool IsBlank() => text.Length == 0;
@@ -60,8 +61,8 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
                                    {
                                        extension(string text)
                                        {
-                                           public int Words => text.Split(' ').Length;
                                            public bool IsBlank() => text.Length == 0;
+                                           public int Words => text.Split(' ').Length;
                                        }
                                    }
                                    """;
@@ -90,6 +91,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string value)
                                        {
                                            public bool IsBlank() => value.Length == 0;
@@ -123,6 +125,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
 
                                    public static class CollectionExtensions
                                    {
+                                       /// <summary>Extension members for <c>IReadOnlyCollection&lt;T&gt;</c>.</summary>
                                        extension<T>(IReadOnlyCollection<T> items) where T : struct
                                        {
                                            public bool IsEmpty() => items.Count == 0;
@@ -147,6 +150,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string text)
                                        {
                                            public string Describe<TValue>(TValue value)
@@ -183,6 +187,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
 
                                    public static class CollectionExtensions
                                    {
+                                       /// <summary>Extension members for <c>IReadOnlyCollection&lt;T&gt;</c>.</summary>
                                        extension<T>(IReadOnlyCollection<T> items) where T : class
                                        {
                                            /// <summary>Counts the items.</summary>
@@ -246,8 +251,8 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
                                    {
                                        extension<T>(IReadOnlyCollection<T> items)
                                        {
-                                           public int Size => items.Count;
                                            public bool IsEmpty() => items.Count == 0;
+                                           public int Size => items.Count;
                                        }
                                    }
                                    """;
@@ -274,6 +279,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string text)
                                        {
                                            /// <summary>Returns whether the text is empty.</summary>
@@ -313,6 +319,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
 
                                    public static class PointExtensions
                                    {
+                                       /// <summary>Extension members for <c>Point</c>.</summary>
                                        extension(in Point point)
                                        {
                                            public int Doubled() => point.X * 2;
@@ -351,6 +358,7 @@ public class ExtensionBlockMemberCodeFixProviderUnitTest
 
                                    public static class PointExtensions
                                    {
+                                       /// <summary>Extension members for <c>Point</c>.</summary>
                                        extension(in Point point)
                                        {
                                            public int Doubled() => point.X * 2;

@@ -84,6 +84,7 @@ public class AlmostExtensionMethodAnalyzerUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string text)
                                        {
                                            public bool IsBlank() => text.Length == 0;
@@ -117,6 +118,7 @@ public class AlmostExtensionMethodAnalyzerUnitTest
         const string FixedSource = """
                                    public static class StringExtensions
                                    {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
                                        extension(string text)
                                        {
                                            /// <summary>Reports whether the text is blank.</summary>
@@ -157,6 +159,159 @@ public class AlmostExtensionMethodAnalyzerUnitTest
 
                                            public bool IsBlank() => text.Trim().Length == 0;
                                        }
+                                   }
+                                   """;
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
+        AddPreview(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies every reported helper in one class is converted, not just the first.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Each conversion replaces the whole containing class, so two reports in the same class describe edits
+    /// to the same node. A fix-all that resolves only one of them leaves the rest reported.
+    /// </remarks>
+    [Test]
+    public async Task ConvertsEveryHelperInTheClassAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  public static bool {|SST1709:IsBlank|}(string text) => text.Trim().Length == 0;
+
+                                  public static bool {|SST1709:IsEmpty|}(string text) => text.Length == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
+                                       extension(string text)
+                                       {
+                                           public bool IsBlank() => text.Trim().Length == 0;
+
+                                           public bool IsEmpty() => text.Length == 0;
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
+        AddPreview(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a helper whose first parameter is a delegate is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A receiver of delegate type reads as an extension on every method group in the program, which is
+    /// never what the helper meant. The conversion has no sensible result, so the shape stays silent.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DelegateTypedFirstParameterIsCleanAsync() =>
+        RunAnalyzerAsync(
+            """
+            public static class BuilderExtensions
+            {
+                internal static void Configure(System.Action<string> configure) => configure("value");
+            }
+            """);
+
+    /// <summary>Verifies a helper whose nullable receiver is null-guarded is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A nullable receiver is legal on a block, so the guard is preserved by the conversion and the report
+    /// stays actionable. Only a receiver the conversion cannot express is skipped.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NullableReceiverGuardedAsNoOpIsReportedAsync() =>
+        RunAnalyzerAsync(
+            """
+            #nullable enable
+            public static class ResolverExtensions
+            {
+                internal static void {|SST1709:Register|}(string? resolver, int count)
+                {
+                    if (resolver is null)
+                    {
+                        return;
+                    }
+
+                    _ = resolver.Length + count;
+                }
+            }
+            """);
+
+    /// <summary>Verifies the block the fix opens is documented.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>An extension block without a summary is what SST1654 reports, so the fix must not write one.</remarks>
+    [Test]
+    public async Task GeneratedBlockCarriesASummaryAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  /// <summary>Reports whether the text is blank.</summary>
+                                  /// <param name="text">The text to test.</param>
+                                  /// <returns><see langword="true"/> when blank.</returns>
+                                  internal static bool {|SST1709:IsBlank|}(string text) => text.Trim().Length == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       /// <summary>Extension members for <c>string</c>.</summary>
+                                       extension(string text)
+                                       {
+                                           /// <summary>Reports whether the text is blank.</summary>
+                                           /// <returns><see langword="true"/> when blank.</returns>
+                                           internal bool IsBlank() => text.Trim().Length == 0;
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
+        AddPreview(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a directive around an unrelated member does not block the conversion.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The reported method and the block it joins both sit outside the directive, so moving one into the
+    /// other does not split a conditional region. Declining here leaves the report with no fix available.
+    /// </remarks>
+    [Test]
+    public async Task ConvertsWhenADirectiveWrapsAnUnrelatedMemberAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  extension(string text)
+                                  {
+                                      public bool IsEmpty() => text.Length == 0;
+                                  }
+
+                                  public static bool {|SST1709:IsBlank|}(string text) => text.Trim().Length == 0;
+
+                              #if NET
+                                  private static int Width(string text) => text.Length;
+                              #endif
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           public bool IsEmpty() => text.Length == 0;
+
+                                           public bool IsBlank() => text.Trim().Length == 0;
+                                       }
+
+                                   #if NET
+                                       private static int Width(string text) => text.Length;
+                                   #endif
                                    }
                                    """;
         var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };

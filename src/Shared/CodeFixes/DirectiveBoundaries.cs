@@ -76,6 +76,37 @@ internal static class DirectiveBoundaries
             && Cross(container, TextSpan.FromBounds(second.Span.End, first.Span.Start));
     }
 
+    /// <summary>Returns whether moving a node between two positions would split a directive region.</summary>
+    /// <param name="first">One of the nodes.</param>
+    /// <param name="second">The other node.</param>
+    /// <returns><see langword="true"/> when the gap holds a directive the move cannot cross safely.</returns>
+    /// <remarks>
+    /// Stricter than counting directives in the gap and looser than <see cref="Separate"/>. A complete
+    /// <c>#if … #endif</c> or <c>#region … #endregion</c> in the gap is inert: the node starts outside the
+    /// region and lands outside it, so nothing changes about when it compiles. A directive with no partner
+    /// — <c>#pragma</c>, <c>#nullable</c>, <c>#define</c> — is a switch that stays on from where it sits, so
+    /// crossing one does change the node's meaning and still declines.
+    /// </remarks>
+    internal static bool SeparateUnbalanced(SyntaxNode first, SyntaxNode second)
+    {
+        if (first.Parent is not { } container)
+        {
+            return false;
+        }
+
+        if (first.Span.End <= second.Span.Start)
+        {
+            return CrossesUnbalanced(container, TextSpan.FromBounds(first.Span.End, second.Span.Start));
+        }
+
+        if (second.Span.End <= first.Span.Start)
+        {
+            return CrossesUnbalanced(container, TextSpan.FromBounds(second.Span.End, first.Span.Start));
+        }
+
+        return false;
+    }
+
     /// <summary>Returns whether a conditional directive appears anywhere in a tree.</summary>
     /// <param name="root">The syntax root.</param>
     /// <returns><see langword="true"/> when an <c>#if</c> family directive is present.</returns>
@@ -98,6 +129,47 @@ internal static class DirectiveBoundaries
                 or SyntaxKind.EndIfDirectiveTrivia)
             {
                 return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a span holds a directive whose region is not wholly inside it.</summary>
+    /// <param name="container">A node enclosing the span.</param>
+    /// <param name="span">The region the fix moves a node across.</param>
+    /// <returns><see langword="true"/> when a directive in the span has a partner outside it, or none at all.</returns>
+    private static bool CrossesUnbalanced(SyntaxNode container, TextSpan span)
+    {
+        if (!container.ContainsDirectives)
+        {
+            return false;
+        }
+
+        for (var directive = container.GetFirstDirective(); directive is not null; directive = directive.GetNextDirective())
+        {
+            if (directive.SpanStart >= span.End)
+            {
+                return false;
+            }
+
+            if (!span.Contains(directive.SpanStart))
+            {
+                continue;
+            }
+
+            var related = directive.GetRelatedDirectives();
+            if (related.Count < 2)
+            {
+                return true;
+            }
+
+            for (var index = 0; index < related.Count; index++)
+            {
+                if (!span.Contains(related[index].SpanStart))
+                {
+                    return true;
+                }
             }
         }
 

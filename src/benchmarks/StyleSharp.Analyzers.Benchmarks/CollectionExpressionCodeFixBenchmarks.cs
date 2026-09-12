@@ -65,7 +65,7 @@ public class CollectionExpressionCodeFixBenchmarks : IDisposable
             ModernizationCodeFixBenchmarkSource.GenerateCollectionExpression(Nodes, CurrentShape == Shape.Explicit));
         _root = (CompilationUnitSyntax)(await _document.GetSyntaxRootAsync().ConfigureAwait(false))!;
         var method = CodeFixBenchmarkSyntaxLookup.GetNthTypeMember<MethodDeclarationSyntax>(_root, Nodes / MiddleNodeDivisor);
-        _expression = (ExpressionSyntax)method.ExpressionBody!.Expression;
+        _expression = method.ExpressionBody!.Expression;
         _diagnosticId = CurrentShape == Shape.Explicit
             ? CollectionExpressionRules.UseExplicitCollectionExpression.Id
             : CollectionExpressionRules.UseEmptyCollectionExpression.Id;

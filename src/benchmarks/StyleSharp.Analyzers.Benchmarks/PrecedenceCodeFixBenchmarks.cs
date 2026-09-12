@@ -52,7 +52,7 @@ public class PrecedenceCodeFixBenchmarks : IDisposable
                 && candidate.Identifier.ValueText[0] == 'M'
                 && char.IsDigit(candidate.Identifier.ValueText[1]));
         var returnExpression = (BinaryExpressionSyntax)((ReturnStatementSyntax)method.Body!.Statements[^1]).Expression!;
-        _expression = (ExpressionSyntax)returnExpression.Left;
+        _expression = returnExpression.Left;
     }
 
     /// <summary>Disposes the workspace created for the benchmark document.</summary>

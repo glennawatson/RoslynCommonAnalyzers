@@ -91,7 +91,7 @@ public sealed class ArgumentBindingUnitTest
         {
             if (member is MethodDeclarationSyntax method && method.Identifier.ValueText == name)
             {
-                return (IMethodSymbol)model.GetDeclaredSymbol(method)!;
+                return model.GetDeclaredSymbol(method)!;
             }
         }
 

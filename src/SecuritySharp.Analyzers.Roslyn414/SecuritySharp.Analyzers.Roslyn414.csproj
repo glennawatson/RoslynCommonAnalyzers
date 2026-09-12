@@ -37,11 +37,4 @@
     <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
-  <!-- Named explicitly: the SDK's auto-include does not reach a linked copy. -->
-
-  <ItemGroup>
-    <AdditionalFiles Include="..\SecuritySharp.Analyzers\AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
-    <AdditionalFiles Include="..\SecuritySharp.Analyzers\AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />
-  </ItemGroup>
-
 </Project>

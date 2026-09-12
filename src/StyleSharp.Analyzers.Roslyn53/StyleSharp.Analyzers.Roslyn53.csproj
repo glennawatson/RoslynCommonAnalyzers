@@ -37,13 +37,6 @@
     <Compile Include="..\Shared\Analyzers\*.cs" Link="Helpers\Shared\%(Filename).cs" />
   </ItemGroup>
 
-  <!-- Named explicitly: the SDK's auto-include does not reach a linked copy. -->
-
-  <ItemGroup>
-    <AdditionalFiles Include="..\StyleSharp.Analyzers\AnalyzerReleases.Shipped.md" Link="AnalyzerReleases.Shipped.md" />
-    <AdditionalFiles Include="..\StyleSharp.Analyzers\AnalyzerReleases.Unshipped.md" Link="AnalyzerReleases.Unshipped.md" />
-  </ItemGroup>
-
   <!-- The manifest name has to match the floor's, which the linked designer binds to. -->
 
   <ItemGroup>

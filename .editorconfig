@@ -1784,6 +1784,16 @@ dotnet_diagnostic.PAS0004.severity = error # No public API baseline for this tar
 dotnet_diagnostic.PAS0005.severity = error # The public API baseline could not be read
 
 ###################
+# Experimental compiler APIs (RSEXPERIMENTAL)
+###################
+dotnet_diagnostic.RSEXPERIMENTAL006.severity = none # We target newer language features
+
+###################
+# Analyzer release tracking (RS2xxx)
+###################
+dotnet_diagnostic.RS2008.severity = none # We ship every rule as written; see README
+
+###################
 # Trimming Analyzer Warnings (IL2001 - IL2123)
 # See: https://learn.microsoft.com/en-us/dotnet/core/deploying/trimming/trim-warnings/
 ###################

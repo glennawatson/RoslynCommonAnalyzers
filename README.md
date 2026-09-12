@@ -143,8 +143,13 @@ When adding a rule, update all of the following (in whichever package the rule b
 - code-fix implementation if the rule is fixable
 - tests
 - `docs/rules/SST####.md`, `docs/rules/PSH####.md`, or `docs/rules/SES####.md`
-- that package's `AnalyzerReleases.Unshipped.md`
 - the matching preset (`recommended.editorconfig` / `recommended-performancesharp.editorconfig` / `recommended-securitysharp.editorconfig`) if the rule should appear there
+
+There are no `AnalyzerReleases.Shipped.md` / `AnalyzerReleases.Unshipped.md` files, and RS2008 is
+turned off in `.editorconfig`. Release tracking assumes rules are batched into numbered releases;
+every rule here ships as soon as it is written, so those files only ever restated the descriptors.
+The per-rule pages under `docs/rules/` describe what each rule does, and the GitHub release notes
+record what changed in a given version.
 
 Performance is a first-class requirement. Read [`docs/PERFORMANCE.md`](docs/PERFORMANCE.md) before changing analyzer hot paths, and benchmark changes rather than guessing.
 

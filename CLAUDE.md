@@ -273,11 +273,15 @@ StyleSharp; a perf rule that also reads nicely still belongs in PerformanceSharp
 | `PSH13xx` | Concurrency & async | `System.Threading.Lock`, async overloads in async contexts, task combinators |
 | `PSH14xx` | API selection | one-shot `HashData`, cached options/`SearchValues`, cheaper runtime-service APIs |
 
-When a rule moves between packages it gets a **new id** in the destination and a
-"Removed Rules" row (with a pointer) in the source package's
-`AnalyzerReleases.Unshipped.md` — ids are never reused or shared across packages.
+When a rule moves between packages it gets a **new id** in the destination — ids
+are never reused or shared across packages, and a retired id is never handed to
+a different rule.
 
 Adding a rule: descriptor in the group's `Rules` class (or inline), an analyzer,
-tests, a `docs/rules/<ID>.md` page, and a row in that package's
-`AnalyzerReleases.Unshipped.md` (RS2000). Configurable options go in
+tests, and a `docs/rules/<ID>.md` page. Configurable options go in
 `.editorconfig` and `docs/CONFIGURATION.md`.
+
+There are no analyzer release-tracking files, and RS2008 is off in
+`.editorconfig`: every rule ships as soon as it is written, so the files only
+restated the descriptors. `docs/rules/` says what a rule does and the GitHub
+release notes say what changed.

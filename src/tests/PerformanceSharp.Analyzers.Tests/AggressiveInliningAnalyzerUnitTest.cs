@@ -449,6 +449,54 @@ public class AggressiveInliningAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies the import clears a conditional that wraps the first member.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A file whose namespace is chosen by an <c>#if</c> keeps those directives on its first member. Writing
+    /// the import onto that member's trivia would bury it in one arm, so the file would compile in one
+    /// configuration and not in the other — and a linked file compiles in both.
+    /// </remarks>
+    [Test]
+    public async Task ImportClearsAConditionalAroundTheFirstMemberAsync()
+    {
+        const string Source = """
+                              #if REACTIVE_SHIM
+                              namespace Sample.Reactive;
+                              #else
+                              namespace Sample;
+                              #endif
+
+                              public class C
+                              {
+                                  private readonly int _value;
+
+                                  public C(int value) => _value = value;
+
+                                  public int {|PSH1410:GetValue|}() => _value;
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Runtime.CompilerServices;
+
+                                   #if REACTIVE_SHIM
+                                   namespace Sample.Reactive;
+                                   #else
+                                   namespace Sample;
+                                   #endif
+
+                                   public class C
+                                   {
+                                       private readonly int _value;
+
+                                       public C(int value) => _value = value;
+
+                                       [MethodImpl(MethodImplOptions.AggressiveInlining)]
+                                       public int GetValue() => _value;
+                                   }
+                                   """;
+        await VerifyOptInAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies the rule ships disabled by default; blanket inlining is an opinionated convention.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

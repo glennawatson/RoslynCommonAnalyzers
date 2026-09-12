@@ -223,10 +223,67 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
             return unit.WithUsings(SyntaxFactory.SingletonList(directive));
         }
 
+        // A conditional that chooses the member — the namespace an '#if' selects, say — has to keep the
+        // member, because an import written below the '#if' belongs to one arm and the file compiles in
+        // both. Only the header ahead of the first directive travels with the import.
         var first = unit.Members[0];
+        var leading = first.GetLeadingTrivia();
+        var directiveIndex = IndexOfFirstDirective(leading);
+        var kept = directiveIndex < 0
+            ? SyntaxFactory.TriviaList(lineBreak)
+            : Splice(lineBreak, leading, directiveIndex);
+        var moved = directiveIndex < 0 ? leading : Take(leading, directiveIndex);
+
         return unit
-            .WithMembers(unit.Members.Replace(first, first.WithLeadingTrivia(lineBreak)))
-            .WithUsings(SyntaxFactory.SingletonList(directive.WithLeadingTrivia(first.GetLeadingTrivia())));
+            .WithMembers(unit.Members.Replace(first, first.WithLeadingTrivia(kept)))
+            .WithUsings(SyntaxFactory.SingletonList(directive.WithLeadingTrivia(moved)));
+    }
+
+    /// <summary>Returns the position of the first directive in a trivia list.</summary>
+    /// <param name="trivia">The trivia to scan.</param>
+    /// <returns>The index, or <c>-1</c> when the list carries no directive.</returns>
+    private static int IndexOfFirstDirective(in SyntaxTriviaList trivia)
+    {
+        for (var i = 0; i < trivia.Count; i++)
+        {
+            if (trivia[i].IsDirective)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>Returns the leading trivia up to a position.</summary>
+    /// <param name="trivia">The trivia to take from.</param>
+    /// <param name="count">How many entries to take.</param>
+    /// <returns>The taken trivia.</returns>
+    private static SyntaxTriviaList Take(in SyntaxTriviaList trivia, int count)
+    {
+        var taken = new List<SyntaxTrivia>(count);
+        for (var i = 0; i < count; i++)
+        {
+            taken.Add(trivia[i]);
+        }
+
+        return SyntaxFactory.TriviaList(taken);
+    }
+
+    /// <summary>Returns the trivia from a position on, separated from the import by a blank line.</summary>
+    /// <param name="lineBreak">The file's line-break trivia.</param>
+    /// <param name="trivia">The trivia to keep from.</param>
+    /// <param name="start">The first entry to keep.</param>
+    /// <returns>The kept trivia.</returns>
+    private static SyntaxTriviaList Splice(in SyntaxTrivia lineBreak, in SyntaxTriviaList trivia, int start)
+    {
+        var kept = new List<SyntaxTrivia>(trivia.Count - start + 1) { lineBreak };
+        for (var i = start; i < trivia.Count; i++)
+        {
+            kept.Add(trivia[i]);
+        }
+
+        return SyntaxFactory.TriviaList(kept);
     }
 
     /// <summary>Writes the directive into the existing import block, in order.</summary>

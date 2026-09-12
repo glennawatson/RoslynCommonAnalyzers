@@ -87,7 +87,8 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
         change = default;
 
         if (!diagnostic.Properties.TryGetValue(Sst1662ThrownExceptionDocumentationAnalyzer.ThrownTypesKey, out var joined)
-            || string.IsNullOrEmpty(joined))
+            || string.IsNullOrEmpty(joined)
+            || !diagnostic.Properties.TryGetValue(Sst1662ThrownExceptionDocumentationAnalyzer.ThrownDescriptionsKey, out var joinedDescriptions))
         {
             return false;
         }
@@ -115,23 +116,45 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
             newLine = "\n";
         }
 
-        var builder = new StringBuilder();
-        foreach (var crefText in joined!.Split('\n'))
-        {
-            if (crefText.Length == 0)
-            {
-                continue;
-            }
-
-            _ = builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\"></exception>").Append(newLine);
-        }
-
-        if (builder.Length == 0)
+        var elements = BuildElements(joined!, joinedDescriptions, indent, newLine);
+        if (elements.Length == 0)
         {
             return false;
         }
 
-        change = new(new TextSpan(full.End, 0), builder.ToString());
+        change = new(new TextSpan(full.End, 0), elements);
         return true;
+    }
+
+    /// <summary>Builds the <c>&lt;exception&gt;</c> lines for the types whose trigger is known.</summary>
+    /// <param name="joined">The newline-separated cref forms.</param>
+    /// <param name="joinedDescriptions">The newline-separated descriptions, aligned with the cref forms.</param>
+    /// <param name="indent">The indentation the documentation sits at.</param>
+    /// <param name="newLine">The line ending the document uses.</param>
+    /// <returns>The lines to insert, empty when no type has a description.</returns>
+    /// <remarks>
+    /// A type with no description is skipped rather than written empty. An undescribed element is what
+    /// SST1665 reports, and it treats one as worse than the missing element this rule found, so a throw
+    /// that nothing guards is left for its author to explain.
+    /// </remarks>
+    private static string BuildElements(string joined, string? joinedDescriptions, string indent, string newLine)
+    {
+        var crefs = joined.Split('\n');
+        var descriptions = (joinedDescriptions ?? string.Empty).Split('\n');
+        var builder = new StringBuilder();
+        for (var i = 0; i < crefs.Length; i++)
+        {
+            var crefText = crefs[i];
+            var description = i < descriptions.Length ? descriptions[i] : string.Empty;
+            if (crefText.Length == 0 || description.Length == 0)
+            {
+                continue;
+            }
+
+            _ = builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\">")
+                .Append(description).Append("</exception>").Append(newLine);
+        }
+
+        return builder.ToString();
     }
 }

@@ -21,6 +21,12 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Diagnostic property key holding the newline-separated cref forms of the undocumented thrown types.</summary>
     internal const string ThrownTypesKey = "thrownTypes";
 
+    /// <summary>
+    /// Diagnostic property key holding the description for each entry of <see cref="ThrownTypesKey"/>, in the
+    /// same order, empty where the throw is unconditional and there is nothing to state.
+    /// </summary>
+    internal const string ThrownDescriptionsKey = "thrownDescriptions";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DocumentationRules.ThrownExceptionDocumentation);
 
@@ -60,7 +66,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
             return;
         }
 
-        var thrown = new List<TypeSyntax>();
+        var thrown = new List<ThrownException>();
         CollectDirectThrows(body, thrown);
         if (thrown.Count == 0)
         {
@@ -68,14 +74,16 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         }
 
         var documented = CollectDocumentedExceptionNames(documentation);
-        var missing = SelectMissing(thrown, documented);
-        if (missing is null || MemberName(member) is not { } named)
+        if (!TrySelectMissing(thrown, documented, out var missing, out var descriptions)
+            || MemberName(member) is not { } named)
         {
             return;
         }
 
         var (nameToken, name) = named;
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(ThrownTypesKey, missing);
+        var properties = ImmutableDictionary<string, string?>.Empty
+            .Add(ThrownTypesKey, missing)
+            .Add(ThrownDescriptionsKey, descriptions);
         context.ReportDiagnostic(DiagnosticHelper.Create(
             DocumentationRules.ThrownExceptionDocumentation,
             member.SyntaxTree,
@@ -86,8 +94,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
     /// <summary>Collects the object-creation types thrown directly in a member body, skipping deferred scopes.</summary>
     /// <param name="node">The node to scan.</param>
-    /// <param name="into">The list receiving each <c>throw new T</c> type.</param>
-    private static void CollectDirectThrows(SyntaxNode node, List<TypeSyntax> into)
+    /// <param name="into">The list receiving each <c>throw new T</c> and what reaches it.</param>
+    private static void CollectDirectThrows(SyntaxNode node, List<ThrownException> into)
     {
         foreach (var child in node.ChildNodes())
         {
@@ -99,12 +107,86 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (ThrownObjectCreationType(child) is { } type)
             {
-                into.Add(type);
+                into.Add(new(type, DescribeTrigger(child)));
                 continue;
             }
 
             CollectDirectThrows(child, into);
         }
+    }
+
+    /// <summary>Describes what has to hold for a throw to be reached.</summary>
+    /// <param name="throwNode">The <c>throw</c> statement or expression.</param>
+    /// <returns>The documentation text, or an empty string when nothing guards the throw.</returns>
+    /// <remarks>
+    /// The guard is restated as written rather than turned into prose. It is the condition the caller has to
+    /// avoid, so quoting it says exactly what triggers the exception without the fix inventing a sentence;
+    /// where nothing guards the throw there is no fact to state and the member is left to its author.
+    /// </remarks>
+    private static string DescribeTrigger(SyntaxNode throwNode)
+    {
+        if (throwNode is ThrowExpressionSyntax expression
+            && expression.Parent is BinaryExpressionSyntax coalesce
+            && coalesce.IsKind(SyntaxKind.CoalesceExpression)
+            && coalesce.Right == expression)
+        {
+            return $"Thrown when <c>{Escape(coalesce.Left)}</c> is <see langword=\"null\"/>.";
+        }
+
+        for (var current = throwNode; current is not null; current = current.Parent)
+        {
+            // The else branch is reached by the condition being false, which this does not describe.
+            if (current.Parent is IfStatementSyntax ifStatement && ifStatement.Statement == current)
+            {
+                return $"Thrown when <c>{Escape(ifStatement.Condition)}</c>.";
+            }
+
+            if (current is MemberDeclarationSyntax)
+            {
+                break;
+            }
+        }
+
+        return string.Empty;
+    }
+
+    /// <summary>Renders an expression as single-line XML character data.</summary>
+    /// <param name="expression">The expression as written.</param>
+    /// <returns>The expression text, collapsed onto one line and escaped.</returns>
+    /// <remarks>
+    /// The markup characters a condition can contain would close the element around it, and a line break
+    /// would break the record the fix reads back out of the diagnostic.
+    /// </remarks>
+    private static string Escape(SyntaxNode expression)
+    {
+        var builder = new StringBuilder();
+        var text = expression.ToString();
+        var pendingSpace = false;
+        for (var i = 0; i < text.Length; i++)
+        {
+            var character = text[i];
+            if (character is ' ' or '\t' or '\r' or '\n')
+            {
+                pendingSpace = builder.Length > 0;
+                continue;
+            }
+
+            if (pendingSpace)
+            {
+                _ = builder.Append(' ');
+                pendingSpace = false;
+            }
+
+            _ = character switch
+            {
+                '&' => builder.Append("&amp;"),
+                '<' => builder.Append("&lt;"),
+                '>' => builder.Append("&gt;"),
+                _ => builder.Append(character),
+            };
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>Returns whether a node introduces a deferred or nested execution scope whose throws are not the member's.</summary>
@@ -148,32 +230,44 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         return names;
     }
 
-    /// <summary>Builds the newline-separated cref forms of the thrown types that are not documented, or <see langword="null"/> when all are.</summary>
-    /// <param name="thrown">The thrown types in source order.</param>
+    /// <summary>Builds the cref forms and descriptions of the thrown types that are not documented.</summary>
+    /// <param name="thrown">The thrown exceptions in source order.</param>
     /// <param name="documented">The documented exception simple names.</param>
-    /// <returns>The joined cref forms, or <see langword="null"/> when nothing is missing.</returns>
-    private static string? SelectMissing(List<TypeSyntax> thrown, HashSet<string> documented)
+    /// <param name="missing">The newline-separated cref forms.</param>
+    /// <param name="descriptions">The newline-separated descriptions, aligned with <paramref name="missing"/>.</param>
+    /// <returns><see langword="true"/> when at least one thrown type is undocumented.</returns>
+    private static bool TrySelectMissing(
+        List<ThrownException> thrown,
+        HashSet<string> documented,
+        out string missing,
+        out string descriptions)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        StringBuilder? builder = null;
-        foreach (var type in thrown)
+        var types = new StringBuilder();
+        var reasons = new StringBuilder();
+        var found = false;
+        foreach (var exception in thrown)
         {
-            var simpleName = SimpleName(type);
+            var simpleName = SimpleName(exception.Type);
             if (simpleName.Length == 0 || documented.Contains(simpleName) || !seen.Add(simpleName))
             {
                 continue;
             }
 
-            builder ??= new StringBuilder();
-            if (builder.Length > 0)
+            if (found)
             {
-                _ = builder.Append('\n');
+                _ = types.Append('\n');
+                _ = reasons.Append('\n');
             }
 
-            _ = builder.Append(CrefForm(type));
+            _ = types.Append(CrefForm(exception.Type));
+            _ = reasons.Append(exception.Description);
+            found = true;
         }
 
-        return builder?.ToString();
+        missing = types.ToString();
+        descriptions = reasons.ToString();
+        return found;
     }
 
     /// <summary>Returns the simple (rightmost, non-generic) name of a type as written.</summary>
@@ -261,4 +355,9 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         ConversionOperatorDeclarationSyntax conversion => (conversion.OperatorKeyword, $"operator {conversion.Type}"),
         _ => null,
     };
+
+    /// <summary>An exception a member throws directly, and what reaches it.</summary>
+    /// <param name="Type">The constructed exception type as written.</param>
+    /// <param name="Description">The documentation text for the trigger, empty when the throw is unconditional.</param>
+    private readonly record struct ThrownException(TypeSyntax Type, string Description);
 }

@@ -406,6 +406,322 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an entry that re-implements the interface onto a hidden base member is kept.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The member answering the re-implemented interface is the base class's own <c>new</c> member, not one
+    /// declared here: the interface reaches <c>Middle.Run</c> with the entry and <c>Base.Run</c> without it.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceReimplementedOntoAHiddenBaseMemberIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface IRunnable
+            {
+                void Run();
+            }
+
+            public class Base : IRunnable
+            {
+                public void Run()
+                {
+                }
+            }
+
+            public class Middle : Base
+            {
+                public new void Run()
+                {
+                }
+            }
+
+            public sealed class Derived : Middle, IRunnable
+            {
+            }
+            """);
+
+    /// <summary>Verifies a hidden base property keeps the entry alive the same way a hidden method does.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceReimplementedOntoAHiddenBasePropertyIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface ICounter
+            {
+                int Count { get; }
+            }
+
+            public class Base : ICounter
+            {
+                public int Count => 1;
+            }
+
+            public class Middle : Base
+            {
+                public new int Count => 2;
+            }
+
+            public sealed class Derived : Middle, ICounter
+            {
+            }
+            """);
+
+    /// <summary>Verifies the hidden member is found however far up the base chain it sits.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceReimplementedOntoAMemberHiddenFurtherUpTheChainIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface IRunnable
+            {
+                void Run();
+            }
+
+            public class Base : IRunnable
+            {
+                public void Run()
+                {
+                }
+            }
+
+            public class Middle : Base
+            {
+                public new void Run()
+                {
+                }
+            }
+
+            public class Between : Middle
+            {
+            }
+
+            public sealed class Derived : Between, IRunnable
+            {
+            }
+            """);
+
+    /// <summary>Verifies an entry that moves the interface off a base class's explicit implementation is kept.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Without the entry the interface reaches the base class's explicit implementation; with it, the public
+    /// member that the explicit implementation left alone.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceReimplementedOffAnExplicitBaseImplementationIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface IRunnable
+            {
+                void Run();
+            }
+
+            public class Base : IRunnable
+            {
+                void IRunnable.Run()
+                {
+                }
+            }
+
+            public class Middle : Base
+            {
+                public void Run()
+                {
+                }
+            }
+
+            public sealed class Derived : Middle, IRunnable
+            {
+            }
+            """);
+
+    /// <summary>Verifies an override in the base chain leaves the entry redundant.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Both mappings run the same code: the base class's mapping dispatches virtually to the override, so
+    /// the entry changes nothing.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OverrideInTheBaseChainStillReportsAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface IRunnable
+            {
+                void Run();
+            }
+
+            public class Base : IRunnable
+            {
+                public virtual void Run()
+                {
+                }
+            }
+
+            public class Middle : Base
+            {
+                public override void Run()
+                {
+                }
+            }
+
+            public sealed class Derived : Middle, {|SST1490:IRunnable|}
+            {
+            }
+            """);
+
+    /// <summary>Verifies an entry whose inherited interfaces also map to the base class is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task InterfaceImpliedByBaseClassWithNothingReimplementedIsRemovedAsync()
+    {
+        const string Source = """
+                              public interface IBase
+                              {
+                                  void Run();
+                              }
+
+                              public interface IDerived : IBase
+                              {
+                              }
+
+                              public class Base : IDerived
+                              {
+                                  public void Run()
+                                  {
+                                  }
+                              }
+
+                              public sealed class Derived : Base, {|SST1490:IDerived|}
+                              {
+                              }
+                              """;
+        const string FixedSource = """
+                                   public interface IBase
+                                   {
+                                       void Run();
+                                   }
+
+                                   public interface IDerived : IBase
+                                   {
+                                   }
+
+                                   public class Base : IDerived
+                                   {
+                                       public void Run()
+                                       {
+                                       }
+                                   }
+
+                                   public sealed class Derived : Base
+                                   {
+                                   }
+                                   """;
+        await VerifyBaseList.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an entry is kept when what it re-implements is an interface it inherits.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// Re-listing <c>IDerived</c> re-maps <c>IBase</c> with it, so <c>((IBase)derived).Run()</c> reaches
+    /// <c>Derived.Run</c> and would reach <c>Base.Run</c> once the entry is gone.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InterfaceReimplementedThroughAnInheritedInterfaceIsKeptAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface IBase
+            {
+                void Run();
+            }
+
+            public interface IDerived : IBase
+            {
+            }
+
+            public class Base : IDerived
+            {
+                public void Run()
+                {
+                }
+            }
+
+            public sealed class Derived : Base, IDerived
+            {
+                public new void Run()
+                {
+                }
+            }
+            """);
+
+    /// <summary>Verifies an overridden property leaves the entry redundant, as an overridden method does.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OverrideOfTheBasePropertyStillReportsAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface ICounter
+            {
+                int Count { get; }
+            }
+
+            public class Base : ICounter
+            {
+                public virtual int Count => 1;
+            }
+
+            public sealed class Derived : Base, {|SST1490:ICounter|}
+            {
+                public override int Count => 2;
+            }
+            """);
+
+    /// <summary>Verifies an overridden event leaves the entry redundant, as an overridden method does.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OverrideOfTheBaseEventStillReportsAsync() =>
+        VerifyBaseList.VerifyAnalyzerAsync(
+            """
+            public interface INotifier
+            {
+                event System.EventHandler Fired;
+            }
+
+            public class Base : INotifier
+            {
+                public virtual event System.EventHandler Fired
+                {
+                    add
+                    {
+                    }
+
+                    remove
+                    {
+                    }
+                }
+            }
+
+            public sealed class Derived : Base, {|SST1490:INotifier|}
+            {
+                public override event System.EventHandler Fired
+                {
+                    add
+                    {
+                    }
+
+                    remove
+                    {
+                    }
+                }
+            }
+            """);
+
     /// <summary>Verifies an explicit implementation of an interface implied by another interface is still reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

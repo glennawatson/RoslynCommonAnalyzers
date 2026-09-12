@@ -17,11 +17,11 @@ namespace StyleSharp.Analyzers;
 /// </para>
 /// <para>
 /// The one shape that survives the redundancy is interface re-implementation. When a base class already
-/// supplies the interface, re-listing it re-maps the interface to this type's own members, so deleting the
-/// entry would silently move the call back to the base implementation — or fail to compile, when the
-/// entry is what allows an explicit implementation to exist. An entry implied by a base class is dropped
-/// from the report when this type declares an implementation of its own. An entry implied by another
-/// interface has no such risk: the type implements it directly either way.
+/// supplies the interface, re-listing it restarts the interface mapping at this type, so deleting the entry
+/// would silently move the call back to the member the base class maps — or fail to compile, when the entry
+/// is what allows an explicit implementation to exist. An entry implied by a base class is therefore dropped
+/// from the report only when both mappings reach the same member. An entry implied by another interface has
+/// no such risk: the type implements it directly either way.
 /// </para>
 /// <para>
 /// An explicit <c>object</c> base is not reported here; SST1177 already covers the compiler-implied base
@@ -117,10 +117,12 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
                 return true;
             }
 
-            impliedByBaseClass = true;
+            // A base list names at most one class, so this runs once: the entry is redundant unless
+            // re-implementing the interface here reaches a different member than the base class does.
+            impliedByBaseClass = !ReimplementationChangesDispatch(candidate, other, declaration, context);
         }
 
-        return impliedByBaseClass && !DeclaresOwnImplementation(candidate, declaration, context);
+        return impliedByBaseClass;
     }
 
     /// <summary>Returns whether one base-list entry's type carries the candidate interface.</summary>
@@ -142,27 +144,34 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>
-    /// Returns whether the type supplies its own implementation of an interface a listed base class
-    /// already implements. Removing the entry would then change which member the interface reaches — or
-    /// stop an explicit implementation from compiling at all — so the entry carries meaning and stays.
+    /// Returns whether re-implementing the interface here sends it to a different member than the base
+    /// class's own mapping does. Removing the entry would then change which member the interface reaches —
+    /// or stop an explicit implementation from compiling at all — so the entry carries meaning and stays.
     /// </summary>
     /// <param name="candidate">The interface being judged.</param>
+    /// <param name="baseClass">The listed base class that already implements the interface.</param>
     /// <param name="declaration">The declaration owning the base list.</param>
     /// <param name="context">The syntax node context.</param>
-    /// <returns><see langword="true"/> when this type, and not the base class, answers the interface.</returns>
+    /// <returns><see langword="true"/> when the entry decides which member the interface reaches.</returns>
     /// <remarks>
-    /// An override is not an implementation of its own: it is reached through the base class's own mapping
-    /// and keeps running after the entry is deleted. Every other member declared here — an explicit
-    /// implementation, a <c>new</c> member that hides the base one — is a re-implementation and is kept.
+    /// The member that answers the interface need not be declared here: re-implementation restarts the
+    /// search at this type, so it also picks up a <c>new</c> member anywhere in the base chain that the
+    /// base class's own mapping skipped over. The two mappings are compared through the override chain,
+    /// because an override is reached by virtual dispatch through the base class's mapping and keeps
+    /// running after the entry is deleted.
     /// </remarks>
-    private static bool DeclaresOwnImplementation(INamedTypeSymbol candidate, TypeDeclarationSyntax declaration, in SyntaxNodeAnalysisContext context)
+    private static bool ReimplementationChangesDispatch(
+        INamedTypeSymbol candidate,
+        INamedTypeSymbol baseClass,
+        TypeDeclarationSyntax declaration,
+        in SyntaxNodeAnalysisContext context)
     {
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type)
         {
             return true;
         }
 
-        if (DeclaresImplementationOfAnyMember(type, candidate, context.CancellationToken))
+        if (MappingDiffersFromBaseClass(type, baseClass, candidate, context.CancellationToken))
         {
             return true;
         }
@@ -172,7 +181,7 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
         var inherited = candidate.AllInterfaces;
         for (var i = 0; i < inherited.Length; i++)
         {
-            if (DeclaresImplementationOfAnyMember(type, inherited[i], context.CancellationToken))
+            if (MappingDiffersFromBaseClass(type, baseClass, inherited[i], context.CancellationToken))
             {
                 return true;
             }
@@ -181,25 +190,59 @@ public sealed class Sst1490RedundantBaseListEntryAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether the type declares the member that answers any member of one interface.</summary>
+    /// <summary>Returns whether this type maps any member of one interface elsewhere than its base class does.</summary>
     /// <param name="type">The type owning the base list.</param>
+    /// <param name="baseClass">The listed base class that already implements the interface.</param>
     /// <param name="interfaceType">The interface whose members are resolved.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns><see langword="true"/> when a non-override implementation is declared on this type.</returns>
-    private static bool DeclaresImplementationOfAnyMember(INamedTypeSymbol type, INamedTypeSymbol interfaceType, CancellationToken cancellationToken)
+    /// <returns><see langword="true"/> when the two mappings disagree on a member.</returns>
+    private static bool MappingDiffersFromBaseClass(
+        INamedTypeSymbol type,
+        INamedTypeSymbol baseClass,
+        INamedTypeSymbol interfaceType,
+        CancellationToken cancellationToken)
     {
         var members = interfaceType.GetMembers();
         for (var i = 0; i < members.Length; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (type.FindImplementationForInterfaceMember(members[i]) is { IsOverride: false } implementation
-                && SymbolEqualityComparer.Default.Equals(implementation.ContainingType, type))
+            var here = BaseDeclarationOf(type.FindImplementationForInterfaceMember(members[i]));
+            var inherited = BaseDeclarationOf(baseClass.FindImplementationForInterfaceMember(members[i]));
+            if (!SymbolEqualityComparer.Default.Equals(here, inherited))
             {
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>Walks an override back to the member it ultimately overrides.</summary>
+    /// <param name="implementation">The member a mapping resolved to, if any.</param>
+    /// <returns>The base-most declaration of that member.</returns>
+    /// <remarks>
+    /// Two mappings that land on different links of one override chain reach the same code at run time, so
+    /// the chain is collapsed before they are compared.
+    /// </remarks>
+    private static ISymbol? BaseDeclarationOf(ISymbol? implementation)
+    {
+        while (true)
+        {
+            var overridden = implementation switch
+            {
+                IMethodSymbol { IsOverride: true } method => method.OverriddenMethod,
+                IPropertySymbol { IsOverride: true } property => property.OverriddenProperty,
+                IEventSymbol { IsOverride: true } @event => (ISymbol?)@event.OverriddenEvent,
+                _ => null,
+            };
+
+            if (overridden is null)
+            {
+                return implementation;
+            }
+
+            implementation = overridden;
+        }
     }
 
     /// <summary>Binds one base-list entry to the named type it refers to.</summary>

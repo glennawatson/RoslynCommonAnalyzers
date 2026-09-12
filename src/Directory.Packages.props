@@ -17,7 +17,7 @@
 
   <ItemGroup Label="Analyzers">
     <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
-    <PackageVersion Include="PublicApiSharp.Analyzers" Version="1.0.7" />
+    <PackageVersion Include="PublicApiSharp.Analyzers" Version="1.0.8" />
     <PackageVersion Include="SecuritySharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
     <PackageVersion Include="StyleSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
   </ItemGroup>

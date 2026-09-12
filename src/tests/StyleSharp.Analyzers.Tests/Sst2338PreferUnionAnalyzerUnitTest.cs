@@ -119,6 +119,89 @@ public class Sst2338PreferUnionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a value-typed payload is not pushed toward a union, because the union form boxes it.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ValueTypePayloadIsCleanAsync() =>
+        RunAsync(Marker + """
+            public enum ReadingKind
+            {
+                Count,
+                Ratio,
+            }
+
+            public sealed class Reading
+            {
+                public ReadingKind Kind { get; set; }
+
+                public int? Count { get; set; }
+
+                public double? Ratio { get; set; }
+            }
+            """);
+
+    /// <summary>Verifies one value-typed payload is enough to leave a mixed type alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MixedPayloadWithValueTypeIsCleanAsync() =>
+        RunAsync(Marker + """
+            public enum PayloadKind
+            {
+                Text,
+                Count,
+            }
+
+            public sealed class Payload
+            {
+                public PayloadKind Kind { get; set; }
+
+                public string? Text { get; set; }
+
+                public int? Count { get; set; }
+            }
+            """);
+
+    /// <summary>Verifies the boxing carve-out can be opted out of for a type where boxing does not matter.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ValueTypePayloadReportedWhenOptedInAsync()
+    {
+        var test = new VerifyUnion.Test
+        {
+            TestCode = Marker + """
+                public enum ReadingKind
+                {
+                    Count,
+                    Ratio,
+                }
+
+                public sealed class {|SST2338:Reading|}
+                {
+                    public ReadingKind Kind { get; set; }
+
+                    public int? Count { get; set; }
+
+                    public double? Ratio { get; set; }
+                }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", """
+            root = true
+            [*.cs]
+            stylesharp.SST2338.report_value_type_payloads = true
+
+            """));
+        test.SolutionTransforms.Add(static (solution, projectId) =>
+        {
+            var parseOptions = (CSharpParseOptions)solution.GetProject(projectId)!.ParseOptions!;
+            return solution.WithProjectParseOptions(projectId, parseOptions.WithLanguageVersion(LanguageVersion.Preview));
+        });
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs the analyzer verifier at the requested language version.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <param name="languageVersion">The language version to parse with.</param>

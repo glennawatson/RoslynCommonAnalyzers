@@ -11,7 +11,9 @@ namespace StyleSharp.Analyzers;
 /// <remarks>
 /// Gated on the union marker interface resolving in the compilation, so the rule costs nothing and
 /// stays silent on a target framework whose runtime has no union support, and on C# 15 being available
-/// so the suggested syntax would actually compile.
+/// so the suggested syntax would actually compile. A type holding a value-typed payload is left alone
+/// by default: a union stores its payload in a single object field, so that arm would box on every
+/// construction. Set <c>stylesharp.SST2338.report_value_type_payloads = true</c> to report it anyway.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
@@ -61,13 +63,22 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (CountDistinctPayloads(type) < MinimumPayloads)
+        if (CountDistinctPayloads(type, out var hasValueTypePayload) < MinimumPayloads)
         {
             return;
         }
 
         if (type.DeclaringSyntaxReferences[0].GetSyntax(context.CancellationToken) is not TypeDeclarationSyntax declaration
             || !LanguageVersions.SupportsCSharp15(declaration))
+        {
+            return;
+        }
+
+        // A union keeps its payload in one object field, so a value-typed arm boxes on every construction.
+        // Suggesting the rewrite there trades a non-allocating type for an allocating one, so it is withheld
+        // unless the settings ask for it. The settings are read only once the shape has already matched.
+        if (hasValueTypePayload
+            && !PreferUnionOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(declaration.SyntaxTree)).ReportValueTypePayloads)
         {
             return;
         }
@@ -123,11 +134,13 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Counts the distinct payload types held alongside the discriminator.</summary>
     /// <param name="type">The declared type.</param>
+    /// <param name="hasValueTypePayload">Whether any payload is a value type, which a union would box.</param>
     /// <returns>The number of distinct nullable or reference-typed members.</returns>
-    private static int CountDistinctPayloads(INamedTypeSymbol type)
+    private static int CountDistinctPayloads(INamedTypeSymbol type, out bool hasValueTypePayload)
     {
         const int InitialPayloadTypeCapacity = 4;
 
+        hasValueTypePayload = false;
         var seen = new List<ITypeSymbol>(InitialPayloadTypeCapacity);
         foreach (var member in type.GetMembers())
         {
@@ -137,6 +150,7 @@ public sealed class Sst2338PreferUnionAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
+            hasValueTypePayload |= memberType.IsValueType;
             seen.Add(memberType);
         }
 

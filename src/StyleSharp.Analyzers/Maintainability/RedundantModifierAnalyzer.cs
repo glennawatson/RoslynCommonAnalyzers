@@ -245,9 +245,24 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the modifier is redundant.</returns>
     private static bool IsRedundantSealed(MemberDeclarationSyntax declaration) =>
         !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.OverrideKeyword)
-            ? declaration is not BaseTypeDeclarationSyntax
+            ? declaration is not BaseTypeDeclarationSyntax && !SealsAnInterfaceDefault(declaration)
             : declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
               && ModifierListHelper.Contains(type.Modifiers, SyntaxKind.SealedKeyword);
+
+    /// <summary>Returns whether <c>sealed</c> suppresses an interface member's implicit virtual.</summary>
+    /// <param name="declaration">The member declaration.</param>
+    /// <returns><see langword="true"/> when the member is an instance member of an interface.</returns>
+    /// <remarks>
+    /// An instance member of an interface is virtual by default, so <c>sealed</c> is what stops an
+    /// implementer from replacing the default implementation — and the compiler requires a body once it is
+    /// written (CS0501). A static member is not: it is non-virtual unless declared <c>static virtual</c> or
+    /// <c>static abstract</c>, so <c>sealed</c> seals nothing there. Written on one in a derived interface it
+    /// does not even reach the base member, which the compiler reports as hiding it (CS0108).
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SealsAnInterfaceDefault(MemberDeclarationSyntax declaration) =>
+        declaration.Parent is InterfaceDeclarationSyntax
+            && !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.StaticKeyword);
 
     /// <summary>Returns whether a partial declaration has no matching part.</summary>
     /// <param name="context">The syntax node context.</param>

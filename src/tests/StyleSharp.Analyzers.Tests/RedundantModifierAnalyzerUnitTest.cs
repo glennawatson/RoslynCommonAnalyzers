@@ -80,6 +80,58 @@ public class RedundantModifierAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a sealed default interface member is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SealedDefaultInterfaceMemberIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class Test
+            {
+                public void Run()
+                {
+                    I i = new C();
+                    i.M();
+                    i.N();
+                }
+            }
+
+            interface I
+            {
+                sealed void M() => Console.WriteLine("I.M");
+                void N() => Console.WriteLine("I.N");
+            }
+
+            class C : I
+            {
+                public void M() => Console.WriteLine("C.M");
+                public void N() => Console.WriteLine("C.N");
+            }
+            """);
+
+    /// <summary>Verifies a sealed static interface member is still reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A static interface member is non-virtual unless it is declared <c>static virtual</c> or
+    /// <c>static abstract</c>, so <c>sealed</c> seals nothing on one. Skipping every member of an interface
+    /// would trade the default-implementation false positive for silence here.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SealedStaticInterfaceMemberIsReportedAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            interface I
+            {
+                static {|SST1419:sealed|} void S() => Console.WriteLine("I.S");
+            }
+            """);
+
     /// <summary>Verifies Fix All removes every redundant single-part partial modifier (SST1419) in one pass.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

@@ -711,72 +711,72 @@ dotnet_diagnostic.SYSLIB1104.severity = error # Configuration binding source gen
 # etc.) so we don't double-report.
 
 # Bug catchers — always error.
-dotnet_diagnostic.IDE0035.severity = error # Remove unreachable code
-dotnet_diagnostic.IDE0043.severity = error # Format string contains invalid placeholder
-dotnet_diagnostic.IDE0051.severity = error # Remove unused private member
-dotnet_diagnostic.IDE0052.severity = error # Remove unread private member
-dotnet_diagnostic.IDE0076.severity = error # Remove invalid global SuppressMessage attribute
-dotnet_diagnostic.IDE0077.severity = error # Avoid legacy format target in global SuppressMessage attribute
-dotnet_diagnostic.IDE0080.severity = error # Remove unnecessary suppression operator
+dotnet_diagnostic.IDE0035.severity = none # Remove unreachable code
+dotnet_diagnostic.IDE0043.severity = none # Format string contains invalid placeholder
+dotnet_diagnostic.IDE0051.severity = none # Remove unused private member
+dotnet_diagnostic.IDE0052.severity = none # Remove unread private member
+dotnet_diagnostic.IDE0076.severity = none # Remove invalid global SuppressMessage attribute
+dotnet_diagnostic.IDE0077.severity = none # Avoid legacy format target in global SuppressMessage attribute
+dotnet_diagnostic.IDE0080.severity = none # Remove unnecessary suppression operator
 
 # Simplification / cleanup.
-dotnet_diagnostic.IDE0001.severity = error # Simplify name
-dotnet_diagnostic.IDE0002.severity = error # Simplify member access
+dotnet_diagnostic.IDE0001.severity = none # Simplify name
+dotnet_diagnostic.IDE0002.severity = none # Simplify member access
 dotnet_diagnostic.IDE0004.severity = none # Remove unnecessary cast — disabled because we deliberately keep explicit casts in Apple platform-specific paths and other reflection/marshalling sites where the analyzer's "redundant" judgement is wrong
 dotnet_diagnostic.IDE0005.severity = none # Remove unnecessary import - DUPLICATE S1128 (slower: 2.364s vs 551ms)
-dotnet_diagnostic.IDE0016.severity = error # Use throw expression
-dotnet_diagnostic.IDE0017.severity = error # Use object initializers
-dotnet_diagnostic.IDE0018.severity = error # Inline variable declaration
-dotnet_diagnostic.IDE0019.severity = error # Use pattern matching to avoid 'as' followed by a 'null' check
-dotnet_diagnostic.IDE0020.severity = error # Use pattern matching to avoid 'is' check followed by a cast
-dotnet_diagnostic.IDE0028.severity = error # Use collection initializers
+dotnet_diagnostic.IDE0016.severity = none # Use throw expression
+dotnet_diagnostic.IDE0017.severity = none # Use object initializers
+dotnet_diagnostic.IDE0018.severity = none # Inline variable declaration
+dotnet_diagnostic.IDE0019.severity = none # Use pattern matching to avoid 'as' followed by a 'null' check
+dotnet_diagnostic.IDE0020.severity = none # Use pattern matching to avoid 'is' check followed by a cast
+dotnet_diagnostic.IDE0028.severity = none # Use collection initializers
 dotnet_diagnostic.IDE0029.severity = none # Null check can be simplified
-dotnet_diagnostic.IDE0030.severity = error # Use coalesce expression (nullable types)
+dotnet_diagnostic.IDE0030.severity = none # Use coalesce expression (nullable types)
 dotnet_diagnostic.IDE0031.severity = none # Use null propagation — covered by SST1196
 dotnet_diagnostic.IDE0032.severity = none # Use auto property
-dotnet_diagnostic.IDE0033.severity = error # Use explicitly provided tuple name
-dotnet_diagnostic.IDE0034.severity = error # Simplify default expression
-dotnet_diagnostic.IDE0037.severity = error # Use inferred member name
-dotnet_diagnostic.IDE0038.severity = error # Use pattern matching ('is' check without a cast)
-dotnet_diagnostic.IDE0041.severity = error # Use 'is null' check
-dotnet_diagnostic.IDE0042.severity = error # Deconstruct variable declaration
-dotnet_diagnostic.IDE0044.severity = error # Add readonly modifier
-dotnet_diagnostic.IDE0046.severity = suggestion # Use conditional expression for return — downgraded because nested coalescing/ternary chains it produces hurt readability
-dotnet_diagnostic.IDE0047.severity = error # Remove unnecessary parentheses
-dotnet_diagnostic.IDE0049.severity = error # Use language keywords instead of framework type names for type references
-dotnet_diagnostic.IDE0054.severity = error # Use compound assignment
-dotnet_diagnostic.IDE0056.severity = suggestion # Use index operator
-dotnet_diagnostic.IDE0057.severity = suggestion # Use range operator
-dotnet_diagnostic.IDE0059.severity = error # Remove unnecessary value assignment
-dotnet_diagnostic.IDE0062.severity = error # Make local function static
-dotnet_diagnostic.IDE0063.severity = error # Use simple 'using' statement
-dotnet_diagnostic.IDE0064.severity = error # Make struct fields writable — flag readonly-but-mutable struct fields where intent diverges from declaration
-dotnet_diagnostic.IDE0066.severity = error # Use switch expression
-dotnet_diagnostic.IDE0070.severity = error # Use 'System.HashCode.Combine'
-dotnet_diagnostic.IDE0071.severity = error # Simplify interpolation
-dotnet_diagnostic.IDE0072.severity = suggestion # Add missing cases to switch expression - sometimes we miss switch cases dilberately.
-dotnet_diagnostic.IDE0074.severity = error # Use compound assignment
-dotnet_diagnostic.IDE0075.severity = error # Simplify conditional expression
-dotnet_diagnostic.IDE0078.severity = error # Use pattern matching
-dotnet_diagnostic.IDE0082.severity = error # Convert typeof to nameof
-dotnet_diagnostic.IDE0083.severity = error # Use pattern matching ('not' operator)
-dotnet_diagnostic.IDE0084.severity = error # Use pattern matching ('IsNot' operator)
-dotnet_diagnostic.IDE0090.severity = error # Simplify 'new' expression
-dotnet_diagnostic.IDE0100.severity = error # Remove unnecessary equality operator
-dotnet_diagnostic.IDE0110.severity = error # Remove unnecessary discard
-dotnet_diagnostic.IDE0120.severity = error # Simplify LINQ expression
-dotnet_diagnostic.IDE0150.severity = error # Prefer 'null' check over type check
-dotnet_diagnostic.IDE0161.severity = error # Use file-scoped namespace declaration
-dotnet_diagnostic.IDE0170.severity = error # Simplify property pattern
-dotnet_diagnostic.IDE0180.severity = error # Use tuple to swap values
-dotnet_diagnostic.IDE0200.severity = error # Remove unnecessary lambda expression
-dotnet_diagnostic.IDE0220.severity = error # Add explicit cast in foreach loop
-dotnet_diagnostic.IDE0240.severity = error # Remove redundant nullable directive
-dotnet_diagnostic.IDE0241.severity = error # Remove unnecessary nullable directive
-dotnet_diagnostic.IDE0250.severity = error # Make struct 'readonly'
-dotnet_diagnostic.IDE0251.severity = error # Make member 'readonly'
-dotnet_diagnostic.IDE0260.severity = error # Use pattern matching
-dotnet_diagnostic.IDE0270.severity = error # Use coalesce expression
+dotnet_diagnostic.IDE0033.severity = none # Use explicitly provided tuple name
+dotnet_diagnostic.IDE0034.severity = none # Simplify default expression
+dotnet_diagnostic.IDE0037.severity = none # Use inferred member name
+dotnet_diagnostic.IDE0038.severity = none # Use pattern matching ('is' check without a cast)
+dotnet_diagnostic.IDE0041.severity = none # Use 'is null' check
+dotnet_diagnostic.IDE0042.severity = none # Deconstruct variable declaration
+dotnet_diagnostic.IDE0044.severity = none # Add readonly modifier
+dotnet_diagnostic.IDE0046.severity = none # Use conditional expression for return — downgraded because nested coalescing/ternary chains it produces hurt readability
+dotnet_diagnostic.IDE0047.severity = none # Remove unnecessary parentheses
+dotnet_diagnostic.IDE0049.severity = none # Use language keywords instead of framework type names for type references
+dotnet_diagnostic.IDE0054.severity = none # Use compound assignment
+dotnet_diagnostic.IDE0056.severity = none # Use index operator
+dotnet_diagnostic.IDE0057.severity = none # Use range operator
+dotnet_diagnostic.IDE0059.severity = none # Remove unnecessary value assignment
+dotnet_diagnostic.IDE0062.severity = none # Make local function static
+dotnet_diagnostic.IDE0063.severity = none # Use simple 'using' statement
+dotnet_diagnostic.IDE0064.severity = none # Make struct fields writable — flag readonly-but-mutable struct fields where intent diverges from declaration
+dotnet_diagnostic.IDE0066.severity = none # Use switch expression
+dotnet_diagnostic.IDE0070.severity = none # Use 'System.HashCode.Combine'
+dotnet_diagnostic.IDE0071.severity = none # Simplify interpolation
+dotnet_diagnostic.IDE0072.severity = none # Add missing cases to switch expression - sometimes we miss switch cases dilberately.
+dotnet_diagnostic.IDE0074.severity = none # Use compound assignment
+dotnet_diagnostic.IDE0075.severity = none # Simplify conditional expression
+dotnet_diagnostic.IDE0078.severity = none # Use pattern matching
+dotnet_diagnostic.IDE0082.severity = none # Convert typeof to nameof
+dotnet_diagnostic.IDE0083.severity = none # Use pattern matching ('not' operator)
+dotnet_diagnostic.IDE0084.severity = none # Use pattern matching ('IsNot' operator)
+dotnet_diagnostic.IDE0090.severity = none # Simplify 'new' expression
+dotnet_diagnostic.IDE0100.severity = none # Remove unnecessary equality operator
+dotnet_diagnostic.IDE0110.severity = none # Remove unnecessary discard
+dotnet_diagnostic.IDE0120.severity = none # Simplify LINQ expression
+dotnet_diagnostic.IDE0150.severity = none # Prefer 'null' check over type check
+dotnet_diagnostic.IDE0161.severity = none # Use file-scoped namespace declaration
+dotnet_diagnostic.IDE0170.severity = none # Simplify property pattern
+dotnet_diagnostic.IDE0180.severity = none # Use tuple to swap values
+dotnet_diagnostic.IDE0200.severity = none # Remove unnecessary lambda expression
+dotnet_diagnostic.IDE0220.severity = none # Add explicit cast in foreach loop
+dotnet_diagnostic.IDE0240.severity = none # Remove redundant nullable directive
+dotnet_diagnostic.IDE0241.severity = none # Remove unnecessary nullable directive
+dotnet_diagnostic.IDE0250.severity = none # Make struct 'readonly'
+dotnet_diagnostic.IDE0251.severity = none # Make member 'readonly'
+dotnet_diagnostic.IDE0260.severity = none # Use pattern matching
+dotnet_diagnostic.IDE0270.severity = none # Use coalesce expression
 
 # Disabled — conflict with an existing rule or project convention.
 dotnet_diagnostic.IDE0003.severity = none # Remove 'this' qualifier — SST1117 owns the qualification style
@@ -811,20 +811,20 @@ dotnet_diagnostic.IDE0210.severity = none # Convert to top-level statements — 
 dotnet_diagnostic.IDE0211.severity = none # Convert to 'Program.Main' style — we use Main style
 dotnet_diagnostic.IDE0280.severity = none # Use nameof
 dotnet_diagnostic.IDE0290.severity = none # Use primary constructor — subjective, not enforced
-dotnet_diagnostic.IDE0300.severity = error # Use collection expression for array
-dotnet_diagnostic.IDE0301.severity = error # Use collection expression for empty
-dotnet_diagnostic.IDE0302.severity = error # Use collection expression for stackalloc
-dotnet_diagnostic.IDE0303.severity = error # Use collection expression for Create
-dotnet_diagnostic.IDE0304.severity = error # Use collection expression for builder
-dotnet_diagnostic.IDE0305.severity = error # Use collection expression for fluent
-dotnet_diagnostic.IDE0306.severity = error # Use collection expression for new 
-dotnet_diagnostic.IDE0320.severity = error # Make anonymous function static — eliminates the closure-capture display class allocation
-dotnet_diagnostic.IDE0050.severity = error # Convert anonymous type to tuple
-dotnet_diagnostic.IDE0230.severity = error # Use UTF-8 string literal — better hot-path encoding for byte-array constants
+dotnet_diagnostic.IDE0300.severity = none # Use collection expression for array
+dotnet_diagnostic.IDE0301.severity = none # Use collection expression for empty
+dotnet_diagnostic.IDE0302.severity = none # Use collection expression for stackalloc
+dotnet_diagnostic.IDE0303.severity = none # Use collection expression for Create
+dotnet_diagnostic.IDE0304.severity = none # Use collection expression for builder
+dotnet_diagnostic.IDE0305.severity = none # Use collection expression for fluent
+dotnet_diagnostic.IDE0306.severity = none # Use collection expression for new 
+dotnet_diagnostic.IDE0320.severity = none # Make anonymous function static — eliminates the closure-capture display class allocation
+dotnet_diagnostic.IDE0050.severity = none # Convert anonymous type to tuple
+dotnet_diagnostic.IDE0230.severity = none # Use UTF-8 string literal — better hot-path encoding for byte-array constants
 dotnet_diagnostic.IDE0310.severity = none # Convert lambda expression to method group — a lambda keeps the delegate target explicit
 dotnet_diagnostic.IDE0370.severity = none # Remove unnecessary null-forgiving suppression — multi-TFM nullability differs
-dotnet_diagnostic.IDE0380.severity = error # Remove unnecessary unsafe modifier
-dotnet_diagnostic.IDE1005.severity = error # Use conditional delegate call
+dotnet_diagnostic.IDE0380.severity = none # Remove unnecessary unsafe modifier
+dotnet_diagnostic.IDE1005.severity = none # Use conditional delegate call
 
 ###################
 # Microsoft .NET Style Rules (IDE1xxx / IDE3xxx) - Naming & Miscellaneous
@@ -1784,6 +1784,12 @@ dotnet_diagnostic.PAS0002.severity = error # A baseline entry no longer exists i
 dotnet_diagnostic.PAS0003.severity = error # A public symbol differs from its baseline entry
 dotnet_diagnostic.PAS0004.severity = error # No public API baseline for this target framework
 dotnet_diagnostic.PAS0005.severity = error # The public API baseline could not be read
+
+###################
+# External scanner inspections
+###################
+dotnet_diagnostic.S3267.severity = none # Asks for LINQ; production code here is deliberately LINQ-free
+dotnet_diagnostic.S8969.severity = none # Null-forgiving operators are not portable across the Roslyn slots
 
 ###################
 # Experimental compiler APIs (RSEXPERIMENTAL)

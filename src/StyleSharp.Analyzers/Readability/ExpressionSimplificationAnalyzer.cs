@@ -188,21 +188,81 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var operandType = context.SemanticModel.GetTypeInfo(cast.Expression, context.CancellationToken).Type;
-        if (operandType is null)
+        var operandInfo = context.SemanticModel.GetTypeInfo(cast.Expression, context.CancellationToken);
+        if (operandInfo.Type is not { } operandType)
         {
             return;
         }
 
         var targetType = context.SemanticModel.GetTypeInfo(cast.Type, context.CancellationToken).Type;
 
-        // Compare with nullability so a cast that changes the null-state ('(string)maybeNull') is kept.
-        if (targetType is null || !SymbolEqualityComparer.IncludeNullability.Equals(operandType, targetType))
+        // The type syntax carries no flow state, so its NullableAnnotation is always None and comparing
+        // it with the operand's would never match for a reference type. Compare the types themselves and
+        // judge nullability separately, below.
+        if (targetType is null || !SymbolEqualityComparer.Default.Equals(operandType, targetType))
+        {
+            return;
+        }
+
+        if (!KeepsNullState(operandInfo, cast.Type, targetType) || !TypeArgumentsAgreeOnNullability(operandType, targetType))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantCast, cast.Type.GetLocation(), targetType.ToDisplayString()));
+    }
+
+    /// <summary>Returns whether removing the cast would leave the operand's null-state unchanged.</summary>
+    /// <param name="operandInfo">The operand's type info, carrying its flow state.</param>
+    /// <param name="castType">The cast's type syntax.</param>
+    /// <param name="targetType">The cast's target type.</param>
+    /// <returns><see langword="true"/> when the cast neither asserts nor relaxes nullability.</returns>
+    /// <remarks>
+    /// A cast is the usual way to move a value between null-states, and either direction is a reason to
+    /// keep it: casting a maybe-null value to the plain type asserts it is not null, and casting a
+    /// not-null value to the nullable type widens what an inferred local will hold.
+    /// </remarks>
+    private static bool KeepsNullState(in TypeInfo operandInfo, TypeSyntax castType, ITypeSymbol targetType)
+    {
+        var admitsNull = castType.IsKind(SyntaxKind.NullableType)
+            || targetType.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
+
+        return operandInfo.Nullability.FlowState switch
+        {
+            NullableFlowState.MaybeNull => admitsNull,
+            NullableFlowState.NotNull => !admitsNull,
+            _ => true,
+        };
+    }
+
+    /// <summary>Returns whether two equal types annotate their type arguments the same way, to any depth.</summary>
+    /// <param name="operandType">The operand's type.</param>
+    /// <param name="targetType">The cast's target type.</param>
+    /// <returns><see langword="true"/> when every corresponding type argument shares an annotation.</returns>
+    /// <remarks>
+    /// Type equality ignores the annotations inside a generic type, so <c>List&lt;string&gt;</c> and
+    /// <c>List&lt;string?&gt;</c> compare equal. The cast between them is the one thing telling the
+    /// compiler which element null-state to use, so it has to be kept.
+    /// </remarks>
+    private static bool TypeArgumentsAgreeOnNullability(ITypeSymbol operandType, ITypeSymbol targetType)
+    {
+        if (operandType is not INamedTypeSymbol { TypeArguments: { Length: > 0 } operandArguments }
+            || targetType is not INamedTypeSymbol { TypeArguments: var targetArguments }
+            || operandArguments.Length != targetArguments.Length)
+        {
+            return true;
+        }
+
+        for (var i = 0; i < operandArguments.Length; i++)
+        {
+            if (operandArguments[i].NullableAnnotation != targetArguments[i].NullableAnnotation
+                || !TypeArgumentsAgreeOnNullability(operandArguments[i], targetArguments[i]))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Reports SST1182 when a conditional expression yields only the boolean literals.</summary>

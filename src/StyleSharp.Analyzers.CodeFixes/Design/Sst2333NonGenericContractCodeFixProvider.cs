@@ -107,7 +107,7 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
             updated = BaseListInsertion.AddBaseType(updated, baseType);
         }
 
-        return (TypeDeclarationSyntax)updated.AddMembers(members)
+        return updated.AddMembers(members)
             .WithAdditionalAnnotations(Formatter.Annotation, Simplifier.Annotation);
     }
 

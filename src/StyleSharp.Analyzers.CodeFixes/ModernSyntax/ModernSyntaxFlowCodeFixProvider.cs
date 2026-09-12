@@ -151,7 +151,7 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
         var replacementArgument = argument.WithExpression(declarationExpression).WithTriviaFrom(argument);
         var updatedNext = nextStatement.ReplaceNode(argument, replacementArgument);
         var index = block.Statements.IndexOf(declaration);
-        var statements = block.Statements.Replace(nextStatement, (StatementSyntax)updatedNext).RemoveAt(index);
+        var statements = block.Statements.Replace(nextStatement, updatedNext).RemoveAt(index);
         var updatedBlock = block.WithStatements(statements);
         return document.WithSyntaxRoot(root.ReplaceNode(block, updatedBlock));
     }

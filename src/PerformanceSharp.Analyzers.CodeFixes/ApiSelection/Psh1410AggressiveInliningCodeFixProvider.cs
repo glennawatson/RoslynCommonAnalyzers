@@ -88,7 +88,7 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
         }
 
         var lineBreak = LineEndingHelper.GetLineBreak(unit);
-        var rewritten = (CompilationUnitSyntax)unit.ReplaceNodes(declarations, (original, _) => WithAttribute(original, lineBreak));
+        var rewritten = unit.ReplaceNodes(declarations, (original, _) => WithAttribute(original, lineBreak));
         return document.WithSyntaxRoot(WithCompilerServicesImport(rewritten, lineBreak));
     }
 

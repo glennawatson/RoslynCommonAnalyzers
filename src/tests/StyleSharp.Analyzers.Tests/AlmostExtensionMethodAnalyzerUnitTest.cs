@@ -95,6 +95,75 @@ public class AlmostExtensionMethodAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
+    /// <summary>Verifies the documentation moves with the method and loses the receiver's parameter tag.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// The converted method keeps its documentation, and the parameter that became the block receiver is no
+    /// longer one of its parameters — so a <c>param</c> tag naming it would document nothing.
+    /// </remarks>
+    [Test]
+    public async Task KeepsDocumentationAndDropsTheReceiverTagAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  /// <summary>Reports whether the text is blank.</summary>
+                                  /// <param name="text">The text to test.</param>
+                                  /// <param name="trim">Whether to trim first.</param>
+                                  /// <returns><see langword="true"/> when blank.</returns>
+                                  public static bool {|SST1709:IsBlank|}(string text, bool trim) => trim ? text.Trim().Length == 0 : text.Length == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           /// <summary>Reports whether the text is blank.</summary>
+                                           /// <param name="trim">Whether to trim first.</param>
+                                           /// <returns><see langword="true"/> when blank.</returns>
+                                           public bool IsBlank(bool trim) => trim ? text.Trim().Length == 0 : text.Length == 0;
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
+        AddPreview(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the member joins the block that already declares the same receiver.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>Opening a second block for a receiver the class already extends is what SST1701 reports.</remarks>
+    [Test]
+    public async Task JoinsTheExistingBlockForTheSameReceiverAsync()
+    {
+        const string Source = """
+                              public static class StringExtensions
+                              {
+                                  extension(string text)
+                                  {
+                                      public bool IsEmpty() => text.Length == 0;
+                                  }
+
+                                  public static bool {|SST1709:IsBlank|}(string text) => text.Trim().Length == 0;
+                              }
+                              """;
+        const string FixedSource = """
+                                   public static class StringExtensions
+                                   {
+                                       extension(string text)
+                                       {
+                                           public bool IsEmpty() => text.Length == 0;
+
+                                           public bool IsBlank() => text.Trim().Length == 0;
+                                       }
+                                   }
+                                   """;
+        var test = new VerifyAlmostExtensionFix.Test { TestCode = Source, FixedCode = FixedSource };
+        AddPreview(test.SolutionTransforms);
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs the analyzer verifier with the language version set to one that supports extension blocks.</summary>
     /// <param name="source">The source code, including diagnostic markup, to analyze.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using System.Text;
 
 using Microsoft.CodeAnalysis.Formatting;
@@ -40,18 +41,40 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
 
+    /// <summary>Rewrites a helper whose first parameter is the receiver but is not marked <c>this</c> (SST1709).</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape cannot be converted.</returns>
+    /// <remarks>
+    /// The conversion is the same one either way — the receiver leaves the parameter list, its documentation
+    /// goes with it, and the member joins a block that already declares that receiver when there is one. Only
+    /// the test for which methods qualify differs, so both rules share this.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static NodeReplacement? TryRewriteAlmostExtension(SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic, almostExtension: true);
+
     /// <summary>Rewrites the containing class so the reported method lives in an extension block.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape cannot be converted.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryRewrite(root, diagnostic, almostExtension: false);
+
+    /// <summary>Rewrites the containing class so the reported method lives in an extension block.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="almostExtension">Whether the receiver is an ordinary first parameter rather than a <c>this</c> one.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape cannot be converted.</returns>
+    private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic, bool almostExtension)
     {
         // The method leaves the class's member list and reappears inside a block elsewhere in it, so a
         // directive among the members would lose the half that sits on the method.
         if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<MethodDeclarationSyntax>() is not { } method
             || method.Parent is not ClassDeclarationSyntax containingClass
             || DirectiveBoundaries.SeparateMembers(containingClass)
-            || !IsConvertible(method)
+            || !IsConvertible(method, almostExtension)
             || method.ParameterList.Parameters[0] is not { Type: { } receiverType } receiver
             || !TrySplitTypeParameters(method, receiverType, out var split))
         {
@@ -138,15 +161,18 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         return new NodeReplacement(containingClass, containingClass.WithMembers(updated));
     }
 
-    /// <summary>Returns whether a classic extension method can be moved without further judgement.</summary>
+    /// <summary>Returns whether an extension method can be moved without further judgement.</summary>
     /// <param name="method">The method declaration.</param>
+    /// <param name="almostExtension">Whether the receiver is an ordinary first parameter rather than a <c>this</c> one.</param>
     /// <returns><see langword="true"/> when the move is mechanical.</returns>
     /// <remarks>
     /// A receiver carrying attributes or a default has no equivalent on the block's parameter, so no fix
     /// is offered for one.
     /// </remarks>
-    private static bool IsConvertible(MethodDeclarationSyntax method) =>
-        ExtensionBlockHelper.IsClassicExtensionMethod(method)
+    private static bool IsConvertible(MethodDeclarationSyntax method, bool almostExtension) =>
+        (almostExtension
+            ? Sst1709AlmostExtensionMethodAnalyzer.IsAlmostExtensionMethod(method)
+            : ExtensionBlockHelper.IsClassicExtensionMethod(method))
         && method.ParameterList.Parameters[0] is { AttributeLists.Count: 0, Default: null, Type: not null }
         && (method.Body is not null || method.ExpressionBody is not null);
 

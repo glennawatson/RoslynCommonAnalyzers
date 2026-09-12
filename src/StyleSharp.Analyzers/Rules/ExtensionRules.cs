@@ -96,6 +96,13 @@ internal static class ExtensionRules
         "'{0}' never uses the receiver '{1}'; declare it outside the extension block",
         UnusedBlockReceiverDescription);
 
+    /// <summary>SST1712 — an extension block naming a receiver declares only static members.</summary>
+    public static readonly DiagnosticDescriptor UnusableReceiverName = Create(
+        "SST1712",
+        "Extension blocks with only static members should omit the receiver name",
+        "No member of this block can use the receiver name '{0}'; write 'extension({1})'",
+        UnusableReceiverNameDescription);
+
     /// <summary>The UnusedExtensionReceiver rule description.</summary>
     private const string UnusedExtensionReceiverDescription =
         "An extension method exists to add behaviour to its receiver. A 'this'-parameter the body never reads gains nothing from extension syntax and reads "
@@ -106,6 +113,12 @@ internal static class ExtensionRules
         "A member of an 'extension(Receiver) { … }' block is reached through the receiver, so one whose body never reads it answers the same for every "
         + "instance and only looks like it belongs to the type. Declared outside the block it says what it is, and the receiver stops appearing in a "
         + "signature that ignores it. Static members are not reported: the receiver is not in scope for one, so it could not read it either way.";
+
+    /// <summary>The UnusableReceiverName rule description.</summary>
+    private const string UnusableReceiverNameDescription =
+        "A static extension member is declared on the receiver type rather than on a value, so the receiver name is not in scope for it. A block holding "
+        + "nothing but static members therefore names something no member can read, which reads as though an instance member were intended. C# 14 allows "
+        + "the receiver type on its own — 'extension(string)' — which states that the block extends the type itself.";
 
     /// <summary>The AlmostExtensionMethod rule description.</summary>
     private const string AlmostExtensionMethodDescription =

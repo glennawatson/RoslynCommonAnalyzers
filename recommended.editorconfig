@@ -459,6 +459,7 @@ dotnet_diagnostic.SST1708.severity = warning # Extension methods should use thei
 # dotnet_diagnostic.SST1709.severity = warning # Static helpers in an extension container should be extensions (opt-in)
 # dotnet_diagnostic.SST1710.severity = warning # Prefer an extension indexer over an accessor-shaped extension method (opt-in)
 dotnet_diagnostic.SST1711.severity = warning # Extension block members should use the block's receiver
+dotnet_diagnostic.SST1712.severity = warning # Extension blocks with only static members should omit the receiver name
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # Record classes should be sealed (opt-in)
@@ -704,6 +705,7 @@ dotnet_diagnostic.SST2465.severity = warning # A for loop's body reassigns a var
 dotnet_diagnostic.SST2466.severity = warning # An empty finally clause should be removed
 dotnet_diagnostic.SST2467.severity = warning # A params overload should not be silently bypassable by a more specific overload
 dotnet_diagnostic.SST2468.severity = warning # A partial method with no implementation is silently discarded
+dotnet_diagnostic.SST2469.severity = warning # A write through a by-value struct receiver is discarded
 dotnet_diagnostic.SST2470.severity = warning # String literals concatenated without a space should not fuse a SQL keyword
 dotnet_diagnostic.SST2472.severity = warning # An exported contract type must be implemented by the exporting type
 dotnet_diagnostic.SST2473.severity = warning # A shared export part should be obtained from the container, not constructed with 'new'

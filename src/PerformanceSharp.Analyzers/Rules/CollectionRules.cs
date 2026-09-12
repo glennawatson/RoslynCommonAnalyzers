@@ -215,8 +215,12 @@ internal static class CollectionRules
     /// <summary>The PSH1114 rule description.</summary>
     private const string FreezeStaticLookupsDescription =
         "A private static readonly dictionary or set that is initialized once and never mutated can become a FrozenDictionary or FrozenSet "
-        + "(.NET 8+), trading construction cost for faster lookups. Freezing is not free — construction is markedly slower and only "
-        + "read-heavy tables win — so the rule is opt-in. Suggested only where the API exists.";
+        + "(.NET 8+), trading construction cost for faster lookups. Freezing is the wrong trade for almost every table: construction is "
+        + "dramatically slower and allocates more, and the lookup only pulls ahead once the table is read enough times to repay that. The "
+        + "rule is therefore off by default. Enable it only for a table that is built once for the lifetime of the process and then read on "
+        + "a hot path — a long-lived keyword, routing or metadata lookup read thousands of times or more. Leave it off for a table built per "
+        + "request, per document or per test, for one read on a cold path, and for anything small enough that the probe was never the cost; "
+        + "there, freezing makes startup slower and buys nothing. Suggested only where the API exists.";
 
     /// <summary>The PSH1115 rule description.</summary>
     private const string SingleProbeInsertDescription =

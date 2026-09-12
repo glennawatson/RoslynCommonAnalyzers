@@ -39,6 +39,57 @@ public class Sst2434ArrayCovarianceAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies the left operand of a null-coalescing expression is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task CoalesceOperandIsReportedAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public object[] M(string[] source, object[] fallback)
+                {
+                    object[] items = {|SST2434:source|} ?? fallback;
+                    return items;
+                }
+            }
+            """);
+
+    /// <summary>Verifies every widened operand of a chained null-coalescing expression is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ChainedCoalesceOperandsAreReportedAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public object[] M(string[] first, string[] second, object[] third)
+                {
+                    object[] items = {|SST2434:first|} ?? {|SST2434:second|} ?? third;
+                    return items;
+                }
+            }
+            """);
+
+    /// <summary>Verifies a null-coalescing expression that keeps the element type is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task CoalesceWithSameElementTypeIsCleanAsync() =>
+        VerifyArrayCovariance.VerifyAnalyzerAsync(
+            """
+            public sealed class C
+            {
+                public object[] M(object[] source, object[] fallback)
+                {
+                    object[] items = source ?? fallback;
+                    return items;
+                }
+            }
+            """);
+
     /// <summary>Verifies keeping the concrete array type is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

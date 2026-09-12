@@ -30,6 +30,8 @@ internal static class ArrayCovarianceBenchmarkSource
                    object[] items = new object[3];
                    return items;
                }
+
+               public object[] Fallback(object[] first, object[] second) => first ?? second;
            }
            """;
 
@@ -45,6 +47,8 @@ internal static class ArrayCovarianceBenchmarkSource
                    object[] items = new string[3];
                    return items;
                }
+
+               public object[] Fallback(string[] first, object[] second) => first ?? second;
            }
            """;
 }

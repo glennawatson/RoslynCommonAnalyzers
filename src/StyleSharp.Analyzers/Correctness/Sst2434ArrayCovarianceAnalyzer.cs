@@ -9,8 +9,8 @@ namespace StyleSharp.Analyzers;
 /// <summary>
 /// Reports an implicit reference conversion from a reference-type array to an array of its element type's
 /// base type (SST2434): <c>string[]</c> handed over as <c>object[]</c>, at an assignment, initialiser,
-/// argument, or return. Every write through the widened reference becomes a runtime-checked store that can
-/// throw <see cref="ArrayTypeMismatchException"/>.
+/// argument, return, or as the left operand of <c>??</c>. Every write through the widened reference becomes a
+/// runtime-checked store that can throw <see cref="ArrayTypeMismatchException"/>.
 /// </summary>
 /// <remarks>
 /// The guard chain rejects a conversion the moment any link fails, and each link is cheap: the conversion must
@@ -40,31 +40,66 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(static start =>
         {
             var readOnlySpanResolves = start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null;
-            start.RegisterOperationAction(operationContext => Analyze(operationContext, readOnlySpanResolves), OperationKind.Conversion);
+            start.RegisterOperationAction(operationContext => AnalyzeConversion(operationContext, readOnlySpanResolves), OperationKind.Conversion);
+            start.RegisterOperationAction(operationContext => AnalyzeCoalesce(operationContext, readOnlySpanResolves), OperationKind.Coalesce);
         });
     }
 
     /// <summary>Analyzes one conversion for array covariance.</summary>
     /// <param name="context">The operation analysis context.</param>
     /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
-    private static void Analyze(in OperationAnalysisContext context, bool readOnlySpanResolves)
+    private static void AnalyzeConversion(in OperationAnalysisContext context, bool readOnlySpanResolves)
     {
         var conversion = (IConversionOperation)context.Operation;
-        if (!conversion.Conversion.IsReference
-            || conversion.Operand.Type is not IArrayTypeSymbol source
-            || conversion.Type is not IArrayTypeSymbol target)
+
+        // A covariant array passed to a params parameter is the language's own doing, not the caller's; leave it.
+        if (!conversion.Conversion.IsReference || conversion.Parent is IArgumentOperation { Parameter.IsParams: true })
+        {
+            return;
+        }
+
+        Report(context, conversion.Operand.Type, conversion.Type, conversion.Syntax, readOnlySpanResolves);
+    }
+
+    /// <summary>Analyzes the widened operand of a null-coalescing expression for array covariance.</summary>
+    /// <param name="context">The operation analysis context.</param>
+    /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
+    /// <remarks>
+    /// The conversion applied to the left operand of <c>??</c> is carried by the coalesce operation itself
+    /// rather than by a nested conversion operation, so it is invisible to the conversion callback and has to
+    /// be read from the operation directly.
+    /// </remarks>
+    private static void AnalyzeCoalesce(in OperationAnalysisContext context, bool readOnlySpanResolves)
+    {
+        var coalesce = (ICoalesceOperation)context.Operation;
+        if (!coalesce.ValueConversion.IsReference)
+        {
+            return;
+        }
+
+        Report(context, coalesce.Value.Type, coalesce.Type, coalesce.Value.Syntax, readOnlySpanResolves);
+    }
+
+    /// <summary>Reports SST2434 when a reference conversion widens an array to an array of a base element type.</summary>
+    /// <param name="context">The operation analysis context.</param>
+    /// <param name="sourceType">The converted operand's type.</param>
+    /// <param name="targetType">The conversion's result type.</param>
+    /// <param name="syntax">The syntax to report on.</param>
+    /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
+    private static void Report(
+        in OperationAnalysisContext context,
+        ITypeSymbol? sourceType,
+        ITypeSymbol? targetType,
+        SyntaxNode syntax,
+        bool readOnlySpanResolves)
+    {
+        if (sourceType is not IArrayTypeSymbol source || targetType is not IArrayTypeSymbol target)
         {
             return;
         }
 
         var sourceElement = source.ElementType;
         if (SymbolEqualityComparer.Default.Equals(sourceElement, target.ElementType) || !sourceElement.IsReferenceType)
-        {
-            return;
-        }
-
-        // A covariant array passed to a params parameter is the language's own doing, not the caller's; leave it.
-        if (conversion.Parent is IArgumentOperation { Parameter.IsParams: true })
         {
             return;
         }
@@ -79,7 +114,7 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.ArrayCovariance,
-            conversion.Syntax.GetLocation(),
+            syntax.GetLocation(),
             sourceDisplay,
             target.ToDisplayString(),
             advice));

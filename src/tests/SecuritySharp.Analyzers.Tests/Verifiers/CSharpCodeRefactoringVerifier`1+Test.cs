@@ -5,6 +5,7 @@
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.CodeRefactorings;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 namespace SecuritySharp.Analyzers.Tests;
 
@@ -17,15 +18,8 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
     /// <summary>A configured C# code refactoring test that enables nullable reference type warnings during validation.</summary>
     public class Test : CSharpCodeRefactoringTest<TCodeRefactoring, DefaultVerifier>
     {
-        /// <summary>Where the newline config goes, beside the sources and clear of each test's own "/.editorconfig".</summary>
-        private const string NestedEditorConfigPath = "/0/.editorconfig";
-
-        /// <summary>The config pinning LF, matching the line endings the expected sources are written with.</summary>
-        private const string LineFeedConfig = "[*]\nend_of_line = lf\n";
-
         /// <summary>Initializes a new instance of the <see cref="Test"/> class.</summary>
-        public Test()
-        {
+        public Test() =>
             SolutionTransforms.Add(static (solution, projectId) =>
             {
                 var compilationOptions = solution.GetProject(projectId)!.CompilationOptions!;
@@ -34,9 +28,45 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
                 return solution.WithProjectCompilationOptions(projectId, compilationOptions);
             });
 
-            // Refactoring cleanup takes its newline from end_of_line, falling back to the host's when
-            // nothing configures it, so the same refactoring emits CRLF on Windows against LF expectations.
-            TestState.AnalyzerConfigFiles.Add((NestedEditorConfigPath, LineFeedConfig));
+        /// <summary>
+        /// Runs the verification against LF sources, then — when a fixed state is being verified —
+        /// converts every source to CRLF line endings and runs it again, so refactorings prove they
+        /// honor the edited file's own line endings instead of hard-coding one form.
+        /// </summary>
+        /// <param name="cancellationToken">The cancellation token.</param>
+        /// <returns>A task that represents the asynchronous operation.</returns>
+        public new async Task RunAsync(CancellationToken cancellationToken)
+        {
+            var verifiesFixedSources = FixedState.Sources.Count > 0
+                && TestSourceLineEndings.AnySourceHasLineBreak(TestState.Sources);
+
+            PinNewline(TestSourceLineEndings.LineFeedConfig);
+            await base.RunAsync(cancellationToken).ConfigureAwait(false);
+            if (!verifiesFixedSources)
+            {
+                return;
+            }
+
+            TestSourceLineEndings.ConvertSourcesToCrlf(TestState.Sources);
+            TestSourceLineEndings.ConvertSourcesToCrlf(FixedState.Sources);
+            PinNewline(TestSourceLineEndings.CarriageReturnLineFeedConfig);
+            await base.RunAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>Pins the newline on every state that carries analyzer config files of its own.</summary>
+        /// <param name="config">The analyzer config content.</param>
+        private void PinNewline(string config)
+        {
+            TestSourceLineEndings.SetNestedEditorConfig(TestState.AnalyzerConfigFiles, config);
+
+            // A state with no config files of its own inherits the ones above, so adding here would
+            // stop that inheritance rather than extend it.
+            if (FixedState.AnalyzerConfigFiles.Count == 0)
+            {
+                return;
+            }
+
+            TestSourceLineEndings.SetNestedEditorConfig(FixedState.AnalyzerConfigFiles, config);
         }
     }
 }

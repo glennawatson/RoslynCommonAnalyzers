@@ -28,6 +28,12 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The sequence extension that re-types every element.</summary>
+    private const string SequenceCastMethodName = "Cast";
+
+    /// <summary>The sequence extension that keeps only the elements of a type.</summary>
+    private const string SequenceFilterMethodName = "OfType";
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         ReadabilityRules.NoInvertedBooleanCheck,
@@ -55,6 +61,8 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(AnalyzeInvertedBooleanCheck, SyntaxKind.LogicalNotExpression);
         context.RegisterSyntaxNodeAction(AnalyzeAnonymousTypeMember, SyntaxKind.AnonymousObjectMemberDeclarator);
         context.RegisterSyntaxNodeAction(AnalyzeRedundantCast, SyntaxKind.CastExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeRedundantAsCast, SyntaxKind.AsExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeRedundantSequenceCast, SyntaxKind.InvocationExpression);
         context.RegisterSyntaxNodeAction(AnalyzeConditionalBooleanLiteral, SyntaxKind.ConditionalExpression);
         context.RegisterSyntaxNodeAction(AnalyzeInterpolatedString, SyntaxKind.InterpolatedStringExpression);
         context.RegisterSyntaxNodeAction(AnalyzeStringLiteral, SyntaxKind.StringLiteralExpression);
@@ -211,6 +219,149 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantCast, cast.Type.GetLocation(), targetType.ToDisplayString()));
     }
+
+    /// <summary>Reports SST1175 when an <c>as</c> tests for the type the operand already has.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    private static void AnalyzeRedundantAsCast(SyntaxNodeAnalysisContext context)
+    {
+        var asExpression = (BinaryExpressionSyntax)context.Node;
+        if (asExpression.Right is not TypeSyntax castType)
+        {
+            return;
+        }
+
+        var operand = Unwrap(asExpression.Left);
+        if (operand.IsKind(SyntaxKind.DefaultLiteralExpression) || operand.IsKind(SyntaxKind.DefaultExpression))
+        {
+            return;
+        }
+
+        var operandInfo = context.SemanticModel.GetTypeInfo(asExpression.Left, context.CancellationToken);
+        if (operandInfo.Type is not { } operandType
+            || context.SemanticModel.GetTypeInfo(castType, context.CancellationToken).Type is not { } targetType
+            || !SymbolEqualityComparer.Default.Equals(operandType, targetType)
+            || !KeepsNullState(operandInfo, castType, targetType)
+            || !TypeArgumentsAgreeOnNullability(operandType, targetType))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantCast, castType.GetLocation(), targetType.ToDisplayString()));
+    }
+
+    /// <summary>Reports SST1175 when a sequence is re-typed to the element type it already has.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <remarks>
+    /// <c>Cast&lt;T&gt;()</c> over an <c>IEnumerable&lt;T&gt;</c> yields the same sequence.
+    /// <c>OfType&lt;T&gt;()</c> only does so when <c>T</c> cannot hold null — otherwise it is still
+    /// dropping the null elements, which is a filter rather than a conversion.
+    /// </remarks>
+    private static void AnalyzeRedundantSequenceCast(SyntaxNodeAnalysisContext context)
+    {
+        var invocation = (InvocationExpressionSyntax)context.Node;
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name: GenericNameSyntax { Identifier.ValueText: SequenceCastMethodName or SequenceFilterMethodName } name })
+        {
+            return;
+        }
+
+        if (GetUnchangedElementType(context, invocation) is not { } requestedElement)
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoRedundantCast, name.GetLocation(), requestedElement.ToDisplayString()));
+    }
+
+    /// <summary>Returns the element type a sequence call asks for when the source already yields it.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="invocation">The sequence call.</param>
+    /// <returns>The requested element type, or <see langword="null"/> when the call still does something.</returns>
+    private static ITypeSymbol? GetUnchangedElementType(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
+    {
+        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsEnumerableExtension(method)
+            || GetSequenceElementType(method.ReturnType) is not { } requestedElement
+            || (string.Equals(method.Name, SequenceFilterMethodName, StringComparison.Ordinal) && CanHoldNull(requestedElement)))
+        {
+            return null;
+        }
+
+        var unchanged = GetSourceExpression(invocation, method) is { } source
+            && GetSequenceElementType(context.SemanticModel.GetTypeInfo(source, context.CancellationToken).Type) is { } sourceElement
+            && SymbolEqualityComparer.Default.Equals(sourceElement, requestedElement)
+            && sourceElement.NullableAnnotation == requestedElement.NullableAnnotation;
+
+        return unchanged ? requestedElement : null;
+    }
+
+    /// <summary>Returns whether a bound method is one of the sequence extensions on <c>IEnumerable</c>.</summary>
+    /// <param name="method">The bound method.</param>
+    /// <returns><see langword="true"/> for the framework's own sequence re-typing extensions.</returns>
+    private static bool IsEnumerableExtension(IMethodSymbol method) =>
+        method.IsExtensionMethod
+            && method.ContainingType is { Name: "Enumerable", ContainingNamespace: { Name: "Linq", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } } };
+
+    /// <summary>Returns the expression carrying the sequence, whether the call is reduced or written out.</summary>
+    /// <param name="invocation">The invocation.</param>
+    /// <param name="method">The bound method.</param>
+    /// <returns>The source sequence expression, or <see langword="null"/> when it cannot be read.</returns>
+    private static ExpressionSyntax? GetSourceExpression(InvocationExpressionSyntax invocation, IMethodSymbol method)
+    {
+        if (method.ReducedFrom is not null)
+        {
+            return invocation.Expression is MemberAccessExpressionSyntax memberAccess ? memberAccess.Expression : null;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        return arguments.Count == 0 ? null : arguments[0].Expression;
+    }
+
+    /// <summary>Returns the element type a sequence yields, for an array or anything implementing the generic interface.</summary>
+    /// <param name="sequence">The sequence type.</param>
+    /// <returns>The element type, or <see langword="null"/> when it is absent or ambiguous.</returns>
+    private static ITypeSymbol? GetSequenceElementType(ITypeSymbol? sequence)
+    {
+        if (sequence is IArrayTypeSymbol { Rank: 1 } array)
+        {
+            return array.ElementType;
+        }
+
+        if (sequence is not INamedTypeSymbol named)
+        {
+            return null;
+        }
+
+        if (named.OriginalDefinition.SpecialType == SpecialType.System_Collections_Generic_IEnumerable_T)
+        {
+            return named.TypeArguments[0];
+        }
+
+        // A type implementing the interface twice has no single element type, so it is left alone.
+        ITypeSymbol? found = null;
+        var interfaces = named.AllInterfaces;
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            if (interfaces[i].OriginalDefinition.SpecialType != SpecialType.System_Collections_Generic_IEnumerable_T)
+            {
+                continue;
+            }
+
+            if (found is not null)
+            {
+                return null;
+            }
+
+            found = interfaces[i].TypeArguments[0];
+        }
+
+        return found;
+    }
+
+    /// <summary>Returns whether a type has <see langword="null"/> among its values.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns><see langword="true"/> for a reference type or a nullable value type.</returns>
+    private static bool CanHoldNull(ITypeSymbol type) =>
+        type.IsReferenceType || type.OriginalDefinition.SpecialType == SpecialType.System_Nullable_T;
 
     /// <summary>Returns whether removing the cast would leave the operand's null-state unchanged.</summary>
     /// <param name="operandInfo">The operand's type info, carrying its flow state.</param>

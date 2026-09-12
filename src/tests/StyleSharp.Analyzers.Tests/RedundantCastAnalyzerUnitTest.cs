@@ -238,6 +238,143 @@ public class RedundantCastAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an <c>as</c> testing for the operand's own type is reported and removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task AsToOwnTypeRemovedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+                              public class C
+                              {
+                                  public string? M(string text) => text as {|SST1175:string|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   #nullable enable
+                                   public class C
+                                   {
+                                       public string? M(string text) => text;
+                                   }
+                                   """;
+        await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an <c>as</c> narrowing to a derived type is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AsToDerivedTypeIsCleanAsync() =>
+        VerifyRedundantCast.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            public class Node
+            {
+            }
+
+            public class Unit : Node
+            {
+            }
+
+            public class C
+            {
+                public Unit? M(Node node) => node as Unit;
+            }
+            """);
+
+    /// <summary>Verifies a sequence re-typed to the element type it already has is reported and removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SequenceCastToOwnElementTypeRemovedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public IEnumerable<string> M(IEnumerable<string> items) => items.{|SST1175:Cast<string>|}();
+                              }
+                              """;
+        const string FixedSource = """
+                                   #nullable enable
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public IEnumerable<string> M(IEnumerable<string> items) => items;
+                                   }
+                                   """;
+        await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies a sequence re-typed to a different element type is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SequenceCastToOtherElementTypeIsCleanAsync() =>
+        VerifyRedundantCast.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public IEnumerable<string> M(IEnumerable<object> items) => items.Cast<string>();
+            }
+            """);
+
+    /// <summary>
+    /// Verifies an <c>OfType</c> over a sequence of the same reference element type is not reported, because
+    /// it is still dropping the null elements rather than converting anything.
+    /// </summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SequenceFilterOnNullableElementIsCleanAsync() =>
+        VerifyRedundantCast.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            using System.Collections.Generic;
+            using System.Linq;
+
+            public class C
+            {
+                public IEnumerable<string> M(IEnumerable<string> items) => items.OfType<string>();
+            }
+            """);
+
+    /// <summary>Verifies an <c>OfType</c> over a sequence of the same value element type is reported and removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task SequenceFilterOnValueElementRemovedAsync()
+    {
+        const string Source = """
+                              #nullable enable
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public IEnumerable<int> M(IEnumerable<int> items) => items.{|SST1175:OfType<int>|}();
+                              }
+                              """;
+        const string FixedSource = """
+                                   #nullable enable
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public IEnumerable<int> M(IEnumerable<int> items) => items;
+                                   }
+                                   """;
+        await VerifyRedundantCast.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies Fix All removes nested identity casts (an outer cast wrapping an inner cast) in one pass.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

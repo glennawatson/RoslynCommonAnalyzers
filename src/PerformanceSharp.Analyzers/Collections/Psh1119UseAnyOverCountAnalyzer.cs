@@ -5,9 +5,10 @@
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
-/// Flags comparisons that compute a full <c>System.Linq.Enumerable</c> <c>Count()</c> result
-/// only to ask whether the sequence has any elements (PSH1119): <c>xs.Count() &gt; 0</c>
-/// becomes <c>xs.Any()</c> and <c>xs.Count() == 0</c> becomes <c>!xs.Any()</c>. The comparison
+/// Flags comparisons that compute a full <c>System.Linq.Enumerable</c> <c>Count()</c> or
+/// <c>LongCount()</c> result only to ask whether the sequence has any elements (PSH1119):
+/// <c>xs.Count() &gt; 0</c> becomes <c>xs.Any()</c> and <c>xs.Count() == 0</c> becomes
+/// <c>!xs.Any()</c>; <c>LongCount()</c> walks the sequence the same way. The comparison
 /// shape and the member name gate syntactically before any binding; both operand orders and
 /// the zero/one literal forms (<c>&gt; 0</c>, <c>&gt;= 1</c>, <c>!= 0</c>, <c>== 0</c>,
 /// <c>&lt; 1</c>, <c>&lt;= 0</c>) are recognized, and the predicate overload qualifies too.
@@ -24,6 +25,9 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The count member name the syntax gate accepts.</summary>
     private const string CountMethodName = "Count";
+
+    /// <summary>The 64-bit count member name, which walks the sequence exactly as <c>Count</c> does.</summary>
+    private const string LongCountMethodName = "LongCount";
 
     /// <summary>The metadata name of the LINQ extension-method host type.</summary>
     private const string EnumerableMetadataName = "System.Linq.Enumerable";
@@ -110,7 +114,7 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
     private static InvocationExpressionSyntax? TryGetCountInvocation(ExpressionSyntax expression) =>
         expression is InvocationExpressionSyntax { ArgumentList.Arguments.Count: <= 1 } invocation
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
-            && access.Name.Identifier.ValueText == CountMethodName
+            && access.Name.Identifier.ValueText is CountMethodName or LongCountMethodName
             ? invocation
             : null;
 

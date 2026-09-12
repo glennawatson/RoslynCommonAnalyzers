@@ -39,6 +39,58 @@ public class UseAnyOverCountAnalyzerUnitTest
         await VerifyNet90Async(Source, FixedSource);
     }
 
+    /// <summary>Verifies LongCount() &gt; 0 counts the whole sequence just the same and is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LongCountGreaterThanZeroReplacedWithAnyAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public bool M(IEnumerable<int> xs) => {|PSH1119:xs.LongCount() > 0|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public bool M(IEnumerable<int> xs) => xs.Any();
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies LongCount() == 0 is reported and fixed to a negated Any().</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task LongCountEqualsZeroReplacedWithNegatedAnyAsync()
+    {
+        const string Source = """
+                              using System.Collections.Generic;
+                              using System.Linq;
+
+                              public class C
+                              {
+                                  public bool M(IEnumerable<int> xs) => {|PSH1119:xs.LongCount() == 0|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Collections.Generic;
+                                   using System.Linq;
+
+                                   public class C
+                                   {
+                                       public bool M(IEnumerable<int> xs) => !xs.Any();
+                                   }
+                                   """;
+        await VerifyNet90Async(Source, FixedSource);
+    }
+
     /// <summary>Verifies Count() == 0 is reported and fixed to a negated Any().</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

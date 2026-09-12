@@ -21,9 +21,6 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
     /// <summary>The name of the middleware-registration method that is guarded.</summary>
     private const string UseDeveloperExceptionPageMethodName = "UseDeveloperExceptionPage";
 
-    /// <summary>The name of the development-environment guard method that suppresses the diagnostic.</summary>
-    private const string DevelopmentGuardMethodName = "IsDevelopment";
-
     /// <summary>The metadata name of the type that declares the guarded extension method.</summary>
     private const string DeveloperExceptionPageExtensionsMetadataName =
         "Microsoft.AspNetCore.Builder.DeveloperExceptionPageExtensions";
@@ -59,14 +56,14 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to a member named 'UseDeveloperExceptionPage'.
-        if (GetInvokedName(invocation.Expression) is not UseDeveloperExceptionPageMethodName)
+        if (InvokedName.Of(invocation.Expression) is not UseDeveloperExceptionPageMethodName)
         {
             return;
         }
 
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: UseDeveloperExceptionPageMethodName } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, extensionsType)
-            || IsInsideDevelopmentGuard(invocation))
+            || DevelopmentGuard.Encloses(invocation))
         {
             return;
         }
@@ -76,73 +73,4 @@ public sealed class Ses1506UnguardedDeveloperExceptionPageAnalyzer : DiagnosticA
             invocation.SyntaxTree,
             invocation.Span));
     }
-
-    /// <summary>Returns whether an enclosing <c>if</c> or conditional guards the call with an <c>IsDevelopment</c> check.</summary>
-    /// <param name="invocation">The reported invocation.</param>
-    /// <returns><see langword="true"/> when a development-environment guard lexically encloses the call.</returns>
-    private static bool IsInsideDevelopmentGuard(SyntaxNode invocation)
-    {
-        for (var ancestor = invocation.Parent; ancestor is not null; ancestor = ancestor.Parent)
-        {
-            var condition = ancestor switch
-            {
-                IfStatementSyntax ifStatement => ifStatement.Condition,
-                ConditionalExpressionSyntax conditional => conditional.Condition,
-                _ => null,
-            };
-
-            if (condition is not null && ContainsDevelopmentGuardCall(condition))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a condition subtree calls a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="condition">The guard condition to scan.</param>
-    /// <returns><see langword="true"/> when the condition contains an <c>IsDevelopment</c> invocation.</returns>
-    private static bool ContainsDevelopmentGuardCall(ExpressionSyntax condition)
-    {
-        if (IsDevelopmentGuardInvocation(condition))
-        {
-            return true;
-        }
-
-        var found = false;
-        _ = DescendantTraversalHelper.VisitDescendants(
-            condition,
-            ref found,
-            static (InvocationExpressionSyntax invocation, ref bool state) =>
-            {
-                if (!IsDevelopmentGuardInvocation(invocation))
-                {
-                    return true;
-                }
-
-                state = true;
-                return false;
-            });
-
-        return found;
-    }
-
-    /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="node">The candidate node.</param>
-    /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
-        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
-
-    /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
-    /// <param name="invoked">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked) =>
-        invoked switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 }

@@ -141,19 +141,7 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
     /// <param name="callee">The invocation's callee expression.</param>
     /// <returns><see langword="true"/> when the simple method name matches a path sink.</returns>
     private static bool IsPathSinkMethodName(ExpressionSyntax callee) =>
-        GetInvokedName(callee) is CombineMethodName or CreateMethodName or OpenWriteMethodName or WriteAllBytesMethodName or CopyMethodName;
-
-    /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
-    /// <param name="callee">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax callee) =>
-        callee switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
+        InvokedName.Of(callee) is CombineMethodName or CreateMethodName or OpenWriteMethodName or WriteAllBytesMethodName or CopyMethodName;
 
     /// <summary>Returns the right-most simple identifier of a type name.</summary>
     /// <param name="type">The constructed type syntax.</param>

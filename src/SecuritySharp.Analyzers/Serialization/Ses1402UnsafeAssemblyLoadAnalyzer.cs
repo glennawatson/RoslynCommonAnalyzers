@@ -215,7 +215,7 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the source is a trusted embedded manifest resource.</returns>
     private static bool IsManifestResourceStream(ExpressionSyntax expression) =>
         Unwrap(expression) is InvocationExpressionSyntax invocation
-           && GetInvokedSimpleName(invocation.Expression) is ManifestResourceStreamMethodName;
+           && InvokedName.Of(invocation.Expression) is ManifestResourceStreamMethodName;
 
     /// <summary>Strips enclosing parentheses and a trailing null-forgiving operator from an expression.</summary>
     /// <param name="expression">The expression to unwrap.</param>
@@ -244,18 +244,6 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
             }
         }
     }
-
-    /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
-    /// <param name="invoked">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedSimpleName(ExpressionSyntax invoked) =>
-        invoked switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns a caller-facing description of the reported load call for the message.</summary>
     /// <param name="method">The bound method symbol.</param>

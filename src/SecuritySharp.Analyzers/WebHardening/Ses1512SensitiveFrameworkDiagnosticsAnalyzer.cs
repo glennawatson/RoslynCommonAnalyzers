@@ -33,9 +33,6 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
     /// <summary>The simple type name reported alongside a guarded identity-logging property.</summary>
     private const string IdentityModelEventSourceTypeName = "IdentityModelEventSource";
 
-    /// <summary>The name of the development-environment guard method that suppresses the diagnostic.</summary>
-    private const string DevelopmentGuardMethodName = "IsDevelopment";
-
     /// <summary>The metadata name of the identity-logging event source whose sensitive properties are guarded.</summary>
     private const string IdentityModelEventSourceMetadataName = "Microsoft.IdentityModel.Logging.IdentityModelEventSource";
 
@@ -81,7 +78,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to a member named 'EnableSensitiveDataLogging'.
-        if (GetInvokedName(invocation.Expression) is not EnableSensitiveDataLoggingMethodName
+        if (InvokedName.Of(invocation.Expression) is not EnableSensitiveDataLoggingMethodName
             || !IsUnconditionallyEnabled(invocation.ArgumentList, context.SemanticModel, context.CancellationToken))
         {
             return;
@@ -89,7 +86,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EnableSensitiveDataLoggingMethodName } method
             || !IsGatedBuilderType(method.ContainingType.OriginalDefinition, builderTypes)
-            || IsInsideDevelopmentGuard(invocation))
+            || DevelopmentGuard.Encloses(invocation))
         {
             return;
         }
@@ -118,7 +115,7 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
         if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { IsStatic: true } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, eventSourceType)
-            || IsInsideDevelopmentGuard(assignment))
+            || DevelopmentGuard.Encloses(assignment))
         {
             return;
         }
@@ -187,75 +184,6 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
         return false;
     }
-
-    /// <summary>Returns whether an enclosing <c>if</c> or conditional guards the node with an <c>IsDevelopment</c> check.</summary>
-    /// <param name="node">The reported call or assignment.</param>
-    /// <returns><see langword="true"/> when a development-environment guard lexically encloses the node.</returns>
-    private static bool IsInsideDevelopmentGuard(SyntaxNode node)
-    {
-        for (var ancestor = node.Parent; ancestor is not null; ancestor = ancestor.Parent)
-        {
-            var condition = ancestor switch
-            {
-                IfStatementSyntax ifStatement => ifStatement.Condition,
-                ConditionalExpressionSyntax conditional => conditional.Condition,
-                _ => null,
-            };
-
-            if (condition is not null && ContainsDevelopmentGuardCall(condition))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a condition subtree calls a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="condition">The guard condition to scan.</param>
-    /// <returns><see langword="true"/> when the condition contains an <c>IsDevelopment</c> invocation.</returns>
-    private static bool ContainsDevelopmentGuardCall(ExpressionSyntax condition)
-    {
-        if (IsDevelopmentGuardInvocation(condition))
-        {
-            return true;
-        }
-
-        var found = false;
-        _ = DescendantTraversalHelper.VisitDescendants(
-            condition,
-            ref found,
-            static (InvocationExpressionSyntax invocation, ref bool state) =>
-            {
-                if (!IsDevelopmentGuardInvocation(invocation))
-                {
-                    return true;
-                }
-
-                state = true;
-                return false;
-            });
-
-        return found;
-    }
-
-    /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="node">The candidate node.</param>
-    /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
-        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
-
-    /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
-    /// <param name="invoked">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked) =>
-        invoked switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Resolves the EF Core option-builder types present in the compilation.</summary>
     /// <param name="compilation">The compilation to probe.</param>

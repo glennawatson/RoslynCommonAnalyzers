@@ -21,9 +21,6 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
     /// <summary>The name of the option property whose <c>false</c> assignment is guarded.</summary>
     private const string RequireHttpsMetadataPropertyName = "RequireHttpsMetadata";
 
-    /// <summary>The name of the development-environment guard method that suppresses the diagnostic.</summary>
-    private const string DevelopmentGuardMethodName = "IsDevelopment";
-
     /// <summary>The metadata names of the authentication option types whose property is guarded.</summary>
     private static readonly string[] OptionMetadataNames =
     [
@@ -72,7 +69,7 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
 
         if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: RequireHttpsMetadataPropertyName } property
             || !IsGatedOptionType(property.ContainingType, optionTypes)
-            || IsInsideDevelopmentGuard(assignment))
+            || DevelopmentGuard.Encloses(assignment))
         {
             return;
         }
@@ -112,75 +109,6 @@ public sealed class Ses1105PlainHttpMetadataRetrievalAnalyzer : DiagnosticAnalyz
 
         return false;
     }
-
-    /// <summary>Returns whether an enclosing <c>if</c> or conditional guards the assignment with an <c>IsDevelopment</c> check.</summary>
-    /// <param name="assignment">The reported assignment.</param>
-    /// <returns><see langword="true"/> when a development-environment guard lexically encloses the assignment.</returns>
-    private static bool IsInsideDevelopmentGuard(SyntaxNode assignment)
-    {
-        for (var ancestor = assignment.Parent; ancestor is not null; ancestor = ancestor.Parent)
-        {
-            var condition = ancestor switch
-            {
-                IfStatementSyntax ifStatement => ifStatement.Condition,
-                ConditionalExpressionSyntax conditional => conditional.Condition,
-                _ => null,
-            };
-
-            if (condition is not null && ContainsDevelopmentGuardCall(condition))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a condition subtree calls a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="condition">The guard condition to scan.</param>
-    /// <returns><see langword="true"/> when the condition contains an <c>IsDevelopment</c> invocation.</returns>
-    private static bool ContainsDevelopmentGuardCall(ExpressionSyntax condition)
-    {
-        if (IsDevelopmentGuardInvocation(condition))
-        {
-            return true;
-        }
-
-        var found = false;
-        _ = DescendantTraversalHelper.VisitDescendants(
-            condition,
-            ref found,
-            static (InvocationExpressionSyntax invocation, ref bool state) =>
-            {
-                if (!IsDevelopmentGuardInvocation(invocation))
-                {
-                    return true;
-                }
-
-                state = true;
-                return false;
-            });
-
-        return found;
-    }
-
-    /// <summary>Returns whether a node is an invocation of a method named <c>IsDevelopment</c>.</summary>
-    /// <param name="node">The candidate node.</param>
-    /// <returns><see langword="true"/> for an <c>IsDevelopment</c> invocation.</returns>
-    private static bool IsDevelopmentGuardInvocation(SyntaxNode node) =>
-        node is InvocationExpressionSyntax invocation && GetInvokedName(invocation.Expression) is DevelopmentGuardMethodName;
-
-    /// <summary>Returns the simple method name an invocation targets, ignoring the receiver.</summary>
-    /// <param name="invoked">The invocation's callee expression.</param>
-    /// <returns>The simple method name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked) =>
-        invoked switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Resolves the authentication option types present in the compilation.</summary>
     /// <param name="compilation">The compilation to probe.</param>

@@ -65,7 +65,7 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
 
         // Syntactic prefilter: an invocation of a member named 'CheckSignature'. Only the bare name is checked
         // here, so the semantic model is never touched on the overwhelmingly common non-matching path.
-        if (GetInvokedName(invocation.Expression) != CheckSignatureMethodName)
+        if (InvokedName.Of(invocation.Expression) != CheckSignatureMethodName)
         {
             return;
         }
@@ -102,18 +102,6 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
             _ => false,
         };
     }
-
-    /// <summary>Returns the simple name an invocation targets, or <see langword="null"/> when it is not a simple call.</summary>
-    /// <param name="invoked">The invocation's callee expression.</param>
-    /// <returns>The invoked member's simple-name text, or <see langword="null"/>.</returns>
-    private static string? GetInvokedName(ExpressionSyntax invoked) =>
-        invoked switch
-        {
-            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
-            MemberBindingExpressionSyntax memberBinding => memberBinding.Name.Identifier.ValueText,
-            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns a readable name for the verified <c>SignedXml</c> receiver to fill the diagnostic message.</summary>
     /// <param name="invoked">The invocation's callee expression.</param>

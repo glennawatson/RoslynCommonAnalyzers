@@ -23,7 +23,9 @@ namespace StyleSharp.Analyzers;
 /// <c>decimal</c> is never reported: it is exact for the values it can hold, so an equality on it means
 /// what it says. A comparison against a literal zero is left alone by default because it asks a different
 /// question — is this negative, was this ever assigned — rather than whether two computed values landed on
-/// the same bits.
+/// the same bits. A comparison against <c>PositiveInfinity</c> or <c>NegativeInfinity</c> is left alone for
+/// the same reason: each is a single representable value, so the test is exact and a tolerance would answer
+/// nothing.
 /// </para>
 /// <para>
 /// A self-comparison <c>x == x</c> is the deliberate NaN idiom, and it is reported here rather than by
@@ -56,6 +58,12 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The name of the <c>NaN</c> field on <see cref="float"/> and <see cref="double"/>.</summary>
     private const string NaNFieldName = "NaN";
+
+    /// <summary>The name of the <c>PositiveInfinity</c> field on <see cref="float"/> and <see cref="double"/>.</summary>
+    private const string PositiveInfinityFieldName = "PositiveInfinity";
+
+    /// <summary>The name of the <c>NegativeInfinity</c> field on <see cref="float"/> and <see cref="double"/>.</summary>
+    private const string NegativeInfinityFieldName = "NegativeInfinity";
 
     /// <summary>The properties of a diagnostic the code fix cannot rewrite.</summary>
     private static readonly ImmutableDictionary<string, string?> NoFixProperties = ImmutableDictionaries.Empty<string, string?>();
@@ -114,6 +122,115 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
             SyntaxKind.LessThanOrEqualExpression,
             SyntaxKind.GreaterThanExpression,
             SyntaxKind.GreaterThanOrEqualExpression);
+
+        context.RegisterSyntaxNodeAction(
+            nodeContext => AnalyzeEqualsCall(nodeContext, optionsByTree),
+            SyntaxKind.InvocationExpression);
+    }
+
+    /// <summary>Reports <c>x.Equals(y)</c> on a floating-point value, which rounds exactly as <c>==</c> does.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <remarks>
+    /// The member name and argument count are matched first, so an invocation that is not a one-argument
+    /// <c>Equals</c> never reaches the semantic model. A NaN or infinity operand is left alone: unlike the
+    /// operator, <c>Equals</c> answers true for both, so the call is a working test rather than a defect.
+    /// </remarks>
+    private static void AnalyzeEqualsCall(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
+    {
+        var invocation = (InvocationExpressionSyntax)context.Node;
+        if (!IsEqualsCallShaped(invocation, out var receiver))
+        {
+            return;
+        }
+
+        var argument = invocation.ArgumentList.Arguments[0].Expression;
+        if (IsExemptEqualsOperand(argument) || IsExemptEqualsOperand(receiver))
+        {
+            return;
+        }
+
+        if (!TryGetEqualsKeyword(context, invocation, out var keyword)
+            || IsAllowedZeroEqualsCall(context, argument, receiver, optionsByTree)
+            || IsAllowedEqualityMemberComparison(context, invocation, optionsByTree))
+        {
+            return;
+        }
+
+        context.ReportDiagnostic(DiagnosticHelper.Create(
+            MaintainabilityRules.FloatingPointEquality,
+            invocation.SyntaxTree,
+            invocation.Span,
+            NoFixProperties,
+            keyword,
+            nameof(Equals)));
+    }
+
+    /// <summary>Returns whether an <c>Equals</c> operand is one the rule deliberately leaves alone.</summary>
+    /// <param name="expression">The operand, or <see langword="null"/> for an absent receiver.</param>
+    /// <returns><see langword="true"/> for a literal no floating-point value could be, or a NaN or infinity.</returns>
+    private static bool IsExemptEqualsOperand(ExpressionSyntax? expression) =>
+        expression is not null
+            && (IsNonFloatingLiteral(expression) || IsNaNShaped(expression) || IsInfinityShaped(expression));
+
+    /// <summary>Reads the floating-point keyword of an <c>Equals</c> call that compares two floating-point values.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The candidate call.</param>
+    /// <param name="keyword">The <c>float</c> or <c>double</c> keyword.</param>
+    /// <returns><see langword="true"/> when the call binds to the floating-point overload rather than <c>Equals(object)</c>.</returns>
+    private static bool TryGetEqualsKeyword(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, out string keyword)
+    {
+        keyword = string.Empty;
+        return context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: 1 } method
+            && FloatingPointTypes.TryGetKeyword(method.ContainingType, out keyword, out _)
+            && FloatingPointTypes.TryGetKeyword(method.Parameters[0].Type, out _, out _);
+    }
+
+    /// <summary>Returns whether an <c>Equals</c> call compares against a zero the settings leave alone.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="argument">The compared value.</param>
+    /// <param name="receiver">The receiver the call is made on.</param>
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <returns><see langword="true"/> when the call is an allowed zero comparison.</returns>
+    private static bool IsAllowedZeroEqualsCall(
+        in SyntaxNodeAnalysisContext context,
+        ExpressionSyntax argument,
+        ExpressionSyntax? receiver,
+        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
+        IsZeroLiteral(argument)
+            && (receiver is null || !IsZeroLiteral(receiver))
+            && GetOptions(context, optionsByTree).AllowZeroComparison;
+
+    /// <summary>Returns whether an invocation is a one-argument <c>Equals</c> call, and yields its receiver.</summary>
+    /// <param name="invocation">The invocation to inspect.</param>
+    /// <param name="receiver">The receiver the call is made on, or <see langword="null"/> for a conditional access.</param>
+    /// <returns><see langword="true"/> when the invocation is shaped like an <c>Equals</c> comparison.</returns>
+    private static bool IsEqualsCallShaped(InvocationExpressionSyntax invocation, out ExpressionSyntax? receiver)
+    {
+        receiver = null;
+        if (invocation.ArgumentList.Arguments.Count != 1)
+        {
+            return false;
+        }
+
+        switch (invocation.Expression)
+        {
+            case MemberAccessExpressionSyntax { Name.Identifier.ValueText: nameof(Equals) } access:
+            {
+                receiver = access.Expression;
+                return true;
+            }
+
+            case MemberBindingExpressionSyntax { Name.Identifier.ValueText: nameof(Equals) }:
+            {
+                return true;
+            }
+
+            default:
+            {
+                return false;
+            }
+        }
     }
 
     /// <summary>Reports one comparison that cannot answer the question it appears to ask.</summary>
@@ -134,7 +251,9 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
         if (!isEquality
             || HasNonFloatingLiteralOperand(binary)
             || IsAllowedZeroComparison(context, binary, optionsByTree)
-            || !TryGetComparisonKeyword(context, binary, out var keyword, out var isNullable))
+            || !TryGetComparisonKeyword(context, binary, out var keyword, out var isNullable)
+            || HasInfinityOperand(context, binary)
+            || IsAllowedEqualityMemberComparison(context, binary, optionsByTree))
         {
             return;
         }
@@ -207,6 +326,92 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
 
         return GetProperties(keyword, binary.IsKind(SyntaxKind.NotEqualsExpression) ? NotIsNaNFixKind : IsNaNFixKind);
     }
+
+    /// <summary>Returns whether a comparison sits in an equality member the settings leave alone.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="comparison">The comparison being judged.</param>
+    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <returns><see langword="true"/> when the relaxation is on and the comparison implements equality or ordering.</returns>
+    /// <remarks>
+    /// Off by default: an exact comparison is exact wherever it is written. It is offered because the usual
+    /// remedy cannot be applied here — a tolerance inside <c>Equals</c> makes equality non-transitive and
+    /// breaks its contract with <c>GetHashCode</c> — so a type that genuinely wants bitwise value equality on
+    /// floating-point fields has no way to satisfy the rule. The settings are read only after the comparison
+    /// has already been found reportable.
+    /// </remarks>
+    private static bool IsAllowedEqualityMemberComparison(
+        in SyntaxNodeAnalysisContext context,
+        SyntaxNode comparison,
+        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
+        GetOptions(context, optionsByTree).AllowEqualityMemberComparison && IsInsideEqualityMember(comparison);
+
+    /// <summary>Returns whether a node sits inside a member that implements equality, hashing, or ordering.</summary>
+    /// <param name="comparison">The comparison being judged.</param>
+    /// <returns><see langword="true"/> for an <c>Equals</c>, <c>GetHashCode</c>, <c>CompareTo</c> body or an equality operator.</returns>
+    private static bool IsInsideEqualityMember(SyntaxNode comparison)
+    {
+        for (var current = comparison.Parent; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case MethodDeclarationSyntax method:
+                {
+                    return method.Identifier.ValueText is nameof(Equals) or nameof(GetHashCode) or "CompareTo";
+                }
+
+                case OperatorDeclarationSyntax @operator:
+                {
+                    return @operator.OperatorToken.RawKind is (int)SyntaxKind.EqualsEqualsToken
+                        or (int)SyntaxKind.ExclamationEqualsToken;
+                }
+
+                case BaseTypeDeclarationSyntax:
+                {
+                    return false;
+                }
+
+                default:
+                {
+                    continue;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether either operand is an infinity field of <see cref="float"/> or <see cref="double"/>.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="binary">The comparison.</param>
+    /// <returns><see langword="true"/> when the comparison tests against an infinity.</returns>
+    /// <remarks>
+    /// Both infinities are single representable values, so <c>x == double.PositiveInfinity</c> is exact and
+    /// answers precisely the question it asks. Rounding never produces a value near an infinity without
+    /// reaching it, so there is nothing for a tolerance to do here and the comparison is left alone. The name
+    /// is matched on syntax first, so only a comparison actually spelled against an infinity is bound.
+    /// </remarks>
+    private static bool HasInfinityOperand(in SyntaxNodeAnalysisContext context, BinaryExpressionSyntax binary) =>
+        IsInfinityComparand(context, binary.Left) || IsInfinityComparand(context, binary.Right);
+
+    /// <summary>Returns whether an operand is an infinity field of <see cref="float"/> or <see cref="double"/>.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="expression">The operand.</param>
+    /// <returns><see langword="true"/> when the name really is the framework's infinity.</returns>
+    private static bool IsInfinityComparand(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression) =>
+        IsInfinityShaped(expression)
+            && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IFieldSymbol field
+            && field.Name is PositiveInfinityFieldName or NegativeInfinityFieldName
+            && field.ContainingType.SpecialType is SpecialType.System_Single or SpecialType.System_Double;
+
+    /// <summary>Returns whether an expression is spelled as a reference to an infinity field.</summary>
+    /// <param name="expression">The operand to inspect.</param>
+    /// <returns><see langword="true"/> for <c>double.PositiveInfinity</c> and the other spellings of either infinity.</returns>
+    private static bool IsInfinityShaped(ExpressionSyntax expression) => expression switch
+    {
+        MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText is PositiveInfinityFieldName or NegativeInfinityFieldName,
+        IdentifierNameSyntax identifier => identifier.Identifier.ValueText is PositiveInfinityFieldName or NegativeInfinityFieldName,
+        _ => false,
+    };
 
     /// <summary>Returns whether an operand is the <c>NaN</c> field of <see cref="float"/> or <see cref="double"/>.</summary>
     /// <param name="context">The syntax node context.</param>

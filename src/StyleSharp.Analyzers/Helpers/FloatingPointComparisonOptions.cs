@@ -6,7 +6,8 @@ namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1473 settings for one syntax tree.</summary>
 /// <param name="AllowZeroComparison">Whether a comparison against a literal zero is left alone.</param>
-internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroComparison)
+/// <param name="AllowEqualityMemberComparison">Whether a comparison inside an equality member is left alone.</param>
+internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroComparison, bool AllowEqualityMemberComparison)
 {
     /// <summary>Zero comparisons are allowed unless the configuration says otherwise.</summary>
     public const bool DefaultAllowZeroComparison = true;
@@ -17,15 +18,24 @@ internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroCom
     /// <summary>The project-wide zero-comparison key.</summary>
     private const string AllowZeroGeneralKey = "stylesharp.allow_zero_comparison";
 
+    /// <summary>The rule-specific equality-member key.</summary>
+    private const string AllowEqualityMemberRuleKey = "stylesharp.SST1473.allow_equality_member_comparison";
+
+    /// <summary>The project-wide equality-member key.</summary>
+    private const string AllowEqualityMemberGeneralKey = "stylesharp.allow_equality_member_comparison";
+
     /// <summary>Reads the settings for one tree, falling back to the defaults.</summary>
     /// <param name="options">The analyzer config options for the comparison's tree.</param>
     /// <returns>The resolved settings.</returns>
     /// <remarks>
     /// An unset or unparsable value yields the default, so a typo neither turns the rule off nor starts
-    /// reporting every <c>x == 0</c> in the file.
+    /// reporting every <c>x == 0</c> in the file. The equality-member relaxation defaults to off: an exact
+    /// comparison there is still an exact comparison, and the author should decide it deliberately.
     /// </remarks>
     internal static FloatingPointComparisonOptions Read(AnalyzerConfigOptions options) =>
-        new(ReadBool(options, AllowZeroRuleKey, AllowZeroGeneralKey, DefaultAllowZeroComparison));
+        new(
+            ReadBool(options, AllowZeroRuleKey, AllowZeroGeneralKey, DefaultAllowZeroComparison),
+            ReadBool(options, AllowEqualityMemberRuleKey, AllowEqualityMemberGeneralKey, fallback: false));
 
     /// <summary>Reads a boolean setting, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

@@ -34,6 +34,58 @@ public class FloatingPointEqualityAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies an exact comparison spelled as <c>Equals</c> is reported like the operator form.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EqualsCallIsReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool SameDouble(double left, double right) => {|SST1473:left.Equals(right)|};
+
+                public bool SameFloat(float left, float right) => {|SST1473:left.Equals(right)|};
+
+                public bool Computed(double value) => {|SST1473:(value * 3.0).Equals(1.0)|};
+            }
+            """);
+
+    /// <summary>Verifies <c>Equals</c> against NaN answers correctly and is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks><c>double.NaN.Equals(double.NaN)</c> is true, so the call is a working NaN test rather than a defect.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EqualsCallAgainstNaNIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool Missing(double value) => value.Equals(double.NaN);
+
+                public bool Overflowed(double value) => value.Equals(double.PositiveInfinity);
+            }
+            """);
+
+    /// <summary>Verifies <c>Equals</c> on a type that is not floating point is left alone.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EqualsCallOnOtherTypesIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool Counted(int left, int right) => left.Equals(right);
+
+                public bool Exact(decimal left, decimal right) => left.Equals(right);
+
+                public bool Named(string left, string right) => left.Equals(right);
+
+                public bool Boxed(double left, object right) => left.Equals(right);
+            }
+            """);
+
     /// <summary>Verifies a relational comparison is a legitimate floating-point operation and is left alone.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -288,6 +340,106 @@ public class FloatingPointEqualityAnalyzerUnitTest
             public class C
             {
                 public bool Counted(int value) => value == Marker.NaN;
+            }
+            """);
+
+    /// <summary>Verifies an exact comparison inside an equality member is still reported by default.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EqualityMemberIsReportedByDefaultAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            #nullable enable
+            public readonly struct Point : System.IEquatable<Point>
+            {
+                public double X { get; init; }
+
+                public bool Equals(Point other) => {|SST1473:X == other.X|};
+
+                public override bool Equals(object? obj) => obj is Point other && Equals(other);
+
+                public override int GetHashCode() => X.GetHashCode();
+            }
+            """);
+
+    /// <summary>Verifies the equality-member relaxation can be opted into.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// A tolerance inside <c>Equals</c> would make equality non-transitive, so a project that implements
+    /// value equality on floating-point fields can turn the reports off for those members alone.
+    /// </remarks>
+    [Test]
+    public async Task EqualityMemberIsCleanWhenOptedInAsync()
+    {
+        var test = new VerifyFloatingPoint.Test
+        {
+            TestCode = """
+                       #nullable enable
+                       public readonly struct Point : System.IEquatable<Point>
+                       {
+                           public double X { get; init; }
+
+                           public bool Equals(Point other) => X == other.X;
+
+                           public bool Matches(double value) => {|SST1473:X == value|};
+
+                           public override bool Equals(object? obj) => obj is Point other && Equals(other);
+
+                           public override int GetHashCode() => X.GetHashCode();
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
+            root = true
+            [*.cs]
+            stylesharp.SST1473.allow_equality_member_comparison = true
+
+            """));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a comparison against positive infinity is exact and is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PositiveInfinityComparisonIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool Overflowed(double value) => value == double.PositiveInfinity;
+            }
+            """);
+
+    /// <summary>Verifies a comparison against negative infinity is exact and is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NegativeInfinityComparisonIsCleanAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public bool Underflowed(float value) => value != float.NegativeInfinity;
+            }
+            """);
+
+    /// <summary>Verifies a name that reads <c>PositiveInfinity</c> but belongs to another type is still reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ForeignInfinityFieldIsStillReportedAsync() =>
+        VerifyFloatingPoint.VerifyAnalyzerAsync(
+            """
+            public class Marker
+            {
+                public const double PositiveInfinity = 1.5;
+            }
+
+            public class C
+            {
+                public bool Counted(double value) => {|SST1473:value == Marker.PositiveInfinity|};
             }
             """);
 

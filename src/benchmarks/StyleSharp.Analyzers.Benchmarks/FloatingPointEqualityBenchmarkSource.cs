@@ -54,13 +54,20 @@ internal static class FloatingPointEqualityBenchmarkSource
                public bool Named(string left, string right) => left == right;
 
                public bool Ready(bool flag) => flag != false;
+
+               public bool Exact(decimal price, decimal total) => price.Equals(total);
+
+               public bool Absent(double value) => value.Equals(double.NaN);
            }
            """;
 
     /// <summary>Builds one type whose comparisons are all reported.</summary>
     /// <param name="index">The synthetic type index.</param>
     /// <returns>The generated type block.</returns>
-    /// <remarks>Seven comparisons, seven diagnostics: exact double, exact float, both NaN equalities, a self-comparison, a relational NaN, and a lifted pair.</remarks>
+    /// <remarks>
+    /// Eight comparisons, eight diagnostics: exact double, exact float, both NaN equalities, a
+    /// self-comparison, a relational NaN, a lifted pair, and the same exact comparison spelled as a call.
+    /// </remarks>
     private static string GenerateViolatingType(int index) =>
         $$"""
            public sealed class V{{index}}
@@ -78,6 +85,8 @@ internal static class FloatingPointEqualityBenchmarkSource
                public bool Below(double value) => value < double.NaN;
 
                public bool Lifted(double? left, double? right) => left == right;
+
+               public bool SameCall(double left, double right) => left.Equals(right);
            }
            """;
 }

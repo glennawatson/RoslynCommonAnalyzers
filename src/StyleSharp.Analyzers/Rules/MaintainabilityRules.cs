@@ -728,7 +728,8 @@ internal static class MaintainabilityRules
         + "'==' silently answers false. Comparing against NaN is worse: every operator except '!=' answers false, including 'x == x'. "
         + "Compare a difference against a tolerance, or use 'double.IsNaN'. A comparison against a literal zero is allowed by default "
         + "because it tests a sign or an initialization rather than an arithmetic result; set "
-        + "'stylesharp.SST1473.allow_zero_comparison = false' to report it too. 'decimal' is exact and is never reported.";
+        + "'stylesharp.SST1473.allow_zero_comparison = false' to report it too. 'decimal' is exact and is never reported, and "
+        + "neither is a comparison against 'PositiveInfinity' or 'NegativeInfinity', each of which is a single representable value.";
 
     /// <summary>The SST1474 rule description.</summary>
     private const string IdenticalOperandsDescription =

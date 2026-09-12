@@ -87,6 +87,7 @@ Some rules expose options. Current options:
 | `stylesharp.check_positional_records` | [SST1472](rules/SST1472.md) | `true`, `false` | `false` |
 | `stylesharp.count_optional_parameters` | [SST1472](rules/SST1472.md) | `true`, `false` | `true` |
 | `stylesharp.allow_zero_comparison` | [SST1473](rules/SST1473.md) | `true`, `false` | `true` |
+| `stylesharp.allow_equality_member_comparison` | [SST1473](rules/SST1473.md) | `true`, `false` | `false` |
 | `stylesharp.minimum_statements` | [SST1476](rules/SST1476.md) | positive integer | `1` |
 | `stylesharp.allow_zero_shift` | [SST1478](rules/SST1478.md) | `true`, `false` | `false` |
 | `stylesharp.check_base_types` | [SST1484](rules/SST1484.md) | `true`, `false` | `false` |

@@ -5,6 +5,10 @@
     <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
 
+  <PropertyGroup Label="Shared Version Variables">
+    <SharpAnalyzersVersion>4.0.13</SharpAnalyzersVersion>
+  </PropertyGroup>
+
   <ItemGroup Label="Roslyn">
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.9.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="$(MicrosoftCodeAnalysisVersion)" />
@@ -12,10 +16,10 @@
   </ItemGroup>
 
   <ItemGroup Label="Analyzers">
-    <PackageVersion Include="PerformanceSharp.Analyzers" Version="4.0.12" />
+    <PackageVersion Include="PerformanceSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
     <PackageVersion Include="PublicApiSharp.Analyzers" Version="1.0.7" />
-    <PackageVersion Include="SecuritySharp.Analyzers" Version="4.0.12" />
-    <PackageVersion Include="StyleSharp.Analyzers" Version="4.0.12" />
+    <PackageVersion Include="SecuritySharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
+    <PackageVersion Include="StyleSharp.Analyzers" Version="$(SharpAnalyzersVersion)" />
   </ItemGroup>
 
   <ItemGroup Label="Benchmarks">

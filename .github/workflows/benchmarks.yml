@@ -1,0 +1,166 @@
+name: Benchmarks
+
+on:
+    workflow_dispatch:
+        inputs:
+            suite:
+                description: 'Which benchmark suite to run'
+                type: choice
+                default: all
+                options:
+                    - stylesharp
+                    - performancesharp
+                    - securitysharp
+                    - all
+            filter:
+                description: 'BenchmarkDotNet filter, e.g. *RedundantCast* or *'
+                type: string
+                default: '*'
+
+permissions:
+    contents: read
+
+env:
+    DOTNET_NOLOGO: true
+    DOTNET_CLI_TELEMETRY_OPTOUT: true
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+    benchmark:
+        runs-on: ubuntu-latest
+        timeout-minutes: 360
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+
+            - name: Setup .NET
+              uses: actions/setup-dotnet@v6
+              with:
+                  dotnet-version: |
+                      8.0.x
+                      10.0.x
+                      11.0.x
+
+            - name: Report the installed runtimes
+              run: dotnet --info
+
+            # The runner is a shared VM, so treat these as trend and regression figures rather than
+            # absolute ones. Raising the priority removes the noise that is ours to remove; compare a
+            # run only against another run of the same suite on the same runner image.
+            - name: Run the benchmarks
+              working-directory: src
+              env:
+                  SUITE: ${{ inputs.suite }}
+                  FILTER: ${{ inputs.filter }}
+              run: |
+                  set -euo pipefail
+
+                  projects=()
+                  if [ "$SUITE" = 'stylesharp' ]       || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/StyleSharp.Analyzers.Benchmarks'); fi
+                  if [ "$SUITE" = 'performancesharp' ] || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/PerformanceSharp.Analyzers.Benchmarks'); fi
+                  if [ "$SUITE" = 'securitysharp' ]    || [ "$SUITE" = 'all' ]; then projects+=('benchmarks/SecuritySharp.Analyzers.Benchmarks'); fi
+
+                  for project in "${projects[@]}"; do
+                      name="$(basename "$project")"
+                      echo "::group::$name"
+
+                      # -E keeps DOTNET_ROOT and PATH; the artifacts come back root-owned and are
+                      # handed back below so the upload step can read them.
+                      sudo -E nice -n -20 dotnet run --project "$project" -c Release -- \
+                          --filter "$FILTER" \
+                          --artifacts "$GITHUB_WORKSPACE/benchmark-artifacts/$name" \
+                          --exporters github json html csv
+
+                      echo '::endgroup::'
+                  done
+
+                  sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE/benchmark-artifacts"
+
+            # BenchmarkDotNet reports a validation error and still exits zero, and a job whose build
+            # failed exports its rows with every measurement written as NA. Both look identical to a
+            # clean run unless the reports themselves are checked.
+            - name: Confirm the run measured something
+              run: |
+                  set -euo pipefail
+                  root="$GITHUB_WORKSPACE/benchmark-artifacts"
+
+                  mapfile -t reports < <(find "$root" -name '*-report-github.md' 2>/dev/null | sort)
+                  if [ "${#reports[@]}" -eq 0 ]; then
+                      echo 'No benchmark reports were produced. Check the validation errors above.' >&2
+                      exit 1
+                  fi
+
+                  unmeasured=()
+                  for report in "${reports[@]}"; do
+                      if awk '/^\|/ && /\|[[:space:]]*NA[[:space:]]*\|/ { found = 1 } END { exit !found }' "$report"; then
+                          unmeasured+=("$(basename "$report" -report-github.md)")
+                      fi
+                  done
+
+                  if [ "${#unmeasured[@]}" -gt 0 ]; then
+                      echo "These benchmarks measured nothing: ${unmeasured[*]}" >&2
+                      exit 1
+                  fi
+
+            - name: Collect the reports into the run summary
+              if: always()
+              env:
+                  SUITE: ${{ inputs.suite }}
+                  FILTER: ${{ inputs.filter }}
+              run: |
+                  set -euo pipefail
+                  root="$GITHUB_WORKSPACE/benchmark-artifacts"
+
+                  {
+                      echo '# Benchmark results'
+                      echo
+                      echo "Suite \`$SUITE\`, filter \`$FILTER\`, commit \`$GITHUB_SHA\`."
+                      echo
+                      echo 'The runner is a shared VM, so read these for trend and regression rather than as'
+                      echo 'absolute figures. Full JSON, HTML and CSV exports are attached as `benchmark-reports`.'
+                      echo
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+                  if [ ! -d "$root" ]; then
+                      echo 'No benchmark artifacts were produced.' >> "$GITHUB_STEP_SUMMARY"
+                      exit 0
+                  fi
+
+                  # A step summary is capped at 1 MiB and is dropped whole once exceeded, so stop
+                  # appending tables before that and leave the rest to the artifact.
+                  budget=900000
+                  skipped=()
+
+                  while IFS= read -r report; do
+                      title="$(basename "$report" -report-github.md)"
+                      size=$(stat -c %s "$GITHUB_STEP_SUMMARY")
+                      if [ $((size + $(stat -c %s "$report"))) -gt "$budget" ]; then
+                          skipped+=("$title")
+                          continue
+                      fi
+
+                      {
+                          echo "<details><summary>$title</summary>"
+                          echo
+                          cat "$report"
+                          echo
+                          echo '</details>'
+                          echo
+                      } >> "$GITHUB_STEP_SUMMARY"
+                  done < <(find "$root" -name '*-report-github.md' | sort)
+
+                  if [ "${#skipped[@]}" -gt 0 ]; then
+                      echo "Omitted here to stay inside the summary limit: ${skipped[*]}. Read them in the \`benchmark-reports\` artifact." >> "$GITHUB_STEP_SUMMARY"
+                  fi
+
+            - name: Upload the full reports
+              if: always()
+              uses: actions/upload-artifact@v7
+              with:
+                  name: benchmark-reports
+                  path: benchmark-artifacts/**
+                  if-no-files-found: error
+                  retention-days: 30

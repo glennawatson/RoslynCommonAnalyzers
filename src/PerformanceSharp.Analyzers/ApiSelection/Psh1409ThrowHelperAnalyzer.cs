@@ -347,10 +347,6 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
     /// <param name="kind">The comparison kind.</param>
     /// <param name="comparesToZero">Whether the other operand is the zero literal.</param>
     /// <returns>The helper name, or <see langword="null"/>.</returns>
-    [SuppressMessage(
-        "Critical Code Smell",
-        "S1541:Methods and properties should not be too complex",
-        Justification = "A flat operator-to-helper switch is the whole mapping; splitting it would hide the table.")]
     private static string? MapComparisonHelper(SyntaxKind kind, bool comparesToZero) =>
         kind switch
         {

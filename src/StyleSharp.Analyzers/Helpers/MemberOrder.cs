@@ -2,7 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
@@ -276,10 +275,6 @@ internal readonly record struct MemberOrder(int Kind, int Access, int Constant, 
     /// <param name="kind">The member declaration kind.</param>
     /// <param name="isUnion">Whether a nested class/record member is a union.</param>
     /// <returns>The kind rank.</returns>
-    [SuppressMessage(
-        "Major Code Smell",
-        "S1541:Cyclomatic Complexity of methods should not be too high",
-        Justification = "A direct switch-based kind map benchmarked better than the dictionary-backed alternatives on the MemberOrdering hot path.")]
     internal static int KindRank(SyntaxKind kind, bool isUnion) =>
         isUnion
             ? UnionKind

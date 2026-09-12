@@ -313,7 +313,6 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
     /// <summary>Classifies how a relevant field-name syntax parent affects the syntax-only lock-use fast path.</summary>
     /// <param name="parent">The syntax parent to classify.</param>
     /// <returns>The token classification.</returns>
-    [SuppressMessage("Critical Code Smell", "S1541:Methods and properties should not be too complex", Justification = "The method uses a switch for performance reasons.")]
     private static FieldNameTokenKind ClassifyFieldNameParent(SyntaxNode parent) =>
         parent switch
         {

@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Diagnostics.CodeAnalysis;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -89,10 +87,6 @@ public sealed class PrecedenceAnalyzer : DiagnosticAnalyzer
     /// <summary>Classifies an operator kind into one precedence-rule category.</summary>
     /// <param name="kind">The operator kind.</param>
     /// <returns>The category id used for cheap precedence comparisons.</returns>
-    [SuppressMessage(
-        "Major Code Smell",
-        "S1541:Cyclomatic Complexity of methods should not be too high",
-        Justification = "A direct switch-based operator map is the lowest-overhead classification shape on the PrecedenceAnalyzer hot path.")]
     internal static int ClassifyOperator(SyntaxKind kind) => kind switch
     {
         SyntaxKind.LogicalAndExpression => ConditionalAndCategory,

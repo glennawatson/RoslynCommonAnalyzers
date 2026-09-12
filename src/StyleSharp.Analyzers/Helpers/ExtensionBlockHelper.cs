@@ -51,6 +51,21 @@ internal static class ExtensionBlockHelper
             _ => receiverType.ToString()
         };
 
+    /// <summary>Returns whether an identifier name is read anywhere beneath a node.</summary>
+    /// <param name="body">The node to scan.</param>
+    /// <param name="name">The identifier name to look for.</param>
+    /// <returns><see langword="true"/> when a token of that name appears.</returns>
+    /// <remarks>
+    /// A token scan rather than a semantic one: the receiver is a parameter whose name cannot be reached by
+    /// anything else in the block, so a matching identifier is a read of it. The walk stops at the first hit.
+    /// </remarks>
+    internal static bool ReadsIdentifier(SyntaxNode body, string name)
+    {
+        var scan = new IdentifierReadScan(name);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(body, ref scan, static (in SyntaxToken token, ref IdentifierReadScan state) => state.Observe(token));
+        return scan.Found;
+    }
+
     /// <summary>Classifies simple receiver shapes that can skip broader text materialization.</summary>
     /// <param name="receiverType">The receiver type syntax.</param>
     /// <param name="shape">The simple receiver text when classified.</param>
@@ -174,4 +189,43 @@ internal static class ExtensionBlockHelper
         member is MethodDeclarationSyntax method
             && method.ParameterList.Parameters.Count > 0
             && ModifierListHelper.Contains(method.ParameterList.Parameters[0].Modifiers, SyntaxKind.ThisKeyword);
+
+    /// <summary>Tracks whether an identifier token of a given name has been seen.</summary>
+    /// <remarks>
+    /// Mutable state passed by <c>ref</c> through one walk: it is never compared, never a key, and declares no
+    /// equality members, since a hash taken over state the walk still changes would not survive the walk.
+    /// </remarks>
+    private struct IdentifierReadScan
+    {
+        /// <summary>The identifier name to look for.</summary>
+        private readonly string _name;
+
+        /// <summary>Whether the name has been seen.</summary>
+        private bool _found;
+
+        /// <summary>Initializes a new instance of the <see cref="IdentifierReadScan"/> struct.</summary>
+        /// <param name="name">The identifier name to look for.</param>
+        public IdentifierReadScan(string name)
+        {
+            _name = name;
+            _found = false;
+        }
+
+        /// <summary>Gets a value indicating whether the name was seen.</summary>
+        public readonly bool Found => _found;
+
+        /// <summary>Observes one token and returns whether scanning should continue.</summary>
+        /// <param name="token">The token.</param>
+        /// <returns><see langword="false"/> once the name has been seen.</returns>
+        public bool Observe(in SyntaxToken token)
+        {
+            if (!token.IsKind(SyntaxKind.IdentifierToken) || !string.Equals(token.ValueText, _name, StringComparison.Ordinal))
+            {
+                return true;
+            }
+
+            _found = true;
+            return false;
+        }
+    }
 }

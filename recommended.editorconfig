@@ -458,6 +458,7 @@ dotnet_diagnostic.SST1706.severity = warning # Avoid declaring extension members
 dotnet_diagnostic.SST1708.severity = warning # Extension methods should use their receiver parameter
 # dotnet_diagnostic.SST1709.severity = warning # Static helpers in an extension container should be extensions (opt-in)
 # dotnet_diagnostic.SST1710.severity = warning # Prefer an extension indexer over an accessor-shaped extension method (opt-in)
+dotnet_diagnostic.SST1711.severity = warning # Extension block members should use the block's receiver
 
 # Records
 # dotnet_diagnostic.SST1800.severity = warning # Record classes should be sealed (opt-in)

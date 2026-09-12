@@ -89,10 +89,23 @@ internal static class ExtensionRules
         "'{0}' indexes its receiver; declare it as an extension indexer so callers can write 'receiver[index]'",
         PreferExtensionIndexerDescription);
 
+    /// <summary>SST1711 — an extension block member never uses the block's receiver.</summary>
+    public static readonly DiagnosticDescriptor UnusedBlockReceiver = Create(
+        "SST1711",
+        "Extension block members should use the block's receiver",
+        "'{0}' never uses the receiver '{1}'; declare it outside the extension block",
+        UnusedBlockReceiverDescription);
+
     /// <summary>The UnusedExtensionReceiver rule description.</summary>
     private const string UnusedExtensionReceiverDescription =
         "An extension method exists to add behaviour to its receiver. A 'this'-parameter the body never reads gains nothing from extension syntax and reads "
         + "as a plain static helper wearing the wrong hat; dropping 'this' is not offered automatically because it would break the instance-syntax call sites.";
+
+    /// <summary>The UnusedBlockReceiver rule description.</summary>
+    private const string UnusedBlockReceiverDescription =
+        "A member of an 'extension(Receiver) { … }' block is reached through the receiver, so one whose body never reads it answers the same for every "
+        + "instance and only looks like it belongs to the type. Declared outside the block it says what it is, and the receiver stops appearing in a "
+        + "signature that ignores it. Static members are not reported: the receiver is not in scope for one, so it could not read it either way.";
 
     /// <summary>The AlmostExtensionMethod rule description.</summary>
     private const string AlmostExtensionMethodDescription =

@@ -1280,6 +1280,7 @@ dotnet_diagnostic.SST1707.severity = error # Extension blocks should be ordered 
 dotnet_diagnostic.SST1708.severity = error # An extension method never uses its this receiver
 dotnet_diagnostic.SST1709.severity = error # A method in an *Extensions class whose first parameter lacks this
 dotnet_diagnostic.SST1710.severity = error # An accessor-shaped extension method reads better as an extension indexer
+dotnet_diagnostic.SST1711.severity = error # An extension block member never reads the block's receiver
 dotnet_diagnostic.SST1800.severity = error # Record classes should be sealed
 dotnet_diagnostic.SST1801.severity = error # A positional record parameter does not match the configured casing
 dotnet_diagnostic.SST1802.severity = error # A record declares a settable rather than init-only instance property

@@ -71,6 +71,9 @@ jobs:
                 working-directory: src
                 env:
                     SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+                # The ignored rules contradict conventions this repo enforces itself: one asks for LINQ
+                # in the analyzer projects, which remove the System.Linq global using on purpose, and the
+                # other asks to drop a null-forgiving operator the compiler still requires.
                 run: |
                     "${{ runner.temp }}/sonar-scanner/dotnet-sonarscanner" begin \
                       /k:"glennawatson_RoslynCommonAnalyzers" \
@@ -83,9 +86,11 @@ jobs:
                       /d:sonar.coverage.exclusions="**/tests/**,**/benchmarks/**" \
                       /d:sonar.cpd.exclusions="**/tests/**,**/benchmarks/**" \
                       /d:sonar.test.exclusions="**/tests/**,**/benchmarks/**" \
-                      /d:sonar.issue.ignore.multicriteria="nullForgiving" \
+                      /d:sonar.issue.ignore.multicriteria="nullForgiving,linqLoops" \
                       /d:sonar.issue.ignore.multicriteria.nullForgiving.ruleKey="csharpsquid:S8969" \
-                      /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey="**/*.cs"
+                      /d:sonar.issue.ignore.multicriteria.nullForgiving.resourceKey="**/*.cs" \
+                      /d:sonar.issue.ignore.multicriteria.linqLoops.ruleKey="csharpsquid:S3267" \
+                      /d:sonar.issue.ignore.multicriteria.linqLoops.resourceKey="**/*.cs"
 
             -   name: Build
                 working-directory: src

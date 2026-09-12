@@ -245,9 +245,16 @@ public sealed class RedundantModifierAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the modifier is redundant.</returns>
     private static bool IsRedundantSealed(MemberDeclarationSyntax declaration) =>
         !ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.OverrideKeyword)
-            ? declaration is not BaseTypeDeclarationSyntax
+            ? declaration is not BaseTypeDeclarationSyntax && !IsInterfaceMember(declaration)
             : declaration.FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } type
               && ModifierListHelper.Contains(type.Modifiers, SyntaxKind.SealedKeyword);
+
+    /// <summary>Returns whether a member declaration is contained by an interface declaration.</summary>
+    /// <param name="declaration">The member declaration.</param>
+    /// <returns><see langword="true"/> when the member belongs to an interface.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsInterfaceMember(MemberDeclarationSyntax declaration) =>
+        declaration.Parent is InterfaceDeclarationSyntax;
 
     /// <summary>Returns whether a partial declaration has no matching part.</summary>
     /// <param name="context">The syntax node context.</param>

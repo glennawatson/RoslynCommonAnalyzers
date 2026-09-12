@@ -80,6 +80,38 @@ public class RedundantModifierAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a sealed default interface member is not reported.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SealedDefaultInterfaceMemberIsCleanAsync() =>
+        VerifyModifier.VerifyAnalyzerAsync(
+            """
+            using System;
+
+            public class Test
+            {
+                public void Run()
+                {
+                    I i = new C();
+                    i.M();
+                    i.N();
+                }
+            }
+
+            interface I
+            {
+                sealed void M() => Console.WriteLine("I.M");
+                void N() => Console.WriteLine("I.N");
+            }
+
+            class C : I
+            {
+                public void M() => Console.WriteLine("C.M");
+                public void N() => Console.WriteLine("C.N");
+            }
+            """);
+
     /// <summary>Verifies Fix All removes every redundant single-part partial modifier (SST1419) in one pass.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

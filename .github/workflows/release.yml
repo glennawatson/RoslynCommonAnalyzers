@@ -228,10 +228,29 @@ jobs:
           [ "${#pkgs[@]}" -gt 0 ] || { echo "::error::no packages matched: signed/*.nupkg"; exit 1; }
           for pkg in "${pkgs[@]}"; do
             echo "::group::sign $pkg"
-            # RFC3161 timestamp so the signature outlives the cert; the token has
-            # one key so jsign auto-selects it.
-            java -jar "$JAR" --storetype PKCS11 --keystore "$CONF" --storepass "" \
-              --alg SHA-256 --tsmode RFC3161 --tsaurl "http://time.certum.pl" --replace "$pkg"
+            # The token enumerates before its objects are populated, so the keystore can still
+            # report no certificate for a few seconds after login - which hits the first package
+            # and, left alone, fails roughly one run in ten. Retry that one message and let every
+            # other failure through on the first attempt; the token has one key, so jsign
+            # auto-selects it. RFC3161 timestamp so the signature outlives the cert.
+            signed=0
+            for attempt in $(seq 1 15); do
+              if out="$(java -jar "$JAR" --storetype PKCS11 --keystore "$CONF" --storepass "" \
+                          --alg SHA-256 --tsmode RFC3161 --tsaurl "http://time.certum.pl" --replace "$pkg" 2>&1)"; then
+                printf '%s\n' "$out"
+                signed=1
+                break
+              fi
+
+              printf '%s\n' "$out"
+              case "$out" in
+                *'No certificate found'*) echo "keystore not populated yet (attempt $attempt)" ;;
+                *) exit 1 ;;
+              esac
+              sleep 4
+            done
+
+            [ "$signed" = 1 ] || { echo "::error::keystore exposed no certificate to jsign"; exit 1; }
             dotnet nuget verify "$pkg" --all --verbosity detailed
             echo "::endgroup::"
           done

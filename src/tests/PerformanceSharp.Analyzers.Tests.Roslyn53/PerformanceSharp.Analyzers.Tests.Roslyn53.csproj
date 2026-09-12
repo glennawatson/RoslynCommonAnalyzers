@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk">
+<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <!-- The same tests against this slot's analyzers. One TFM: the compiler varies here, not the runtime. -->

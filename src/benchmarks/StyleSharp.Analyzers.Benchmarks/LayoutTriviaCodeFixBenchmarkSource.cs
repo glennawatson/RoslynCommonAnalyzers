@@ -194,8 +194,13 @@ internal static class LayoutTriviaCodeFixBenchmarkSource
     /// <summary>Builds one field terminated with a newline so the joiner produces extra blank lines.</summary>
     /// <param name="index">The synthetic field index.</param>
     /// <returns>The generated field line.</returns>
+    /// <remarks>
+    /// Uses the literal "\n" rather than <see cref="Environment.NewLine"/> so the
+    /// generated corpus has identical line counts on every OS, keeping parse size
+    /// and line/span results deterministic across platforms.
+    /// </remarks>
     private static string GenerateMultipleBlankLinesField(int index) =>
-        $"    private int _value{index};{Environment.NewLine}";
+        $"    private int _value{index};\n";
 
     /// <summary>Builds one method with a blank line before <c>else</c>.</summary>
     /// <param name="index">The synthetic member index.</param>

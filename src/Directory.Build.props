@@ -67,6 +67,12 @@
     <RoslynSlot Condition="$(MSBuildProjectName.EndsWith('.Roslyn59'))">roslyn5.9</RoslynSlot>
   </PropertyGroup>
 
+  <!-- A test project recompiles the same sources against its slot, so a test for syntax only the 5.9
+       compiler can parse needs the same constant the analyzer is gated on. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests')) And $(MSBuildProjectName.EndsWith('.Roslyn59'))">
+    <DefineConstants>$(DefineConstants);ROSLYN_5_9_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
   <PropertyGroup Condition="'$(RoslynSlot)' == 'roslyn4.8'">
     <MicrosoftCodeAnalysisVersion>4.8.0</MicrosoftCodeAnalysisVersion>
     <DefineConstants>$(DefineConstants);ROSLYN_4_8_OR_GREATER</DefineConstants>

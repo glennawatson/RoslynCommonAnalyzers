@@ -188,6 +188,21 @@ internal static class AllocationRules
         "This array exists only to be copied into the BitArray; pass a span to the '{0}' overload instead",
         PreferBitArraySpanConstructorDescription);
 
+    /// <summary>PSH1025 — a union case is a value type, which the union's object payload boxes.</summary>
+    public static readonly DiagnosticDescriptor BoxingUnionCase = Create(
+        "PSH1025",
+        "Avoid a value-typed union case",
+        "Union case '{0}' is a value type, so every value of this case is boxed into the union's payload",
+        BoxingUnionCaseDescription);
+
+    /// <summary>The PSH1025 rule description.</summary>
+    private const string BoxingUnionCaseDescription =
+        "A union is itself a value type, but it stores whichever case it holds in a single object-typed payload field. A case that is a value "
+        + "type therefore boxes every time a value of that case is created, which turns a type that reads as allocation-free into one that "
+        + "allocates per instance — the opposite of what the shape suggests, and most costly in the per-item and per-notification types unions "
+        + "are reached for. Prefer reference-typed cases, wrap the value in a small sealed record so the allocation is explicit and shared, or "
+        + "keep the hand-rolled tagged type where the boxing would dominate.";
+
     /// <summary>The PSH1024 rule description.</summary>
     private const string PreferBitArraySpanConstructorDescription =
         "'new BitArray(new[] { … })' allocates an array that the constructor immediately copies out of and then drops, so the array is pure "

@@ -1576,6 +1576,7 @@ dotnet_diagnostic.PSH1021.severity = error # An explicit GC.Collect forces colle
 dotnet_diagnostic.PSH1022.severity = error # A parameterless new EventArgs() where EventArgs.Empty would serve
 dotnet_diagnostic.PSH1023.severity = error # A local anonymous type allocates where a tuple would not
 dotnet_diagnostic.PSH1024.severity = error # A BitArray is built from a temporary array where a span would do
+dotnet_diagnostic.PSH1025.severity = error # A union case is a value type and boxes into the union's payload
 dotnet_diagnostic.PSH1100.severity = error # Hot-path code should avoid System.Linq.Enumerable calls
 dotnet_diagnostic.PSH1101.severity = none # LINQ predicate simplification — production code avoids LINQ on hot paths
 dotnet_diagnostic.PSH1102.severity = none # LINQ type-filter simplification — production code avoids LINQ on hot paths

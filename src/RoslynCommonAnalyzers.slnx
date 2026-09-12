@@ -62,5 +62,6 @@
     <Project Path="benchmarks/StyleSharp.Analyzers.Benchmarks/StyleSharp.Analyzers.Benchmarks.csproj" />
     <Project Path="benchmarks/PerformanceSharp.Analyzers.Benchmarks/PerformanceSharp.Analyzers.Benchmarks.csproj" />
     <Project Path="benchmarks/SecuritySharp.Analyzers.Benchmarks/SecuritySharp.Analyzers.Benchmarks.csproj" />
+    <Project Path="benchmarks/PerformanceSharp.Analyzers.Benchmarks.Roslyn59/PerformanceSharp.Analyzers.Benchmarks.Roslyn59.csproj" />
   </Folder>
 </Solution>

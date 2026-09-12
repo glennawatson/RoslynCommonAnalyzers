@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- The same benchmarks against the slot whose compiler carries the C# 15 syntax model. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>PerformanceSharp.Analyzers.Benchmarks</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+    <DefineConstants>$(DefineConstants);ROSLYN_5_9_OR_GREATER</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\PerformanceSharp.Analyzers.Roslyn59\PerformanceSharp.Analyzers.Roslyn59.csproj" />
+    <ProjectReference Include="..\..\PerformanceSharp.Analyzers.CodeFixes.Roslyn59\PerformanceSharp.Analyzers.CodeFixes.Roslyn59.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="RoslynCommon.Analyzers" />
+  </ItemGroup>
+
+  <!-- Only the rules whose syntax the floor cannot parse, plus the harness they run on. The rest of the
+       suite stays in the baseline project: it reaches internals that are visible to that assembly name. -->
+  <ItemGroup>
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\AnalyzerBenchmarkRunner.cs" Link="Harness\AnalyzerBenchmarkRunner.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\AnalyzerBenchmarkScenario.cs" Link="Harness\AnalyzerBenchmarkScenario.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\BenchmarkCompilationFactory.cs" Link="Harness\BenchmarkCompilationFactory.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\HarnessBaselineAnalyzer.cs" Link="Harness\HarnessBaselineAnalyzer.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\BenchmarkParameterValues.cs" Link="Harness\BenchmarkParameterValues.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\BenchmarkSourceText.cs" Link="Harness\BenchmarkSourceText.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\Program.cs" Link="Harness\Program.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\SingleAnalyzerBenchmarkHelper.cs" Link="Harness\SingleAnalyzerBenchmarkHelper.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\SingleAnalyzerBenchmarkState.cs" Link="Harness\SingleAnalyzerBenchmarkState.cs" />
+    <Compile Include="..\PerformanceSharp.Analyzers.Benchmarks\Psh1025BoxingUnionCase*.cs" LinkBase="PerformanceSharp.Analyzers.Benchmarks" />
+  </ItemGroup>
+
+</Project>

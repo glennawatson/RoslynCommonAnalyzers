@@ -152,6 +152,13 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
 
         switch (member)
         {
+            // An explicit implementation is reachable only through a cast to the interface, and a display
+            // string binds in the type's own context, so naming it would point the attribute at nothing.
+            case PropertyDeclarationSyntax { ExplicitInterfaceSpecifier: not null }:
+            {
+                return false;
+            }
+
             case PropertyDeclarationSyntax property when HasGetter(property):
             {
                 name = property.Identifier.ValueText;

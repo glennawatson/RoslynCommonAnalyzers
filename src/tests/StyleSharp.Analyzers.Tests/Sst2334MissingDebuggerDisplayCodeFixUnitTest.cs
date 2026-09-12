@@ -50,6 +50,33 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
         }
         """;
 
+    /// <summary>A public type whose only property is implemented explicitly, so it is not nameable.</summary>
+    private const string ExplicitImplementationSource = """
+        public interface IHolder
+        {
+            object Value { get; }
+        }
+
+        public class {|SST2334:Holder|} : IHolder
+        {
+            object IHolder.Value => new object();
+        }
+        """;
+
+    /// <summary>The type after the fix falls back to <c>ToString()</c> rather than naming the explicit member.</summary>
+    private const string ExplicitImplementationFixed = """
+        public interface IHolder
+        {
+            object Value { get; }
+        }
+
+        [System.Diagnostics.DebuggerDisplay("Holder: {ToString(),nq}")]
+        public class Holder : IHolder
+        {
+            object IHolder.Value => new object();
+        }
+        """;
+
     /// <summary>A public type whose only readable member is its own <c>ToString()</c>.</summary>
     private const string ToStringOnlySource = """
         public class {|SST2334:Money|}
@@ -135,4 +162,15 @@ public class Sst2334MissingDebuggerDisplayCodeFixUnitTest
     [Test]
     public Task AddsAttributePrefixedWithBareGenericNameAsync() =>
         VerifyDisplay.VerifyCodeFixAsync(GenericSource, GenericFixed);
+
+    /// <summary>Verifies an explicitly implemented property is not named, because the display string cannot read it.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// A display string binds in the type's own context, where an explicit implementation is reachable only
+    /// through a cast to the interface. Naming it produces an attribute that points at nothing.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task DoesNotNameAnExplicitlyImplementedPropertyAsync() =>
+        VerifyDisplay.VerifyCodeFixAsync(ExplicitImplementationSource, ExplicitImplementationFixed);
 }

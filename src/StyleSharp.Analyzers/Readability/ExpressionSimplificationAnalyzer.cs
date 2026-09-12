@@ -491,9 +491,14 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        // SST1189: a tuple assignment copies element-wise, so each pair is judged on its own.
+        if (TryReportTupleSelfAssignment(context, assignment))
+        {
+            return;
+        }
+
         // SST1189: the assignment copies a side-effect-free target onto itself ('x = x').
-        if (CompoundAssignmentOperators.IsSideEffectFreeTarget(assignment.Left)
-            && SyntaxFactory.AreEquivalent(assignment.Left, assignment.Right))
+        if (IsSelfAssignment(context, assignment))
         {
             context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoSelfAssignment, assignment.GetLocation(), assignment.Left.ToString()));
             return;
@@ -509,6 +514,113 @@ public sealed class ExpressionSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.UseCompoundAssignment, assignment.GetLocation(), operatorText));
+    }
+
+    /// <summary>Returns whether an assignment copies a side-effect-free target onto itself.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="assignment">The assignment expression.</param>
+    /// <returns><see langword="true"/> when both sides are the same thing.</returns>
+    private static bool IsSelfAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment) =>
+        CompoundAssignmentOperators.IsSideEffectFreeTarget(assignment.Left)
+            && (SyntaxFactory.AreEquivalent(assignment.Left, assignment.Right)
+                || NamesSameMemberThroughThis(context, assignment.Left, assignment.Right));
+
+    /// <summary>Reports SST1189 for every element of a tuple assignment that copies a value onto itself.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="assignment">The assignment expression.</param>
+    /// <returns><see langword="true"/> when the assignment is a tuple-to-tuple one, which is reported element-wise.</returns>
+    /// <remarks>
+    /// A tuple assignment is redundant per element rather than as a whole: <c>(x, y) = (x, z)</c> does real
+    /// work for <c>y</c> and none for <c>x</c>, so the element is the unit of both the report and the
+    /// judgement. The location is the element rather than the statement, which is also what stops the code
+    /// fix from deleting an assignment that still moves a value.
+    /// </remarks>
+    private static bool TryReportTupleSelfAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
+    {
+        if (assignment.Left is not TupleExpressionSyntax left || assignment.Right is not TupleExpressionSyntax right)
+        {
+            return false;
+        }
+
+        var targets = left.Arguments;
+        var values = right.Arguments;
+        if (targets.Count != values.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < targets.Count; i++)
+        {
+            var target = targets[i].Expression;
+            if (!CompoundAssignmentOperators.IsSideEffectFreeTarget(target)
+                || !SyntaxFactory.AreEquivalent(target, values[i].Expression))
+            {
+                continue;
+            }
+
+            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.NoSelfAssignment, target.GetLocation(), target.ToString()));
+        }
+
+        return true;
+    }
+
+    /// <summary>Returns whether the two sides name the same member, one of them qualified with <c>this</c>.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="left">The assignment target.</param>
+    /// <param name="right">The assigned value.</param>
+    /// <returns><see langword="true"/> when both sides bind to the same member.</returns>
+    /// <remarks>
+    /// <c>this.value = value</c> reads like the ordinary constructor assignment, and whether it is one depends
+    /// entirely on what the unqualified name binds to: a parameter that shadows the field makes it real work,
+    /// and the field itself makes it a no-op. Only the symbols can tell those apart. The names are compared
+    /// first so nothing binds unless the two sides are at least spelled the same, and the both-qualified and
+    /// both-unqualified spellings are left to the syntactic test that already covers them.
+    /// </remarks>
+    private static bool NamesSameMemberThroughThis(in SyntaxNodeAnalysisContext context, ExpressionSyntax left, ExpressionSyntax right)
+    {
+        if (!TryGetMemberName(left, out var leftName, out var leftIsQualified)
+            || !TryGetMemberName(right, out var rightName, out var rightIsQualified)
+            || leftIsQualified == rightIsQualified
+            || !string.Equals(leftName, rightName, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        var target = context.SemanticModel.GetSymbolInfo(left, context.CancellationToken).Symbol;
+        return target is not null
+            && SymbolEqualityComparer.Default.Equals(target, context.SemanticModel.GetSymbolInfo(right, context.CancellationToken).Symbol);
+    }
+
+    /// <summary>Reads the member name an operand spells, and whether it was reached through <c>this</c>.</summary>
+    /// <param name="expression">The operand.</param>
+    /// <param name="name">The member name.</param>
+    /// <param name="isQualified">Whether the name was qualified with <c>this</c>.</param>
+    /// <returns><see langword="true"/> for a bare name or a <c>this</c>-qualified one.</returns>
+    private static bool TryGetMemberName(ExpressionSyntax expression, out string name, out bool isQualified)
+    {
+        switch (expression)
+        {
+            case IdentifierNameSyntax identifier:
+            {
+                name = identifier.Identifier.ValueText;
+                isQualified = false;
+                return true;
+            }
+
+            case MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: IdentifierNameSyntax member }:
+            {
+                name = member.Identifier.ValueText;
+                isQualified = true;
+                return true;
+            }
+
+            default:
+            {
+                name = string.Empty;
+                isQualified = false;
+                return false;
+            }
+        }
     }
 
     /// <summary>Returns whether an assignment sets a member of the object being built rather than one in scope.</summary>

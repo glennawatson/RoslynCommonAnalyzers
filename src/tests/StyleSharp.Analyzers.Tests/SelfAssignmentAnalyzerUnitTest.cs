@@ -78,6 +78,120 @@ public class SelfAssignmentAnalyzerUnitTest
         await VerifySelfAssign.VerifyCodeFixAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies a self-assignment written with <c>this</c> on one side is reported and removed.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task ThisQualifiedSelfAssignmentRemovedAsync()
+    {
+        const string Source = """
+                              public class C
+                              {
+                                  private int _value;
+
+                                  public void M()
+                                  {
+                                      {|SST1189:this._value = _value|};
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public class C
+                                   {
+                                       private int _value;
+
+                                       public void M()
+                                       {
+                                       }
+                                   }
+                                   """;
+        await VerifySelfAssign.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies the reverse spelling, with <c>this</c> on the right, is reported too.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ReverseQualifiedSelfAssignmentIsReportedAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public void M()
+                {
+                    {|SST1189:_value = this._value|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies a parameter that shadows the field is a genuine assignment and is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    /// <remarks>
+    /// This is the shape the symbol comparison exists for: the two sides read identically, but the right one
+    /// binds to the parameter, so the assignment does real work.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ShadowingParameterIsCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                private int _value;
+
+                public C(int _value) => this._value = _value;
+            }
+            """);
+
+    /// <summary>Verifies each self-assigning element of a tuple assignment is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task TupleSelfAssignmentIsReportedAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M(int x, int y)
+                {
+                    ({|SST1189:x|}, {|SST1189:y|}) = (x, y);
+                }
+            }
+            """);
+
+    /// <summary>Verifies only the self-assigning element of a partly redundant tuple assignment is reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task PartialTupleSelfAssignmentIsReportedAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M(int x, int y, int z)
+                {
+                    ({|SST1189:x|}, y) = (x, z);
+                }
+            }
+            """);
+
+    /// <summary>Verifies a tuple swap moves both values and is not reported.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task TupleSwapIsCleanAsync() =>
+        VerifySelfAssign.VerifyAnalyzerAsync(
+            """
+            public class C
+            {
+                public void M(int x, int y)
+                {
+                    (x, y) = (y, x);
+                }
+            }
+            """);
+
     /// <summary>Verifies a genuine assignment and a constructor field assignment are not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

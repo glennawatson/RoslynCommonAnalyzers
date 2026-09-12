@@ -582,6 +582,11 @@ internal sealed class ClassGeneratorBuilder
 
     /// <summary>Closes the class and namespace and returns the complete generated source code.</summary>
     /// <returns>The full generated C# source as a string.</returns>
+    /// <remarks>
+    /// The raw string literals above carry LF while <see cref="StringBuilder.AppendLine()"/> carries
+    /// the host's newline, so the fixture would be mixed on Windows and uniform elsewhere. Settling
+    /// on LF here keeps a generated fixture identical on every host.
+    /// </remarks>
     internal string Generate()
     {
         _ = _builder.AppendLine("""
@@ -589,7 +594,7 @@ internal sealed class ClassGeneratorBuilder
                             }
                             """);
 
-        return _builder.ToString();
+        return _builder.ToString().Replace("\r\n", "\n", StringComparison.Ordinal);
     }
 
     /// <summary>Builds a comma-separated parameter list rendered on a single line.</summary>

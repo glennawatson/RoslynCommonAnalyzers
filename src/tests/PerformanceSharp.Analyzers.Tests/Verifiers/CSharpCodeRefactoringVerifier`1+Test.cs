@@ -17,8 +17,15 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
     /// <summary>A configured C# code refactoring test that enables nullable reference type warnings during validation.</summary>
     public class Test : CSharpCodeRefactoringTest<TCodeRefactoring, DefaultVerifier>
     {
+        /// <summary>Where the newline config goes, beside the sources and clear of each test's own "/.editorconfig".</summary>
+        private const string NestedEditorConfigPath = "/0/.editorconfig";
+
+        /// <summary>The config pinning LF, matching the line endings the expected sources are written with.</summary>
+        private const string LineFeedConfig = "[*]\nend_of_line = lf\n";
+
         /// <summary>Initializes a new instance of the <see cref="Test"/> class.</summary>
-        public Test() =>
+        public Test()
+        {
             SolutionTransforms.Add(static (solution, projectId) =>
             {
                 var compilationOptions = solution.GetProject(projectId)!.CompilationOptions!;
@@ -26,5 +33,10 @@ public static partial class CSharpCodeRefactoringVerifier<TCodeRefactoring>
                     compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
                 return solution.WithProjectCompilationOptions(projectId, compilationOptions);
             });
+
+            // Refactoring cleanup takes its newline from end_of_line, falling back to the host's when
+            // nothing configures it, so the same refactoring emits CRLF on Windows against LF expectations.
+            TestState.AnalyzerConfigFiles.Add((NestedEditorConfigPath, LineFeedConfig));
+        }
     }
 }

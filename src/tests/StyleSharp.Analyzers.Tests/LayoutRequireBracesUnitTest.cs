@@ -5,7 +5,7 @@
 using System.Runtime.CompilerServices;
 using VerifyRequireBraces = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1503RequireBracesAnalyzer,
-    StyleSharp.Analyzers.Sst1503RequireBracesCodeFixProvider>;
+    StyleSharp.Analyzers.EmbeddedStatementBraceCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

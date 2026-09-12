@@ -5,7 +5,7 @@
 using System.Runtime.CompilerServices;
 using VerifyBlanks = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1507MultipleBlankLinesAnalyzer,
-    StyleSharp.Analyzers.Sst1507MultipleBlankLinesCodeFixProvider>;
+    StyleSharp.Analyzers.ExcessBlankLineCodeFixProvider>;
 using VerifySpacing = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1516ElementSpacingAnalyzer,
     StyleSharp.Analyzers.Sst1516ElementSpacingCodeFixProvider>;

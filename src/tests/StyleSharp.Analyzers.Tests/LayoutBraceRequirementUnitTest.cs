@@ -8,7 +8,7 @@ using VerifyConsistent = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1520ConsistentBracesCodeFixProvider>;
 using VerifyMultiLine = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1519MultiLineChildBraceAnalyzer,
-    StyleSharp.Analyzers.Sst1519MultiLineChildBraceCodeFixProvider>;
+    StyleSharp.Analyzers.EmbeddedStatementBraceCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

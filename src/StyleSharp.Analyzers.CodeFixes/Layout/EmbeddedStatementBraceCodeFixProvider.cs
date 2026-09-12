@@ -9,13 +9,19 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace StyleSharp.Analyzers;
 
-/// <summary>Wraps the unbraced child statement of a control-flow statement in braces (SST1503).</summary>
-[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst1503RequireBracesCodeFixProvider))]
+/// <summary>
+/// Wraps the unbraced child statement of a control-flow statement in braces (SST1503, SST1519). Both
+/// rules report the same defect from a different angle — one that the child has no braces at all, the
+/// other that an unbraced child spans several lines — and the repair is the same statement either way.
+/// </summary>
+[ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(EmbeddedStatementBraceCodeFixProvider))]
 [Shared]
-public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
+public sealed class EmbeddedStatementBraceCodeFixProvider : CodeFixProvider, ITextChangeBatchableCodeFix
 {
     /// <inheritdoc/>
-    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(LayoutRules.BracesRequired.Id);
+    public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
+        LayoutRules.BracesRequired.Id,
+        LayoutRules.BracesForMultiLineChild.Id);
 
     /// <inheritdoc/>
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
@@ -31,9 +37,7 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, IText
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } control
-                || !LayoutHelpers.TryGetEmbeddedStatement(control, out var child)
-                || child is BlockSyntax)
+            if (!TryGetUnbracedChild(root, diagnostic, out var child))
             {
                 continue;
             }
@@ -42,7 +46,7 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, IText
                 CodeAction.Create(
                     "Add braces",
                     cancellationToken => WrapAsync(context.Document, child, cancellationToken),
-                    equivalenceKey: nameof(Sst1503RequireBracesCodeFixProvider)),
+                    equivalenceKey: nameof(EmbeddedStatementBraceCodeFixProvider)),
                 diagnostic);
         }
     }
@@ -50,9 +54,7 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, IText
     /// <inheritdoc/>
     void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)
     {
-        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not { } control
-            || !LayoutHelpers.TryGetEmbeddedStatement(control, out var child)
-            || child is BlockSyntax)
+        if (!TryGetUnbracedChild(root, diagnostic, out var child))
         {
             return;
         }
@@ -74,5 +76,24 @@ public sealed class Sst1503RequireBracesCodeFixProvider : CodeFixProvider, IText
         var changes = new List<TextChange>(BraceWrapChangeCapacity);
         LayoutFixHelpers.AppendBraceWrap(text, statement, LayoutFixHelpers.DetectNewLine(text), changes);
         return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+    }
+
+    /// <summary>Resolves the reported control-flow statement's child when it still lacks braces.</summary>
+    /// <param name="root">The document's syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="child">The unbraced child statement.</param>
+    /// <returns><see langword="true"/> when the child is present and unbraced.</returns>
+    private static bool TryGetUnbracedChild(SyntaxNode root, Diagnostic diagnostic, out StatementSyntax child)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is { } control
+            && LayoutHelpers.TryGetEmbeddedStatement(control, out var embedded)
+            && embedded is not BlockSyntax)
+        {
+            child = embedded;
+            return true;
+        }
+
+        child = null!;
+        return false;
     }
 }

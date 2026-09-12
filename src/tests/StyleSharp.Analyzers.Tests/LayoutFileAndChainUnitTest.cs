@@ -11,7 +11,7 @@ using VerifyFileEnd = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1518FileEndingCodeFixProvider>;
 using VerifyFileStart = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1517FileStartBlankLinesAnalyzer,
-    StyleSharp.Analyzers.Sst1517FileStartBlankLinesCodeFixProvider>;
+    StyleSharp.Analyzers.ExcessBlankLineCodeFixProvider>;
 
 namespace StyleSharp.Analyzers.Tests;
 

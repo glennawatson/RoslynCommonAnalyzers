@@ -40,7 +40,7 @@ public class RequireBracesCodeFixBenchmarks
     [Benchmark]
     public async Task<int> RequireBraces_ApplyFixAsync()
     {
-        var updated = await Sst1503RequireBracesCodeFixProvider.WrapAsync(
+        var updated = await EmbeddedStatementBraceCodeFixProvider.WrapAsync(
             _context.Document,
             ((IfStatementSyntax)_context.Node.Body!.Statements[0]).Statement,
             CancellationToken.None).ConfigureAwait(false);

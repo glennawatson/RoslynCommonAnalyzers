@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -23,72 +25,42 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var replacement = CreateEdit(root, diagnostic, out var oldNode);
-            if (replacement is null || oldNode is null)
-            {
-                continue;
-            }
-
-            var title = diagnostic.Id == CollectionRules.CollapseLinqWhereTerminal.Id
-                ? "Move predicate to terminal call"
-                : "Use one typed filter";
-            var document = context.Document;
-            var currentDiagnostic = diagnostic;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    _ => Task.FromResult(Apply(document, root, currentDiagnostic)),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        var replacement = CreateEdit(editor.OriginalRoot, diagnostic, out var oldNode);
-        if (replacement is null || oldNode is null)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(oldNode, replacement);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, CreateEdit);
 
     /// <summary>Applies the collapse for one diagnostic to a document.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original when no edit applies.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        var replacement = CreateEdit(root, diagnostic, out var oldNode);
-        return replacement is null || oldNode is null
-            ? document
-            : document.WithSyntaxRoot(root.ReplaceNode(oldNode, replacement));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.Apply(document, root, diagnostic, CreateEdit);
+
+    /// <summary>Returns the action wording matching the layer being collapsed.</summary>
+    /// <param name="diagnostic">The diagnostic being fixed.</param>
+    /// <returns>The code action title.</returns>
+    private static string GetTitle(Diagnostic diagnostic) =>
+        string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
+            ? "Move predicate to terminal call"
+            : "Use one typed filter";
 
     /// <summary>Creates the collapsed invocation for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
-    /// <param name="oldNode">The invocation to replace.</param>
-    /// <returns>The replacement invocation, or <see langword="null"/>.</returns>
-    private static InvocationExpressionSyntax? CreateEdit(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode)
+    /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
+    private static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
     {
-        oldNode = null;
-        return diagnostic.Id == CollectionRules.CollapseLinqWhereTerminal.Id
-            ? CreateWhereTerminalFix(root, diagnostic.Location.SourceSpan, out oldNode)
+        var replacement = string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
+            ? CreateWhereTerminalFix(root, diagnostic.Location.SourceSpan, out var oldNode)
             : CreateTypeFilterFix(root, diagnostic.Location.SourceSpan, out oldNode);
+
+        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
     }
 
     /// <summary>Creates a collapsed <c>Where(predicate).Terminal()</c> invocation.</summary>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Editing;
@@ -30,13 +31,31 @@ internal static class ReplaceNodeCodeFix
     /// <returns>The nodes to swap, or <see langword="null"/> when the shape no longer matches.</returns>
     internal delegate NodeReplacement? SemanticRewriter(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
 
+    /// <summary>Builds the code action title for one diagnostic.</summary>
+    /// <param name="diagnostic">The diagnostic being fixed.</param>
+    /// <returns>The code action title.</returns>
+    internal delegate string TitleFactory(Diagnostic diagnostic);
+
     /// <summary>Registers one replace-node code action per fixable diagnostic.</summary>
     /// <param name="context">The code fix context.</param>
     /// <param name="title">The code action title.</param>
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
-    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SyntaxRewriter tryRewrite)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task RegisterAsync(in CodeFixContext context, string title, string equivalenceKey, SyntaxRewriter tryRewrite) =>
+        RegisterAsync(context, _ => title, _ => equivalenceKey, tryRewrite);
+
+    /// <summary>
+    /// Registers one replace-node code action per fixable diagnostic, wording the action and grouping it
+    /// from the diagnostic. A provider that spans ids naming different repairs needs both to vary.
+    /// </summary>
+    /// <param name="context">The code fix context.</param>
+    /// <param name="title">Builds the code action title for one diagnostic.</param>
+    /// <param name="equivalenceKey">Builds the equivalence key grouping the fix across documents.</param>
+    /// <param name="tryRewrite">The provider's edit derivation.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterAsync(CodeFixContext context, TitleFactory title, TitleFactory equivalenceKey, SyntaxRewriter tryRewrite)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
@@ -53,10 +72,10 @@ internal static class ReplaceNodeCodeFix
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    title,
+                    title(diagnostic),
                     cancellationToken => Task.FromResult(
                         context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))),
-                    equivalenceKey),
+                    equivalenceKey(diagnostic)),
                 diagnostic);
         }
     }
@@ -92,6 +111,18 @@ internal static class ReplaceNodeCodeFix
                 diagnostic);
         }
     }
+
+    /// <summary>Applies one diagnostic's replacement to a document outside the registration path.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="tryRewrite">The provider's edit derivation.</param>
+    /// <returns>The updated document, or the original when no edit applies.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic, SyntaxRewriter tryRewrite) =>
+        tryRewrite(root, diagnostic) is { } edit
+            ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
+            : document;
 
     /// <summary>Applies one diagnostic's replacement inside a batch fix-all edit.</summary>
     /// <param name="editor">The document editor.</param>

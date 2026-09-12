@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -33,70 +35,34 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            var replacement = CreateEdit(root, diagnostic, out var oldNode);
-            if (replacement is null || oldNode is null)
-            {
-                continue;
-            }
-
-            var title = GetTitle(diagnostic.Id);
-            var document = context.Document;
-            var currentDiagnostic = diagnostic;
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    title,
-                    _ => Task.FromResult(Apply(document, root, currentDiagnostic)),
-                    equivalenceKey: diagnostic.Id),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
 
     /// <inheritdoc/>
-    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
-    {
-        var replacement = CreateEdit(editor.OriginalRoot, diagnostic, out var oldNode);
-        if (replacement is null || oldNode is null)
-        {
-            return;
-        }
-
-        editor.ReplaceNode(oldNode, replacement);
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, CreateEdit);
 
     /// <summary>Applies the chain fix for one diagnostic to a document.</summary>
     /// <param name="document">The document being fixed.</param>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <returns>The updated document, or the original when no edit applies.</returns>
-    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic)
-    {
-        var replacement = CreateEdit(root, diagnostic, out var oldNode);
-        return replacement is null || oldNode is null
-            ? document
-            : document.WithSyntaxRoot(root.ReplaceNode(oldNode, replacement));
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Document Apply(Document document, SyntaxNode root, Diagnostic diagnostic) =>
+        ReplaceNodeCodeFix.Apply(document, root, diagnostic, CreateEdit);
 
-    /// <summary>Gets the code-action title for one diagnostic id.</summary>
-    /// <param name="diagnosticId">The diagnostic id.</param>
-    /// <returns>The code-action title.</returns>
-    private static string GetTitle(string diagnosticId)
+    /// <summary>Returns the action wording naming the chain rewrite being offered.</summary>
+    /// <param name="diagnostic">The diagnostic being fixed.</param>
+    /// <returns>The code action title.</returns>
+    private static string GetTitle(Diagnostic diagnostic)
     {
-        if (diagnosticId == CollectionRules.FilterBeforeSort.Id)
+        if (string.Equals(diagnostic.Id, CollectionRules.FilterBeforeSort.Id, StringComparison.Ordinal))
         {
             return "Filter before sorting";
         }
 
-        return diagnosticId == CollectionRules.UseThenBy.Id
+        return string.Equals(diagnostic.Id, CollectionRules.UseThenBy.Id, StringComparison.Ordinal)
             ? "Refine the previous sort"
             : "Merge the Where predicates";
     }
@@ -104,17 +70,27 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
     /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>The nodes to swap, or <see langword="null"/> when no edit applies.</returns>
+    private static NodeReplacement? CreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var replacement = CreateReplacement(root, diagnostic, out var oldNode);
+        return replacement is null || oldNode is null ? null : new NodeReplacement(oldNode, replacement);
+    }
+
+    /// <summary>Creates the replacement node the reported chain rewrite produces.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
     /// <param name="oldNode">The node to replace.</param>
     /// <returns>The replacement node, or <see langword="null"/> when no edit applies.</returns>
-    private static SyntaxNode? CreateEdit(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode)
+    private static SyntaxNode? CreateReplacement(SyntaxNode root, Diagnostic diagnostic, out SyntaxNode? oldNode)
     {
         oldNode = null;
-        if (diagnostic.Id == CollectionRules.FilterBeforeSort.Id)
+        if (string.Equals(diagnostic.Id, CollectionRules.FilterBeforeSort.Id, StringComparison.Ordinal))
         {
             return CreateFilterBeforeSortFix(root, diagnostic.Location.SourceSpan, out oldNode);
         }
 
-        return diagnostic.Id == CollectionRules.UseThenBy.Id
+        return string.Equals(diagnostic.Id, CollectionRules.UseThenBy.Id, StringComparison.Ordinal)
             ? CreateThenByFix(root, diagnostic.Location.SourceSpan, out oldNode)
             : CreateMergeWhereFix(root, diagnostic.Location.SourceSpan, out oldNode);
     }

@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <PropertyGroup Label="Shared Version Variables">
-    <SharpAnalyzersVersion>4.0.13</SharpAnalyzersVersion>
+    <SharpAnalyzersVersion>4.1.0</SharpAnalyzersVersion>
   </PropertyGroup>
 
   <ItemGroup Label="Roslyn">

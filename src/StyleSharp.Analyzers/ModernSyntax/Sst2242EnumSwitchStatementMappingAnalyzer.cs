@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,9 +14,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The diagnostic property marking a switch whose only worthwhile fix is a catch-all section.</summary>
-    internal const string CatchAllProperty = "CatchAll";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ModernSyntaxRules.CompleteEnumSwitchStatementMapping);
 
@@ -46,27 +45,43 @@ public sealed class Sst2242EnumSwitchStatementMappingAnalyzer : DiagnosticAnalyz
         // the alternative is the only fix worth writing there.
         if (enumType.DeclaringSyntaxReferences.IsEmpty)
         {
-            var catchAll = ImmutableDictionary<string, string?>.Empty.Add(CatchAllProperty, "true");
-            context.ReportDiagnostic(Diagnostic.Create(
-                ModernSyntaxRules.CompleteEnumSwitchStatementMapping,
-                switchStatement.SwitchKeyword.GetLocation(),
-                catchAll));
+            Report(in context, switchStatement, EnumSwitchCoverageAnalyzer.CatchAllProperties);
             return;
         }
 
         // The names travel with the diagnostic so the fix writes the sections without re-deriving them.
-        if (!EnumSwitchCoverageAnalyzer.TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers))
+        var built = EnumSwitchCoverageAnalyzer.TryBuildMissingMembers(
+            enumType,
+            switchStatement,
+            context.SemanticModel,
+            context.CancellationToken,
+            out var missingMembers,
+            out var needsCatchAll);
+        if (needsCatchAll)
+        {
+            Report(in context, switchStatement, EnumSwitchCoverageAnalyzer.CatchAllProperties);
+            return;
+        }
+
+        if (!built)
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(ModernSyntaxRules.CompleteEnumSwitchStatementMapping, switchStatement.SwitchKeyword.GetLocation()));
             return;
         }
 
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(EnumSwitchCoverageAnalyzer.MissingMembersProperty, missingMembers);
+        Report(in context, switchStatement, ImmutableDictionary<string, string?>.Empty.Add(EnumSwitchCoverageAnalyzer.MissingMembersProperty, missingMembers));
+    }
+
+    /// <summary>Reports the switch with the property bag the fix reads.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="switchStatement">The switch statement.</param>
+    /// <param name="properties">The diagnostic properties.</param>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Report(in SyntaxNodeAnalysisContext context, SwitchStatementSyntax switchStatement, ImmutableDictionary<string, string?> properties) =>
         context.ReportDiagnostic(Diagnostic.Create(
             ModernSyntaxRules.CompleteEnumSwitchStatementMapping,
             switchStatement.SwitchKeyword.GetLocation(),
             properties));
-    }
 
     /// <summary>Returns whether a switch has a default label or empty fall-through section.</summary>
     /// <param name="switchStatement">The switch statement.</param>

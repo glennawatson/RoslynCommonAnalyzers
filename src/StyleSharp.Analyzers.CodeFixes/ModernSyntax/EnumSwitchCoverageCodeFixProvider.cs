@@ -36,7 +36,7 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            if (diagnostic.Properties.ContainsKey(Sst2242EnumSwitchStatementMappingAnalyzer.CatchAllProperty))
+            if (diagnostic.Properties.ContainsKey(EnumSwitchCoverageAnalyzer.CatchAllProperty))
             {
                 context.RegisterCodeFix(
                     CodeAction.Create(
@@ -135,17 +135,19 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
             return document;
         }
 
-        var updated = switchStatement;
+        // The values stack onto one section: a section each would give the switch several bodies that do
+        // the same nothing, which reads as a mistake in the mapping rather than a stub.
         var members = missingMembers.Split(EnumSwitchCoverageAnalyzer.MissingMembersSeparator);
+        var labels = new SwitchLabelSyntax[members.Length];
         for (var i = 0; i < members.Length; i++)
         {
-            var section = SyntaxFactory.SwitchSection(
-                SyntaxFactory.SingletonList<SwitchLabelSyntax>(SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(members[i]))),
-                SyntaxFactory.SingletonList<StatementSyntax>(SyntaxFactory.BreakStatement()));
-            updated = updated.AddSections(section);
+            labels[i] = SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(members[i]));
         }
 
-        updated = updated.WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+        var updated = switchStatement.AddSections(SyntaxFactory.SwitchSection(
+            SyntaxFactory.List(labels),
+            SyntaxFactory.SingletonList<StatementSyntax>(SyntaxFactory.BreakStatement())))
+            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
         return document.WithSyntaxRoot(root.ReplaceNode(switchStatement, updated));
     }
 

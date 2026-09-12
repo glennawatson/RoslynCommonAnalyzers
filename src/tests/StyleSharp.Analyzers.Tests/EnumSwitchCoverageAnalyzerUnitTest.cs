@@ -87,7 +87,7 @@ public class EnumSwitchCoverageAnalyzerUnitTest
                                            {
                                                case Color.Red:
                                                    break;
-                                               case global::Color.Blue:
+                                               case Color.Blue:
                                                    break;
                                            }
                                        }
@@ -130,8 +130,66 @@ public class EnumSwitchCoverageAnalyzerUnitTest
                                        public int M(Color color) => color switch
                                        {
                                            Color.Red => 1,
-                                           global::Color.Blue => throw new global::System.NotImplementedException()
+                                           Color.Blue => throw new global::System.NotImplementedException()
                                        };
+                                   }
+                                   """;
+        var test = new VerifyEnumSwitchCoverage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a value named only under a guard gains a catch-all rather than a second label.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task ValueNamedOnlyUnderAGuardGainsACatchAllAsync()
+    {
+        const string Source = """
+                              public enum Color
+                              {
+                                  Red,
+                                  Blue
+                              }
+
+                              public sealed class C
+                              {
+                                  public int M(Color color, bool ready)
+                                  {
+                                      {|SST2205:switch|} (color)
+                                      {
+                                          case Color.Red when ready:
+                                              return 1;
+                                          case Color.Blue:
+                                              return 2;
+                                      }
+
+                                      return 0;
+                                  }
+                              }
+                              """;
+        const string FixedSource = """
+                                   public enum Color
+                                   {
+                                       Red,
+                                       Blue
+                                   }
+
+                                   public sealed class C
+                                   {
+                                       public int M(Color color, bool ready)
+                                       {
+                                           switch (color)
+                                           {
+                                               case Color.Red when ready:
+                                                   return 1;
+                                               case Color.Blue:
+                                                   return 2;
+                                               default:
+                                                   break;
+                                           }
+
+                                           return 0;
+                                       }
                                    }
                                    """;
         var test = new VerifyEnumSwitchCoverage.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net80, TestCode = Source, FixedCode = FixedSource };

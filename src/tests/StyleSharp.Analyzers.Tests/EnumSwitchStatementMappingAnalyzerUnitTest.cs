@@ -241,7 +241,200 @@ public class EnumSwitchStatementMappingAnalyzerUnitTest
                                 {
                                     case Color.Red:
                                         return 1;
-                                    case global::Color.Blue:
+                                    case Color.Blue:
+                                        break;
+                                }
+
+                                return 0;
+                            }
+                        }
+                        """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies a value named only under a guard gains a catch-all rather than a second label.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// The guarded section handles the value when its guard holds, so an unguarded label for the same
+    /// value reads as a duplicate of it, and the values the switch never names still go unhandled.
+    /// </remarks>
+    [Test]
+    public async Task ValueNamedOnlyUnderAGuardGainsACatchAllAsync()
+    {
+        var test = new VerifyEnumSwitchStatementMappingFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       public enum Step
+                       {
+                           None,
+                           Adopt,
+                           Push
+                       }
+
+                       public sealed class C
+                       {
+                           public string M(Step step, bool accepted)
+                           {
+                               {|SST2242:switch|} (step)
+                               {
+                                   case Step.Adopt when accepted:
+                                       return "adopted";
+                                   case Step.Push:
+                                       return "pushed";
+                               }
+
+                               return "none";
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public enum Step
+                        {
+                            None,
+                            Adopt,
+                            Push
+                        }
+
+                        public sealed class C
+                        {
+                            public string M(Step step, bool accepted)
+                            {
+                                switch (step)
+                                {
+                                    case Step.Adopt when accepted:
+                                        return "adopted";
+                                    case Step.Push:
+                                        return "pushed";
+                                    default:
+                                        break;
+                                }
+
+                                return "none";
+                            }
+                        }
+                        """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies the added label is written the way the file already names the value.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>
+    /// One file compiled into two projects can sit in a different namespace in each, so a label rooted at
+    /// the namespace of the compilation the fix ran in does not bind in the other.
+    /// </remarks>
+    [Test]
+    public async Task AddedLabelUsesTheNameTheFileWritesAsync()
+    {
+        var test = new VerifyEnumSwitchStatementMappingFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       namespace Widgets;
+
+                       public enum Step
+                       {
+                           None,
+                           Adopt
+                       }
+
+                       public sealed class C
+                       {
+                           public int M(Step step)
+                           {
+                               {|SST2242:switch|} (step)
+                               {
+                                   case Step.Adopt:
+                                       return 1;
+                               }
+
+                               return 0;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        namespace Widgets;
+
+                        public enum Step
+                        {
+                            None,
+                            Adopt
+                        }
+
+                        public sealed class C
+                        {
+                            public int M(Step step)
+                            {
+                                switch (step)
+                                {
+                                    case Step.Adopt:
+                                        return 1;
+                                    case Step.None:
+                                        break;
+                                }
+
+                                return 0;
+                            }
+                        }
+                        """,
+        };
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies several omitted values are stacked onto one section.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    /// <remarks>A section per value gives the switch several bodies that do the same nothing.</remarks>
+    [Test]
+    public async Task SeveralMissingValuesShareOneSectionAsync()
+    {
+        var test = new VerifyEnumSwitchStatementMappingFix.Test
+        {
+            ReferenceAssemblies = ReferenceAssemblies.Net.Net80,
+            TestCode = """
+                       public enum Color
+                       {
+                           Red,
+                           Blue,
+                           Green
+                       }
+
+                       public sealed class C
+                       {
+                           public int M(Color color)
+                           {
+                               {|SST2242:switch|} (color)
+                               {
+                                   case Color.Red:
+                                       return 1;
+                               }
+
+                               return 0;
+                           }
+                       }
+                       """,
+            FixedCode = """
+                        public enum Color
+                        {
+                            Red,
+                            Blue,
+                            Green
+                        }
+
+                        public sealed class C
+                        {
+                            public int M(Color color)
+                            {
+                                switch (color)
+                                {
+                                    case Color.Red:
+                                        return 1;
+                                    case Color.Blue:
+                                    case Color.Green:
                                         break;
                                 }
 

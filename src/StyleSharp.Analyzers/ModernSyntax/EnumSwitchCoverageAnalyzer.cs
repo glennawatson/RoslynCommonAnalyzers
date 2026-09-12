@@ -11,8 +11,15 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <summary>The diagnostic property containing missing enum member expressions.</summary>
     internal const string MissingMembersProperty = "MissingMembers";
 
+    /// <summary>The diagnostic property marking a switch whose only worthwhile fix is a catch-all section.</summary>
+    internal const string CatchAllProperty = "CatchAll";
+
     /// <summary>The separator used in the missing-members diagnostic property.</summary>
     internal const char MissingMembersSeparator = '|';
+
+    /// <summary>The property bag a catch-all diagnostic carries, built once rather than per report.</summary>
+    internal static readonly ImmutableDictionary<string, string?> CatchAllProperties =
+        ImmutableDictionary<string, string?>.Empty.Add(CatchAllProperty, "true");
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
@@ -38,15 +45,18 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels analysis.</param>
     /// <param name="missingMembers">The encoded missing members.</param>
-    /// <returns><see langword="true"/> when at least one enum member is missing.</returns>
+    /// <param name="needsCatchAll">Whether a missing value is already named under a guard.</param>
+    /// <returns><see langword="true"/> when at least one enum member can be named by a new label.</returns>
     internal static bool TryBuildMissingMembers(
         INamedTypeSymbol enumType,
         SwitchStatementSyntax switchStatement,
         SemanticModel model,
         CancellationToken cancellationToken,
-        out string missingMembers)
+        out string missingMembers,
+        out bool needsCatchAll)
     {
         missingMembers = string.Empty;
+        needsCatchAll = false;
         System.Text.StringBuilder? builder = null;
         var members = enumType.GetMembers();
         for (var i = 0; i < members.Length; i++)
@@ -57,7 +67,13 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            AppendMember(ref builder, field);
+            if (EnumSwitchCoverage.IsNamedByAnyLabel(field, switchStatement, model, cancellationToken))
+            {
+                needsCatchAll = true;
+                return false;
+            }
+
+            AppendMember(ref builder, field, model, switchStatement.SpanStart);
         }
 
         if (builder is null)
@@ -75,13 +91,20 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     {
         var switchStatement = (SwitchStatementSyntax)context.Node;
         if (HasDefaultLabel(switchStatement)
-            || !TryGetEnumType(switchStatement.Expression, context.SemanticModel, context.CancellationToken, out var enumType)
-            || !TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers))
+            || !TryGetEnumType(switchStatement.Expression, context.SemanticModel, context.CancellationToken, out var enumType))
         {
             return;
         }
 
-        var properties = ImmutableDictionary<string, string?>.Empty.Add(MissingMembersProperty, missingMembers);
+        var built = TryBuildMissingMembers(enumType, switchStatement, context.SemanticModel, context.CancellationToken, out var missingMembers, out var needsCatchAll);
+        if (!built && !needsCatchAll)
+        {
+            return;
+        }
+
+        var properties = needsCatchAll
+            ? CatchAllProperties
+            : ImmutableDictionary<string, string?>.Empty.Add(MissingMembersProperty, missingMembers);
         context.ReportDiagnostic(Diagnostic.Create(ModernSyntaxRules.CompleteEnumSwitchStatement, switchStatement.SwitchKeyword.GetLocation(), properties));
     }
 
@@ -126,7 +149,7 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            AppendMember(ref builder, field);
+            AppendMember(ref builder, field, model, switchExpression.SpanStart);
         }
 
         if (builder is null)
@@ -227,7 +250,9 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <summary>Appends a displayable enum member expression to the encoded property value.</summary>
     /// <param name="builder">The lazily allocated string builder.</param>
     /// <param name="field">The enum field.</param>
-    private static void AppendMember(ref System.Text.StringBuilder? builder, IFieldSymbol field)
+    /// <param name="model">The semantic model.</param>
+    /// <param name="position">The position the label is written at.</param>
+    private static void AppendMember(ref System.Text.StringBuilder? builder, IFieldSymbol field, SemanticModel model, int position)
     {
         builder ??= new System.Text.StringBuilder();
         if (builder.Length > 0)
@@ -235,9 +260,6 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
             _ = builder.Append(MissingMembersSeparator);
         }
 
-        _ = builder
-            .Append(field.ContainingType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat))
-            .Append('.')
-            .Append(field.Name);
+        _ = builder.Append(EnumSwitchCoverage.NameFor(field, model, position));
     }
 }

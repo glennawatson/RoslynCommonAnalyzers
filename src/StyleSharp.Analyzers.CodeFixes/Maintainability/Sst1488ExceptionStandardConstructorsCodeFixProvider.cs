@@ -105,7 +105,11 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
         var isAbstract = ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.AbstractKeyword);
         var accessibility = isAbstract ? SyntaxKind.ProtectedKeyword : SyntaxKind.PublicKeyword;
         var name = declaration.Identifier.ValueText;
-        var newLine = DetectLineEnding(declaration);
+
+        // The formatter normalizes the line endings it inserts itself but leaves verbatim ones alone, and
+        // a documentation comment parsed from text carries its newlines verbatim, so the generated
+        // documentation has to be written with the line ending the file already uses.
+        var newLine = LineEndingHelper.GetLineBreak(declaration).ToFullString();
 
         const int StandardExceptionConstructorCount = 3;
 
@@ -245,27 +249,5 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
         return constructor
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Simplification.Simplifier.Annotation)
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
-    }
-
-    /// <summary>Reads the line ending the document already uses.</summary>
-    /// <param name="declaration">The type declaration being fixed.</param>
-    /// <returns>The document's line ending, defaulting to CRLF for a document that has none.</returns>
-    /// <remarks>
-    /// The formatter normalizes the line endings it inserts itself but leaves verbatim ones alone, and a
-    /// documentation comment parsed from text carries its newlines verbatim. Writing the machine's
-    /// <c>Environment.NewLine</c> would therefore stamp the build agent's convention into the user's file.
-    /// Copying what the file already uses keeps the generated documentation consistent with it.
-    /// </remarks>
-    private static string DetectLineEnding(SyntaxNode declaration)
-    {
-        foreach (var trivia in declaration.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia.ToFullString();
-            }
-        }
-
-        return "\r\n";
     }
 }

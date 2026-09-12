@@ -707,7 +707,7 @@ dotnet_diagnostic.SYSLIB1104.severity = error # Configuration binding source gen
 # EnforceCodeStyleInBuild=true (set in Directory.Build.props) promotes these
 # IDE rules into `dotnet build` so they fire at compile time, not just in the
 # IDE. We enable the ones that are unambiguous wins and skip the rules that
-# conflict with an existing convention (SST1101, SST1200, SST1206, SST1400, SST1633,
+# conflict with an existing convention (SST1117, SST1200, SST1206, SST1400, SST1633,
 # etc.) so we don't double-report.
 
 # Bug catchers — always error.
@@ -778,11 +778,11 @@ dotnet_diagnostic.IDE0251.severity = error # Make member 'readonly'
 dotnet_diagnostic.IDE0260.severity = error # Use pattern matching
 dotnet_diagnostic.IDE0270.severity = error # Use coalesce expression
 
-# Disabled — conflict with an existing SA/CA rule or project convention.
-dotnet_diagnostic.IDE0003.severity = none # Remove 'this' qualifier — we don't follow the this. prefix style (SST1101 = none)
+# Disabled — conflict with an existing rule or project convention.
+dotnet_diagnostic.IDE0003.severity = none # Remove 'this' qualifier — SST1117 owns the qualification style
 dotnet_diagnostic.IDE0007.severity = none # Use var — we don't force var in either direction
 dotnet_diagnostic.IDE0008.severity = none # Use explicit type — we don't force var in either direction
-dotnet_diagnostic.IDE0009.severity = none # Member access should be qualified — SST1101 = none
+dotnet_diagnostic.IDE0009.severity = none # Member access should be qualified — SST1117 owns the qualification style
 dotnet_diagnostic.IDE0010.severity = none # Add missing cases to switch statement — too noisy for default/fallthrough patterns
 dotnet_diagnostic.IDE0011.severity = none # Add braces
 dotnet_diagnostic.IDE0021.severity = none # Use expression body for constructors — preference not enforced
@@ -900,7 +900,6 @@ dotnet_diagnostic.SST1028.severity = error # A line ends with trailing whitespac
 
 # Readability and maintainability
 dotnet_diagnostic.SST1100.severity = error # A base. prefix is used where the type does not override the member
-dotnet_diagnostic.SST1101.severity = none # see docs/rules/SST1101.md
 dotnet_diagnostic.SST1102.severity = error # A query clause is separated from the previous clause by a blank line
 dotnet_diagnostic.SST1103.severity = error # Query clauses mix single-line and multi-line layout
 dotnet_diagnostic.SST1104.severity = error # A query clause shares the last line of a multi-line previous clause
@@ -1079,7 +1078,6 @@ dotnet_diagnostic.SST1430.severity = error # Rethrow with 'throw;' to preserve t
 dotnet_diagnostic.SST1431.severity = error # Static members of a generic type should use a type parameter
 dotnet_diagnostic.SST1432.severity = error # Classes with only static members should be static
 dotnet_diagnostic.SST1433.severity = error # Redundant constructors should be removed
-dotnet_diagnostic.SST1434.severity = error # see docs/rules/SST1434.md
 dotnet_diagnostic.SST1435.severity = error # Empty namespace declarations should be removed
 dotnet_diagnostic.SST1436.severity = error # Empty types should not be declared
 dotnet_diagnostic.SST1437.severity = error # Empty interfaces should not be declared
@@ -1243,7 +1241,6 @@ dotnet_diagnostic.SST1665.severity = error # An <exception> names a type but say
 dotnet_diagnostic.SST1666.severity = error # Documentation elements are out of the conventional order
 
 # Concurrency and modernization
-dotnet_diagnostic.SST1900.severity = error # see docs/rules/SST1900.md
 dotnet_diagnostic.SST1901.severity = error # A lock targets a field or property reachable from outside the declaring type
 dotnet_diagnostic.SST1902.severity = error # Do not lock on 'this', a Type, or a string
 dotnet_diagnostic.SST1903.severity = error # Do not lock on a newly-created object
@@ -1281,6 +1278,7 @@ dotnet_diagnostic.SST1706.severity = error # An extension block targets a broad 
 dotnet_diagnostic.SST1707.severity = error # Extension blocks should be ordered by receiver type
 dotnet_diagnostic.SST1708.severity = error # An extension method never uses its this receiver
 dotnet_diagnostic.SST1709.severity = error # A method in an *Extensions class whose first parameter lacks this
+dotnet_diagnostic.SST1710.severity = error # An accessor-shaped extension method reads better as an extension indexer
 dotnet_diagnostic.SST1800.severity = error # Record classes should be sealed
 dotnet_diagnostic.SST1801.severity = error # A positional record parameter does not match the configured casing
 dotnet_diagnostic.SST1802.severity = error # A record declares a settable rather than init-only instance property
@@ -1292,6 +1290,7 @@ dotnet_diagnostic.SST2102.severity = error # A span-targeted stackalloc initiali
 dotnet_diagnostic.SST2103.severity = error # A collection-builder factory call can use a collection expression
 dotnet_diagnostic.SST2104.severity = error # A short builder-local sequence can return a collection expression
 dotnet_diagnostic.SST2105.severity = error # A literal array materialized with LINQ can use a collection expression
+dotnet_diagnostic.SST2106.severity = error # A collection expression drops the capacity or comparer the creation carried
 dotnet_diagnostic.SST2200.severity = error # A single-use backing field can use the C# 14 field keyword
 dotnet_diagnostic.SST2201.severity = error # A return-only switch statement can use a switch expression
 dotnet_diagnostic.SST2202.severity = error # An object creation repeats an explicit target type
@@ -1321,11 +1320,8 @@ dotnet_diagnostic.SST2225.severity = error # A foreach loop hides an explicit el
 dotnet_diagnostic.SST2226.severity = error # A cast hides an inner explicit conversion
 dotnet_diagnostic.SST2227.severity = error # A post-assignment null fallback can be folded into the assigned expression
 dotnet_diagnostic.SST2228.severity = error # A delegate local used only as a call target can be a local function
-dotnet_diagnostic.SST2229.severity = error # see docs/rules/SST2229.md
-dotnet_diagnostic.SST2230.severity = error # see docs/rules/SST2230.md
 dotnet_diagnostic.SST2231.severity = error # A broad object pattern can use a direct null pattern
 dotnet_diagnostic.SST2232.severity = error # nameof does not need concrete generic type arguments
-dotnet_diagnostic.SST2233.severity = none # see docs/rules/SST2233.md
 dotnet_diagnostic.SST2234.severity = error # Nullable<T> should use the T? shorthand
 dotnet_diagnostic.SST2235.severity = error # Capture-free local functions should be static
 dotnet_diagnostic.SST2236.severity = error # Tail-position using blocks can use using declarations
@@ -1380,6 +1376,7 @@ dotnet_diagnostic.SST2285.severity = error # A null guard is conjoined with a me
 dotnet_diagnostic.SST2286.severity = error # ToString is called on a receiver already typed as string
 dotnet_diagnostic.SST2287.severity = error # A while loop owns its counter, so a for header would gather it
 dotnet_diagnostic.SST2288.severity = error # A conditional expression has a boolean literal in exactly one branch
+dotnet_diagnostic.SST2289.severity = error # An unsafe block no longer needs an unsafe context
 # Design
 dotnet_diagnostic.SST2300.severity = error # A class implements IDisposable but builds only half of the disposal pattern
 dotnet_diagnostic.SST2301.severity = error # A class implementing IEquatable<T> for itself can still be derived from
@@ -1418,6 +1415,8 @@ dotnet_diagnostic.SST2333.severity = error # A generic equality contract lacks i
 dotnet_diagnostic.SST2334.severity = error # A publicly visible type has no `[DebuggerDisplay]`
 dotnet_diagnostic.SST2335.severity = error # Parts of a partial type disagree on the `static` modifier
 dotnet_diagnostic.SST2336.severity = error # A concrete attribute type declares no [AttributeUsage]
+dotnet_diagnostic.SST2337.severity = error # A hierarchy whose derivations are all known is not declared closed
+dotnet_diagnostic.SST2338.severity = error # A hand-rolled discriminated type is not declared as a union
 
 # Correctness
 dotnet_diagnostic.SST2400.severity = error # Two arguments name each other's parameters and have been transposed
@@ -1511,6 +1510,7 @@ dotnet_diagnostic.SST2495.severity = error # A [Flags] combination includes bits
 dotnet_diagnostic.SST2496.severity = error # An explicit Dispose/Close an enclosing using already performs
 dotnet_diagnostic.SST2497.severity = error # A member forwards to itself, so calling it recurses until the stack is gone
 dotnet_diagnostic.SST2498.severity = error # nameof on a type parameter is the constant "T"
+dotnet_diagnostic.SST2499.severity = error # A process exit code is read where the exit status carries the signal
 
 # Testing
 dotnet_diagnostic.SST2500.severity = error # A test method contains no assertion and no expected-exception check
@@ -1575,6 +1575,7 @@ dotnet_diagnostic.PSH1020.severity = error # Prefer a jagged array over a multid
 dotnet_diagnostic.PSH1021.severity = error # An explicit GC.Collect forces collection the runtime tunes itself
 dotnet_diagnostic.PSH1022.severity = error # A parameterless new EventArgs() where EventArgs.Empty would serve
 dotnet_diagnostic.PSH1023.severity = error # A local anonymous type allocates where a tuple would not
+dotnet_diagnostic.PSH1024.severity = error # A BitArray is built from a temporary array where a span would do
 dotnet_diagnostic.PSH1100.severity = error # Hot-path code should avoid System.Linq.Enumerable calls
 dotnet_diagnostic.PSH1101.severity = none # LINQ predicate simplification — production code avoids LINQ on hot paths
 dotnet_diagnostic.PSH1102.severity = none # LINQ type-filter simplification — production code avoids LINQ on hot paths
@@ -1645,6 +1646,8 @@ dotnet_diagnostic.PSH1313.severity = error # A synchronous call where an async o
 dotnet_diagnostic.PSH1314.severity = error # Read and write streams through the memory-based overloads
 dotnet_diagnostic.PSH1315.severity = error # A blocking wait on an awaitable that may not be done
 dotnet_diagnostic.PSH1316.severity = error # A ValueTask is awaited in a loop or awaited after being copied
+dotnet_diagnostic.PSH1317.severity = error # A cancellation token is not handed to the overload that accepts one
+dotnet_diagnostic.PSH1318.severity = error # Options validation blocks where the async contract exists
 dotnet_diagnostic.PSH1400.severity = error # Use the static HashData method for one-shot hashing
 dotnet_diagnostic.PSH1401.severity = error # Attribute types should be sealed
 dotnet_diagnostic.PSH1402.severity = error # Use const for compile-time constants
@@ -1699,6 +1702,7 @@ dotnet_diagnostic.SES1006.severity = error # A Data Protection key ring is persi
 dotnet_diagnostic.SES1007.severity = error # A cryptographic primitive is implemented by hand
 dotnet_diagnostic.SES1008.severity = error # An XML signature is verified with the no-key CheckSignature overload
 dotnet_diagnostic.SES1009.severity = error # A password is stored without a slow, salted key-derivation function
+dotnet_diagnostic.SES1010.severity = error # AES key wrapping is implemented by hand
 
 # Transport
 dotnet_diagnostic.SES1102.severity = error # Do not accept any server certificate
@@ -1946,7 +1950,7 @@ resharper_bad_square_brackets_spaces_highlighting = none # covered by SST1010 / 
 resharper_bad_parens_spaces_highlighting = none # covered by SST1008 / SST1009
 
 ###################
-# ReSharper - 'this' qualifier (matches SST1101 = none)
+# ReSharper - 'this' qualifier (SST1117 owns the qualification style)
 ###################
 resharper_redundant_this_qualifier_highlighting = none # we don't follow the this. prefix style
 resharper_arrange_this_qualifier_highlighting = none # we don't follow the this. prefix style
@@ -1962,7 +1966,7 @@ resharper_redundant_empty_switch_section_highlighting = none # an empty section 
 resharper_redundant_using_directive_highlighting = error # IDE0005 may not fire at compile time reliably — keep Rider nagging
 resharper_redundant_qualifier_highlighting = error # IDE0001 may not fire at compile time reliably — keep Rider nagging
 resharper_redundant_name_qualifier_highlighting = error # IDE0001 may not fire at compile time reliably — keep Rider nagging
-resharper_redundant_base_qualifier_highlighting = none # IDE0009 is disabled (SST1101 = none) — don't nag in Rider either
+resharper_redundant_base_qualifier_highlighting = none # IDE0009 is disabled (SST1117 owns qualification) — don't nag in Rider either
 resharper_redundant_cast_highlighting = error # a cast that changes nothing is dead weight
 resharper_redundant_explicit_array_creation_highlighting = error # let the element type be inferred
 resharper_redundant_empty_object_creation_argument_list_highlighting = none # an explicit () reads consistently next to argument-carrying calls

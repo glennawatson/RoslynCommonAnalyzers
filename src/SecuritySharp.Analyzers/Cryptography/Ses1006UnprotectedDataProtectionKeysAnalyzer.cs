@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace SecuritySharp.Analyzers;
@@ -26,9 +27,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the Data Protection builder that gates the rule.</summary>
-    private const string DataProtectionBuilderMetadataName = "Microsoft.AspNetCore.DataProtection.IDataProtectionBuilder";
-
     /// <summary>The persistence method names that select an explicit key repository and disable default at-rest encryption.</summary>
     private static readonly string[] PersistMethodNames =
     [
@@ -62,8 +60,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var builderType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(DataProtectionBuilderMetadataName));
+            var builderType = new BuilderType(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
         });
     }
@@ -71,7 +68,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <summary>Reports SES1006 for a <c>PersistKeysTo*</c> call whose scope holds no <c>ProtectKeysWith*</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="builderType">The <c>IDataProtectionBuilder</c> type resolved on first demand.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> builderType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, BuilderType builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -84,10 +81,10 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
             return;
         }
 
-        if (builderType.Value is not { } resolvedBuilderType
+        if (builderType.Get() is not { } resolvedBuilderType
+            || ScopeProtectsKeys(scope, context.SemanticModel, resolvedBuilderType, context.CancellationToken)
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsBuilderExtension(method, resolvedBuilderType)
-            || ScopeProtectsKeys(scope, context.SemanticModel, resolvedBuilderType, context.CancellationToken))
+            || !IsBuilderExtension(method, resolvedBuilderType))
         {
             return;
         }
@@ -221,4 +218,43 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <param name="Found">Whether a matching <c>ProtectKeysWith*</c> call has been found.</param>
     /// <param name="CancellationToken">A token that cancels the binding.</param>
     private record struct ProtectKeysScan(SemanticModel Model, INamedTypeSymbol Builder, bool Found, CancellationToken CancellationToken);
+
+    /// <summary>Resolves the builder type once, only when a persistence call needs it.</summary>
+    /// <param name="compilation">The compilation whose builder type is resolved.</param>
+    private sealed class BuilderType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the Data Protection builder that gates the rule.</summary>
+        private const string DataProtectionBuilderMetadataName = "Microsoft.AspNetCore.DataProtection.IDataProtectionBuilder";
+
+        /// <summary>Serializes the first metadata lookup across node callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved builder type, or null when it is absent.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Whether the lookup has completed, including an absent result.</summary>
+        private bool _resolved;
+
+        /// <summary>Reads the cached builder type without locking after resolution.</summary>
+        /// <returns>The builder type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Resolves and publishes the builder type on first demand.</summary>
+        /// <returns>The builder type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName(DataProtectionBuilderMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
+    }
 }

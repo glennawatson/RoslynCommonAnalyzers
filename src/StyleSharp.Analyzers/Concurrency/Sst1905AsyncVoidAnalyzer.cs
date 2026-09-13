@@ -45,8 +45,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var eventArgs = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName("System.EventArgs"));
+            var eventArgs = new EventArgsType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, eventArgs), SyntaxKind.MethodDeclaration);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLocalFunction(nodeContext, eventArgs), SyntaxKind.LocalFunctionStatement);
@@ -61,7 +60,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> method that is not an event handler or an inherited signature.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, EventArgsType eventArgs)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!method.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(method.ReturnType))
@@ -82,7 +81,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> local function that is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLocalFunction(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLocalFunction(in SyntaxNodeAnalysisContext context, EventArgsType eventArgs)
     {
         var localFunction = (LocalFunctionStatementSyntax)context.Node;
         if (!localFunction.Modifiers.Any(SyntaxKind.AsyncKeyword) || !IsVoid(localFunction.ReturnType))
@@ -102,7 +101,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports an <c>async void</c> lambda or anonymous method whose converted delegate is not an event handler.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
-    private static void AnalyzeLambda(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> eventArgs)
+    private static void AnalyzeLambda(in SyntaxNodeAnalysisContext context, EventArgsType eventArgs)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
         if (function.AsyncKeyword.IsKind(SyntaxKind.None))
@@ -132,14 +131,14 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     /// <param name="method">The candidate method symbol.</param>
     /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
     /// <returns><see langword="true"/> when the method is a genuine event handler.</returns>
-    private static bool IsEventHandlerShape(IMethodSymbol method, Lazy<INamedTypeSymbol?> eventArgs)
+    private static bool IsEventHandlerShape(IMethodSymbol method, EventArgsType eventArgs)
     {
         if (method.Parameters.Length != 2 || method.Parameters[0].Type.SpecialType != SpecialType.System_Object)
         {
             return false;
         }
 
-        return eventArgs.Value is { } resolvedEventArgs
+        return eventArgs.Get() is { } resolvedEventArgs
             && DerivesFrom(method.Parameters[1].Type, resolvedEventArgs);
     }
 
@@ -217,4 +216,40 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Report(in SyntaxNodeAnalysisContext context, SyntaxToken asyncKeyword, string kind) =>
         context.ReportDiagnostic(DiagnosticHelper.Create(ConcurrencyRules.DoNotUseAsyncVoid, asyncKeyword.GetLocation(), kind));
+
+    /// <summary>Resolves the metadata type once, only after a candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose type is cached.</param>
+    private sealed class EventArgsType(Compilation compilation)
+    {
+        /// <summary>Serializes the first metadata lookup across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved type, or null when the compilation cannot provide it.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Publishes completion independently of a possibly missing type.</summary>
+        private bool _resolved;
+
+        /// <summary>Gets the type without locking after the first lookup.</summary>
+        /// <returns>The type, or null when unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Resolves and publishes the type, including a missing result.</summary>
+        /// <returns>The type, or null when unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName("System.EventArgs");
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
+    }
 }

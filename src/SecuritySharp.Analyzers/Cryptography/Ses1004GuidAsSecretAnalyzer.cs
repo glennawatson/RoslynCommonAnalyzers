@@ -102,9 +102,10 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (types.GetGuidType() is not { } guidType
-            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NewGuidMethodName, IsStatic: true } method
+        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NewGuidMethodName, IsStatic: true } method
             || !method.Parameters.IsEmpty
+            || method.ContainingType is not { Name: "Guid", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } }
+            || types.GetGuidType() is not { } guidType
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, guidType))
         {
             return;
@@ -401,25 +402,37 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the cryptographic RNG the rule suggests; the gate for the whole rule.</summary>
         private const string RandomNumberGeneratorMetadataName = "System.Security.Cryptography.RandomNumberGenerator";
 
-        /// <summary>The cached GUID lookup, including a missing GUID or cryptographic RNG type.</summary>
-        private INamedTypeSymbol?[]? _resolved;
+        /// <summary>Serializes the first metadata lookups across node callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The GUID type, or null when either required type is unavailable.</summary>
+        private INamedTypeSymbol? _guidType;
+
+        /// <summary>Whether the required types have been resolved, including missing results.</summary>
+        private bool _resolved;
 
         /// <summary>Gets the GUID type when the suggested cryptographic RNG is available.</summary>
         /// <returns>The GUID type, or null when either required type is unavailable.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public INamedTypeSymbol? GetGuidType() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+        public INamedTypeSymbol? GetGuidType() => Volatile.Read(ref _resolved) ? _guidType : Resolve();
 
-        /// <summary>Publishes the two inexpensive metadata lookups together on first demand.</summary>
-        /// <returns>The winning GUID lookup, including the cached missing-type result.</returns>
-        private INamedTypeSymbol?[] Resolve()
+        /// <summary>Resolves the required types once and publishes the actionable GUID type.</summary>
+        /// <returns>The GUID type, including the cached missing-type result.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
         {
-            INamedTypeSymbol?[] resolved =
-            [
-                compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is not null
-                    ? compilation.GetTypeByMetadataName(GuidMetadataName)
-                    : null,
-            ];
-            return Interlocked.CompareExchange(ref _resolved, resolved, null) ?? resolved;
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _guidType = compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is not null
+                        ? compilation.GetTypeByMetadataName(GuidMetadataName)
+                        : null;
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _guidType;
+            }
         }
     }
 }

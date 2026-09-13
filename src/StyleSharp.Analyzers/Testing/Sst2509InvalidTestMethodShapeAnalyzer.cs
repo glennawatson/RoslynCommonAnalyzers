@@ -62,7 +62,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(static start =>
         {
             var compilation = start.Compilation;
-            var symbols = new Lazy<FrameworkSymbols?>(() => FrameworkSymbols.Resolve(compilation));
+            var symbols = new FrameworkSymbols(compilation);
             var returnTypes = new ReturnTypeCache(compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols, returnTypes), MethodKinds);
         });
@@ -72,7 +72,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node context.</param>
     /// <param name="frameworkSymbols">The framework types resolved on first demand per compilation.</param>
     /// <param name="returnTypes">The awaited return types resolved independently of test markers.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<FrameworkSymbols?> frameworkSymbols, ReturnTypeCache returnTypes)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkSymbols frameworkSymbols, ReturnTypeCache returnTypes)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists) || IsSyntacticallyRunnableShape(method))
@@ -86,13 +86,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var symbols = frameworkSymbols.Value;
-        if (symbols is null)
-        {
-            return;
-        }
-
-        var (isTest, requiresPublic) = ClassifyTestAttributes(context, method.AttributeLists, methodSymbol, symbols);
+        var (isTest, requiresPublic) = ClassifyTestAttributes(context, method.AttributeLists, methodSymbol, frameworkSymbols);
         if (!isTest)
         {
             return;
@@ -325,14 +319,15 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>The test-framework symbols resolved for a candidate method to classify attributes.</summary>
-    private sealed class FrameworkSymbols
+    /// <summary>Resolves only the test markers encountered in a candidate attribute's inheritance chain.</summary>
+    /// <param name="compilation">The compilation whose marker identities are cached.</param>
+    private sealed class FrameworkSymbols(Compilation compilation)
     {
-        /// <summary>The metadata name of the TUnit test marker, which does not universally require a public method.</summary>
-        private const string TUnitTestMarkerMetadataName = "TUnit.Core.TestAttribute";
+        /// <summary>The slot reserved for the marker that does not require public methods.</summary>
+        private const int TUnitMarkerIndex = 8;
 
-        /// <summary>The metadata names of the attributes that mark a method as a test the framework discovers only when public.</summary>
-        private static readonly string[] PublicRequiredMarkerMetadataNames =
+        /// <summary>The public-required markers followed by the TUnit marker.</summary>
+        private static readonly string[] MarkerMetadataNames =
         [
             "Xunit.FactAttribute",
             "Xunit.TheoryAttribute",
@@ -342,56 +337,30 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             "NUnit.Framework.TheoryAttribute",
             "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
             "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+            "TUnit.Core.TestAttribute",
         ];
 
-        /// <summary>The resolved markers whose framework discovers only public test methods; unresolved slots stay <see langword="null"/>.</summary>
-        private readonly INamedTypeSymbol?[] _publicRequiredMarkers;
+        /// <summary>Serializes the first lookup of each marker, including missing results.</summary>
+        private readonly object _gate = new();
 
-        /// <summary>The resolved TUnit test marker, or <see langword="null"/> when TUnit is not referenced.</summary>
-        private readonly INamedTypeSymbol? _tunitMarker;
+        /// <summary>The marker slots, allocated only after a candidate needs a metadata lookup.</summary>
+        private INamedTypeSymbol?[]? _markers;
 
-        /// <summary>Initializes a new instance of the <see cref="FrameworkSymbols"/> class.</summary>
-        /// <param name="publicRequiredMarkers">The resolved public-required test markers.</param>
-        /// <param name="tunitMarker">The resolved TUnit test marker, or <see langword="null"/>.</param>
-        private FrameworkSymbols(
-            INamedTypeSymbol?[] publicRequiredMarkers,
-            INamedTypeSymbol? tunitMarker)
-        {
-            _publicRequiredMarkers = publicRequiredMarkers;
-            _tunitMarker = tunitMarker;
-        }
+        /// <summary>Published bits distinguish unresolved slots from resolved missing types.</summary>
+        private int _resolvedMarkers;
 
-        /// <summary>Resolves the test-framework symbols, or <see langword="null"/> when no test framework is referenced.</summary>
-        /// <param name="compilation">The analyzed compilation.</param>
-        /// <returns>The resolved symbols, or <see langword="null"/> when no test-attribute marker resolves.</returns>
-        public static FrameworkSymbols? Resolve(Compilation compilation)
-        {
-            var publicRequiredMarkers = new INamedTypeSymbol?[PublicRequiredMarkerMetadataNames.Length];
-            var anyPublicRequired = false;
-            for (var i = 0; i < PublicRequiredMarkerMetadataNames.Length; i++)
-            {
-                var marker = compilation.GetTypeByMetadataName(PublicRequiredMarkerMetadataNames[i]);
-                publicRequiredMarkers[i] = marker;
-                anyPublicRequired = anyPublicRequired || marker is not null;
-            }
-
-            var tunitMarker = compilation.GetTypeByMetadataName(TUnitTestMarkerMetadataName);
-            return !anyPublicRequired && tunitMarker is null
-                ? null
-                : new FrameworkSymbols(publicRequiredMarkers, tunitMarker);
-        }
-
-        /// <summary>Returns whether an attribute type is or derives from a marker whose framework requires a public test method.</summary>
+        /// <summary>Returns whether an attribute derives from a marker whose framework requires public methods.</summary>
         /// <param name="attributeClass">The attribute's type.</param>
-        /// <returns><see langword="true"/> when the type marks a method as an xUnit, NUnit, or MSTest test.</returns>
+        /// <returns>Whether the attribute marks an xUnit, NUnit, or MSTest test.</returns>
         public bool IsPublicRequiredMarker(INamedTypeSymbol attributeClass)
         {
             for (var type = attributeClass; type is not null; type = type.BaseType)
             {
                 var definition = type.OriginalDefinition;
-                for (var m = 0; m < _publicRequiredMarkers.Length; m++)
+                for (var i = 0; i < TUnitMarkerIndex; i++)
                 {
-                    if (SymbolEqualityComparer.Default.Equals(definition, _publicRequiredMarkers[m]))
+                    if (CouldMatchMarker(definition, MarkerMetadataNames[i])
+                        && SymbolEqualityComparer.Default.Equals(definition, GetMarker(i)))
                     {
                         return true;
                     }
@@ -401,20 +370,82 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        /// <summary>Returns whether an attribute type is or derives from the TUnit test marker.</summary>
+        /// <summary>Returns whether an attribute derives from the TUnit test marker.</summary>
         /// <param name="attributeClass">The attribute's type.</param>
-        /// <returns><see langword="true"/> when the type marks a method as a TUnit test.</returns>
+        /// <returns>Whether the attribute marks a TUnit test.</returns>
         public bool IsTUnitMarker(INamedTypeSymbol attributeClass)
         {
             for (var type = attributeClass; type is not null; type = type.BaseType)
             {
-                if (SymbolEqualityComparer.Default.Equals(type.OriginalDefinition, _tunitMarker))
+                var definition = type.OriginalDefinition;
+                if (CouldMatchMarker(definition, MarkerMetadataNames[TUnitMarkerIndex])
+                    && SymbolEqualityComparer.Default.Equals(definition, GetMarker(TUnitMarkerIndex)))
                 {
                     return true;
                 }
             }
 
             return false;
+        }
+
+        /// <summary>Excludes unrelated types without constructing a qualified name or probing metadata.</summary>
+        /// <param name="type">The candidate attribute definition.</param>
+        /// <param name="metadataName">The top-level marker's metadata name.</param>
+        /// <returns>Whether the type's name and namespace can identify this marker.</returns>
+        private static bool CouldMatchMarker(INamedTypeSymbol type, string metadataName)
+        {
+            var separator = metadataName.LastIndexOf('.');
+            var name = type.Name;
+            if (type.ContainingType is not null || type.Arity != 0
+                || name.Length != metadataName.Length - separator - 1
+                || string.Compare(metadataName, separator + 1, name, 0, name.Length, StringComparison.Ordinal) != 0)
+            {
+                return false;
+            }
+
+            var ns = type.ContainingNamespace;
+            while (separator > 0 && !ns.IsGlobalNamespace)
+            {
+                var end = separator;
+                separator = metadataName.LastIndexOf('.', end - 1);
+                var part = ns.Name;
+                if (part.Length != end - separator - 1
+                    || string.Compare(metadataName, separator + 1, part, 0, part.Length, StringComparison.Ordinal) != 0)
+                {
+                    return false;
+                }
+
+                ns = ns.ContainingNamespace;
+            }
+
+            return separator < 0 && ns.IsGlobalNamespace;
+        }
+
+        /// <summary>Reads a published marker without entering the cold lookup gate.</summary>
+        /// <param name="index">The marker slot.</param>
+        /// <returns>The resolved marker, including a cached missing result.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private INamedTypeSymbol? GetMarker(int index) =>
+            (Volatile.Read(ref _resolvedMarkers) & (1 << index)) != 0 ? _markers![index] : Resolve(index);
+
+        /// <summary>Resolves one needed marker once and publishes its completed slot.</summary>
+        /// <param name="index">The marker slot.</param>
+        /// <returns>The marker, or null when it is absent or ambiguous.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve(int index)
+        {
+            lock (_gate)
+            {
+                var markers = _markers ??= new INamedTypeSymbol?[MarkerMetadataNames.Length];
+                var bit = 1 << index;
+                if ((_resolvedMarkers & bit) == 0)
+                {
+                    markers[index] = compilation.GetTypeByMetadataName(MarkerMetadataNames[index]);
+                    Volatile.Write(ref _resolvedMarkers, _resolvedMarkers | bit);
+                }
+
+                return markers[index];
+            }
         }
     }
 }

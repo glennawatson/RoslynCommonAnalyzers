@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -35,9 +37,6 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <summary>The <c>X509VerificationFlags</c> value that ignores every chain error.</summary>
     private const string AllFlagsFieldName = "AllFlags";
 
-    /// <summary>The metadata name of the chain-policy type whose weakening members are guarded.</summary>
-    private const string ChainPolicyMetadataName = "System.Security.Cryptography.X509Certificates.X509ChainPolicy";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.WeakenedCertificateChainValidation);
 
@@ -52,8 +51,7 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var chainPolicyType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(ChainPolicyMetadataName));
+            var chainPolicyType = new ChainPolicyType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, chainPolicyType), SyntaxKind.SimpleAssignmentExpression);
         });
@@ -62,7 +60,7 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
     /// <summary>Reports SES1104 when an assignment weakens an <c>X509ChainPolicy</c> chain check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="chainPolicyType">The lazily resolved <c>X509ChainPolicy</c> type gating the rule.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> chainPolicyType)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, ChainPolicyType chainPolicyType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -74,7 +72,8 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             return;
         }
 
-        if (chainPolicyType.Value is not { } resolvedChainPolicyType
+        if (!CouldWeakenChain(assignment.Right, memberName == VerificationFlagsMemberName)
+            || chainPolicyType.Get() is not { } resolvedChainPolicyType
             || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, resolvedChainPolicyType))
         {
@@ -96,6 +95,29 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             assignment.Right.SyntaxTree,
             assignment.Right.Span,
             memberName));
+    }
+
+    /// <summary>Excludes values naming safe fields before resolving the policy type or binding.</summary>
+    /// <param name="value">The assigned value or one operand of its flags combination.</param>
+    /// <param name="verificationFlags">Whether the assignment targets verification flags.</param>
+    /// <returns>Whether the value still needs semantic checks for a weakening field.</returns>
+    private static bool CouldWeakenChain(ExpressionSyntax value, bool verificationFlags)
+    {
+        while (value is ParenthesizedExpressionSyntax parenthesized)
+        {
+            value = parenthesized.Expression;
+        }
+
+        if (verificationFlags && value is BinaryExpressionSyntax binary && binary.IsKind(SyntaxKind.BitwiseOrExpression))
+        {
+            return CouldWeakenChain(binary.Left, verificationFlags) || CouldWeakenChain(binary.Right, verificationFlags);
+        }
+
+        // Keep unfamiliar expression shapes on the binding path so their symbol behavior is unchanged.
+        return GetAssignedMemberName(value) is not { } name
+            || (verificationFlags
+                ? name is AllowUnknownCertificateAuthorityFieldName or AllFlagsFieldName
+                : name == NoCheckFieldName);
     }
 
     /// <summary>Returns the member name being assigned, for a member-access or initializer target.</summary>
@@ -141,5 +163,44 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             : model.GetSymbolInfo(expression, cancellationToken).Symbol is IFieldSymbol field
             && SymbolEqualityComparer.Default.Equals(field.ContainingType, verificationFlagsType)
             && (field.Name == AllowUnknownCertificateAuthorityFieldName || field.Name == AllFlagsFieldName);
+    }
+
+    /// <summary>Resolves the policy type once, only after a possibly weakening assignment.</summary>
+    /// <param name="compilation">The compilation whose policy type is resolved.</param>
+    private sealed class ChainPolicyType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the chain-policy type whose weakening members are guarded.</summary>
+        private const string ChainPolicyMetadataName = "System.Security.Cryptography.X509Certificates.X509ChainPolicy";
+
+        /// <summary>Serializes the first metadata lookup across node callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved policy type, or null when it is absent.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Whether the lookup has completed, including an absent result.</summary>
+        private bool _resolved;
+
+        /// <summary>Reads the cached policy type without locking after resolution.</summary>
+        /// <returns>The policy type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Resolves and publishes the policy type on first demand.</summary>
+        /// <returns>The policy type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName(ChainPolicyMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
     }
 }

@@ -831,26 +831,43 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the exception base type.</summary>
         private const string ExceptionMetadataName = "System.Exception";
 
+        /// <summary>Serializes the first resolution across concurrent syntax callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The resolved state, including a null element when a required type is missing.</summary>
         private LoggingState?[]? _resolved;
 
         /// <summary>Gets the logging state after a call passes the syntax checks.</summary>
-        /// <returns>The resolved state, or <see langword="null"/> when a required type is missing.</returns>
+        /// <returns>The resolved state, or null when a required type is missing.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public LoggingState? Get() => (_resolved ??= Resolve(compilation))[0];
+        public LoggingState? Get() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
 
-        /// <summary>Builds a complete result before publishing it to concurrent callbacks.</summary>
-        /// <param name="compilation">The compilation to probe.</param>
+        /// <summary>Publishes one complete result, including missing framework types.</summary>
         /// <returns>A single state, or a single null element when a required type is missing.</returns>
-        private static LoggingState?[] Resolve(Compilation compilation)
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private LoggingState?[] Resolve()
         {
-            var logger = compilation.GetTypeByMetadataName(LoggerMetadataName);
-            var loggerExtensions = compilation.GetTypeByMetadataName(LoggerExtensionsMetadataName);
-            var exceptionType = compilation.GetTypeByMetadataName(ExceptionMetadataName);
-            return [logger is null || loggerExtensions is null || exceptionType is null
-                ? null
-                : new LoggingState(loggerExtensions, exceptionType)];
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [Collect()];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
         }
+
+        /// <summary>Stops probing as soon as a required logging type is missing.</summary>
+        /// <returns>The logging state, or null when the framework is unavailable.</returns>
+        private LoggingState? Collect() =>
+            compilation.GetTypeByMetadataName(LoggerMetadataName) is not null
+                && compilation.GetTypeByMetadataName(LoggerExtensionsMetadataName) is { } loggerExtensions
+                && compilation.GetTypeByMetadataName(ExceptionMetadataName) is { } exceptionType
+                ? new LoggingState(loggerExtensions, exceptionType)
+                : null;
     }
 
     /// <summary>The resolved logging symbols shared across a compilation's calls.</summary>

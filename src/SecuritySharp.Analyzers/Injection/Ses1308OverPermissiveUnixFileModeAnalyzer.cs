@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace SecuritySharp.Analyzers;
@@ -26,9 +27,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the file-permission enum whose write bits are guarded.</summary>
-    private const string UnixFileModeMetadataName = "System.IO.UnixFileMode";
-
     /// <summary>The filesystem method name that sets a path's Unix permission mode.</summary>
     private const string SetUnixFileModeMethodName = "SetUnixFileMode";
 
@@ -50,19 +48,6 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
     /// <summary>The mask matching a mode that grants write access to group or other.</summary>
     private const int GroupOrOtherWriteMask = GroupWriteBit | OtherWriteBit;
 
-    /// <summary>
-    /// The metadata names of the BCL filesystem types whose permission sinks are guarded. The
-    /// <c>UnixFileMode</c> property that <c>FileInfo</c> and <c>DirectoryInfo</c> expose is declared on
-    /// their shared base <c>FileSystemInfo</c>, so that base is the gated container for both.
-    /// </summary>
-    private static readonly string[] SinkContainerMetadataNames =
-    [
-        "System.IO.File",
-        "System.IO.Directory",
-        "System.IO.FileSystemInfo",
-        "System.IO.FileStreamOptions"
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.OverPermissiveUnixFileMode);
 
@@ -77,33 +62,31 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var unixFileMode = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(UnixFileModeMetadataName));
-            var sinkContainers = new Lazy<INamedTypeSymbol?[]>(() => GetSinkContainers(compilation));
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, unixFileMode, sinkContainers), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, unixFileMode, sinkContainers), SyntaxKind.SimpleAssignmentExpression);
+            var types = new PermissionTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1308 for a filesystem permission call whose mode grants group or other write.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="unixFileMode">The <c>UnixFileMode</c> type resolved on first demand.</param>
-    /// <param name="sinkContainers">The filesystem sink container types resolved on first demand.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> unixFileMode, Lazy<INamedTypeSymbol?[]> sinkContainers)
+    /// <param name="types">The permission types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, PermissionTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
-        // Syntactic prefilter: a member '.SetUnixFileMode(...)' or '.CreateDirectory(...)' call with the
-        // mode-carrying two-argument shape, before any binding runs.
+        // Reject unrelated names and arities before either metadata resolution or binding.
         if (!IsModeInvocationShape(invocation))
         {
             return;
         }
 
-        if (unixFileMode.Value is not { } modeType
-            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
-            || !IsSinkContainer(operation.TargetMethod.ContainingType, sinkContainers.Value))
+        // Resolve the target before materializing operations for all arguments. Invalid calls and
+        // same-named methods on unrelated types do not need an operation tree.
+        if (types.GetModeType() is not { } modeType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsSinkContainer(method.ContainingType, types.GetSinkContainers())
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation)
         {
             return;
         }
@@ -129,23 +112,21 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
 
     /// <summary>Reports SES1308 for an assignment of a group- or world-writable mode to a permission property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="unixFileMode">The <c>UnixFileMode</c> type resolved on first demand.</param>
-    /// <param name="sinkContainers">The filesystem sink container types resolved on first demand.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> unixFileMode, Lazy<INamedTypeSymbol?[]> sinkContainers)
+    /// <param name="types">The permission types resolved on first demand.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, PermissionTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
-        // Syntactic prefilter: an assignment to a member named 'UnixCreateMode' or 'UnixFileMode', which
-        // covers 'options.UnixCreateMode = m', 'info.UnixFileMode = m', and the object-initializer form.
+        // This includes both member access and the bare member name in an object initializer.
         if (GetAssignedMemberName(assignment.Left) is not (UnixCreateModePropertyName or UnixFileModePropertyName))
         {
             return;
         }
 
-        if (unixFileMode.Value is not { } modeType
+        if (types.GetModeType() is not { } modeType
             || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
             || !IsUnixFileMode(property.Type, modeType)
-            || !IsSinkContainer(property.ContainingType, sinkContainers.Value)
+            || !IsSinkContainer(property.ContainingType, types.GetSinkContainers())
             || !GrantsGroupOrOtherWrite(context.SemanticModel.GetConstantValue(assignment.Right, context.CancellationToken)))
         {
             return;
@@ -212,17 +193,93 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
         return false;
     }
 
-    /// <summary>Resolves the filesystem sink container types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved sink container type, or <see langword="null"/> for the absent ones.</returns>
-    private static INamedTypeSymbol?[] GetSinkContainers(Compilation compilation)
+    /// <summary>Resolves permission metadata once, only after a syntax candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose permission types are cached.</param>
+    private sealed class PermissionTypes(Compilation compilation)
     {
-        var containers = new INamedTypeSymbol?[SinkContainerMetadataNames.Length];
-        for (var i = 0; i < SinkContainerMetadataNames.Length; i++)
+        /// <summary>The metadata name of the file-permission enum whose write bits are guarded.</summary>
+        private const string UnixFileModeMetadataName = "System.IO.UnixFileMode";
+
+        /// <summary>
+        /// The metadata names of the BCL filesystem types whose permission sinks are guarded. The
+        /// <c>UnixFileMode</c> property that <c>FileInfo</c> and <c>DirectoryInfo</c> expose is declared on
+        /// their shared base <c>FileSystemInfo</c>, so that base is the gated container for both.
+        /// </summary>
+        private static readonly string[] SinkContainerMetadataNames =
+        [
+            "System.IO.File",
+            "System.IO.Directory",
+            "System.IO.FileSystemInfo",
+            "System.IO.FileStreamOptions"
+        ];
+
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The cached mode type, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _modeType;
+
+        /// <summary>The cached sink containers, resolved only after a member binds.</summary>
+        private INamedTypeSymbol?[]? _sinkContainers;
+
+        /// <summary>Gets the mode type on first demand.</summary>
+        /// <returns>The mode type, or null when the framework does not provide it.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetModeType() => (Volatile.Read(ref _modeType) ?? ResolveModeType())[0];
+
+        /// <summary>Gets the sink containers on first demand.</summary>
+        /// <returns>The cached sink types, including missing containers.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] GetSinkContainers() => Volatile.Read(ref _sinkContainers) ?? ResolveSinkContainers();
+
+        /// <summary>Resolves the filesystem sink container types present in the compilation.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>An array whose slots hold each resolved sink container type, or <see langword="null"/> for the absent ones.</returns>
+        private static INamedTypeSymbol?[] CollectSinkContainers(Compilation compilation)
         {
-            containers[i] = compilation.GetTypeByMetadataName(SinkContainerMetadataNames[i]);
+            var containers = new INamedTypeSymbol?[SinkContainerMetadataNames.Length];
+            for (var i = 0; i < SinkContainerMetadataNames.Length; i++)
+            {
+                containers[i] = compilation.GetTypeByMetadataName(SinkContainerMetadataNames[i]);
+            }
+
+            return containers;
         }
 
-        return containers;
+        /// <summary>Publishes the mode type once for the compilation.</summary>
+        /// <returns>The cached mode type slot.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] ResolveModeType()
+        {
+            lock (_gate)
+            {
+                var resolved = _modeType;
+                if (resolved is null)
+                {
+                    resolved = [compilation.GetTypeByMetadataName(UnixFileModeMetadataName)];
+                    Volatile.Write(ref _modeType, resolved);
+                }
+
+                return resolved;
+            }
+        }
+
+        /// <summary>Publishes the sink containers once for the compilation.</summary>
+        /// <returns>The cached sink types.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] ResolveSinkContainers()
+        {
+            lock (_gate)
+            {
+                var resolved = _sinkContainers;
+                if (resolved is null)
+                {
+                    resolved = CollectSinkContainers(compilation);
+                    Volatile.Write(ref _sinkContainers, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

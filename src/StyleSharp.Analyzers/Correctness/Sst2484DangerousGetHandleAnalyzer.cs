@@ -32,9 +32,6 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
     /// <summary>The dangerous handle-reading method name.</summary>
     private const string DangerousGetHandleName = "DangerousGetHandle";
 
-    /// <summary>The metadata name of the safe-handle base type.</summary>
-    private const string SafeHandleMetadataName = "System.Runtime.InteropServices.SafeHandle";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DangerousGetHandle);
 
@@ -49,8 +46,7 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var safeHandleType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(SafeHandleMetadataName));
+            var safeHandleType = new SafeHandleType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, safeHandleType), SyntaxKind.InvocationExpression);
         });
@@ -59,7 +55,7 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one raw handle read through a safe handle's dangerous accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="safeHandleType">The compilation's lazily resolved safe-handle type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> safeHandleType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, SafeHandleType safeHandleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0 || GetInvokedName(invocation) != DangerousGetHandleName)
@@ -67,7 +63,7 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (safeHandleType.Value is not { } resolvedSafeHandleType
+        if (safeHandleType.Get() is not { } resolvedSafeHandleType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
             || !IsSafeHandleOrDerived(method.ContainingType, resolvedSafeHandleType))
         {
@@ -105,5 +101,44 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the metadata type once, only after a candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose type is cached.</param>
+    private sealed class SafeHandleType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the safe-handle base type.</summary>
+        private const string SafeHandleMetadataName = "System.Runtime.InteropServices.SafeHandle";
+
+        /// <summary>Serializes the first metadata lookup across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved type, or null when the compilation cannot provide it.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Publishes completion independently of a possibly missing type.</summary>
+        private bool _resolved;
+
+        /// <summary>Gets the type without locking after the first lookup.</summary>
+        /// <returns>The type, or null when unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Resolves and publishes the type, including a missing result.</summary>
+        /// <returns>The type, or null when unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName(SafeHandleMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
     }
 }

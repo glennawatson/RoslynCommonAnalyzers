@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace SecuritySharp.Analyzers;
@@ -23,12 +24,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the transform type whose <c>Load</c> applies the settings.</summary>
-    private const string XslCompiledTransformMetadataName = "System.Xml.Xsl.XslCompiledTransform";
-
-    /// <summary>The metadata name of the settings type that can enable script.</summary>
-    private const string XsltSettingsMetadataName = "System.Xml.Xsl.XsltSettings";
-
     /// <summary>The name of the transform method that compiles the stylesheet under the settings.</summary>
     private const string LoadMethodName = "Load";
 
@@ -55,33 +50,28 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var transformType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(XslCompiledTransformMetadataName));
-            var settingsType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(XsltSettingsMetadataName));
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, transformType, settingsType), SyntaxKind.InvocationExpression);
+            var types = new XsltTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1309 for an <c>XslCompiledTransform.Load</c> call whose settings enable script.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="transformType">The <c>XslCompiledTransform</c> type resolved on first demand for the compilation.</param>
-    /// <param name="settingsType">The <c>XsltSettings</c> type resolved on first demand for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> transformType, Lazy<INamedTypeSymbol?> settingsType)
+    /// <param name="types">The XSLT types resolved on first demand for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, XsltTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
-        // Syntactic prefilter: a member '.Load(...)' call carrying at least the settings-overload arity. The
-        // settings overloads take (stylesheet, settings, resolver); a leading positional settings slot needs two
-        // or more arguments, so a single-argument 'Load(reader)' is rejected without binding.
+        // Only inline settings constructions and TrustedXslt can enable script under this rule.
+        // Scan every argument so named and reordered arguments retain the same behavior.
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: LoadMethodName }
-            || invocation.ArgumentList.Arguments.Count < 2)
+            || invocation.ArgumentList.Arguments.Count < 2
+            || !HasSettingsShape(invocation.ArgumentList))
         {
             return;
         }
 
-        if (transformType.Value is not { } transform
-            || settingsType.Value is not { } settings
+        if (types.Get() is not [{ } transform, { } settings]
             || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
             || operation.TargetMethod.Name != LoadMethodName
             || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, transform)
@@ -183,4 +173,76 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the operation folds to the boolean constant <see langword="true"/>.</returns>
     private static bool IsConstantTrue(IOperation operation) =>
         operation.ConstantValue is { HasValue: true, Value: bool value } && value;
+
+    /// <summary>Checks for an argument whose local syntax can enable script, before binding.</summary>
+    /// <param name="argumentList">The candidate Load arguments.</param>
+    /// <returns>Whether any argument can produce a recognized settings operation.</returns>
+    private static bool HasSettingsShape(ArgumentListSyntax argumentList)
+    {
+        foreach (var argument in argumentList.Arguments)
+        {
+            if (IsSettingsShape(argument.Expression))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Recognizes settings constructions and TrustedXslt through transparent syntax wrappers.</summary>
+    /// <param name="expression">The supplied argument expression.</param>
+    /// <returns>Whether the expression could enable script locally.</returns>
+    private static bool IsSettingsShape(ExpressionSyntax expression) => expression switch
+    {
+        BaseObjectCreationExpressionSyntax
+            or MemberAccessExpressionSyntax { Name.Identifier.ValueText: TrustedXsltPropertyName }
+            or IdentifierNameSyntax { Identifier.ValueText: TrustedXsltPropertyName } => true,
+        ParenthesizedExpressionSyntax parenthesized => IsSettingsShape(parenthesized.Expression),
+        CheckedExpressionSyntax checkedExpression => IsSettingsShape(checkedExpression.Expression),
+        PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppressed => IsSettingsShape(suppressed.Operand),
+        _ => false,
+    };
+
+    /// <summary>Resolves the XSLT types once, only after a settings candidate is found.</summary>
+    /// <param name="compilation">The compilation whose XSLT types are cached.</param>
+    private sealed class XsltTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the transform type whose <c>Load</c> applies the settings.</summary>
+        private const string XslCompiledTransformMetadataName = "System.Xml.Xsl.XslCompiledTransform";
+
+        /// <summary>The metadata name of the settings type that can enable script.</summary>
+        private const string XsltSettingsMetadataName = "System.Xml.Xsl.XsltSettings";
+
+        /// <summary>Serializes the first metadata lookup across invocation callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The cached transform and settings types, including unavailable types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the XSLT types on first demand.</summary>
+        /// <returns>The cached type pair, or an empty array when the transform type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => Volatile.Read(ref _resolved) ?? Resolve();
+
+        /// <summary>Publishes the XSLT metadata lookup once for the compilation.</summary>
+        /// <returns>The cached XSLT type pair.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = compilation.GetTypeByMetadataName(XslCompiledTransformMetadataName) is { } transform
+                        ? [transform, compilation.GetTypeByMetadataName(XsltSettingsMetadataName)]
+                        : [];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
+    }
 }

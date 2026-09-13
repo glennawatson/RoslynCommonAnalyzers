@@ -125,8 +125,8 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member has a per-instance backing store.</returns>
     private static bool IsInstanceFieldOrAutoProperty(MemberDeclarationSyntax member) => member switch
     {
-        FieldDeclarationSyntax field => !IsStaticOrConst(field.Modifiers),
-        PropertyDeclarationSyntax property => IsInstanceAutoProperty(property),
+        FieldDeclarationSyntax field => !IsStaticOrConst(field.Modifiers) && CouldBeClientType(field.Declaration.Type),
+        PropertyDeclarationSyntax property => IsInstanceAutoProperty(property) && CouldBeClientType(property.Type),
         _ => false,
     };
 
@@ -313,6 +313,17 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
         _ => null,
     };
 
+    /// <summary>Rejects types whose syntax cannot denote a shareable client, while retaining aliases.</summary>
+    /// <param name="type">The written field or property type.</param>
+    /// <returns>Whether the type could resolve to a known client.</returns>
+    private static bool CouldBeClientType(TypeSyntax type) => type switch
+    {
+        PredefinedTypeSyntax or ArrayTypeSyntax or PointerTypeSyntax or FunctionPointerTypeSyntax or TupleTypeSyntax => false,
+        NullableTypeSyntax nullable => CouldBeClientType(nullable.ElementType),
+        RefTypeSyntax reference => CouldBeClientType(reference.Type),
+        _ => true,
+    };
+
     /// <summary>The function types and advice published together for one compilation.</summary>
     /// <param name="FunctionAttribute">The worker function attribute.</param>
     /// <param name="HttpClient">The HTTP client type.</param>
@@ -343,18 +354,21 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
         /// <summary>The suggestion appended for <c>HttpClient</c> when the client factory is not referenced.</summary>
         private const string StaticSuggestion = "hold one shared 'static readonly HttpClient' for the lifetime of the process instead";
 
+        /// <summary>Serializes the first metadata lookup across type callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The cached types and suggestion, or an empty result when required types are absent.</summary>
         private ResolvedTypes[]? _resolved;
 
         /// <summary>Gets the function types on first demand, caching an unavailable result too.</summary>
         /// <returns>The resolved types, or an empty array when the rule cannot apply.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ResolvedTypes[] Get() => _resolved ??= Resolve(compilation);
+        public ResolvedTypes[] Get() => Volatile.Read(ref _resolved) ?? Resolve();
 
-        /// <summary>Resolves the function marker, HTTP client, and replacement advice.</summary>
+        /// <summary>Collects the function marker, HTTP client, and replacement advice.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The resolved types, or an empty array when required types are absent.</returns>
-        private static ResolvedTypes[] Resolve(Compilation compilation)
+        private static ResolvedTypes[] Collect(Compilation compilation)
         {
             if (compilation.GetTypeByMetadataName(FunctionAttributeMetadataName) is not { } functionAttribute
                 || compilation.GetTypeByMetadataName(HttpClientMetadataName) is not { } httpClient)
@@ -366,6 +380,24 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
                 ? FactorySuggestion
                 : StaticSuggestion;
             return [new ResolvedTypes(functionAttribute, httpClient, new Psh1418PerCallHttpClientAnalyzer.ClientTypeCache(compilation, httpClient), suggestion)];
+        }
+
+        /// <summary>Resolves the function marker, HTTP client, and replacement advice once.</summary>
+        /// <returns>The resolved types, or an empty array when required types are absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private ResolvedTypes[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = Collect(compilation);
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
         }
     }
 }

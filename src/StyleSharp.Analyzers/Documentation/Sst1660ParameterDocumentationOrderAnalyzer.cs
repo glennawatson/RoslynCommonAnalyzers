@@ -97,7 +97,7 @@ public sealed class Sst1660ParameterDocumentationOrderAnalyzer : DiagnosticAnaly
             documentedNames.Add(name);
         }
 
-        if (documentedNames.Count != parameters.Count || !IsExactParameterSet(documentedNames, parameters))
+        if (documentedNames.Count != parameters.Count)
         {
             return null;
         }
@@ -106,7 +106,7 @@ public sealed class Sst1660ParameterDocumentationOrderAnalyzer : DiagnosticAnaly
         {
             if (documentedNames[i] != parameters[i].Identifier.ValueText)
             {
-                return documentedElements[i];
+                return IsExactParameterSet(documentedNames, parameters) ? documentedElements[i] : null;
             }
         }
 
@@ -119,28 +119,34 @@ public sealed class Sst1660ParameterDocumentationOrderAnalyzer : DiagnosticAnaly
     /// <returns><see langword="true"/> when every parameter is documented exactly once and no extra name appears.</returns>
     private static bool IsExactParameterSet(List<string> documentedNames, in SeparatedSyntaxList<ParameterSyntax> parameters)
     {
-        var parameterNames = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var parameter in parameters)
+        for (var i = 0; i < documentedNames.Count; i++)
         {
-            _ = parameterNames.Add(parameter.Identifier.ValueText);
-        }
+            var name = documentedNames[i];
+            if (documentedNames.IndexOf(name) != i)
+            {
+                return false;
+            }
 
-        if (parameterNames.Count != parameters.Count)
-        {
-            // A duplicated parameter name is invalid C#; stay out of it.
-            return false;
-        }
+            var found = false;
+            foreach (var parameter in parameters)
+            {
+                if (!string.Equals(name, parameter.Identifier.ValueText, StringComparison.Ordinal))
+                {
+                    continue;
+                }
 
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var name in documentedNames)
-        {
-            if (!parameterNames.Contains(name) || !seen.Add(name))
+                found = true;
+                break;
+            }
+
+            if (!found)
             {
                 return false;
             }
         }
 
-        return seen.Count == parameterNames.Count;
+        // Equal counts and distinct documented names also rule out duplicated parameter names.
+        return true;
     }
 
     /// <summary>Returns the reported name of a member.</summary>

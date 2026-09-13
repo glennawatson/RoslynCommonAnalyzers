@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,9 +21,10 @@ namespace StyleSharp.Analyzers;
 /// <para>
 /// The clean path is syntax only. A method is skipped unless one of its attributes is spelled like a test marker,
 /// and its body is then walked once for a <c>Sleep</c>-named call. Nothing binds until such a call is found; only
-/// then is one marker attribute bound to confirm the method really is a test — so a same-named user attribute is
-/// left alone — and the call bound to confirm it really is <c>Thread.Sleep</c> rather than a same-named method of
-/// the project's own. The walk reaches a sleep nested in an <c>if</c>, a loop, a lambda, or a local function.
+/// then is the call bound, excluding same-named user methods before framework types resolve. A marker attribute
+/// is then bound to confirm the method really is a test, so a same-named user attribute is left alone. Only
+/// markers matching a bound attribute or base type's name are resolved. The walk reaches a sleep nested in an
+/// <c>if</c>, a loop, a lambda, or a local function.
 /// </para>
 /// <para>
 /// Only <c>Thread.Sleep</c> is reported. An awaited <c>Task.Delay</c> with a constant delay is the same defect in
@@ -33,9 +36,6 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The method name every reported call is spelled with.</summary>
     private const string SleepMethodName = "Sleep";
-
-    /// <summary>The metadata name of the type the reported call must bind to.</summary>
-    private const string ThreadTypeMetadataName = "System.Threading.Thread";
 
     /// <summary>The method declaration registration shared by every compilation.</summary>
     private static readonly SyntaxKind[] MethodKinds = [SyntaxKind.MethodDeclaration];
@@ -67,47 +67,15 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var symbols = new Lazy<(INamedTypeSymbol? ThreadType, INamedTypeSymbol[] Markers)>(() => ResolveSymbols(compilation));
+            var symbols = new TestSymbols(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols), MethodKinds);
         });
-    }
-
-    /// <summary>Resolves the sleep type and test markers only for the first candidate call in a compilation.</summary>
-    /// <param name="compilation">The compilation to resolve against.</param>
-    /// <returns>The thread type and the available test-marker types.</returns>
-    private static (INamedTypeSymbol? ThreadType, INamedTypeSymbol[] Markers) ResolveSymbols(Compilation compilation)
-    {
-        var threadType = compilation.GetTypeByMetadataName(ThreadTypeMetadataName);
-        return (threadType, threadType is null ? [] : ResolveTestMarkers(compilation));
-    }
-
-    /// <summary>Resolves the supported test-marker attributes present in the compilation.</summary>
-    /// <param name="compilation">The compilation to resolve against.</param>
-    /// <returns>The resolved marker types, which may be empty.</returns>
-    private static INamedTypeSymbol[] ResolveTestMarkers(Compilation compilation)
-    {
-        var markers = new INamedTypeSymbol[TestMarkerMetadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]) is not { } marker)
-            {
-                continue;
-            }
-
-            markers[count] = marker;
-            count++;
-        }
-
-        Array.Resize(ref markers, count);
-        return markers;
     }
 
     /// <summary>Reports each <c>Thread.Sleep</c> in one test method's body.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="symbols">The thread and marker types cached on first demand per compilation.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<(INamedTypeSymbol? ThreadType, INamedTypeSymbol[] Markers)> symbols)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, TestSymbols symbols)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists))
@@ -136,18 +104,25 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        if (scan.Context.SemanticModel.GetSymbolInfo(invocation, scan.Context.CancellationToken).Symbol is not IMethodSymbol { Name: SleepMethodName } method
+            || method.ContainingType is not
+            {
+                Name: "Thread",
+                ContainingNamespace: { Name: "Threading", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } },
+            })
+        {
+            return true;
+        }
+
         if (!scan.TestChecked)
         {
-            var symbols = scan.Symbols.Value;
-            scan.ThreadType = symbols.ThreadType;
+            scan.ThreadType = scan.Symbols.GetThreadType();
             if (scan.ThreadType is null)
             {
                 return false;
             }
 
-            var markers = symbols.Markers;
-            scan.IsTest = markers.Length > 0
-                && IsTestMethod(scan.Method.AttributeLists, scan.Context.SemanticModel, markers, scan.Context.CancellationToken);
+            scan.IsTest = IsTestMethod(scan.Method.AttributeLists, scan.Context.SemanticModel, scan.Symbols, scan.Context.CancellationToken);
             scan.TestChecked = true;
         }
 
@@ -156,8 +131,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        if (scan.Context.SemanticModel.GetSymbolInfo(invocation, scan.Context.CancellationToken).Symbol is not IMethodSymbol { Name: SleepMethodName } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, scan.ThreadType))
+        if (!SymbolEqualityComparer.Default.Equals(method.ContainingType, scan.ThreadType))
         {
             return true;
         }
@@ -199,10 +173,10 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether one of a method's marker-named attributes binds to a resolved test marker.</summary>
     /// <param name="attributeLists">The method's attribute lists.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="markers">The resolved test-marker attribute types.</param>
+    /// <param name="symbols">The test-marker attribute types resolved only when a bound type matches their name.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the method carries a real test attribute.</returns>
-    private static bool IsTestMethod(SyntaxList<AttributeListSyntax> attributeLists, SemanticModel model, INamedTypeSymbol[] markers, CancellationToken cancellationToken)
+    private static bool IsTestMethod(SyntaxList<AttributeListSyntax> attributeLists, SemanticModel model, TestSymbols symbols, CancellationToken cancellationToken)
     {
         for (var i = 0; i < attributeLists.Count; i++)
         {
@@ -216,7 +190,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
                 }
 
                 if (model.GetSymbolInfo(attribute, cancellationToken).Symbol is { ContainingType: { } attributeType }
-                    && MatchesMarker(attributeType, markers))
+                    && MatchesMarker(attributeType, symbols))
                 {
                     return true;
                 }
@@ -228,15 +202,18 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether an attribute type equals or derives from one of the resolved markers.</summary>
     /// <param name="attributeType">The bound attribute type.</param>
-    /// <param name="markers">The resolved test-marker attribute types.</param>
+    /// <param name="symbols">The test-marker attribute types cached per compilation.</param>
     /// <returns><see langword="true"/> when the type is a marker or a subclass of one.</returns>
-    private static bool MatchesMarker(INamedTypeSymbol attributeType, INamedTypeSymbol[] markers)
+    private static bool MatchesMarker(INamedTypeSymbol attributeType, TestSymbols symbols)
     {
         for (var current = attributeType; current is not null; current = current.BaseType)
         {
-            for (var i = 0; i < markers.Length; i++)
+            for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
             {
-                if (SymbolEqualityComparer.Default.Equals(current, markers[i]))
+                var metadataName = TestMarkerMetadataNames[i];
+                var simpleName = metadataName.AsSpan(metadataName.LastIndexOf('.') + 1);
+                if (current.MetadataName.AsSpan().SequenceEqual(simpleName)
+                    && SymbolEqualityComparer.Default.Equals(current, symbols.GetMarker(i)))
                 {
                     return true;
                 }
@@ -282,7 +259,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         /// <param name="context">The syntax node context.</param>
         /// <param name="method">The method being analyzed.</param>
         /// <param name="symbols">The thread and marker types cached per compilation.</param>
-        public SleepScan(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, Lazy<(INamedTypeSymbol? ThreadType, INamedTypeSymbol[] Markers)> symbols)
+        public SleepScan(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, TestSymbols symbols)
         {
             Context = context;
             Method = method;
@@ -293,7 +270,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
         public SyntaxNodeAnalysisContext Context { get; }
 
         /// <summary>Gets the thread and test-marker types resolved on the first candidate call.</summary>
-        public Lazy<(INamedTypeSymbol? ThreadType, INamedTypeSymbol[] Markers)> Symbols { get; }
+        public TestSymbols Symbols { get; }
 
         /// <summary>Gets or sets the Thread type, resolved on the first Sleep-named call.</summary>
         public INamedTypeSymbol? ThreadType { get; set; }
@@ -306,5 +283,77 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets or sets a value indicating whether the method is a bound test.</summary>
         public bool IsTest { get; set; }
+    }
+
+    /// <summary>Resolves the thread type and individual test markers once each, only on demand.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class TestSymbols(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type the reported call must bind to.</summary>
+        private const string ThreadTypeMetadataName = "System.Threading.Thread";
+
+        /// <summary>Serializes first lookups across method callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved thread type, or null when it is absent.</summary>
+        private INamedTypeSymbol? _threadType;
+
+        /// <summary>The marker slots, allocated only when a bound attribute needs a marker lookup.</summary>
+        private INamedTypeSymbol?[]? _markers;
+
+        /// <summary>One bit per completed marker lookup, including absent results.</summary>
+        private int _resolvedMarkers;
+
+        /// <summary>Whether the thread lookup has completed, including an absent result.</summary>
+        private bool _threadResolved;
+
+        /// <summary>Reads the cached thread type without locking after resolution.</summary>
+        /// <returns>The thread type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetThreadType() => Volatile.Read(ref _threadResolved) ? _threadType : ResolveThreadType();
+
+        /// <summary>Reads one marker without resolving any unrelated markers.</summary>
+        /// <param name="index">The marker's index in the metadata-name table.</param>
+        /// <returns>The marker type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetMarker(int index) =>
+            (Volatile.Read(ref _resolvedMarkers) & (1 << index)) != 0 ? _markers![index] : ResolveMarker(index);
+
+        /// <summary>Resolves and publishes the thread type on first demand.</summary>
+        /// <returns>The thread type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? ResolveThreadType()
+        {
+            lock (_gate)
+            {
+                if (!_threadResolved)
+                {
+                    _threadType = compilation.GetTypeByMetadataName(ThreadTypeMetadataName);
+                    Volatile.Write(ref _threadResolved, true);
+                }
+
+                return _threadType;
+            }
+        }
+
+        /// <summary>Resolves and publishes one marker on first demand.</summary>
+        /// <param name="index">The marker's index in the metadata-name table.</param>
+        /// <returns>The marker type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? ResolveMarker(int index)
+        {
+            lock (_gate)
+            {
+                var bit = 1 << index;
+                _markers ??= new INamedTypeSymbol?[TestMarkerMetadataNames.Length];
+                if ((_resolvedMarkers & bit) == 0)
+                {
+                    _markers[index] = compilation.GetTypeByMetadataName(TestMarkerMetadataNames[index]);
+                    Volatile.Write(ref _resolvedMarkers, _resolvedMarkers | bit);
+                }
+
+                return _markers[index];
+            }
+        }
     }
 }

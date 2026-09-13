@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -20,9 +22,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the controller base type whose redirect helpers are guarded.</summary>
-    private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
-
     /// <summary>The number of arguments a guarded redirect helper takes: the single URL string.</summary>
     private const int RedirectArgumentCount = 1;
 
@@ -49,8 +48,7 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var controllerBase = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(ControllerBaseMetadataName));
+            var controllerBase = new ControllerBaseType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, controllerBase), SyntaxKind.InvocationExpression);
         });
@@ -59,7 +57,7 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
     /// <summary>Reports SES1510 for a controller redirect helper whose URL argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="controllerBase">The lazily resolved <c>ControllerBase</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> controllerBase)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ControllerBaseType controllerBase)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -70,18 +68,20 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
             return;
         }
 
-        if (controllerBase.Value is not { } controllerBaseType
-            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsRedirectHelperName(method.Name)
-            || !IsOrDerivesFrom(method.ContainingType, controllerBaseType))
+        var urlArgument = invocation.ArgumentList.Arguments[0].Expression;
+
+        // Constant targets are out of scope, so reject them before resolving controller metadata.
+        if (urlArgument.IsKind(SyntaxKind.StringLiteralExpression)
+            || urlArgument.IsKind(SyntaxKind.NullLiteralExpression)
+            || context.SemanticModel.GetConstantValue(urlArgument, context.CancellationToken).HasValue)
         {
             return;
         }
 
-        var urlArgument = invocation.ArgumentList.Arguments[0].Expression;
-
-        // A hard-coded literal URL cannot be steered by an attacker, so it is out of scope.
-        if (context.SemanticModel.GetConstantValue(urlArgument, context.CancellationToken).HasValue)
+        if (controllerBase.Get() is not { } controllerBaseType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsRedirectHelperName(method.Name)
+            || !IsOrDerivesFrom(method.ContainingType, controllerBaseType))
         {
             return;
         }
@@ -140,5 +140,44 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
         }
 
         return false;
+    }
+
+    /// <summary>Resolves controller metadata once, only when a non-constant redirect needs it.</summary>
+    /// <param name="compilation">The compilation whose controller type is resolved.</param>
+    private sealed class ControllerBaseType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the controller base type whose redirect helpers are guarded.</summary>
+        private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
+
+        /// <summary>Serializes the first lookup across concurrent node callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved type, or null when the controller surface is absent.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Distinguishes an absent type from a lookup that has not run.</summary>
+        private bool _resolved;
+
+        /// <summary>Returns the cached controller type without locking after the first lookup.</summary>
+        /// <returns>The controller type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Publishes the metadata result, including absence, exactly once per compilation.</summary>
+        /// <returns>The controller type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
     }
 }

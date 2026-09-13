@@ -115,9 +115,9 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             || search.IsStatic
             || search.ContainingType.SpecialType != SpecialType.System_String
             || !PreservesComparison(search)
+            || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken)
             || !spanSupport.IsAvailable()
-            || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken)
-            || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken))
+            || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken))
         {
             return;
         }
@@ -144,7 +144,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             && outer.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Expression is InvocationExpressionSyntax candidate
             && IsSearchName(access.Name.Identifier.ValueText)
-            && IsSubstringSliceShape(candidate))
+            && IsSubstringSliceShape(candidate)
+            && !ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
         {
             slice = candidate;
             searchName = access.Name.Identifier.ValueText;
@@ -237,14 +238,6 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
         // cancellable overload of it, so the token is honoured on the way in instead.
         cancellationToken.ThrowIfCancellationRequested();
 
-        // A call reached through a conditional access cannot be speculatively rebound: detaching the outer call
-        // to test the span rewrite orphans its member or element binding and Roslyn's binder then dereferences
-        // null. The rewrite stays unverified, so the search call keeps its start-index form.
-        if (ConditionalAccessSpeculation.ReachedThroughConditionalAccess(outer.Expression))
-        {
-            return false;
-        }
-
         var sliceName = ((MemberAccessExpressionSyntax)slice.Expression).Name;
         var rewritten = outer.ReplaceNode(sliceName, SyntaxFactory.IdentifierName(AsSpanMethodName));
         if (model.GetSpeculativeSymbolInfo(outer.SpanStart, rewritten, SpeculativeBindingOption.BindAsExpression).Symbol
@@ -269,14 +262,34 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the type providing span slices and searches.</summary>
         private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
 
+        /// <summary>Serializes the first metadata lookup across syntax callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The published availability result, including an unavailable API.</summary>
         private bool[]? _resolved;
 
         /// <summary>Gets whether the span API exists, resolving it on first demand.</summary>
         /// <returns>Whether the extensions type declares an AsSpan member.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsAvailable() => (_resolved ??=
-            [compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
-                && !extensions.GetMembers(AsSpanMethodName).IsEmpty])[0];
+        public bool IsAvailable() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Resolves and publishes API availability once for the compilation.</summary>
+        /// <returns>The cached availability result.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+                        && !extensions.GetMembers(AsSpanMethodName).IsEmpty];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

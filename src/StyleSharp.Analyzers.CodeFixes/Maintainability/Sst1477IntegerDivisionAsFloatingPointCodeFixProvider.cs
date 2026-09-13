@@ -57,11 +57,10 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        (diagnostic.Properties.TryGetValue(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, out var target)
-            && GetKeyword(target)is { } keyword)
-            && ((root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.DivideExpression } division)
-            && ((TryGetOuterCast(division, keyword)is not { } cast)
-            || (true)));
+        diagnostic.Properties.TryGetValue(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, out var target)
+            && GetKeyword(target) is not null
+            && root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+                is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.DivideExpression };
 
     /// <summary>Resolves the reported division and builds its floating-point form.</summary>
     /// <param name="root">The syntax root.</param>

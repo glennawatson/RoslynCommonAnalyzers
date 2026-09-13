@@ -39,11 +39,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
-        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (GetTitle(diagnostic.Id) is not { } title
-                || CreateReplacement(root, options, diagnostic, out _, out _) is null)
+            if (GetTitle(diagnostic.Id) is not { } title || !CanRewrite(root, diagnostic))
             {
                 continue;
             }
@@ -73,7 +71,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return;
         }
 
-        editor.RemoveNode(removeNode);
+        editor.RemoveNode(removeNode, GetRemovalOptions(diagnostic, removeNode));
     }
 
     /// <summary>Applies one language-style fix.</summary>
@@ -100,11 +98,155 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         var updated = tracked.ReplaceNode(trackedOld, replacement);
         if (removeNode is not null && updated.GetCurrentNode(removeNode) is { } trackedRemove)
         {
-            updated = updated.RemoveNode(trackedRemove, SyntaxRemoveOptions.KeepNoTrivia);
+            updated = updated.RemoveNode(trackedRemove, GetRemovalOptions(diagnostic, removeNode));
         }
 
         return updated is null ? document : document.WithSyntaxRoot(updated);
     }
+
+    /// <summary>Preserves initializer comments and line boundaries without leaving an empty statement line.</summary>
+    /// <param name="diagnostic">The applied diagnostic.</param>
+    /// <param name="node">The original statement being absorbed.</param>
+    /// <returns>The trivia to retain when removing the statement.</returns>
+    private static SyntaxRemoveOptions GetRemovalOptions(Diagnostic diagnostic, SyntaxNode node)
+    {
+        if (diagnostic.Id is not ("SST1193" or "SST1194"))
+        {
+            return SyntaxRemoveOptions.KeepNoTrivia;
+        }
+
+        if (HasNonWhitespaceTrivia(node.GetLeadingTrivia()) || HasNonWhitespaceTrivia(node.GetTrailingTrivia()))
+        {
+            return SyntaxRemoveOptions.KeepExteriorTrivia;
+        }
+
+        foreach (var trivia in node.GetFirstToken().GetPreviousToken().TrailingTrivia)
+        {
+            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return SyntaxRemoveOptions.KeepNoTrivia;
+            }
+        }
+
+        return SyntaxRemoveOptions.KeepEndOfLine;
+    }
+
+    /// <summary>Returns whether exterior trivia contains text that must survive statement removal.</summary>
+    /// <param name="triviaList">The exterior trivia.</param>
+    /// <returns>Whether any trivia is more than whitespace or a line break.</returns>
+    private static bool HasNonWhitespaceTrivia(in SyntaxTriviaList triviaList)
+    {
+        foreach (var trivia in triviaList)
+        {
+            if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia) && !trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks the original syntax without constructing a replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the fix can be applied.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
+        {
+            "SST1193" => CanMoveIntoInitializer(root, span, collection: false),
+            "SST1194" => CanMoveIntoInitializer(root, span, collection: true),
+            "SST1195" => CanRewriteNullConditional(root, span, propagation: false),
+            "SST1196" => CanRewriteNullConditional(root, span, propagation: true),
+            "SST1197" => CanRewriteConditionalReturn(root, span),
+            "SST1198" => FindAncestor<IfStatementSyntax>(root, span) is { Else.Statement: { } elseStatement } ifStatement
+                && TryGetEmbeddedAssignment(ifStatement.Statement, out _, out _)
+                && TryGetEmbeddedAssignment(elseStatement, out _, out _),
+            "SST1199" => root.FindNode(span) is MemberAccessExpressionSyntax
+            {
+                Expression: TypeOfExpressionSyntax,
+                Name.Identifier.ValueText: "Name",
+            },
+            _ => false,
+        };
+    }
+
+    /// <summary>Checks the following assignment or Add call and its directive boundary.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <param name="collection">Whether the initializer takes an Add argument.</param>
+    /// <returns>Whether the following statement can move into the initializer.</returns>
+    private static bool CanMoveIntoInitializer(SyntaxNode root, TextSpan span, bool collection)
+    {
+        if (!TryGetLocalObjectCreation(root, span, out _, out var local, out var block, out var variable, out _))
+        {
+            return false;
+        }
+
+        ExpressionStatementSyntax statement;
+        var matched = collection
+            ? TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out statement, out _)
+            : TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out statement, out _, out _);
+        return matched && !statement.ContainsDirectives && !DirectiveBoundaries.Separate(local, statement);
+    }
+
+    /// <summary>Checks a null conditional using the exact text of its original operands.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <param name="propagation">Whether the non-null branch must be a member access.</param>
+    /// <returns>Whether the conditional can become the requested expression.</returns>
+    private static bool CanRewriteNullConditional(SyntaxNode root, TextSpan span, bool propagation)
+    {
+        if (root.FindNode(span) is not ConditionalExpressionSyntax conditional
+            || !TryGetNullConditionalParts(conditional, out var operand, out var fallback, out var whenNotNull))
+        {
+            return false;
+        }
+
+        return propagation
+            ? fallback.IsKind(SyntaxKind.NullLiteralExpression)
+                && whenNotNull is MemberAccessExpressionSyntax memberAccess
+                && HaveSameText(memberAccess.Expression, operand)
+            : HaveSameText(operand, whenNotNull);
+    }
+
+    /// <summary>Compares source spelling, including internal trivia, without allocating strings.</summary>
+    /// <param name="left">The first expression in the original tree.</param>
+    /// <param name="right">The second expression in the original tree.</param>
+    /// <returns>Whether the expressions have identical text excluding outer trivia.</returns>
+    private static bool HaveSameText(ExpressionSyntax left, ExpressionSyntax right)
+    {
+        var leftSpan = left.Span;
+        var rightSpan = right.Span;
+        if (leftSpan.Length != rightSpan.Length)
+        {
+            return false;
+        }
+
+        var text = left.SyntaxTree.GetText();
+        for (var i = 0; i < leftSpan.Length; i++)
+        {
+            if (text[leftSpan.Start + i] != text[rightSpan.Start + i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks both returns before any conditional-expression layout is built.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic source span.</param>
+    /// <returns>Whether the returns can be collapsed without nesting conditionals or crossing directives.</returns>
+    private static bool CanRewriteConditionalReturn(SyntaxNode root, TextSpan span) =>
+        FindAncestor<IfStatementSyntax>(root, span) is { Parent: BlockSyntax block } ifStatement
+            && TryGetEmbeddedReturn(ifStatement.Statement, out var whenTrue)
+            && NextStatement(block, ifStatement) is ReturnStatementSyntax { Expression: { } whenFalse } followingReturn
+            && !WouldNestConditionalExpression(ifStatement.Condition, whenTrue, whenFalse)
+            && !DirectiveBoundaries.Separate(ifStatement, followingReturn);
 
     /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
@@ -175,7 +317,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     {
         removeNode = null;
         if (!TryGetLocalObjectCreation(root, span, out var objectCreation, out var local, out var block, out var variable, out oldNode)
-            || !TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out var assignmentStatement, out var memberAccess, out var value))
+            || !TryGetFollowingAssignment(block, local, variable.Identifier.ValueText, out var assignmentStatement, out var memberAccess, out var value)
+            || assignmentStatement.ContainsDirectives
+            || DirectiveBoundaries.Separate(local, assignmentStatement))
         {
             oldNode = null;
             return null;
@@ -184,16 +328,19 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = assignmentStatement;
         var initializer = SyntaxFactory.InitializerExpression(
             SyntaxKind.ObjectInitializerExpression,
+            SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
             SyntaxFactory.SingletonSeparatedList<ExpressionSyntax>(SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
                 memberAccess.Name.WithoutTrivia(),
-                value.WithoutTrivia())));
+                SyntaxFactory.Token(SyntaxKind.EqualsToken),
+                value.WithoutTrivia())),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBraceToken, objectCreation.GetTrailingTrivia()));
 
         return objectCreation.Update(
             objectCreation.NewKeyword,
             objectCreation.Type,
             objectCreation.ArgumentList,
-            initializer.WithTrailingTrivia(objectCreation.GetTrailingTrivia()));
+            initializer);
     }
 
     /// <summary>Creates a collection-initializer replacement.</summary>
@@ -206,7 +353,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     {
         removeNode = null;
         if (!TryGetLocalObjectCreation(root, span, out var objectCreation, out var local, out var block, out var variable, out oldNode)
-            || !TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out var addStatement, out var invocation))
+            || !TryGetFollowingAdd(block, local, variable.Identifier.ValueText, out var addStatement, out var invocation)
+            || addStatement.ContainsDirectives
+            || DirectiveBoundaries.Separate(local, addStatement))
         {
             oldNode = null;
             return null;
@@ -215,13 +364,15 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = addStatement;
         var initializer = SyntaxFactory.InitializerExpression(
             SyntaxKind.CollectionInitializerExpression,
-            SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()));
+            SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
+            SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBraceToken, objectCreation.GetTrailingTrivia()));
 
         return objectCreation.Update(
             objectCreation.NewKeyword,
             objectCreation.Type,
             objectCreation.ArgumentList,
-            initializer.WithTrailingTrivia(objectCreation.GetTrailingTrivia()));
+            initializer);
     }
 
     /// <summary>Creates a null-coalescing replacement.</summary>

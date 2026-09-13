@@ -23,8 +23,43 @@ public sealed class Sst2271VarStyleCodeFixProvider : CodeFixProvider, IBatchFixa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the variable type style", nameof(Sst2271VarStyleCodeFixProvider), TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        SemanticModel? model = null;
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not TypeSyntax typeSyntax)
+            {
+                continue;
+            }
+
+            TypeSyntax? explicitType = null;
+            if (typeSyntax.IsVar)
+            {
+                model ??= await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+                if (model is null || TryGetExplicitType(model, typeSyntax) is not { } candidate)
+                {
+                    continue;
+                }
+
+                explicitType = candidate;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Normalize the variable type style",
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(
+                        root.ReplaceNode(typeSyntax, Rewrite(typeSyntax, explicitType)))),
+                    equivalenceKey: nameof(Sst2271VarStyleCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -43,22 +78,43 @@ public sealed class Sst2271VarStyleCodeFixProvider : CodeFixProvider, IBatchFixa
             return null;
         }
 
-        if (!typeSyntax.IsVar)
+        TypeSyntax? explicitType = null;
+        if (typeSyntax.IsVar)
         {
-            return new NodeReplacement(
-                typeSyntax,
-                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(typeSyntax.GetLeadingTrivia(), "var", typeSyntax.GetTrailingTrivia())));
+            explicitType = TryGetExplicitType(model, typeSyntax);
+            if (explicitType is null)
+            {
+                return null;
+            }
         }
 
+        return new NodeReplacement(typeSyntax, Rewrite(typeSyntax, explicitType));
+    }
+
+    /// <summary>Validates the exact emitted type name, retaining its parse for application.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="typeSyntax">The original inferred type node.</param>
+    /// <returns>The bound explicit type syntax, or null when it cannot be named safely.</returns>
+    private static TypeSyntax? TryGetExplicitType(SemanticModel model, TypeSyntax typeSyntax)
+    {
         if (Sst2271VarStyleAnalyzer.ResolveVariableType(model, typeSyntax) is not { } resolvedType
             || !Sst2254ExplicitObjectCreationTypeAnalyzer.IsExpressibleTypeName(resolvedType))
         {
             return null;
         }
 
-        var typeName = resolvedType.ToMinimalDisplayString(model, typeSyntax.SpanStart);
-        return !Sst2271VarStyleAnalyzer.TypeNameBindsTo(model, typeSyntax.SpanStart, typeName, resolvedType)
-            ? null
-            : new NodeReplacement(typeSyntax, SyntaxFactory.ParseTypeName(typeName).WithTriviaFrom(typeSyntax));
+        var position = typeSyntax.SpanStart;
+        var candidate = SyntaxFactory.ParseTypeName(resolvedType.ToMinimalDisplayString(model, position));
+        var bound = model.GetSpeculativeTypeInfo(position, candidate, SpeculativeBindingOption.BindAsTypeOrNamespace).Type;
+        return bound is not null && SymbolEqualityComparer.Default.Equals(bound, resolvedType) ? candidate : null;
     }
+
+    /// <summary>Builds the requested spelling with the original type's outer trivia.</summary>
+    /// <param name="typeSyntax">The type being replaced.</param>
+    /// <param name="explicitType">The validated explicit type, or null to use var.</param>
+    /// <returns>The replacement type.</returns>
+    private static TypeSyntax Rewrite(TypeSyntax typeSyntax, TypeSyntax? explicitType) =>
+        explicitType is not null
+            ? explicitType.WithTriviaFrom(typeSyntax)
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(typeSyntax.GetLeadingTrivia(), "var", typeSyntax.GetTrailingTrivia()));
 }

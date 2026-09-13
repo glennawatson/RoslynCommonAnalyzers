@@ -33,7 +33,8 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             context,
             "Convert to an early-exit guard clause",
             nameof(Sst2273PreferGuardClauseCodeFixProvider),
-            (ReplaceNodeCodeFix.SemanticRewriter)TryRewrite);
+            static (root, _, diagnostic) => CanRewrite(root, diagnostic),
+            TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -75,7 +76,7 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
             .RemoveAt(index)
             .Insert(index, guard)
             .InsertRange(index + 1, work);
-        var newBlock = block.WithStatements(statements).WithAdditionalAnnotations(Formatter.Annotation);
+        var newBlock = block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken).WithAdditionalAnnotations(Formatter.Annotation);
         return new NodeReplacement(block, newBlock);
     }
 
@@ -260,4 +261,13 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExpressionSyntax Unwrap(ExpressionSyntax expression) =>
         ExpressionSimplificationAnalyzer.Unwrap(expression);
+
+    /// <summary>Checks the trailing guard and directive boundary before constructing its negation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the wrapped work can be lifted into the enclosing block.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is { } ifStatement
+            && Sst2273PreferGuardClauseAnalyzer.TryGetGuard(ifStatement, out _)
+            && !DirectiveBoundaries.Cross(ifStatement, ifStatement.Statement.FullSpan);
 }

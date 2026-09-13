@@ -28,8 +28,14 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            var replacement = CreateReplacement(root, diagnostic, out var oldNode, out _);
-            if (oldNode is null || replacement is null)
+            var oldNode = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
+            var canRewrite = diagnostic.Id switch
+            {
+                "SST1116" => oldNode is QualifiedNameSyntax or AliasQualifiedNameSyntax,
+                "SST1117" => oldNode is MemberAccessExpressionSyntax or IdentifierNameSyntax,
+                _ => false,
+            };
+            if (!canRewrite)
             {
                 continue;
             }

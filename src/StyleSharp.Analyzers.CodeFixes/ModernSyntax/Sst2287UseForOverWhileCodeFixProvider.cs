@@ -42,11 +42,10 @@ public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var rewritten = root.ReplaceNode(loop.Parent!, Rewrite(loop, parts));
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Convert to a for loop",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(rewritten)),
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(loop.Parent!, Rewrite(loop, parts)))),
                     nameof(Sst2287UseForOverWhileCodeFixProvider)),
                 diagnostic);
         }

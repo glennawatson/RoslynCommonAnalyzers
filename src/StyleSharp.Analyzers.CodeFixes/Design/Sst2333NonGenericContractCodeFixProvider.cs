@@ -34,7 +34,7 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (Resolve(root, diagnostic) is not var (declaration, updated))
+            if (Resolve(root, diagnostic) is not var (declaration, contract, argument))
             {
                 continue;
             }
@@ -42,8 +42,10 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Add the non-generic member",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, updated))),
-                    equivalenceKey: nameof(Sst2333NonGenericContractCodeFixProvider) + diagnostic.Properties[Sst2333NonGenericContractAnalyzer.ContractKey]),
+                    _ => Task.FromResult(AddContract(declaration, contract, argument) is { } updated
+                        ? context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, updated))
+                        : context.Document),
+                    equivalenceKey: nameof(Sst2333NonGenericContractCodeFixProvider) + contract),
                 diagnostic);
         }
     }
@@ -51,7 +53,8 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (Resolve(editor.OriginalRoot, diagnostic) is not var (declaration, updated))
+        if (Resolve(editor.OriginalRoot, diagnostic) is not var (declaration, contract, argument)
+            || AddContract(declaration, contract, argument) is not { } updated)
         {
             return;
         }
@@ -59,27 +62,22 @@ public sealed class Sst2333NonGenericContractCodeFixProvider : CodeFixProvider, 
         editor.ReplaceNode(declaration, updated);
     }
 
-    /// <summary>Resolves the diagnostic to the type declaration and its rewrite carrying the non-generic member.</summary>
+    /// <summary>Resolves a supported contract without constructing its members.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
-    /// <returns>The declaration and its rewrite, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static (TypeDeclarationSyntax Declaration, TypeDeclarationSyntax Updated)? Resolve(SyntaxNode root, Diagnostic diagnostic)
-    {
-        // The members are appended after the last one and before the closing brace, which is where the
-        // directive closing a region over the tail sits — so they would land inside it.
-        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } declaration
-            || DirectiveBoundaries.SeparateMembers(declaration)
-            || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.ContractKey, out var contract)
-            || contract is null
-            || !diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, out var argument)
-            || argument is null)
-        {
-            return null;
-        }
-
-        var updated = AddContract(declaration, contract, argument);
-        return updated is null ? null : (declaration, updated);
-    }
+    /// <returns>The declaration and contract data, or null when the shape no longer matches.</returns>
+    private static (TypeDeclarationSyntax Declaration, string Contract, string Argument)? Resolve(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeDeclarationSyntax>() is { } declaration
+            && !DirectiveBoundaries.SeparateMembers(declaration)
+            && diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.ContractKey, out var contract)
+            && contract is Sst2333NonGenericContractAnalyzer.ComparableContract
+                or Sst2333NonGenericContractAnalyzer.ComparerContract
+                or Sst2333NonGenericContractAnalyzer.EqualityComparerContract
+                or Sst2333NonGenericContractAnalyzer.EquatableContract
+            && diagnostic.Properties.TryGetValue(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, out var argument)
+            && argument is not null
+            ? (declaration, contract, argument)
+            : null;
 
     /// <summary>Adds the non-generic base type (when any) and member(s) for one contract.</summary>
     /// <param name="declaration">The type declaration.</param>

@@ -31,8 +31,37 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a ReadOnlySpan<byte> property", nameof(Psh1013Utf8SpanPropertyCodeFixProvider), TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<FieldDeclarationSyntax>() is not { } field
+                || !Psh1013Utf8SpanPropertyAnalyzer.HasCandidateShape(field)
+                || Psh1013Utf8SpanPropertyAnalyzer.TryGetUtf8Source(field.Declaration.Variables[0].Initializer!.Value) is null)
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Use a ReadOnlySpan<byte> property",
+                    async cancellationToken =>
+                    {
+                        var model = await context.Document.GetSemanticModelAsync(cancellationToken).ConfigureAwait(false);
+                        return model is not null && TryRewrite(root, model, diagnostic) is { } edit
+                            ? context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
+                            : context.Document;
+                    },
+                    equivalenceKey: nameof(Psh1013Utf8SpanPropertyCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

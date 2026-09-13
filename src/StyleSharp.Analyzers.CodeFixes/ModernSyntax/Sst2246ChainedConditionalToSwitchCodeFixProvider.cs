@@ -24,7 +24,12 @@ public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixPr
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the conditional chain as a switch expression", nameof(Sst2246ChainedConditionalToSwitchCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Rewrite the conditional chain as a switch expression",
+            nameof(Sst2246ChainedConditionalToSwitchCodeFixProvider),
+            static (root, _, diagnostic) => CanRewrite(root, diagnostic),
+            TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -54,4 +59,12 @@ public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixPr
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
         return new NodeReplacement(conditional, replacement);
     }
+
+    /// <summary>Checks the reported chain's shape; the analyzer already proved the switch keeps its type.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported conditional still heads a same-subject chain.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan) is ConditionalExpressionSyntax conditional
+            && Sst2246ChainedConditionalToSwitchAnalyzer.IsChainHead(conditional);
 }

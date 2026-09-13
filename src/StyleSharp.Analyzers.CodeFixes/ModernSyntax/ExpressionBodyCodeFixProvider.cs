@@ -44,10 +44,9 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
             return;
         }
 
-        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (TryRewrite(root, options, diagnostic) is not { } edit)
+            if (!CanRewrite(root, diagnostic))
             {
                 continue;
             }
@@ -55,7 +54,15 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use an expression body",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))),
+                    cancellationToken =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        var options = context.Document.Project.AnalyzerOptions.AnalyzerConfigOptionsProvider.GetOptions(root.SyntaxTree);
+                        var edit = TryRewrite(root, options, diagnostic);
+                        return Task.FromResult(edit is { } replacement
+                            ? context.Document.WithSyntaxRoot(root.ReplaceNode(replacement.Original, replacement.Replacement))
+                            : context.Document);
+                    },
                     equivalenceKey: diagnostic.Id),
                 diagnostic);
         }
@@ -72,6 +79,23 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
 
         editor.ReplaceNode(edit.Original, edit.Replacement);
     }
+
+    /// <summary>Checks the original body without constructing or laying out an expression body.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the member has a supported single-expression body.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent switch
+        {
+            MethodDeclarationSyntax method => ExpressionBodyAnalyzer.TryGetMethodExpression(method, out _),
+            ConstructorDeclarationSyntax constructor => ExpressionBodyAnalyzer.TryGetConstructorExpression(constructor, out _),
+            OperatorDeclarationSyntax declared => ExpressionBodyAnalyzer.TryGetOperatorExpression(declared, out _),
+            ConversionOperatorDeclarationSyntax conversion => ExpressionBodyAnalyzer.TryGetConversionOperatorExpression(conversion, out _),
+            PropertyDeclarationSyntax property => ExpressionBodyAnalyzer.TryGetPropertyExpression(property, out _),
+            IndexerDeclarationSyntax indexer => ExpressionBodyAnalyzer.TryGetIndexerExpression(indexer, out _),
+            LocalFunctionStatementSyntax localFunction => ExpressionBodyAnalyzer.TryGetLocalFunctionExpression(localFunction, out _),
+            _ => false,
+        };
 
     /// <summary>Resolves the reported member and rewrites its block body as an expression body.</summary>
     /// <param name="root">The syntax root.</param>

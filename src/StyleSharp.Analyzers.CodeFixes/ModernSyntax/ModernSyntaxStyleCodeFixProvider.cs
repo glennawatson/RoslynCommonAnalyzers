@@ -43,7 +43,7 @@ public sealed class ModernSyntaxStyleCodeFixProvider : CodeFixProvider, IBatchFi
                 _ => null
             };
 
-            if (title is null || CreateReplacement(root, diagnostic, out _) is null)
+            if (title is null || !CanRewrite(root, diagnostic))
             {
                 continue;
             }
@@ -81,6 +81,23 @@ public sealed class ModernSyntaxStyleCodeFixProvider : CodeFixProvider, IBatchFi
             ? document
             : document.WithSyntaxRoot(root.ReplaceNode(oldNode, replacement));
     }
+
+    /// <summary>Checks the original shape without constructing the replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to fix.</param>
+    /// <returns>Whether the replacement can be built.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) => diagnostic.Id switch
+    {
+        "SST2202" => FindAncestor<ObjectCreationExpressionSyntax>(root, diagnostic.Location.SourceSpan) is { ArgumentList: not null },
+        "SST2203" => FindAncestor<ArgumentSyntax>(root, diagnostic.Location.SourceSpan) is { Expression: BinaryExpressionSyntax binary }
+            && binary.IsKind(SyntaxKind.SubtractExpression),
+        "SST2204" => FindAncestor<InvocationExpressionSyntax>(root, diagnostic.Location.SourceSpan) is
+        {
+            Expression: MemberAccessExpressionSyntax,
+            ArgumentList.Arguments.Count: SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount,
+        },
+        _ => false,
+    };
 
     /// <summary>Creates the syntax replacement for the supplied diagnostic.</summary>
     /// <param name="root">The syntax root.</param>

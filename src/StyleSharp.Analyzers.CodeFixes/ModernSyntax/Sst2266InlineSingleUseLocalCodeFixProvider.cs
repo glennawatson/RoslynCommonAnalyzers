@@ -52,7 +52,7 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             return;
         }
 
-        editor.ReplaceNode(edit.Reference, edit.Inlined);
+        editor.ReplaceNode(edit.Reference, Inline(edit.Initializer, edit.Reference).WithTriviaFrom(edit.Reference));
         editor.RemoveNode(edit.Declaration, SyntaxRemoveOptions.KeepNoTrivia);
     }
 
@@ -64,12 +64,12 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
     private static async Task<Document> ApplyAsync(Document document, InlineEdit edit, CancellationToken cancellationToken)
     {
         var editor = await DocumentEditor.CreateAsync(document, cancellationToken).ConfigureAwait(false);
-        editor.ReplaceNode(edit.Reference, edit.Inlined);
+        editor.ReplaceNode(edit.Reference, Inline(edit.Initializer, edit.Reference).WithTriviaFrom(edit.Reference));
         editor.RemoveNode(edit.Declaration, SyntaxRemoveOptions.KeepNoTrivia);
         return editor.GetChangedDocument();
     }
 
-    /// <summary>Resolves the reported declaration into the reference, its replacement, and the statement to drop.</summary>
+    /// <summary>Resolves the declaration, its single reference, and its original initializer without building syntax.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -84,7 +84,7 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             || Sst2266InlineSingleUseLocalAnalyzer.FindSingleReference(model, block, symbol) is not { } reference
             || CrossesADirective(local, reference)
             ? null
-            : new InlineEdit(local, reference, Inline(equalsValue.Value, reference).WithTriviaFrom(reference));
+            : new InlineEdit(local, reference, equalsValue.Value);
 
     /// <summary>Returns whether a directive stands between the declaration and the read it folds into.</summary>
     /// <param name="local">The declaration being removed.</param>
@@ -105,12 +105,12 @@ public sealed class Sst2266InlineSingleUseLocalCodeFixProvider : CodeFixProvider
             ? SyntaxFactory.ParenthesizedExpression(value.WithoutTrivia())
             : value.WithoutTrivia();
 
-    /// <summary>The declaration to remove, the reference to replace, and its inlined replacement.</summary>
+    /// <summary>The declaration to remove, its single reference, and the original initializer.</summary>
     /// <param name="Declaration">The single-use local declaration being removed.</param>
     /// <param name="Reference">The one read being replaced.</param>
-    /// <param name="Inlined">The initializer spliced into the read's place.</param>
+    /// <param name="Initializer">The value to inline when the fix is applied.</param>
     internal readonly record struct InlineEdit(
         LocalDeclarationStatementSyntax Declaration,
         IdentifierNameSyntax Reference,
-        ExpressionSyntax Inlined);
+        ExpressionSyntax Initializer);
 }

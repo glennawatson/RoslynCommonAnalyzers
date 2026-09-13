@@ -23,7 +23,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Narrow the member to its container's accessibility", nameof(Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Narrow the member to its container's accessibility", nameof(Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -129,5 +129,60 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider
 
         var narrowed = WithAccessibility(declaration, target!);
         return narrowed == declaration ? null : new NodeReplacement(declaration, narrowed);
+    }
+
+    /// <summary>Checks the access modifiers without constructing a narrowed declaration.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported member has access modifiers to replace.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (!diagnostic.Properties.TryGetValue(Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer.TargetAccessibilityKey, out var target)
+            || string.IsNullOrEmpty(target)
+            || root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is not MemberDeclarationSyntax declaration
+            || declaration.Modifiers.Count == 0)
+        {
+            return false;
+        }
+
+        var hasAccessModifier = false;
+        var hasOtherModifier = false;
+        foreach (var modifier in declaration.Modifiers)
+        {
+            if (IsAccessModifier(modifier))
+            {
+                hasAccessModifier = true;
+            }
+            else
+            {
+                hasOtherModifier = true;
+            }
+        }
+
+        return hasAccessModifier && (hasOtherModifier || HasAccessibilityKeyword(target!));
+    }
+
+    /// <summary>Checks whether the target contributes any access modifier tokens.</summary>
+    /// <param name="target">The target accessibility's keyword text.</param>
+    /// <returns>Whether at least one keyword is an access modifier.</returns>
+    private static bool HasAccessibilityKeyword(string target)
+    {
+        for (var start = 0; start < target.Length;)
+        {
+            var end = target.IndexOf(' ', start);
+            if (end < 0)
+            {
+                end = target.Length;
+            }
+
+            if (KeywordKind(target.AsSpan(start, end - start)) is not null)
+            {
+                return true;
+            }
+
+            start = end + 1;
+        }
+
+        return false;
     }
 }

@@ -11,8 +11,9 @@ namespace StyleSharp.Analyzers;
 /// The replacement is spelled the way the construction was: <c>new Guid()</c> becomes <c>Guid.Empty</c>,
 /// <c>new System.Guid()</c> becomes <c>System.Guid.Empty</c>. A target-typed <c>new()</c> has no spelling to
 /// borrow, so <c>Guid.Empty</c> is tried first and the fully qualified name is the fallback for a file with no
-/// <c>using System</c>. Each candidate is bound speculatively at the site it would occupy, and the fix is only
-/// offered once one of them resolves to <c>System.Guid.Empty</c>.
+/// <c>using System</c>. Registration checks that the globally qualified field is available; candidate
+/// spellings are bound when applying. If the global name is ambiguous or unavailable, registration also
+/// checks the written spelling speculatively so an alias can still make the fix available.
 /// </remarks>
 [ExportCodeFixProvider(LanguageNames.CSharp, Name = nameof(Sst2012UseGuidEmptyCodeFixProvider))]
 [Shared]
@@ -45,7 +46,9 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!TryBuildReplacement(root, model, diagnostic, out var creation, out var replacement))
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not BaseObjectCreationExpressionSyntax creation
+                || (!CanUseQualifiedEmpty(model, creation.SpanStart)
+                    && !TryBuildReplacement(root, model, diagnostic, out _, out _)))
             {
                 continue;
             }
@@ -53,7 +56,9 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use 'Guid.Empty'",
-                    _ => Task.FromResult(Apply(context.Document, root, creation!, replacement!)),
+                    _ => Task.FromResult(TryBuildReplacement(root, model, diagnostic, out var original, out var replacement)
+                        ? Apply(context.Document, root, original!, replacement!)
+                        : context.Document),
                     equivalenceKey: nameof(Sst2012UseGuidEmptyCodeFixProvider)),
                 diagnostic);
         }
@@ -122,6 +127,20 @@ public sealed class Sst2012UseGuidEmptyCodeFixProvider : CodeFixProvider, IBatch
         replacement = qualified.WithTriviaFrom(creation);
         return true;
     }
+
+    /// <summary>Checks the global field directly so ordinary registration needs no candidate syntax.</summary>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="position">The position where the field would be used.</param>
+    /// <returns>Whether the fully qualified fallback is unambiguous and accessible.</returns>
+    /// <remarks>Unusual namespace or reference conflicts fall back to speculative binding of the written name.</remarks>
+    private static bool CanUseQualifiedEmpty(SemanticModel model, int position) =>
+        model.Compilation.GetTypeByMetadataName(Sst2012UseGuidEmptyAnalyzer.GuidMetadataName) is { } guid
+            && model.LookupNamespacesAndTypes(position, model.Compilation.GlobalNamespace, nameof(System)) is [INamespaceSymbol system]
+            && model.LookupNamespacesAndTypes(position, system, GuidTypeName) is [INamedTypeSymbol globalGuid]
+            && SymbolEqualityComparer.Default.Equals(globalGuid, guid)
+            && guid.GetMembers(EmptyFieldName) is [IFieldSymbol { IsStatic: true } field]
+            && model.IsAccessible(position, guid)
+            && model.IsAccessible(position, field);
 
     /// <summary>Gets the type name the construction was written with, or the bare name for a target-typed one.</summary>
     /// <param name="creation">The reported construction.</param>

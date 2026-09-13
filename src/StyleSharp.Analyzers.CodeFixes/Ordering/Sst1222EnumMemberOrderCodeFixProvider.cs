@@ -47,11 +47,10 @@ public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            var sorted = Sort(declaration, values);
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Sort the enum members by value",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, sorted))),
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(declaration, Sort(declaration, values)))),
                     nameof(Sst1222EnumMemberOrderCodeFixProvider)),
                 diagnostic);
         }

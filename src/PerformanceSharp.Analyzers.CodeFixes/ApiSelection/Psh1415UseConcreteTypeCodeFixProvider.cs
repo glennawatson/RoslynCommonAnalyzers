@@ -26,8 +26,32 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Declare the concrete type", nameof(Psh1415UseConcreteTypeCodeFixProvider), TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null || model is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not TypeSyntax declaredType
+                || !TryGetReplacement(model, declaredType, out var candidate))
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Declare the concrete type",
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(
+                        root.ReplaceNode(declaredType, PrepareReplacement(declaredType, candidate!)))),
+                    equivalenceKey: nameof(Psh1415UseConcreteTypeCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,7 +66,7 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SyntaxNode root, SemanticModel model, TypeSyntax declaredType) =>
         TryGetReplacement(model, declaredType, out var replacement)
-            ? document.WithSyntaxRoot(root.ReplaceNode(declaredType, replacement!))
+            ? document.WithSyntaxRoot(root.ReplaceNode(declaredType, PrepareReplacement(declaredType, replacement!)))
             : document;
 
     /// <summary>Resolves the reported declaration and builds its concrete type syntax.</summary>
@@ -53,7 +77,7 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan) is TypeSyntax declaredType
             && TryGetReplacement(model, declaredType, out var replacement)
-            ? new NodeReplacement(declaredType, replacement!)
+            ? new NodeReplacement(declaredType, PrepareReplacement(declaredType, replacement!))
             : null;
 
     /// <summary>Builds the concrete type syntax for a reported declaration, and proves it binds.</summary>
@@ -78,9 +102,7 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
             return false;
         }
 
-        replacement = candidate
-            .WithTriviaFrom(declaredType)
-            .WithAdditionalAnnotations(Formatter.Annotation, Simplifier.Annotation);
+        replacement = candidate;
         return true;
     }
 
@@ -93,4 +115,14 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
     private static bool BindsToConcreteType(SemanticModel model, int position, TypeSyntax candidate, INamedTypeSymbol concrete) =>
         model.GetSpeculativeTypeInfo(position, candidate, SpeculativeBindingOption.BindAsTypeOrNamespace).Type is { } bound
             && SymbolEqualityComparer.Default.Equals(bound, concrete);
+
+    /// <summary>Adds output trivia and annotations only when applying the validated type.</summary>
+    /// <param name="declaredType">The original declaration's type.</param>
+    /// <param name="candidate">The concrete type name that passed speculative binding.</param>
+    /// <returns>The replacement type ready to insert.</returns>
+    private static TypeSyntax PrepareReplacement(TypeSyntax declaredType, TypeSyntax candidate)
+    {
+        var replacement = candidate.WithTriviaFrom(declaredType);
+        return replacement.WithAdditionalAnnotations(Formatter.Annotation, Simplifier.Annotation);
+    }
 }

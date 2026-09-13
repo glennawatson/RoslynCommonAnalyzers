@@ -26,6 +26,9 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     /// <summary>Cached visitor that searches for an identifier token named <c>item</c>.</summary>
     private static readonly DescendantTraversalHelper.DescendantTokenVisitor<ItemTokenSearch> ItemTokenVisitor = VisitItemToken;
 
+    /// <summary>Cached visitor that finds whether exactly one enumerator access occurs.</summary>
+    private static readonly DescendantTraversalHelper.DescendantVisitor<IdentifierNameSyntax, CurrentAccessSearch> CurrentAccessSearchVisitor = FindCurrentAccess;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(MaintainabilityRules.UseForeachOverManualEnumerator.Id);
 
@@ -46,7 +49,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
             if (!TryFindLoop(root, diagnostic, out var whileStatement, out var declaration)
                 || whileStatement is null
                 || declaration is null
-                || !TryCreateForeach(declaration, whileStatement, out _))
+                || !CanCreateForeach(declaration, whileStatement))
             {
                 continue;
             }
@@ -66,7 +69,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         if (!TryFindLoop(editor.OriginalRoot, diagnostic, out var whileStatement, out var declaration)
             || whileStatement is null
             || declaration is null
-            || !TryCreateForeach(declaration, whileStatement, out _))
+            || !CanCreateForeach(declaration, whileStatement))
         {
             return;
         }
@@ -177,24 +180,14 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         out ForEachStatementSyntax? replacement)
     {
         replacement = null;
-        if (whileStatement.Statement is not BlockSyntax block
-            || block.Statements.Count == 0
-            || block.Statements[0] is not LocalDeclarationStatementSyntax first
-            || !first.UsingKeyword.IsKind(SyntaxKind.None)
-            || first.Modifiers.Count != 0
-            || first.Declaration.Variables.Count != 1)
+        if (GetIterationVariable(whileStatement, accesses.Count == 1 ? accesses[0] : null) is not { } first)
         {
             return false;
         }
 
-        var variable = first.Declaration.Variables[0];
-        if (accesses.Count != 1 || variable.Initializer is not { } initializer || initializer.Value != accesses[0])
-        {
-            return false;
-        }
-
-        var body = block.WithStatements(block.Statements.RemoveAt(0));
-        replacement = CreateForeach(first.Declaration.Type, variable.Identifier, source, body, declaration);
+        var block = (BlockSyntax)whileStatement.Statement;
+        var body = block.Update(block.AttributeLists, block.OpenBraceToken, block.Statements.RemoveAt(0), block.CloseBraceToken);
+        replacement = CreateForeach(first.Declaration.Type, first.Declaration.Variables[0].Identifier, source, body, declaration);
         return true;
     }
 
@@ -336,6 +329,64 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         return false;
     }
 
+    /// <summary>Checks the iteration-variable choices without building a foreach or collecting accesses.</summary>
+    /// <param name="declaration">The enumerator declaration.</param>
+    /// <param name="whileStatement">The manual loop.</param>
+    /// <returns>Whether either iteration-variable choice is safe.</returns>
+    private static bool CanCreateForeach(LocalDeclarationStatementSyntax declaration, WhileStatementSyntax whileStatement)
+    {
+        if (!Sst1467UseForeachOverManualEnumeratorAnalyzer.TryGetEnumeratorName(whileStatement, out var name)
+            || !Sst1467UseForeachOverManualEnumeratorAnalyzer.HasForeachCompatibleBody(whileStatement, name)
+            || GetSourceExpression(declaration) is null)
+        {
+            return false;
+        }
+
+        var state = new CurrentAccessSearch(name, Access: null, Count: 0);
+        _ = DescendantTraversalHelper.VisitDescendants(whileStatement.Statement, ref state, CurrentAccessSearchVisitor);
+        return GetIterationVariable(whileStatement, state.Count == 1 ? state.Access : null) is not null
+            || (!ContainsItemIdentifier(declaration) && !ContainsItemIdentifier(whileStatement));
+    }
+
+    /// <summary>Finds the body's reusable declaration when its initializer is the only enumerator access.</summary>
+    /// <param name="whileStatement">The manual loop.</param>
+    /// <param name="access">The sole enumerator access, or null when there is not exactly one.</param>
+    /// <returns>The reusable declaration, or null when the fallback variable is required.</returns>
+    private static LocalDeclarationStatementSyntax? GetIterationVariable(WhileStatementSyntax whileStatement, MemberAccessExpressionSyntax? access)
+    {
+        if (access is null
+            || whileStatement.Statement is not BlockSyntax block
+            || block.Statements.Count == 0
+            || block.Statements[0] is not LocalDeclarationStatementSyntax first
+            || !first.UsingKeyword.IsKind(SyntaxKind.None)
+            || first.Modifiers.Count != 0
+            || first.Declaration.Variables.Count != 1)
+        {
+            return null;
+        }
+
+        return first.Declaration.Variables[0].Initializer is { } initializer && initializer.Value == access
+            ? first
+            : null;
+    }
+
+    /// <summary>Stops once a second access rules out reusing the body's declaration.</summary>
+    /// <param name="identifier">The visited identifier.</param>
+    /// <param name="state">The enumerator access search.</param>
+    /// <returns>Whether another access could affect the result.</returns>
+    private static bool FindCurrentAccess(IdentifierNameSyntax identifier, ref CurrentAccessSearch state)
+    {
+        if (!string.Equals(identifier.Identifier.ValueText, state.Name, StringComparison.Ordinal)
+            || identifier.Parent is not MemberAccessExpressionSyntax memberAccess
+            || memberAccess.Expression != identifier)
+        {
+            return true;
+        }
+
+        state = new(state.Name, memberAccess, state.Count + 1);
+        return state.Count < 2;
+    }
+
     /// <summary>Collects <c>Current</c> member accesses for one enumerator name.</summary>
     /// <param name="Name">The enumerator local's name.</param>
     /// <param name="Accesses">The collected member accesses.</param>
@@ -344,4 +395,10 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
     /// <summary>Tracks the search for an identifier token named <c>item</c>.</summary>
     /// <param name="Found">Whether the token was found.</param>
     private readonly record struct ItemTokenSearch(bool Found);
+
+    /// <summary>Tracks up to two accesses without allocating a collection.</summary>
+    /// <param name="Name">The enumerator name.</param>
+    /// <param name="Access">The most recent access.</param>
+    /// <param name="Count">The number of accesses seen, capped at two.</param>
+    private readonly record struct CurrentAccessSearch(string Name, MemberAccessExpressionSyntax? Access, int Count);
 }

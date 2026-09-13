@@ -29,8 +29,34 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Await the async overload", nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider), TryRewrite);
+    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null || model is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (root.FindNode(diagnostic.Location.SourceSpan) is not InvocationExpressionSyntax invocation
+                || !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
+                || TryBuildSiblingCall(model, invocation) is not { } sibling)
+            {
+                continue;
+            }
+
+            // Overload selection still needs the speculative call; the await wrapper does not.
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    "Await the async overload",
+                    _ => Task.FromResult(context.Document.WithSyntaxRoot(
+                        root.ReplaceNode(invocation, AwaitExpressionRewrite.WrapInAwait(sibling, invocation)))),
+                    nameof(Psh1313CallAsyncInAsyncContextCodeFixProvider)),
+                diagnostic);
+        }
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

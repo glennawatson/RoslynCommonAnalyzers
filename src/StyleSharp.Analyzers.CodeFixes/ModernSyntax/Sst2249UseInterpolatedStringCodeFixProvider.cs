@@ -31,17 +31,18 @@ public sealed class Sst2249UseInterpolatedStringCodeFixProvider : CodeFixProvide
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!TryCreateReplacement(root, model, diagnostic, context.CancellationToken, out var original, out var replacement))
+            if (!CanRewrite(root, diagnostic))
             {
                 continue;
             }
 
-            var target = original;
-            var rewritten = replacement;
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Use an interpolated string",
-                    _ => Task.FromResult(context.Document.WithSyntaxRoot(root.ReplaceNode(target!, rewritten!))),
+                    cancellationToken => Task.FromResult(
+                        TryCreateReplacement(root, model, diagnostic, cancellationToken, out var original, out var replacement)
+                            ? context.Document.WithSyntaxRoot(root.ReplaceNode(original!, replacement!))
+                            : context.Document),
                     equivalenceKey: nameof(Sst2249UseInterpolatedStringCodeFixProvider)),
                 diagnostic);
         }
@@ -103,4 +104,17 @@ public sealed class Sst2249UseInterpolatedStringCodeFixProvider : CodeFixProvide
                 return false;
         }
     }
+
+    /// <summary>Checks the reported expression's shape; the analyzer already verified its interpolation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported expression still has a convertible shape.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) switch
+        {
+            InvocationExpressionSyntax invocation => InterpolatedStringConversion.IsFormatShape(invocation)
+                || InterpolatedStringConversion.IsConcatShape(invocation),
+            BinaryExpressionSyntax binary => InterpolatedStringConversion.IsConcatenationCandidate(binary),
+            _ => false,
+        };
 }

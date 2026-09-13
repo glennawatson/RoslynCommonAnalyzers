@@ -24,12 +24,31 @@ public sealed class Sst2238NestedPropertyPatternCodeFixProvider : CodeFixProvide
             context,
             "Flatten the property pattern",
             nameof(Sst2238NestedPropertyPatternCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks the property-only shape before deferring path parsing to the action.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether both property names are valid in a flattenable subpattern.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+            .FirstAncestorOrSelf<SubpatternSyntax>() is
+            {
+                NameColon.Name.Identifier: { IsMissing: false, ContainsDiagnostics: false },
+                Pattern: RecursivePatternSyntax
+                {
+                    Type: null,
+                    Designation: null,
+                    PositionalPatternClause: null,
+                    PropertyPatternClause.Subpatterns: [{ NameColon.Name.Identifier: { IsMissing: false, ContainsDiagnostics: false } }],
+                },
+            };
 
     /// <summary>Rewrites <c>{ A: { B: v } }</c> as <c>{ A.B: v }</c>.</summary>
     /// <param name="root">The syntax root.</param>

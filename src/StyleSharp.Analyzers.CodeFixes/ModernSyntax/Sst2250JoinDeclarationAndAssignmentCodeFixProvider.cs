@@ -54,7 +54,7 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
             return;
         }
 
-        editor.ReplaceNode(edit.Local, edit.Merged);
+        editor.ReplaceNode(edit.Local, BuildMerged(edit.Local, edit.Variable, edit.Assignment));
         editor.RemoveNode(edit.Assignment);
     }
 
@@ -66,9 +66,9 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
     internal static Document Apply(Document document, SyntaxNode root, JoinEdit edit)
     {
         var block = (BlockSyntax)edit.Local.Parent!;
-        var statements = block.Statements.Replace(edit.Local, edit.Merged);
+        var statements = block.Statements.Replace(edit.Local, BuildMerged(edit.Local, edit.Variable, edit.Assignment));
         statements = statements.RemoveAt(block.Statements.IndexOf(edit.Assignment));
-        return document.WithSyntaxRoot(root.ReplaceNode(block, block.WithStatements(statements)));
+        return document.WithSyntaxRoot(root.ReplaceNode(block, block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken)));
     }
 
     /// <summary>Resolves the reported declaration into the nodes the fix swaps.</summary>
@@ -83,7 +83,7 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
             || !Sst2250JoinDeclarationAndAssignmentAnalyzer.TryGetJoinCandidate(local, out var variable, out var assignment)
             || DirectiveBoundaries.Separate(local, assignment)
             ? null
-            : new JoinEdit(local, assignment, BuildMerged(local, variable, assignment));
+            : new JoinEdit(local, assignment, variable);
     }
 
     /// <summary>Builds the merged declaration carrying the assignment's value as its initializer.</summary>
@@ -98,16 +98,16 @@ public sealed class Sst2250JoinDeclarationAndAssignmentCodeFixProvider : CodeFix
     {
         var value = ((AssignmentExpressionSyntax)assignment.Expression).Right;
         var equalsToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        var initialized = variable.WithInitializer(SyntaxFactory.EqualsValueClause(equalsToken, value.WithoutTrivia()));
+        var initialized = variable.Update(variable.Identifier, variable.ArgumentList, SyntaxFactory.EqualsValueClause(equalsToken, value.WithoutTrivia()));
         return local.ReplaceNode(variable, initialized);
     }
 
-    /// <summary>The declaration, the assignment to drop, and the merged declaration replacing the former.</summary>
+    /// <summary>The original nodes needed to build a join only when the fix is applied.</summary>
     /// <param name="Local">The bare local declaration being replaced.</param>
     /// <param name="Assignment">The following assignment statement being removed.</param>
-    /// <param name="Merged">The declaration carrying the joined initializer.</param>
+    /// <param name="Variable">The declarator that receives the initializer.</param>
     internal readonly record struct JoinEdit(
         LocalDeclarationStatementSyntax Local,
         ExpressionStatementSyntax Assignment,
-        LocalDeclarationStatementSyntax Merged);
+        VariableDeclaratorSyntax Variable);
 }

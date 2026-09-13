@@ -29,7 +29,7 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
         for (var i = 0; i < context.Diagnostics.Length; i++)
         {
             var diagnostic = context.Diagnostics[i];
-            if (CreateReplacement(root, diagnostic, out _, out _) is null)
+            if (!CanRewrite(root, diagnostic))
             {
                 continue;
             }
@@ -76,6 +76,27 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
             ? "Remove lambda parameter types"
             : "Use expression-bodied accessor";
 
+    /// <summary>Checks the reported shape without constructing its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the lambda or accessor can be simplified.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (diagnostic.Id == ModernSyntaxRules.UseImplicitLambdaParameterTypes.Id)
+        {
+            return root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ParenthesizedLambdaExpressionSyntax>() is { } lambda
+                && ModernSyntaxPreferenceAnalyzer.CanUseImplicitParameterTypes(lambda);
+        }
+
+        if (diagnostic.Id == ModernSyntaxRules.SimplifyPropertyAccessor.Id)
+        {
+            return root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<AccessorDeclarationSyntax>() is { } accessor
+                && ModernSyntaxPreferenceAnalyzer.TryGetAccessorExpression(accessor, out _);
+        }
+
+        return false;
+    }
+
     /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic.</param>
@@ -121,11 +142,22 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
         for (var i = 0; i < parametersWithSeparators.Count; i++)
         {
             rewritten[i] = parametersWithSeparators[i].AsNode() is ParameterSyntax parameter
-                ? parameter.WithType(null)
+                ? parameter.Update(parameter.AttributeLists, parameter.Modifiers, type: null, parameter.Identifier, parameter.Default)
                 : parametersWithSeparators[i];
         }
 
-        return lambda.WithParameterList(lambda.ParameterList.WithParameters(SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten)));
+        var parameterList = lambda.ParameterList.Update(
+            lambda.ParameterList.OpenParenToken,
+            SyntaxFactory.SeparatedList<ParameterSyntax>(rewritten),
+            lambda.ParameterList.CloseParenToken);
+        return lambda.Update(
+            lambda.AttributeLists,
+            lambda.Modifiers,
+            lambda.ReturnType,
+            parameterList,
+            lambda.ArrowToken,
+            lambda.Block,
+            lambda.ExpressionBody);
     }
 
     /// <summary>Rewrites an accessor body as an expression body.</summary>

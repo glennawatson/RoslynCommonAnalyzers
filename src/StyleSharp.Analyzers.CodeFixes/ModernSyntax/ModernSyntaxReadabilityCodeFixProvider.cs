@@ -12,6 +12,12 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     /// <summary>The number of following statements rewritten by tuple deconstruction and swap fixes.</summary>
     private const int TwoFollowingStatements = 2;
 
+    /// <summary>A supported multiplier in generated hash-code expressions.</summary>
+    private const int HashMultiplier397 = 397;
+
+    /// <summary>A supported multiplier in generated hash-code expressions.</summary>
+    private const int HashMultiplier31 = 31;
+
     /// <inheritdoc/>
     public override ImmutableArray<string> FixableDiagnosticIds => ImmutableArrays.Of(
         ModernSyntaxRules.UseUtf8StringLiteral.Id,
@@ -77,7 +83,7 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     private static void RegisterCodeFix(CodeFixContext context, SyntaxNode root, Diagnostic diagnostic)
     {
         var title = GetTitle(diagnostic.Id);
-        if (title is null || CreateEdit(root, diagnostic, out _, out _, out _) is null)
+        if (title is null || !CanCreateEdit(root, diagnostic))
         {
             return;
         }
@@ -89,6 +95,104 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
                 equivalenceKey: diagnostic.Id),
             diagnostic);
     }
+
+    /// <summary>Checks the original syntax without constructing the edit offered by the action.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the edit's syntax preconditions still hold.</returns>
+    private static bool CanCreateEdit(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
+        {
+            "SST2212" => CanCreateUtf8Fix(root, diagnostic),
+            "SST2213" => FindAncestor<DeclarationPatternSyntax>(root, span)?.Parent is IsPatternExpressionSyntax,
+            "SST2214" => FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Parent: BlockSyntax block } local
+                && TryGetSingleInitializer(local, out _)
+                && TryGetFollowingElementLocals(block, local, out _, out _, out _, out _),
+            "SST2215" => FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Parent: BlockSyntax block } local
+                && TryGetSingleIdentifierInitializer(local, out _)
+                && TryGetFollowingSwap(block, local, out _, out _, out _),
+            "SST2216" => FindAncestor<ArgumentSyntax>(root, span) is { } argument
+                && ModernSyntaxReadabilityAnalysis.TryGetInferredTupleElementName(argument, out _),
+            "SST2217" => FindAncestor<ExpressionSyntax>(root, span) is { } expression
+                && CountHashInputs(expression) >= ModernSyntaxReadabilityAnalysis.HashCodeCombineMinInputs,
+            _ => false
+        };
+    }
+
+    /// <summary>Checks literal shape and target metadata without creating a UTF-8 token.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a string literal and non-null target metadata are present.</returns>
+    private static bool CanCreateUtf8Fix(SyntaxNode root, Diagnostic diagnostic) =>
+        FindAncestor<ExpressionSyntax>(root, diagnostic.Location.SourceSpan) is InvocationExpressionSyntax
+            { ArgumentList.Arguments: [{ Expression: LiteralExpressionSyntax literal }] }
+        && literal.IsKind(SyntaxKind.StringLiteralExpression)
+        && diagnostic.Properties.TryGetValue(ModernSyntaxReadabilityAnalysis.Utf8TargetKey, out var target)
+        && target is not null;
+
+    /// <summary>Counts supported hash inputs without allocating the list needed only by the rewrite.</summary>
+    /// <param name="expression">The original hash expression.</param>
+    /// <returns>The input count, or zero for an unsupported shape or too many inputs.</returns>
+    private static int CountHashInputs(ExpressionSyntax expression)
+    {
+        expression = ExpressionSimplificationAnalyzer.Unwrap(expression);
+        if (IsHashInput(expression))
+        {
+            return 1;
+        }
+
+        if (expression is not BinaryExpressionSyntax binary
+            || (!binary.IsKind(SyntaxKind.ExclusiveOrExpression) && !binary.IsKind(SyntaxKind.AddExpression))
+            || GetMultipliedHash(binary.Left) is not { } multiplied
+            || CountHashInputs(multiplied) is not (> 0 and var leftCount))
+        {
+            return 0;
+        }
+
+        var rightCount = CountHashInputs(binary.Right);
+        var count = leftCount + rightCount;
+        return rightCount > 0 && count <= ModernSyntaxReadabilityAnalysis.HashCodeCombineMaxInputs ? count : 0;
+    }
+
+    /// <summary>Recognizes a supported hash receiver without retaining it in a collection.</summary>
+    /// <param name="expression">The unwrapped expression.</param>
+    /// <returns>Whether the expression is a supported zero-argument hash call.</returns>
+    private static bool IsHashInput(ExpressionSyntax expression) =>
+        expression is InvocationExpressionSyntax
+        {
+            ArgumentList.Arguments.Count: 0,
+            Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: nameof(GetHashCode), Expression: { } receiver }
+        }
+        && ExpressionSimplificationAnalyzer.Unwrap(receiver) is IdentifierNameSyntax or MemberAccessExpressionSyntax;
+
+    /// <summary>Finds the hash operand paired with a supported multiplier.</summary>
+    /// <param name="expression">The original multiplication expression.</param>
+    /// <returns>The hash operand, or null for an unsupported multiplication.</returns>
+    private static ExpressionSyntax? GetMultipliedHash(ExpressionSyntax expression)
+    {
+        if (ExpressionSimplificationAnalyzer.Unwrap(expression) is not BinaryExpressionSyntax multiply
+            || !multiply.IsKind(SyntaxKind.MultiplyExpression))
+        {
+            return null;
+        }
+
+        if (IsHashMultiplier(multiply.Right))
+        {
+            return multiply.Left;
+        }
+
+        return IsHashMultiplier(multiply.Left) ? multiply.Right : null;
+    }
+
+    /// <summary>Recognizes the same multiplier literals accepted by hash input collection.</summary>
+    /// <param name="expression">The candidate multiplier.</param>
+    /// <returns>Whether the unwrapped expression is a supported integer multiplier.</returns>
+    private static bool IsHashMultiplier(ExpressionSyntax expression) =>
+        ExpressionSimplificationAnalyzer.Unwrap(expression) is LiteralExpressionSyntax literal
+        && literal.Token.Value is int value
+        && value is HashMultiplier397 or HashMultiplier31;
 
     /// <summary>Gets the user-facing title for one diagnostic id.</summary>
     /// <param name="diagnosticId">The diagnostic id.</param>

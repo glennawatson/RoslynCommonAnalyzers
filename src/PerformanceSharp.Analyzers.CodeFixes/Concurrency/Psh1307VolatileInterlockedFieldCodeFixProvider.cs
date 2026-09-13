@@ -49,16 +49,18 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (TryRewrite(root, model, diagnostic) is not { } rewrite)
+            if (TryGetUsage(root, diagnostic) is not { } usage)
             {
                 continue;
             }
 
+            var title = usage.Parent is AssignmentExpressionSyntax assignment && assignment.Left == usage
+                ? "Use Volatile.Write"
+                : "Use Volatile.Read";
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    rewrite.Title,
-                    cancellationToken => Task.FromResult(
-                        context.Document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))),
+                    title,
+                    _ => Task.FromResult(Apply(context.Document, root, model, diagnostic)),
                     equivalenceKey: nameof(Psh1307VolatileInterlockedFieldCodeFixProvider)),
                 diagnostic);
         }
@@ -160,4 +162,35 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
 
         return false;
     }
+
+    /// <summary>Finds an access that can be wrapped without changing a read-modify-write operation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The reported access.</param>
+    /// <returns>The fixable access, or null for compound writes and unsupported shapes.</returns>
+    private static ExpressionSyntax? TryGetUsage(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not ExpressionSyntax usage
+            || usage is not (IdentifierNameSyntax or MemberAccessExpressionSyntax))
+        {
+            return null;
+        }
+
+        if (usage.Parent is AssignmentExpressionSyntax assignment && assignment.Left == usage)
+        {
+            return assignment.IsKind(SyntaxKind.SimpleAssignmentExpression) ? usage : null;
+        }
+
+        return Psh1307VolatileInterlockedFieldAnalyzer.IsWriteAccess(usage) ? null : usage;
+    }
+
+    /// <summary>Resolves the Volatile spelling and builds the wrapper only when selected.</summary>
+    /// <param name="document">The document being fixed.</param>
+    /// <param name="root">The original syntax root.</param>
+    /// <param name="model">The semantic model for resolving the Volatile spelling.</param>
+    /// <param name="diagnostic">The access to rewrite.</param>
+    /// <returns>The document with the access wrapped.</returns>
+    private static Document Apply(Document document, SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryRewrite(root, model, diagnostic) is { } rewrite
+            ? document.WithSyntaxRoot(root.ReplaceNode(rewrite.Original, rewrite.Replacement))
+            : document;
 }

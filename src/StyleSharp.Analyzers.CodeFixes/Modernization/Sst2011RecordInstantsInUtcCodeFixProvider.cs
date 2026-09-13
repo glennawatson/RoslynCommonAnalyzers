@@ -50,7 +50,7 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!TryBuildReplacement(root, model, diagnostic, out var access, out var replacement))
+            if (!CanRewrite(root, model, diagnostic))
             {
                 continue;
             }
@@ -58,7 +58,9 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Read the UTC clock",
-                    _ => Task.FromResult(Apply(context.Document, root, access!, replacement!)),
+                    _ => Task.FromResult(TryBuildReplacement(root, model, diagnostic, out var access, out var replacement)
+                        ? Apply(context.Document, root, access!, replacement!)
+                        : context.Document),
                     equivalenceKey: nameof(Sst2011RecordInstantsInUtcCodeFixProvider)),
                 diagnostic);
         }
@@ -205,4 +207,60 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name) =>
         access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(access.Name.GetLeadingTrivia(), name, access.Name.GetTrailingTrivia())));
+
+    /// <summary>Checks framework clock properties by symbol, retaining binding for lookalike receivers.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The document's semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the UTC read preserves the original type.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan) is not MemberAccessExpressionSyntax access)
+        {
+            return false;
+        }
+
+        var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
+        if (shape == ClockPropertyAccess.LocalInstant.None)
+        {
+            return false;
+        }
+
+        var clock = shape == ClockPropertyAccess.LocalInstant.OffsetLocalDateTime
+            ? (MemberAccessExpressionSyntax)access.Expression
+            : access;
+        if (model.GetSymbolInfo(clock.Expression).Symbol is INamedTypeSymbol { DeclaringSyntaxReferences.Length: 0 } type
+            && (type.SpecialType == SpecialType.System_DateTime
+                || SymbolEqualityComparer.Default.Equals(type, model.Compilation.GetTypeByMetadataName(ClockPropertyAccess.DateTimeOffsetMetadataName)))
+            && GetClockPropertyType(type, ClockPropertyAccess.UtcNowName, isStatic: true) is { } utcType)
+        {
+            var rewrittenType = shape switch
+            {
+                ClockPropertyAccess.LocalInstant.Now => utcType,
+                ClockPropertyAccess.LocalInstant.Today => GetClockPropertyType(utcType, ClockPropertyAccess.DatePropertyName, isStatic: false),
+                ClockPropertyAccess.LocalInstant.OffsetLocalDateTime => GetClockPropertyType(utcType, ClockPropertyAccess.UtcDateTimePropertyName, isStatic: false),
+                _ => null
+            };
+            return rewrittenType is not null
+                && SymbolEqualityComparer.Default.Equals(model.GetTypeInfo(access).Type, rewrittenType);
+        }
+
+        // A lookalike may hide members or bind its receiver differently after the rename.
+        return TryBuildReplacement(root, model, diagnostic, out _, out _);
+    }
+
+    /// <summary>Gets the type of an unambiguous public property on a framework clock type.</summary>
+    /// <param name="type">The clock or projected value type.</param>
+    /// <param name="name">The property name.</param>
+    /// <param name="isStatic">The required receiver form.</param>
+    /// <returns>The property type, or null when the member does not match.</returns>
+    private static ITypeSymbol? GetClockPropertyType(ITypeSymbol type, string name, bool isStatic)
+    {
+        var members = type.GetMembers(name);
+        return members.Length == 1
+            && members[0] is IPropertySymbol { DeclaredAccessibility: Accessibility.Public, Parameters.Length: 0 } property
+            && property.IsStatic == isStatic
+            ? property.Type
+            : null;
+    }
 }

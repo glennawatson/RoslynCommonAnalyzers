@@ -38,7 +38,7 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
         foreach (var diagnostic in context.Diagnostics)
         {
             if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>() is not { } ifStatement
-                || BuildReplacementStatement(diagnostic.Id, ifStatement) is null)
+                || !CanReplaceStatement(diagnostic.Id, ifStatement))
             {
                 continue;
             }
@@ -146,4 +146,25 @@ public sealed class ArgumentGuardCodeFixProvider : CodeFixProvider, IBatchFixabl
                     SyntaxFactory.IdentifierName(typeName),
                     SyntaxFactory.IdentifierName(methodName)),
                 SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments))));
+
+    /// <summary>Checks the same guard patterns as the builder without constructing the helper call.</summary>
+    /// <param name="diagnosticId">The diagnostic selecting the helper.</param>
+    /// <param name="ifStatement">The guard statement.</param>
+    /// <returns>Whether the statement has a replacement.</returns>
+    private static bool CanReplaceStatement(string diagnosticId, IfStatementSyntax ifStatement)
+    {
+        if (diagnosticId == ModernizationRules.UseThrowIfNull.Id)
+        {
+            return ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _);
+        }
+
+        if (diagnosticId == ModernizationRules.UseObjectDisposedThrowIf.Id)
+        {
+            return ThrowGuardPatterns.TryMatchObjectDisposed(ifStatement, out _);
+        }
+
+        return diagnosticId == ModernizationRules.UseArgumentOutOfRangeThrowIf.Id
+            ? ThrowGuardPatterns.TryMatchRangeGuard(ifStatement, out _)
+            : ThrowGuardPatterns.TryMatchStringGuard(ifStatement, out _, out _);
+    }
 }

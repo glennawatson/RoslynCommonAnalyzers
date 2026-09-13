@@ -32,12 +32,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
     public override async Task RegisterCodeFixesAsync(CodeFixContext context)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
         if (root is null)
         {
             return;
         }
 
+        SemanticModel? model = null;
         foreach (var diagnostic in context.Diagnostics)
         {
             var title = GetTitle(diagnostic.Id);
@@ -46,16 +46,21 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 continue;
             }
 
-            _ = CreateEdit(root, model, diagnostic, out var editTarget, out _, context.CancellationToken);
-            if (editTarget is null)
+            if (diagnostic.Id == ModernSyntaxRules.MakeIgnoredExpressionValueExplicit.Id)
+            {
+                model ??= await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+            }
+
+            if (!CanCreateEdit(root, model, diagnostic, context.CancellationToken))
             {
                 continue;
             }
 
+            var editModel = model;
             context.RegisterCodeFix(
                 CodeAction.Create(
                     title,
-                    _ => Task.FromResult(Apply(context.Document, root, model, diagnostic)),
+                    _ => Task.FromResult(Apply(context.Document, root, editModel, diagnostic)),
                     equivalenceKey: diagnostic.Id),
                 diagnostic);
         }
@@ -150,6 +155,195 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         return updated is null ? document : document.WithSyntaxRoot(updated);
+    }
+
+    /// <summary>Checks the edit's source shape without building its replacement.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model, needed only for discard assignments.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="cancellationToken">A token that cancels semantic checks.</param>
+    /// <returns>Whether the edit has a target.</returns>
+    private static bool CanCreateEdit(SyntaxNode root, SemanticModel? model, Diagnostic diagnostic, CancellationToken cancellationToken)
+    {
+        var span = diagnostic.Location.SourceSpan;
+        return diagnostic.Id switch
+        {
+            "SST2220" => CanSimplifyInterpolation(FindAncestor<InterpolationSyntax>(root, span)),
+            "SST2221" => FindAncestor<ExpressionStatementSyntax>(root, span) is { } statement
+                && CanAssignIgnoredValueToDiscard(statement, model, cancellationToken),
+            "SST2222" => CanRemoveOverwrittenValue(root, span),
+            "SST2223" => CanUseCoalesceAssignment(root, span),
+            "SST2224" => CanCreateTuple(FindAncestor<AnonymousObjectCreationExpressionSyntax>(root, span)),
+            "SST2225" => FindAncestor<ForEachStatementSyntax>(root, span) is not null
+                && HasTypeProperty(diagnostic, ModernSyntaxValueAnalyzer.ElementTypeProperty),
+            "SST2226" => FindAncestor<CastExpressionSyntax>(root, span) is not null
+                && HasTypeProperty(diagnostic, ModernSyntaxValueAnalyzer.TypeProperty),
+            "SST2227" => CanFoldNullCheck(root, diagnostic),
+            "SST2228" => CanCreateLocalFunction(FindAncestor<LocalDeclarationStatementSyntax>(root, span)),
+            "SST2231" => CanUseNullPattern(root, span),
+            "SST2232" => CanOmitGenericArguments(FindAncestor<InvocationExpressionSyntax>(root, span)),
+            _ => false,
+        };
+    }
+
+    /// <summary>Matches the ToString shape and literal format accepted by the interpolation rewriter.</summary>
+    /// <param name="interpolation">The interpolation to inspect.</param>
+    /// <returns>Whether a replacement can be created.</returns>
+    private static bool CanSimplifyInterpolation(InterpolationSyntax? interpolation)
+    {
+        if (interpolation?.Expression is not InvocationExpressionSyntax
+            {
+                Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: "ToString" },
+                ArgumentList.Arguments: { Count: <= 1 } arguments
+            })
+        {
+            return false;
+        }
+
+        return arguments.Count == 0
+            || (arguments[0].Expression is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal
+                && !string.IsNullOrEmpty(literal.Token.ValueText));
+    }
+
+    /// <summary>Finds an overwritten value's edit target without rebuilding its declaration.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether the value can be removed.</returns>
+    private static bool CanRemoveOverwrittenValue(SyntaxNode root, TextSpan span) =>
+        root.FindNode(span) is PostfixUnaryExpressionSyntax postfix
+            ? IsReturnedExpression(postfix)
+            : (FindAncestor<LocalDeclarationStatementSyntax>(root, span) is { Declaration.Variables.Count: 1 } local
+                && local.Declaration.Variables[0].Initializer is not null)
+                || FindRemovableAssignmentStatement(root, span) is not null;
+
+    /// <summary>Matches either source form accepted by the coalescing-assignment rewriter.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether a source assignment was found.</returns>
+    private static bool CanUseCoalesceAssignment(SyntaxNode root, TextSpan span) =>
+        (FindAncestor<IfStatementSyntax>(root, span) is { } ifStatement
+            && TryGetEmbeddedAssignment(ifStatement.Statement, out _, out _))
+        || (FindAncestor<BinaryExpressionSyntax>(root, span) is { RawKind: (int)SyntaxKind.CoalesceExpression } coalesce
+            && ExpressionSimplificationAnalyzer.Unwrap(coalesce.Right) is AssignmentExpressionSyntax);
+
+    /// <summary>Checks that each anonymous-object member has a tuple element name.</summary>
+    /// <param name="anonymous">The anonymous object to inspect.</param>
+    /// <returns>Whether every initializer can become a tuple element.</returns>
+    private static bool CanCreateTuple(AnonymousObjectCreationExpressionSyntax? anonymous)
+    {
+        if (anonymous is null || anonymous.Initializers.Count == 0)
+        {
+            return false;
+        }
+
+        foreach (var initializer in anonymous.Initializers)
+        {
+            if (!ModernSyntaxValueAnalyzer.TryGetTupleElement(initializer, out _, out _))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Checks for the type text required by a cast fix.</summary>
+    /// <param name="diagnostic">The diagnostic carrying the type.</param>
+    /// <param name="key">The type property key.</param>
+    /// <returns>Whether nonblank type text is present.</returns>
+    private static bool HasTypeProperty(Diagnostic diagnostic, string key) =>
+        diagnostic.Properties.TryGetValue(key, out var type) && !string.IsNullOrWhiteSpace(type);
+
+    /// <summary>Checks both statements of a null-check fold without building a coalesce expression.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic carrying the fold kind.</param>
+    /// <returns>Whether the fold has an assignment or declaration target.</returns>
+    private static bool CanFoldNullCheck(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (FindAncestor<IfStatementSyntax>(root, diagnostic.Location.SourceSpan) is not { } ifStatement
+            || !diagnostic.Properties.TryGetValue(ModernSyntaxValueAnalyzer.FoldKindProperty, out var foldKind)
+            || !TryGetPreviousStatement(ifStatement, out var previous)
+            || !CanFoldBody(ifStatement.Statement, foldKind))
+        {
+            return false;
+        }
+
+        return (previous is LocalDeclarationStatementSyntax { Declaration.Variables.Count: 1 } local
+                && local.Declaration.Variables[0].Initializer?.Value is not null)
+            || TryGetEmbeddedAssignment(previous, out _, out _);
+    }
+
+    /// <summary>Checks the delegate name and lambda arity without allocating types or parameters.</summary>
+    /// <param name="local">The delegate local to inspect.</param>
+    /// <returns>Whether the local-function rewriter supports the declaration.</returns>
+    private static bool CanCreateLocalFunction(LocalDeclarationStatementSyntax? local)
+    {
+        if (local is not { Declaration.Variables.Count: 1 }
+            || local.Declaration.Variables[0].Initializer?.Value is not LambdaExpressionSyntax lambda
+            || GetGenericName(local.Declaration.Type) is not { } genericName)
+        {
+            return false;
+        }
+
+        var count = genericName.TypeArgumentList.Arguments.Count;
+        if (genericName.Identifier.ValueText == "Func" && count > 0)
+        {
+            count--;
+        }
+        else if (genericName.Identifier.ValueText != "Action")
+        {
+            return false;
+        }
+
+        return lambda is SimpleLambdaExpressionSyntax
+            ? count == 1
+            : lambda is ParenthesizedLambdaExpressionSyntax parenthesized && parenthesized.ParameterList.Parameters.Count == count;
+    }
+
+    /// <summary>Matches the broad object patterns accepted by the null-pattern rewriter.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="span">The diagnostic span.</param>
+    /// <returns>Whether a supported pattern or is expression was found.</returns>
+    private static bool CanUseNullPattern(SyntaxNode root, TextSpan span) =>
+        (FindAncestor<IsPatternExpressionSyntax>(root, span) is { } patternExpression
+            && ModernSyntaxValueAnalyzer.TryGetBroadObjectNullPattern(patternExpression.Pattern, out _, out _))
+        || FindAncestor<BinaryExpressionSyntax>(root, span)?.IsKind(SyntaxKind.IsExpression) == true;
+
+    /// <summary>Finds the first concrete generic argument without collecting or rewriting names.</summary>
+    /// <param name="invocation">The nameof invocation to inspect.</param>
+    /// <returns>Whether a generic argument can be omitted.</returns>
+    private static bool CanOmitGenericArguments(InvocationExpressionSyntax? invocation)
+    {
+        if (invocation is null || invocation.ArgumentList.Arguments.Count == 0)
+        {
+            return false;
+        }
+
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            invocation.ArgumentList.Arguments[0],
+            ref found,
+            static (GenericNameSyntax genericName, ref bool state) =>
+            {
+                state = HasConcreteTypeArgument(genericName);
+                return !state;
+            });
+        return found;
+    }
+
+    /// <summary>Checks the fold body without constructing a throw expression or stripping trivia.</summary>
+    /// <param name="statement">The if body.</param>
+    /// <param name="foldKind">The fold kind carried by the diagnostic.</param>
+    /// <returns>Whether the body supplies a coalesce operand.</returns>
+    private static bool CanFoldBody(StatementSyntax statement, string? foldKind)
+    {
+        var body = statement is BlockSyntax { Statements.Count: 1 } block ? block.Statements[0] : statement;
+        return foldKind switch
+        {
+            ModernSyntaxValueAnalyzer.ThrowFold => body is ThrowStatementSyntax { Expression: not null },
+            ModernSyntaxValueAnalyzer.AssignmentFold => TryGetEmbeddedAssignment(body, out _, out _),
+            _ => false,
+        };
     }
 
     /// <summary>Gets the edited statement span for an ignored-value diagnostic without requiring semantic proof.</summary>

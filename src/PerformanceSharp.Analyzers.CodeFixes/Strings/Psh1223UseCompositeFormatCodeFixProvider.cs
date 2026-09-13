@@ -73,6 +73,7 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
             context,
             "Hoist the format into a CompositeFormat field",
             nameof(Psh1223UseCompositeFormatCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <summary>Resolves the reported format call and builds the type carrying the hoisted field.</summary>
@@ -318,5 +319,48 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
         }
 
         return false;
+    }
+
+    /// <summary>Checks the hoist site without rebuilding the call already validated by the analyzer.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a field can be inserted and the chosen culture spelling preserves the binding.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)
+                ?.FirstAncestorOrSelf<InvocationExpressionSyntax>() is not { } invocation
+            || !Psh1223UseCompositeFormatAnalyzer.IsFormatShape(invocation)
+            || FindHoistTarget(invocation) is not { } owner
+            || DirectiveBoundaries.SeparateMembers(owner))
+        {
+            return false;
+        }
+
+        var formatIndex = Psh1223UseCompositeFormatAnalyzer.GetHoistableFormatIndex(model, invocation, CancellationToken.None);
+        if (formatIndex < 0)
+        {
+            return false;
+        }
+
+        // The diagnostic proves the call with its original provider or the fully qualified current culture.
+        // The fix prefers a simple spelling, which needs another bind only when a value or alias shadows it.
+        return formatIndex == 1
+            || !ResolvesCultureInfo(model, invocation.SpanStart)
+            || IsUnshadowedCultureInfo(model, invocation.SpanStart)
+            || Psh1223UseCompositeFormatAnalyzer.RewriteBindsToCompositeFormat(model, invocation, formatIndex, SimpleCurrentCulture);
+    }
+
+    /// <summary>Checks that expression lookup selects the framework culture type without an alias or value shadow.</summary>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="position">The call's binding position.</param>
+    /// <returns>Whether the simple and fully qualified culture spellings resolve identically.</returns>
+    private static bool IsUnshadowedCultureInfo(SemanticModel model, int position)
+    {
+        var symbols = model.LookupSymbols(position, name: CultureInfoTypeName);
+        return symbols.Length == 1
+            && SymbolEqualityComparer.Default.Equals(
+                symbols[0],
+                model.Compilation.GetTypeByMetadataName("System.Globalization.CultureInfo"));
     }
 }

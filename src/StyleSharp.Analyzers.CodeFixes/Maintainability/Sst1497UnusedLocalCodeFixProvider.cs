@@ -50,7 +50,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (TryBuildEdits(root, model, diagnostic, context.CancellationToken) is not { } edits)
+            if (!TryCollectEdits(root, model, diagnostic, edits: null, context.CancellationToken))
             {
                 continue;
             }
@@ -58,7 +58,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Remove the unused local",
-                    _ => Task.FromResult(ApplyEdits(context.Document, root, edits)),
+                    cancellationToken => Task.FromResult(Apply(context.Document, root, model, diagnostic, cancellationToken)),
                     equivalenceKey: nameof(Sst1497UnusedLocalCodeFixProvider)),
                 diagnostic);
         }
@@ -123,35 +123,56 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         Diagnostic diagnostic,
         CancellationToken cancellationToken)
     {
-        var declaration = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent;
-        if (declaration is null || Sst1497UnusedLocalAnalyzer.GetScope(declaration) is not { } scope)
-        {
-            return null;
-        }
-
-        if (BuildDeclarationEdit(declaration, model, cancellationToken) is not { } declarationEdit
-            || model.GetDeclaredSymbol(declaration, cancellationToken) is not ILocalSymbol local)
-        {
-            return null;
-        }
-
         // Removing the declaration and clearing one dead write is the usual shape.
         const int InitialLocalEditCapacity = 2;
 
-        var edits = new List<LocalEdit>(InitialLocalEditCapacity) { declarationEdit };
-        return TryAddDeadWriteEdits(scope, local, model, edits, cancellationToken) ? edits : null;
+        var edits = new List<LocalEdit>(InitialLocalEditCapacity);
+        return TryCollectEdits(root, model, diagnostic, edits, cancellationToken) ? edits : null;
+    }
+
+    /// <summary>Validates every edit, constructing replacements only when collecting them for application.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The reported local.</param>
+    /// <param name="edits">The edit list, or null to check applicability without building syntax.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <returns>Whether every declaration and dead write can be rewritten safely.</returns>
+    private static bool TryCollectEdits(
+        SyntaxNode root,
+        SemanticModel model,
+        Diagnostic diagnostic,
+        List<LocalEdit>? edits,
+        CancellationToken cancellationToken)
+    {
+        var declaration = root.FindToken(diagnostic.Location.SourceSpan.Start).Parent;
+        if (declaration is null || Sst1497UnusedLocalAnalyzer.GetScope(declaration) is not { } scope)
+        {
+            return false;
+        }
+
+        if (BuildDeclarationEdit(declaration, model, buildReplacement: edits is not null, cancellationToken) is not { } declarationEdit
+            || model.GetDeclaredSymbol(declaration, cancellationToken) is not ILocalSymbol local)
+        {
+            return false;
+        }
+
+        edits?.Add(declarationEdit);
+        return TryAddDeadWriteEdits(scope, local, model, edits, cancellationToken);
     }
 
     /// <summary>Plans the edit that removes the declaration itself.</summary>
     /// <param name="declaration">The declarator or out-variable designation.</param>
     /// <param name="model">The semantic model.</param>
+    /// <param name="buildReplacement">Whether to construct syntax after checking applicability.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The edit, or <see langword="null"/> when the declaration cannot be rewritten safely.</returns>
-    private static LocalEdit? BuildDeclarationEdit(SyntaxNode declaration, SemanticModel model, CancellationToken cancellationToken)
+    private static LocalEdit? BuildDeclarationEdit(SyntaxNode declaration, SemanticModel model, bool buildReplacement, CancellationToken cancellationToken)
     {
         if (declaration is SingleVariableDesignationSyntax { Parent: DeclarationExpressionSyntax outVariable })
         {
-            return new LocalEdit(outVariable, SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(outVariable.GetLeadingTrivia(), DiscardName, outVariable.GetTrailingTrivia())));
+            return new LocalEdit(outVariable, buildReplacement
+                ? SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(outVariable.GetLeadingTrivia(), DiscardName, outVariable.GetTrailingTrivia()))
+                : null);
         }
 
         if (declaration is not VariableDeclaratorSyntax variable
@@ -169,19 +190,21 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
             return initializer is null || IsRemovable(initializer) ? new LocalEdit(variable, replacement: null) : null;
         }
 
-        return BuildKeptExpressionEdit(statement, initializer, model, cancellationToken);
+        return BuildKeptExpressionEdit(statement, initializer, model, buildReplacement, cancellationToken);
     }
 
     /// <summary>Plans the edit for a statement whose only purpose was to assign the unused local.</summary>
     /// <param name="statement">The declaration statement or the dead-write statement.</param>
     /// <param name="expression">The assigned expression.</param>
     /// <param name="model">The semantic model.</param>
+    /// <param name="buildReplacement">Whether to construct syntax after checking applicability.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The edit, or <see langword="null"/> when the expression can neither be dropped nor kept.</returns>
     private static LocalEdit? BuildKeptExpressionEdit(
         StatementSyntax statement,
         ExpressionSyntax? expression,
         SemanticModel model,
+        bool buildReplacement,
         CancellationToken cancellationToken)
     {
         if (expression is null || IsRemovable(expression))
@@ -192,17 +215,23 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
             return new LocalEdit(target, replacement: null);
         }
 
+        var isStatementExpression = IsStatementExpression(expression);
+        if (!isStatementExpression && !IsDiscardable(expression, model, cancellationToken))
+        {
+            return null;
+        }
+
+        if (!buildReplacement)
+        {
+            return new LocalEdit(statement, replacement: null);
+        }
+
         var kept = expression.WithoutTrivia();
-        if (IsStatementExpression(expression))
+        if (isStatementExpression)
         {
             return new LocalEdit(statement, SyntaxFactory.ExpressionStatement(
                 kept.WithLeadingTrivia(statement.GetLeadingTrivia()),
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, statement.GetTrailingTrivia())));
-        }
-
-        if (!IsDiscardable(expression, model, cancellationToken))
-        {
-            return null;
         }
 
         var discard = SyntaxFactory.AssignmentExpression(
@@ -219,7 +248,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
     /// <param name="scope">The syntax that bounds the local.</param>
     /// <param name="local">The unused local.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="edits">The edit list to add to.</param>
+    /// <param name="edits">The edit list to add to, or null to validate only.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="false"/> when one of the dead writes cannot be rewritten safely.</returns>
     /// <remarks>
@@ -231,7 +260,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         SyntaxNode scope,
         ILocalSymbol local,
         SemanticModel model,
-        List<LocalEdit> edits,
+        List<LocalEdit>? edits,
         CancellationToken cancellationToken)
     {
         var state = new DeadWriteState(local, model, edits, cancellationToken);
@@ -252,12 +281,12 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
                 }
 
                 var assignment = (AssignmentExpressionSyntax)identifier.Parent!;
-                if (BuildKeptExpressionEdit(statement!, assignment.Right, scan.Model, scan.CancellationToken) is not { } edit)
+                if (BuildKeptExpressionEdit(statement!, assignment.Right, scan.Model, buildReplacement: scan.Edits is not null, scan.CancellationToken) is not { } edit)
                 {
                     return false;
                 }
 
-                scan.Edits.Add(edit);
+                scan.Edits?.Add(edit);
                 return true;
             });
     }
@@ -346,9 +375,9 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         /// <summary>Initializes a new instance of the <see cref="DeadWriteState"/> struct.</summary>
         /// <param name="local">The unused local.</param>
         /// <param name="model">The semantic model.</param>
-        /// <param name="edits">The edits collected so far.</param>
+        /// <param name="edits">The edits collected so far, or null to validate only.</param>
         /// <param name="cancellationToken">A token that cancels the operation.</param>
-        public DeadWriteState(ILocalSymbol local, SemanticModel model, List<LocalEdit> edits, CancellationToken cancellationToken)
+        public DeadWriteState(ILocalSymbol local, SemanticModel model, List<LocalEdit>? edits, CancellationToken cancellationToken)
         {
             Local = local;
             Model = model;
@@ -362,8 +391,8 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         /// <summary>Gets the semantic model used to bind each write.</summary>
         public SemanticModel Model { get; }
 
-        /// <summary>Gets the edits collected so far.</summary>
-        public List<LocalEdit> Edits { get; }
+        /// <summary>Gets the edits collected so far, or null when only validating.</summary>
+        public List<LocalEdit>? Edits { get; }
 
         /// <summary>Gets the token that cancels semantic binding.</summary>
         public CancellationToken CancellationToken { get; }

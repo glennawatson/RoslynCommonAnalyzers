@@ -54,10 +54,12 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
             return;
         }
 
-        editor.ReplaceNode(edit.First, edit.Folded);
-        foreach (var statement in edit.Rest)
+        var block = (BlockSyntax)edit.First.Parent!;
+        var index = block.Statements.IndexOf(edit.First);
+        editor.ReplaceNode(edit.First, BuildFolded(block, index, edit.Count));
+        for (var i = 1; i < edit.Count; i++)
         {
-            editor.RemoveNode(statement);
+            editor.RemoveNode(block.Statements[index + i]);
         }
     }
 
@@ -70,16 +72,16 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
     {
         var block = (BlockSyntax)edit.First.Parent!;
         var firstIndex = block.Statements.IndexOf(edit.First);
-        var statements = block.Statements.Replace(edit.First, edit.Folded);
-        for (var i = 0; i < edit.Rest.Length; i++)
+        var statements = block.Statements.Replace(edit.First, BuildFolded(block, firstIndex, edit.Count));
+        for (var i = 1; i < edit.Count; i++)
         {
             statements = statements.RemoveAt(firstIndex + 1);
         }
 
-        return document.WithSyntaxRoot(root.ReplaceNode(block, block.WithStatements(statements)));
+        return document.WithSyntaxRoot(root.ReplaceNode(block, block.Update(block.AttributeLists, block.OpenBraceToken, statements, block.CloseBraceToken)));
     }
 
-    /// <summary>Resolves the reported run into the first statement, the rest, and the folded statement.</summary>
+    /// <summary>Resolves the original run without allocating a replacement or a removal array.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -101,18 +103,7 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
         // The run collapses into its first statement and the rest are deleted, so a directive anywhere
         // across it would lose whichever half sits on a statement that goes.
         var last = block.Statements[index + count - 1];
-        if (DirectiveBoundaries.Separate(first, last))
-        {
-            return null;
-        }
-
-        var rest = new StatementSyntax[count - 1];
-        for (var i = 1; i < count; i++)
-        {
-            rest[i - 1] = block.Statements[index + i];
-        }
-
-        return new FoldEdit(first, rest, BuildFolded(block, index, count));
+        return DirectiveBoundaries.Separate(first, last) ? null : new FoldEdit(first, count);
     }
 
     /// <summary>Builds the single chained statement replacing a fluent-call run.</summary>
@@ -129,7 +120,9 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
         {
             var invocation = (InvocationExpressionSyntax)((ExpressionStatementSyntax)block.Statements[i]).Expression;
             var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-            accumulated = invocation.WithExpression(memberAccess.WithExpression(accumulated));
+            accumulated = invocation.Update(
+                memberAccess.Update(accumulated, memberAccess.OperatorToken, memberAccess.Name),
+                invocation.ArgumentList);
         }
 
         var foldedInvocation = (InvocationExpressionSyntax)accumulated;
@@ -141,12 +134,10 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, last.GetTrailingTrivia()));
     }
 
-    /// <summary>The first statement to replace, the statements to drop, and the folded replacement.</summary>
+    /// <summary>The original run, retained without constructing its folded replacement.</summary>
     /// <param name="First">The first statement of the run, replaced by the folded chain.</param>
-    /// <param name="Rest">The remaining statements of the run, removed.</param>
-    /// <param name="Folded">The single chained statement.</param>
+    /// <param name="Count">The number of statements to fold.</param>
     internal readonly record struct FoldEdit(
         ExpressionStatementSyntax First,
-        StatementSyntax[] Rest,
-        ExpressionStatementSyntax Folded);
+        int Count);
 }

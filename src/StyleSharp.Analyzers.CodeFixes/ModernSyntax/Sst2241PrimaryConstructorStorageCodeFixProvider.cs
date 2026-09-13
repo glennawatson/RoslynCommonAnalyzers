@@ -36,7 +36,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!TryCreateReplacement(root, diagnostic, out _, out _))
+            if (!CanRewrite(root, diagnostic))
             {
                 continue;
             }
@@ -419,7 +419,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 return false;
             }
 
-            collected[i] = new(targetName, parameter.WithoutTrivia());
+            collected[i] = new(targetName, parameter);
         }
 
         assignments = collected;
@@ -442,19 +442,21 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         return name.Length > 0;
     }
 
-    /// <summary>Rewrites type members by removing the constructor and adding storage initializers.</summary>
+    /// <summary>Validates storage targets, optionally rebuilding members with their initializers.</summary>
     /// <param name="type">The containing type.</param>
     /// <param name="constructor">The constructor to remove.</param>
     /// <param name="assignments">The storage assignments.</param>
-    /// <param name="members">The rewritten members.</param>
-    /// <returns><see langword="true"/> when every assignment was applied to a member.</returns>
+    /// <param name="members">The rewritten members when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether every assignment can be applied to a member.</returns>
     private static bool TryRewriteMembers(
         TypeDeclarationSyntax type,
         ConstructorDeclarationSyntax constructor,
         StorageAssignment[] assignments,
-        out SyntaxList<MemberDeclarationSyntax> members)
+        out SyntaxList<MemberDeclarationSyntax> members,
+        bool buildReplacement = true)
     {
-        var rewritten = new List<MemberDeclarationSyntax>(type.Members.Count - 1);
+        var rewritten = buildReplacement ? new List<MemberDeclarationSyntax>(type.Members.Count - 1) : null;
         var applied = new bool[assignments.Length];
         var typeMembers = type.Members;
         for (var i = 0; i < typeMembers.Count; i++)
@@ -465,13 +467,13 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 continue;
             }
 
-            if (!TryRewriteMember(member, assignments, applied, out var updated))
+            if (!TryRewriteMember(member, assignments, applied, out var updated, buildReplacement))
             {
                 members = default;
                 return false;
             }
 
-            rewritten.Add(updated);
+            rewritten?.Add(updated);
         }
 
         for (var i = 0; i < applied.Length; i++)
@@ -485,42 +487,46 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        members = SyntaxFactory.List(rewritten);
+        members = rewritten is null ? default : SyntaxFactory.List(rewritten);
         return true;
     }
 
-    /// <summary>Rewrites one member declaration with any matching storage initializer.</summary>
+    /// <summary>Validates or rewrites one member's matching storage initializer.</summary>
     /// <param name="member">The member declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the member can be preserved safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the member can be preserved safely.</returns>
     private static bool TryRewriteMember(
         MemberDeclarationSyntax member,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         updated = member;
         return member switch
         {
-            FieldDeclarationSyntax field => TryRewriteField(field, assignments, applied, out updated),
-            PropertyDeclarationSyntax property => TryRewriteProperty(property, assignments, applied, out updated),
+            FieldDeclarationSyntax field => TryRewriteField(field, assignments, applied, out updated, buildReplacement),
+            PropertyDeclarationSyntax property => TryRewriteProperty(property, assignments, applied, out updated, buildReplacement),
             _ => true
         };
     }
 
-    /// <summary>Rewrites field variables that receive constructor parameters.</summary>
+    /// <summary>Validates or rewrites field variables receiving constructor parameters.</summary>
     /// <param name="field">The field declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the field declaration can be rewritten safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the field can carry the initializers.</returns>
     private static bool TryRewriteField(
         FieldDeclarationSyntax field,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         var variables = field.Declaration.Variables;
         var changed = false;
@@ -538,26 +544,38 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 return false;
             }
 
-            variables = variables.Replace(variable, variable.WithInitializer(CreateInitializer(value!)));
+            if (buildReplacement)
+            {
+                variables = variables.Replace(variable, variable.Update(variable.Identifier, variable.ArgumentList, CreateInitializer(value!)));
+                changed = true;
+            }
+
             applied[assignmentIndex] = true;
-            changed = true;
         }
 
-        updated = changed ? field.WithDeclaration(field.Declaration.WithVariables(variables)) : field;
+        updated = changed
+            ? field.Update(
+                field.AttributeLists,
+                field.Modifiers,
+                field.Declaration.Update(field.Declaration.Type, variables),
+                field.SemicolonToken)
+            : field;
         return true;
     }
 
-    /// <summary>Rewrites an auto-property that receives a constructor parameter.</summary>
+    /// <summary>Validates or rewrites an auto-property receiving a constructor parameter.</summary>
     /// <param name="property">The property declaration.</param>
     /// <param name="assignments">The storage assignments.</param>
     /// <param name="applied">Tracks assignments already applied.</param>
-    /// <param name="updated">The updated member.</param>
-    /// <returns><see langword="true"/> when the property can be rewritten safely.</returns>
+    /// <param name="updated">The updated member when requested.</param>
+    /// <param name="buildReplacement">Whether to construct replacement syntax.</param>
+    /// <returns>Whether the property can carry an initializer.</returns>
     private static bool TryRewriteProperty(
         PropertyDeclarationSyntax property,
         StorageAssignment[] assignments,
         bool[] applied,
-        out MemberDeclarationSyntax updated)
+        out MemberDeclarationSyntax updated,
+        bool buildReplacement)
     {
         updated = property;
         if (!TryFindAssignment(assignments, applied, property.Identifier.ValueText, out var assignmentIndex, out var value))
@@ -570,16 +588,20 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        updated = property.Update(
-            property.AttributeLists,
-            property.Modifiers,
-            property.Type,
-            property.ExplicitInterfaceSpecifier,
-            property.Identifier,
-            property.AccessorList,
-            property.ExpressionBody,
-            CreateInitializer(value!),
-            SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        if (buildReplacement)
+        {
+            updated = property.Update(
+                property.AttributeLists,
+                property.Modifiers,
+                property.Type,
+                property.ExplicitInterfaceSpecifier,
+                property.Identifier,
+                property.AccessorList,
+                property.ExpressionBody,
+                CreateInitializer(value!),
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        }
+
         applied[assignmentIndex] = true;
         return true;
     }
@@ -809,6 +831,31 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
 
         return text.AsSpan(lineStart, index - lineStart);
     }
+
+    /// <summary>Checks storage targets without building initializers or moving documentation.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the constructor can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryFindConstructor(root, diagnostic, out var type, out var constructor)
+            && type is not null
+            && constructor is { Body: { } body }
+            && !DirectiveBoundaries.SeparateMembers(type)
+            && TryCollectAssignments(body, out var assignments)
+            && !HasBodyScopeNameCollision(type, constructor)
+            && TryRewriteMembers(type, constructor, assignments, out _, buildReplacement: false)
+            && CanMoveBaseInitializer(type, constructor.Initializer);
+
+    /// <summary>Checks whether a constructor initializer can move onto the first base type.</summary>
+    /// <param name="type">The containing type.</param>
+    /// <param name="initializer">The constructor initializer.</param>
+    /// <returns>Whether the initializer is representable without building its replacement.</returns>
+    private static bool CanMoveBaseInitializer(TypeDeclarationSyntax type, ConstructorInitializerSyntax? initializer) =>
+        initializer is null
+            || initializer.ArgumentList.Arguments.Count == 0
+            || (initializer.ThisOrBaseKeyword.IsKind(SyntaxKind.BaseKeyword)
+                && type.BaseList is { Types.Count: > 0 } baseList
+                && baseList.Types[0] is SimpleBaseTypeSyntax or PrimaryConstructorBaseTypeSyntax);
 
     /// <summary>Captures a constructor storage assignment.</summary>
     /// <param name="TargetName">The assigned member name.</param>

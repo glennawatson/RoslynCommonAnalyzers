@@ -187,7 +187,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         {
             // The other variables still need the declaration, so an initializer that has to survive has
             // nowhere to go and the fix steps aside.
-            return initializer is null || IsRemovable(initializer) ? new LocalEdit(variable, replacement: null) : null;
+            return initializer is null || IsRemovable(initializer, model, cancellationToken) ? new LocalEdit(variable, replacement: null) : null;
         }
 
         return BuildKeptExpressionEdit(statement, initializer, model, buildReplacement, cancellationToken);
@@ -207,7 +207,7 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
         bool buildReplacement,
         CancellationToken cancellationToken)
     {
-        if (expression is null || IsRemovable(expression))
+        if (expression is null || IsRemovable(expression, model, cancellationToken))
         {
             // A top-level statement is wrapped in a global statement, and a global statement with nothing
             // inside it is not a node — so the wrapper is what has to go.
@@ -293,14 +293,18 @@ public sealed class Sst1497UnusedLocalCodeFixProvider : CodeFixProvider
 
     /// <summary>Returns whether an expression can simply be deleted along with the local.</summary>
     /// <param name="expression">The assigned expression.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when evaluating it cannot change what the program does.</returns>
     /// <remarks>
     /// A lambda or anonymous method is removable even though it is not a plain read: writing one down only
     /// creates a delegate, and the body never runs unless something invokes it — and nothing can, because
     /// nothing reads the local.
     /// </remarks>
-    private static bool IsRemovable(ExpressionSyntax expression) =>
-        expression is AnonymousFunctionExpressionSyntax || SideEffectFreeExpression.IsSideEffectFree(expression);
+    private static bool IsRemovable(ExpressionSyntax expression, SemanticModel model, CancellationToken cancellationToken) =>
+        expression is AnonymousFunctionExpressionSyntax
+        || (SideEffectFreeExpression.IsSideEffectFree(expression)
+            && model.GetTypeInfo(expression, cancellationToken).Type is not { TypeKind: TypeKind.Error });
 
     /// <summary>Returns whether an expression is one the language allows as a statement on its own.</summary>
     /// <param name="expression">The assigned expression.</param>

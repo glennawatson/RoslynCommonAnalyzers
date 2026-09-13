@@ -139,6 +139,63 @@ public class RemoveOverwrittenValueUnitTest
     public Task OverwrittenLocalValueCapturedByFollowingAssignmentIsCleanAsync() =>
         VerifyModernSyntaxValue.VerifyAnalyzerAsync(CapturedByFollowingAssignmentSource);
 
+    /// <summary>Verifies pure values overwritten by an adjacent assignment can be removed.</summary>
+    /// <param name="body">The statements with their expected diagnostic.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("int value; {|SST2222:value = 1|}; value = 2; return value;")]
+    [Arguments("int value = {|SST2222:default(int)|}; value = 2; return value;")]
+    [Arguments("int value = {|SST2222:seed|}; value = 2; return value;")]
+    [Arguments("int other = seed; int value = {|SST2222:other|}; value = 2; return value;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PureAdjacentOverwritesAreReportedAsync(string body) =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync($$"""class C { int M(int seed) { {{body}} } }""");
+
+    /// <summary>Verifies dependent writes, observable values, and nonadjacent writes preserve the original assignment.</summary>
+    /// <param name="body">The method statements.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("int value = seed, other = seed; value = 2; return value + other;")]
+    [Arguments("int value = Compute(); value = 2; return value;")]
+    [Arguments("int value = Field; value = 2; return value;")]
+    [Arguments("int value = this.Field; value = 2; return value;")]
+    [Arguments("int value = seed; value = value; return value;")]
+    [Arguments("int value = seed; value = value + 1; return value;")]
+    [Arguments("int value = seed; seed = 2; return value;")]
+    [Arguments("int value = seed; value += 2; return value;")]
+    [Arguments("int value; value = seed; value = value; return value;")]
+    [Arguments("int value; value = seed; value = value + 1; return value;")]
+    [Arguments("int value; value = Compute(); value = 2; return value;")]
+    [Arguments("int value; value = Field; value = 2; return value;")]
+    [Arguments("int value; value = seed; seed = 2; return value;")]
+    [Arguments("int value; if (seed > 0) value = seed; else value = 0; return value;")]
+    [Arguments("this.Field = 1; this.Field = 2; return Field;")]
+    [Arguments("switch (seed) { default: int value = seed; value = 2; return value; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ObservableOrNonadjacentOverwritesAreCleanAsync(string body) =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync($$"""class C { public int Field; int Compute() => 1; int M(int seed) { {{body}} } }""");
+
+    /// <summary>Verifies ordinary unary reads and parentheses do not imply that local storage escapes.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnaryAndParenthesizedReadsDoNotPreserveADyingStepAsync() =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync("class C { int M(int seed) { int value = seed; _ = -(value); return {|SST2222:value++|}; } }");
+
+    /// <summary>Verifies a null-forgiving postfix expression is not mistaken for an increment.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NullForgivingPostfixIsNotAnOverwrittenStepAsync() =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync("class C { string M(string seed) { string value = seed; return value!; } }");
+
+    /// <summary>Verifies a same-named field read does not retain an overwritten local initializer.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SameNamedFieldDoesNotReadOverwrittenLocalAsync() =>
+        VerifyModernSyntaxValue.VerifyAnalyzerAsync("class C { int value; int M() { int value = {|SST2222:0|}; value = this.value; return value; } }");
+
     /// <summary>Verifies a postfix step whose local dies at the enclosing return is removed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

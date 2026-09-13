@@ -31,7 +31,7 @@ namespace StyleSharp.Analyzers.Tests;
     "Correctness",
     "SST2473:A shared export part should be obtained from the container, not constructed with 'new'",
     Justification = "The code-fix provider is the subject of the test, so it has to be constructed directly to be exercised.")]
-public class ModernSyntaxValueAnalyzerUnitTest
+public partial class ModernSyntaxValueAnalyzerUnitTest
 {
     /// <summary>The id of the rule that makes an ignored expression value explicit.</summary>
     private const string IgnoredExpressionValueRuleId = "SST2221";

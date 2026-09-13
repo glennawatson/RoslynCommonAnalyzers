@@ -5,6 +5,8 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyNameSimplification = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.NameSimplificationAnalyzer,
     StyleSharp.Analyzers.NameSimplificationCodeFixProvider>;
@@ -24,6 +26,199 @@ public class NameSimplificationAnalyzerUnitTest
                                                    [*.cs]
                                                    stylesharp.instance_member_qualification = require_this
                                                    """;
+
+    /// <summary>Verifies unresolved source symbols do not produce simplification diagnostics.</summary>
+    /// <param name="source">The incomplete code being edited.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { void M() { this.Missing(); } }")]
+    [Arguments("class C { Unknown.Namespace.Type field; }")]
+    [Arguments("class C { global::Missing field; }")]
+    [Arguments("extern alias Custom; class C { Custom::Missing field; }")]
+    public async Task UnresolvedSymbolsAreNotSimplifiedAsync(string source)
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(UnresolvedSymbolsAreNotSimplifiedAsync),
+            [CSharpSyntaxTree.ParseText(source)],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new NameSimplificationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies local declarations and parameter scopes preserve explicit member access.</summary>
+    /// <param name="body">The member body with expected simplifications marked.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("System.Func<int, int> f = (value) => this.value;")]
+    [Arguments("System.Func<int, int> f = value => this.value;")]
+    [Arguments("System.Func<int, int> f = delegate(int value) { return this.value; };")]
+    [Arguments("int Local(int value) => this.value;")]
+    [Arguments("foreach (var value in new int[0]) { _ = this.value; }")]
+    [Arguments("foreach (var (value, other) in new (int, int)[0]) { } _ = this.value;")]
+    [Arguments("foreach (var (other, (value, third)) in new (int, (int, int))[0]) { } _ = this.value;")]
+    [Arguments("foreach (var (other, third) in new (int, int)[0]) { } _ = {|SST1117:this.value|};")]
+    [Arguments("using (System.IDisposable value = null) { } _ = this.value;")]
+    [Arguments("fixed (int* value = new int[1]) { } _ = this.value;")]
+    [Arguments("int other = 0; _ = {|SST1117:this.value|};")]
+    [Arguments("_ = {|SST1117:this.value|}; int other = 0;")]
+    [Arguments("foreach ((int other, int third) in new (int, int)[0]) { } _ = {|SST1117:this.value|};")]
+    [Arguments("System.Func<int, int> f = (other) => {|SST1117:this.value|};")]
+    [Arguments("System.Func<int, int> f = other => {|SST1117:this.value|};")]
+    [Arguments("System.Func<int> f = delegate { return {|SST1117:this.value|}; };")]
+    [Arguments("System.Func<int, int> f = delegate(int other) { return {|SST1117:this.value|}; };")]
+    [Arguments("int Local(int other) => {|SST1117:this.value|};")]
+    [Arguments("foreach (var other in new int[0]) { _ = {|SST1117:this.value|}; }")]
+    [Arguments("using (System.IDisposable other = null) { } _ = {|SST1117:this.value|};")]
+    [Arguments("fixed (int* other = new int[1]) { } _ = {|SST1117:this.value|};")]
+    public async Task LocalScopesControlThisSimplificationAsync(string body)
+    {
+        var test = new VerifyNameSimplification.Test { TestCode = $$"""class C { int value; unsafe void M() { {{body}} } }""" };
+        test.SolutionTransforms.Add(static (solution, projectId) => solution.WithProjectCompilationOptions(
+            projectId,
+            ((CSharpCompilationOptions)solution.GetProject(projectId)!.CompilationOptions!).WithAllowUnsafe(true)));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies global aliases simplify only when their unqualified spelling has the same binding.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GlobalAliasesAndNamespaceContextsAreHandledAsync() =>
+        VerifyNameSimplification.VerifyAnalyzerAsync(
+            """
+            using Alias = global::C;
+            using System.Text;
+            class C
+            {
+                {|SST1116:global::C|} Self;
+                {|SST1116:global::System.Text.StringBuilder|} Builder;
+                Alias Other;
+            }
+            namespace Alpha.Beta
+            {
+                class D { }
+            }
+            """);
+
+    /// <summary>Verifies file-scoped namespace declarations retain their qualified name.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task FileScopedNamespaceIsNotSimplifiedAsync() =>
+        VerifyNameSimplification.VerifyAnalyzerAsync("namespace Alpha.Beta; class C { }");
+
+    /// <summary>Verifies types of a different generic arity do not make a short name ambiguous.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DifferentGenericArityDoesNotShadowShortNameAsync() =>
+        VerifyNameSimplification.VerifyAnalyzerAsync(
+            """
+            using Alpha;
+            using Beta;
+            namespace Alpha { public class Item { } }
+            namespace Beta { public class Item<T> { } }
+            class C { {|SST1116:Alpha.Item|} value; }
+            """);
+
+    /// <summary>Verifies importing a namespace does not import its child namespaces as competing type names.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ImportedSubnamespaceDoesNotShadowTypeNameAsync() =>
+        VerifyNameSimplification.VerifyCodeFixAsync(
+            "using Alpha; using Beta; namespace Alpha { public class Item { } } namespace Beta.Item { } class C { {|SST1116:Alpha.Item|} field; }",
+            "using Alpha; using Beta; namespace Alpha { public class Item { } } namespace Beta.Item { } class C { Item field; }");
+
+    /// <summary>Verifies namespace documentation references keep their existing qualification.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedNamespaceInDocumentationIsPreservedAsync() =>
+        VerifyNameSimplification.VerifyAnalyzerAsync(
+            """
+            namespace Alpha
+            {
+                namespace Beta { }
+                /// <summary>Uses <see cref="Alpha.Beta"/>.</summary>
+                class C { }
+            }
+            """);
+
+    /// <summary>Verifies a catch variable preserves the qualifier on a shadowed member.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CatchVariablePreservesThisAsync() =>
+        VerifyNameSimplification.VerifyAnalyzerAsync(
+            "class C { int value; void M() { try { } catch (System.Exception value) { _ = this.value; } } }");
+
+    /// <summary>Verifies catch variables shadow members only inside their own body and filter.</summary>
+    /// <param name="body">The catch scopes and expected simplifications.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("try { } catch (System.Exception value) when (this.value > 0) { _ = this.value; }")]
+    [Arguments("try { } catch (System.Exception other) { _ = {|SST1117:this.value|}; }")]
+    [Arguments("try { } catch (System.Exception) { _ = {|SST1117:this.value|}; }")]
+    [Arguments("try { } catch { _ = {|SST1117:this.value|}; }")]
+    [Arguments("try { _ = {|SST1117:this.value|}; } catch (System.Exception value) { } _ = {|SST1117:this.value|};")]
+    [Arguments("try { } catch (System.ArgumentException value) { _ = this.value; } catch (System.Exception other) { _ = {|SST1117:this.value|}; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task CatchScopeControlsThisSimplificationAsync(string body) =>
+        VerifyNameSimplification.VerifyAnalyzerAsync($$"""class C { int value; void M() { {{body}} } }""");
+
+    /// <summary>Verifies required qualification covers properties, methods, and events but skips naming syntax.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task RequiredThisSkipsNameofAndNamedArgumentsAsync()
+    {
+        var test = new VerifyNameSimplification.Test
+        {
+            TestCode = """
+                       using Alias = System.Action;
+                       using static C;
+                       class C
+                       {
+                           int Property { get; set; }
+                           event Alias Changed;
+                           void Helper(int value) { }
+                           void M(C other)
+                           {
+                               {|SST1117:Property|} = 1;
+                               {|SST1117:Helper|}(value: {|SST1117:Property|});
+                               {|SST1117:Changed|}?.Invoke();
+                               _ = nameof(Property);
+                               _ = other?.Property;
+                               _ = other.Property;
+                               int Local() => 0;
+                               _ = Local();
+                           }
+                       }
+                       """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, RequireThisEditorConfig));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies explicit qualification options and unknown values choose the expected style.</summary>
+    /// <param name="option">The configured spelling.</param>
+    /// <param name="requireThis">Whether the option requires an explicit receiver.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("require_this", true)]
+    [Arguments("this", true)]
+    [Arguments(" REQUIRE_THIS ", true)]
+    [Arguments("omit_this", false)]
+    [Arguments("omit", false)]
+    [Arguments("unknown", false)]
+    [Arguments("", false)]
+    public async Task QualificationOptionSelectsStyleAsync(string option, bool requireThis)
+    {
+        var expression = requireThis ? "{|SST1117:value|} + this.value" : "value + {|SST1117:this.value|}";
+        var test = new VerifyNameSimplification.Test { TestCode = $$"""class C { int value; int M() => {{expression}}; }""" };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, $"root = true\n[*.cs]\nstylesharp.instance_member_qualification = {option}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies a qualified type name is shortened only when the shorter name binds to the same symbol.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

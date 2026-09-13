@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -16,12 +18,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the bit array.</summary>
-    private const string BitArrayMetadataName = "System.Collections.BitArray";
-
-    /// <summary>The metadata name of the read-only span.</summary>
-    private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue =
         ImmutableArrays.Of(AllocationRules.PreferBitArraySpanConstructor);
@@ -36,15 +32,9 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var bitArray = start.Compilation.GetTypeByMetadataName(BitArrayMetadataName);
-            var readOnlySpan = start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName);
-            if (bitArray is null || readOnlySpan is null || !HasSpanConstructor(bitArray, readOnlySpan))
-            {
-                return;
-            }
-
+            var types = new BitArrayTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, bitArray),
+                nodeContext => Analyze(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -52,8 +42,8 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one bit array built from a throwaway array.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="bitArray">The resolved bit-array type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol bitArray)
+    /// <param name="types">The deferred bit-array constructor support.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, BitArrayTypes types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: 1 } arguments
@@ -62,7 +52,8 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
+        if (types.Get() is not { } bitArray
+            || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, bitArray)
             || constructor.Parameters.Length != 1
             || constructor.Parameters[0].Type is not IArrayTypeSymbol arrayType)
@@ -82,21 +73,52 @@ public sealed class Psh1024BitArraySpanConstructorAnalyzer : DiagnosticAnalyzer
     private static bool IsTemporaryArray(ExpressionSyntax expression) =>
         expression is ArrayCreationExpressionSyntax or ImplicitArrayCreationExpressionSyntax;
 
-    /// <summary>Gets whether the bit array offers a constructor taking a read-only span.</summary>
-    /// <param name="bitArray">The resolved bit-array type.</param>
-    /// <param name="readOnlySpan">The resolved read-only span definition.</param>
-    /// <returns><see langword="true"/> when a span constructor is available.</returns>
-    private static bool HasSpanConstructor(INamedTypeSymbol bitArray, INamedTypeSymbol readOnlySpan)
+    /// <summary>Resolves span constructor support only when a temporary-array candidate needs it.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class BitArrayTypes(Compilation compilation)
     {
-        foreach (var constructor in bitArray.InstanceConstructors)
+        /// <summary>The metadata name of the bit array.</summary>
+        private const string BitArrayMetadataName = "System.Collections.BitArray";
+
+        /// <summary>The metadata name of the read-only span.</summary>
+        private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
+
+        /// <summary>The cached supported type, including null when unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the bit-array type when it supports span construction.</summary>
+        /// <returns>The supported type, or null when the constructor is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the bit-array type and checks its span constructors.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>The supported type, or null when either type or the constructor is missing.</returns>
+        private static INamedTypeSymbol? Resolve(Compilation compilation)
         {
-            if (constructor.Parameters.Length == 1
-                && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type.OriginalDefinition, readOnlySpan))
-            {
-                return true;
-            }
+            var bitArray = compilation.GetTypeByMetadataName(BitArrayMetadataName);
+            var readOnlySpan = compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName);
+            return bitArray is not null && readOnlySpan is not null && HasSpanConstructor(bitArray, readOnlySpan)
+                ? bitArray
+                : null;
         }
 
-        return false;
+        /// <summary>Gets whether the bit array offers a constructor taking a read-only span.</summary>
+        /// <param name="bitArray">The resolved bit-array type.</param>
+        /// <param name="readOnlySpan">The resolved read-only span definition.</param>
+        /// <returns><see langword="true"/> when a span constructor is available.</returns>
+        private static bool HasSpanConstructor(INamedTypeSymbol bitArray, INamedTypeSymbol readOnlySpan)
+        {
+            foreach (var constructor in bitArray.InstanceConstructors)
+            {
+                if (constructor.Parameters.Length == 1
+                    && SymbolEqualityComparer.Default.Equals(constructor.Parameters[0].Type.OriginalDefinition, readOnlySpan))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

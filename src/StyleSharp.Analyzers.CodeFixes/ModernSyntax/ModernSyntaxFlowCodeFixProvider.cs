@@ -114,7 +114,11 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
             SyntaxKind.CoalesceExpression,
             returnedValue.WithoutTrivia(),
             SyntaxFactory.ThrowExpression(throwValue.WithoutTrivia()));
-        var replacement = SyntaxFactory.ReturnStatement(coalesce).WithTriviaFrom(ifStatement);
+        var replacement = SyntaxFactory.ReturnStatement(
+            default,
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            coalesce,
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
         var index = block.Statements.IndexOf(ifStatement);
         var statements = block.Statements.Replace(ifStatement, replacement).RemoveAt(index + 1);
         var updatedBlock = block.WithStatements(statements);

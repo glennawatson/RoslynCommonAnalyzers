@@ -443,12 +443,12 @@ internal static class ModernSyntaxReadabilityAnalysis
     {
         for (var i = start; i < block.Statements.Count; i++)
         {
-            foreach (var token in block.Statements[i].DescendantTokens())
+            if (!DescendantTraversalHelper.VisitDescendantTokens(
+                block.Statements[i],
+                ref name,
+                static (in SyntaxToken token, ref string state) => token.ValueText != state))
             {
-                if (token.ValueText == name)
-                {
-                    return true;
-                }
+                return true;
             }
         }
 

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -28,8 +30,9 @@ namespace PerformanceSharp.Analyzers;
 /// <para>
 /// <b>Gated on the field, never on a version number.</b> The two <c>UnixEpoch</c> fields arrived with
 /// .NET Core 2.1 and .NET Standard 2.1, so each is probed for separately in the compilation; a target
-/// framework that has neither registers no action, and one that has only one of them reports only that
-/// one. Every component is read as a <em>constant</em>, so a named <c>const int EpochYear = 1970</c>
+/// framework that has neither reports nothing, and one that has only one of them reports only that
+/// one. The probes run once on first demand after the creation passes the syntax checks. Every component
+/// is read as a <em>constant</em>, so a named <c>const int EpochYear = 1970</c>
 /// matches exactly as the literal does, and a computed value matches nothing.
 /// </para>
 /// </remarks>
@@ -38,12 +41,6 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The replacement field.</summary>
     internal const string UnixEpochFieldName = "UnixEpoch";
-
-    /// <summary>The metadata name of the date type.</summary>
-    private const string DateTimeMetadataName = "System.DateTime";
-
-    /// <summary>The metadata name of the offset date type.</summary>
-    private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
 
     /// <summary>The simple name of the kind enum a date's last parameter may take.</summary>
     private const string DateTimeKindTypeName = "DateTimeKind";
@@ -89,15 +86,9 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var dateTime = GetTypeWithUnixEpoch(start.Compilation, DateTimeMetadataName);
-            var dateTimeOffset = GetTypeWithUnixEpoch(start.Compilation, DateTimeOffsetMetadataName);
-            if (dateTime is null && dateTimeOffset is null)
-            {
-                return;
-            }
-
+            var types = new EpochTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, dateTime, dateTimeOffset),
+                nodeContext => AnalyzeCreation(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression);
         });
     }
@@ -112,12 +103,28 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1413 for an epoch the framework already holds as a field.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dateTime">The compilation's date type, when it has the field.</param>
-    /// <param name="dateTimeOffset">The compilation's offset date type, when it has the field.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? dateTime, INamedTypeSymbol? dateTimeOffset)
+    /// <param name="types">The lazily resolved date types for the compilation.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, EpochTypes types)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
         if (!IsEpochCreationShape(creation))
+        {
+            return;
+        }
+
+        var arguments = creation.ArgumentList!.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i].NameColon is not null)
+            {
+                return;
+            }
+        }
+
+        var resolved = types.Get();
+        var dateTime = resolved[0];
+        var dateTimeOffset = resolved[1];
+        if (dateTime is null && dateTimeOffset is null)
         {
             return;
         }
@@ -243,26 +250,49 @@ public sealed class Psh1413UseUnixEpochFieldAnalyzer : DiagnosticAnalyzer
             && field.Name == memberName
             && IsNamedSystemType(field.ContainingType, typeName);
 
-    /// <summary>Resolves a type only when the compilation's version of it holds the epoch field.</summary>
+    /// <summary>Resolves the epoch fields only for candidate creations, caching missing types too.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>
-    /// <param name="metadataName">The type's metadata name.</param>
-    /// <returns>The type, or <see langword="null"/> when it is missing or has no <c>UnixEpoch</c>.</returns>
-    private static INamedTypeSymbol? GetTypeWithUnixEpoch(Compilation compilation, string metadataName)
+    private sealed class EpochTypes(Compilation compilation)
     {
-        if (compilation.GetTypeByMetadataName(metadataName) is not { } type)
+        /// <summary>The metadata name of the date type.</summary>
+        private const string DateTimeMetadataName = "System.DateTime";
+
+        /// <summary>The metadata name of the offset date type.</summary>
+        private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
+
+        /// <summary>The resolved date and offset date types, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the types that expose an epoch field on first demand.</summary>
+        /// <returns>The date and offset date types, with null entries for unavailable fields.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            GetTypeWithUnixEpoch(compilation, DateTimeMetadataName),
+            GetTypeWithUnixEpoch(compilation, DateTimeOffsetMetadataName)
+        ];
+
+        /// <summary>Resolves a type only when the compilation's version of it holds the epoch field.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <param name="metadataName">The type's metadata name.</param>
+        /// <returns>The type, or <see langword="null"/> when it is missing or has no <c>UnixEpoch</c>.</returns>
+        private static INamedTypeSymbol? GetTypeWithUnixEpoch(Compilation compilation, string metadataName)
         {
+            if (compilation.GetTypeByMetadataName(metadataName) is not { } type)
+            {
+                return null;
+            }
+
+            var members = type.GetMembers(UnixEpochFieldName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IFieldSymbol { IsStatic: true })
+                {
+                    return type;
+                }
+            }
+
             return null;
         }
-
-        var members = type.GetMembers(UnixEpochFieldName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IFieldSymbol { IsStatic: true })
-            {
-                return type;
-            }
-        }
-
-        return null;
     }
 }

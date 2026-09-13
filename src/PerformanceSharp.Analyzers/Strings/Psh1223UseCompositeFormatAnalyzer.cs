@@ -13,9 +13,9 @@ namespace PerformanceSharp.Analyzers;
 /// <remarks>
 /// <para>
 /// <b>.NET 8 and later only.</b> <c>CompositeFormat</c> and the <c>string.Format</c> overloads that
-/// take one do not exist before then, so the rule resolves both in the analyzed compilation and
-/// registers nothing at all when either is missing. Nothing is inferred from a target-framework
-/// string.
+/// take one do not exist before then, so the rule resolves both on the first candidate and caches
+/// their availability for the compilation. Nothing is reported when either is missing, and nothing
+/// is inferred from a target-framework string.
 /// </para>
 /// <para>
 /// <b>The format string is validated before it is hoisted.</b> <c>CompositeFormat.Parse</c> throws on
@@ -73,13 +73,8 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(CompositeFormatMetadataName) is not { } compositeFormat
-                || !HasCompositeFormatOverload(start.Compilation, compositeFormat))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeFormat, SyntaxKind.InvocationExpression);
+            var support = new CompositeFormatSupport(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeFormat(nodeContext, support), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -197,7 +192,8 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1223 for a constant format string that is re-parsed on every call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeFormat(SyntaxNodeAnalysisContext context)
+    /// <param name="support">The composite-format support resolved only for a candidate call.</param>
+    private static void AnalyzeFormat(in SyntaxNodeAnalysisContext context, CompositeFormatSupport support)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsFormatShape(invocation))
@@ -209,6 +205,7 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
         var cancellationToken = context.CancellationToken;
         var formatIndex = GetHoistableFormatIndex(model, invocation, cancellationToken);
         if (formatIndex < 0
+            || !support.IsAvailable()
             || SpanRewriteGuard.IsInsideExpressionTree(invocation, model, cancellationToken)
             || !RewriteBindsToCompositeFormat(model, invocation, formatIndex, QualifiedCurrentCulture))
         {
@@ -238,25 +235,6 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
             ? null
             : format;
 
-    /// <summary>Returns whether <see cref="string"/> declares a <c>Format</c> overload taking a parsed format.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <param name="compositeFormat">The parsed-format type.</param>
-    /// <returns><see langword="true"/> when the overloads exist.</returns>
-    private static bool HasCompositeFormatOverload(Compilation compilation, INamedTypeSymbol compositeFormat)
-    {
-        foreach (var member in compilation.GetSpecialType(SpecialType.System_String).GetMembers(FormatMethodName))
-        {
-            if (member is IMethodSymbol { IsStatic: true, Parameters: [{ } first, { } second, ..] }
-                && IsFormatProvider(first.Type)
-                && SymbolEqualityComparer.Default.Equals(second.Type, compositeFormat))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a type is <see cref="IFormatProvider"/>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for <c>System.IFormatProvider</c>.</returns>
@@ -267,4 +245,43 @@ public sealed class Psh1223UseCompositeFormatAnalyzer : DiagnosticAnalyzer
             TypeKind: TypeKind.Interface,
             ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
         };
+
+    /// <summary>Resolves composite-format support on demand and caches unavailable APIs too.</summary>
+    /// <param name="compilation">The compilation whose framework support is cached.</param>
+    private sealed class CompositeFormatSupport(Compilation compilation)
+    {
+        /// <summary>The published result; null until a candidate needs the API.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Gets API availability, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>Whether the parsed-format type and matching format overloads are present.</returns>
+        public bool IsAvailable()
+        {
+            var resolved = _resolved ??=
+            [
+                compilation.GetTypeByMetadataName(CompositeFormatMetadataName) is { } compositeFormat
+                    && HasCompositeFormatOverload(compilation, compositeFormat),
+            ];
+            return resolved[0];
+        }
+
+        /// <summary>Returns whether <see cref="string"/> declares a <c>Format</c> overload taking a parsed format.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <param name="compositeFormat">The parsed-format type.</param>
+        /// <returns><see langword="true"/> when the overloads exist.</returns>
+        private static bool HasCompositeFormatOverload(Compilation compilation, INamedTypeSymbol compositeFormat)
+        {
+            foreach (var member in compilation.GetSpecialType(SpecialType.System_String).GetMembers(FormatMethodName))
+            {
+                if (member is IMethodSymbol { IsStatic: true, Parameters: [{ } first, { } second, ..] }
+                    && IsFormatProvider(first.Type)
+                    && SymbolEqualityComparer.Default.Equals(second.Type, compositeFormat))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

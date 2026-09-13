@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -44,9 +46,6 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <summary>The display of the <c>Debug.Fail</c> replacement.</summary>
     private const string FailDisplay = "Debug.Fail";
 
-    /// <summary>The metadata name of the debug type carrying the assertion helpers.</summary>
-    private const string DebugMetadataName = "System.Diagnostics.Debug";
-
     /// <summary>The underlying value of <c>StringComparison.Ordinal</c>.</summary>
     private const int OrdinalValue = 4;
 
@@ -79,16 +78,9 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var hasCompareOrdinal = HasCompareOrdinal(start.Compilation.GetSpecialType(SpecialType.System_String));
-            var debugType = start.Compilation.GetTypeByMetadataName(DebugMetadataName);
-            var failArities = debugType is null ? default : GetFailArities(debugType);
-            if (!hasCompareOrdinal && failArities == default)
-            {
-                return;
-            }
-
+            var targets = new CallTargets(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, hasCompareOrdinal, debugType, failArities),
+                nodeContext => AnalyzeInvocation(nodeContext, targets),
                 SyntaxKind.InvocationExpression);
         });
     }
@@ -114,29 +106,17 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1227 for a general-purpose call a purpose-built one supersedes.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="hasCompareOrdinal">Whether <c>string.CompareOrdinal</c> resolves.</param>
-    /// <param name="debugType">The debug type carrying the assertion helpers, when it resolves.</param>
-    /// <param name="failArities">The argument counts the <c>Debug.Fail</c> replacement supports.</param>
-    private static void AnalyzeInvocation(
-        in SyntaxNodeAnalysisContext context,
-        bool hasCompareOrdinal,
-        INamedTypeSymbol? debugType,
-        FailArities failArities)
+    /// <param name="targets">The compilation's deferred replacement members.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CallTargets targets)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        switch ((invocation.Expression as MemberAccessExpressionSyntax)?.Name.Identifier.ValueText)
+        if (IsCompareOrdinalShape(invocation) && targets.SupportsCompareOrdinal())
         {
-            case CompareName when hasCompareOrdinal:
-            {
-                AnalyzeCompare(context, invocation);
-                break;
-            }
-
-            case AssertName when debugType is not null:
-            {
-                AnalyzeAssert(context, invocation, debugType, failArities);
-                break;
-            }
+            AnalyzeCompare(context, invocation);
+        }
+        else if (IsDebugFailShape(invocation) && targets.GetDebugMembers() is { Type: { } debugType } debugMembers)
+        {
+            AnalyzeAssert(context, invocation, debugType, debugMembers.Arities);
         }
     }
 
@@ -145,8 +125,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
     /// <param name="invocation">The candidate invocation.</param>
     private static void AnalyzeCompare(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation)
     {
-        if (!IsCompareOrdinalShape(invocation)
-            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !IsOrdinalCompareOverload(method)
             || context.SemanticModel.GetConstantValue(invocation.ArgumentList.Arguments[ComparisonArgumentIndex].Expression, context.CancellationToken) is not { HasValue: true, Value: OrdinalValue })
         {
@@ -172,8 +151,7 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol debugType,
         FailArities failArities)
     {
-        if (!IsDebugFailShape(invocation)
-            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !IsAssertOverload(method, debugType)
             || !failArities.Supports(invocation.ArgumentList.Arguments.Count - 1))
         {
@@ -269,63 +247,10 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
         return true;
     }
 
-    /// <summary>Returns whether <c>string.CompareOrdinal(string, string)</c> exists on the string type.</summary>
-    /// <param name="stringType">The compilation's string type.</param>
-    /// <returns><see langword="true"/> when the ordinal comparison the fix calls resolves.</returns>
-    private static bool HasCompareOrdinal(INamedTypeSymbol stringType)
-    {
-        var members = stringType.GetMembers(CompareOrdinalName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: StringPairParameterCount } method
-                && method.Parameters[0].Type.SpecialType == SpecialType.System_String
-                && method.Parameters[1].Type.SpecialType == SpecialType.System_String)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Collects which single- and two-string <c>Debug.Fail</c> overloads exist.</summary>
-    /// <param name="debugType">The debug type carrying the assertion helpers.</param>
-    /// <returns>The supported <c>Fail</c> argument counts.</returns>
-    private static FailArities GetFailArities(INamedTypeSymbol debugType)
-    {
-        var one = false;
-        var two = false;
-        var members = debugType.GetMembers(FailName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is not IMethodSymbol { IsStatic: true } method || !AllStringParameters(method))
-            {
-                continue;
-            }
-
-            one |= method.Parameters.Length == 1;
-            two |= method.Parameters.Length == StringPairParameterCount;
-        }
-
-        return new(one, two);
-    }
-
-    /// <summary>Returns whether every parameter of a method is a string.</summary>
-    /// <param name="method">The method to inspect.</param>
-    /// <returns><see langword="true"/> when all parameters are strings.</returns>
-    private static bool AllStringParameters(IMethodSymbol method)
-    {
-        var parameters = method.Parameters;
-        for (var i = 0; i < parameters.Length; i++)
-        {
-            if (parameters[i].Type.SpecialType != SpecialType.System_String)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    /// <summary>The debug type and replacement overloads resolved together.</summary>
+    /// <param name="Type">The debug type, or null when absent.</param>
+    /// <param name="Arities">The available replacement overloads.</param>
+    private readonly record struct DebugMembers(INamedTypeSymbol? Type, FailArities Arities);
 
     /// <summary>The message-only <c>Debug.Fail</c> overloads a project exposes.</summary>
     /// <param name="One">Whether <c>Fail(string)</c> exists.</param>
@@ -341,5 +266,97 @@ public sealed class Psh1227PreferDedicatedCallAnalyzer : DiagnosticAnalyzer
             StringPairParameterCount => Two,
             _ => false,
         };
+    }
+
+    /// <summary>Resolves each replacement only when its invocation shape passes the syntax gate.</summary>
+    /// <param name="compilation">The compilation whose replacements are resolved.</param>
+    private sealed class CallTargets(Compilation compilation)
+    {
+        /// <summary>The metadata name of the debug type carrying the assertion helpers.</summary>
+        private const string DebugMetadataName = "System.Diagnostics.Debug";
+
+        /// <summary>The cached ordinal-comparison availability, including a missing overload.</summary>
+        private bool[]? _compareOrdinal;
+
+        /// <summary>The cached debug type and overloads, including missing replacements.</summary>
+        private DebugMembers[]? _debugMembers;
+
+        /// <summary>Gets whether the ordinal-comparison replacement exists.</summary>
+        /// <returns>True when the replacement overload exists.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool SupportsCompareOrdinal() =>
+            (_compareOrdinal ??= [HasCompareOrdinal(compilation.GetSpecialType(SpecialType.System_String))])[0];
+
+        /// <summary>Gets the debug type and replacement overloads on first demand.</summary>
+        /// <returns>The debug type and its available replacement overloads.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DebugMembers GetDebugMembers() => (_debugMembers ??= [ResolveDebugMembers(compilation)])[0];
+
+        /// <summary>Resolves the debug type and its replacement overloads.</summary>
+        /// <param name="compilation">The compilation whose debug members are resolved.</param>
+        /// <returns>The debug type and its available replacement overloads.</returns>
+        private static DebugMembers ResolveDebugMembers(Compilation compilation)
+        {
+            var type = compilation.GetTypeByMetadataName(DebugMetadataName);
+            return new(type, type is null ? default : GetFailArities(type));
+        }
+
+        /// <summary>Returns whether <c>string.CompareOrdinal(string, string)</c> exists on the string type.</summary>
+        /// <param name="stringType">The compilation's string type.</param>
+        /// <returns><see langword="true"/> when the ordinal comparison the fix calls resolves.</returns>
+        private static bool HasCompareOrdinal(INamedTypeSymbol stringType)
+        {
+            var members = stringType.GetMembers(CompareOrdinalName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: StringPairParameterCount } method
+                    && method.Parameters[0].Type.SpecialType == SpecialType.System_String
+                    && method.Parameters[1].Type.SpecialType == SpecialType.System_String)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Collects which single- and two-string <c>Debug.Fail</c> overloads exist.</summary>
+        /// <param name="debugType">The debug type carrying the assertion helpers.</param>
+        /// <returns>The supported <c>Fail</c> argument counts.</returns>
+        private static FailArities GetFailArities(INamedTypeSymbol debugType)
+        {
+            var one = false;
+            var two = false;
+            var members = debugType.GetMembers(FailName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is not IMethodSymbol { IsStatic: true } method || !AllStringParameters(method))
+                {
+                    continue;
+                }
+
+                one |= method.Parameters.Length == 1;
+                two |= method.Parameters.Length == StringPairParameterCount;
+            }
+
+            return new(one, two);
+        }
+
+        /// <summary>Returns whether every parameter of a method is a string.</summary>
+        /// <param name="method">The method to inspect.</param>
+        /// <returns><see langword="true"/> when all parameters are strings.</returns>
+        private static bool AllStringParameters(IMethodSymbol method)
+        {
+            var parameters = method.Parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].Type.SpecialType != SpecialType.System_String)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 }

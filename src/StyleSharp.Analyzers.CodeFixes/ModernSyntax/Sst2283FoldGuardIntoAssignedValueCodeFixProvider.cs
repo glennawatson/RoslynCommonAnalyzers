@@ -64,7 +64,21 @@ public sealed class Sst2283FoldGuardIntoAssignedValueCodeFixProvider : CodeFixPr
 
         // Take the guard's own trivia so the folded statement lands where the guard stood, then drop the
         // original assignment; any blank line that separated the two leaves with it.
-        var foldedStatement = assignmentStatement.WithExpression(assignment.WithRight(coalesce)).WithTriviaFrom(ifStatement);
+        var attributeLists = assignmentStatement.AttributeLists;
+        var left = assignment.Left;
+        if (attributeLists.Count > 0)
+        {
+            attributeLists = attributeLists.Replace(attributeLists[0], attributeLists[0].WithLeadingTrivia(ifStatement.GetLeadingTrivia()));
+        }
+        else
+        {
+            left = left.WithLeadingTrivia(ifStatement.GetLeadingTrivia());
+        }
+
+        var foldedStatement = assignmentStatement.Update(
+            attributeLists,
+            assignment.Update(left, assignment.OperatorToken, coalesce),
+            assignmentStatement.SemicolonToken.WithTrailingTrivia(ifStatement.GetTrailingTrivia()));
         var index = block.Statements.IndexOf(ifStatement);
         var statements = block.Statements.Replace(ifStatement, foldedStatement).RemoveAt(index + 1);
         return new NodeReplacement(block, block.WithStatements(statements));

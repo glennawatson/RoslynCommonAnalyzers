@@ -56,7 +56,10 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
                 SyntaxFactory.IdentifierName(shape.HelperName)),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(arguments)));
 
-        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(call).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(
+            attributeLists: default,
+            call.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the helper's argument list.</summary>
@@ -69,14 +72,14 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
         {
             return ImmutableArrays.Of(
                 SyntaxFactory.Argument(shape.Value.WithoutTrivia()),
-                SyntaxFactory.Argument(BuildInstanceExpression(ifStatement)).WithLeadingTrivia(SyntaxFactory.Space));
+                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, BuildInstanceExpression(ifStatement).WithLeadingTrivia(SyntaxFactory.Space)));
         }
 
         return shape.Operand is null
             ? ImmutableArrays.Of(SyntaxFactory.Argument(shape.Value.WithoutTrivia()))
             : ImmutableArrays.Of(
                 SyntaxFactory.Argument(shape.Value.WithoutTrivia()),
-                SyntaxFactory.Argument(shape.Operand.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space));
+                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, shape.Operand.WithoutTrivia().WithLeadingTrivia(SyntaxFactory.Space)));
     }
 
     /// <summary>Builds the disposal helper's instance argument: <c>this</c>, or <c>typeof(...)</c> in static contexts.</summary>

@@ -132,33 +132,46 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken,
         out ArgumentSyntax argument)
     {
-        ArgumentSyntax? match = null;
-        foreach (var node in nextStatement.DescendantNodes(static node => node is not AnonymousFunctionExpressionSyntax))
-        {
-            if (node is not ArgumentSyntax candidate
-                || !candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
-                || candidate.Expression is not IdentifierNameSyntax identifier)
+        var state = (Boundary: nextStatement, Local: local, Model: model, CancellationToken: cancellationToken, Match: (ArgumentSyntax?)null);
+        var completed = DescendantTraversalHelper.VisitDescendants<
+            ArgumentSyntax,
+            (StatementSyntax Boundary, ISymbol Local, SemanticModel Model, CancellationToken CancellationToken, ArgumentSyntax? Match)>(
+            nextStatement,
+            ref state,
+            static (candidate, ref current) =>
             {
-                continue;
-            }
+                if (!candidate.RefKindKeyword.IsKind(SyntaxKind.OutKeyword)
+                    || candidate.Expression is not IdentifierNameSyntax identifier
+                    || identifier.Identifier.ValueText != current.Local.Name)
+                {
+                    return true;
+                }
 
-            var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-            if (!SymbolEqualityComparer.Default.Equals(local, symbol))
-            {
-                continue;
-            }
+                for (var ancestor = candidate.Parent; ancestor is not null && ancestor != current.Boundary; ancestor = ancestor.Parent)
+                {
+                    if (ancestor is AnonymousFunctionExpressionSyntax)
+                    {
+                        return true;
+                    }
+                }
 
-            if (match is not null)
-            {
-                argument = null!;
-                return false;
-            }
+                var symbol = current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol;
+                if (!SymbolEqualityComparer.Default.Equals(current.Local, symbol))
+                {
+                    return true;
+                }
 
-            match = candidate;
-        }
+                if (current.Match is not null)
+                {
+                    return false;
+                }
 
-        argument = match!;
-        return match is not null;
+                current.Match = candidate;
+                return true;
+            });
+
+        argument = completed ? state.Match! : null!;
+        return completed && state.Match is not null;
     }
 
     /// <summary>Returns whether moving the declaration into the out argument keeps every later reference in scope.</summary>
@@ -335,25 +348,25 @@ public sealed class ModernSyntaxFlowAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         var declarationIndex = declarationBlock.Statements.IndexOf(declaration);
+        var state = (InlineScope: inlineScope, Local: local, Model: model, CancellationToken: cancellationToken);
         for (var index = declarationIndex + 1; index < declarationBlock.Statements.Count; index++)
         {
-            foreach (var node in declarationBlock.Statements[index].DescendantNodesAndSelf())
+            if (!DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (SyntaxNode InlineScope, ISymbol Local, SemanticModel Model, CancellationToken CancellationToken)>(
+                declarationBlock.Statements[index],
+                ref state,
+                static (identifier, ref current) =>
+                {
+                    if (identifier.Identifier.ValueText != current.Local.Name
+                        || IsInside(current.InlineScope, identifier))
+                    {
+                        return true;
+                    }
+
+                    var symbol = current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol;
+                    return !SymbolEqualityComparer.Default.Equals(current.Local, symbol);
+                }))
             {
-                if (node is not IdentifierNameSyntax identifier)
-                {
-                    continue;
-                }
-
-                if (IsInside(inlineScope, identifier))
-                {
-                    continue;
-                }
-
-                var symbol = model.GetSymbolInfo(identifier, cancellationToken).Symbol;
-                if (SymbolEqualityComparer.Default.Equals(local, symbol))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 

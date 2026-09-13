@@ -56,7 +56,7 @@ public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
     private static ExpressionSyntax Repoint(ExpressionSyntax read, string fieldName) =>
         read is MemberAccessExpressionSyntax member
             ? member.WithName(SyntaxFactory.IdentifierName(fieldName))
-            : SyntaxFactory.IdentifierName(fieldName).WithTriviaFrom(read);
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(read.GetLeadingTrivia(), fieldName, read.GetTrailingTrivia()));
 
     /// <summary>Gets the single field a property's getter reads, when its body reduces to one.</summary>
     /// <param name="accessors">The property's accessor list.</param>

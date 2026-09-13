@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,18 +15,12 @@ namespace SecuritySharp.Analyzers;
 /// of scope). The safe <c>Assembly.Load(string)</c> / <c>Load(AssemblyName)</c> identity overloads are told
 /// apart by their first parameter type and are never reported. For the in-memory shapes, a source argument
 /// that is directly <c>&lt;assembly&gt;.GetManifestResourceStream(...)</c> -- a trusted embedded resource -- is
-/// left silent. The rule resolves <c>System.Reflection.Assembly</c> once per compilation and registers nothing
-/// when it is absent, so a project that cannot call these APIs pays nothing.
+/// left silent. The rule resolves its framework types only after a call passes the syntax prefilter
+/// and reports nothing when <c>System.Reflection.Assembly</c> is absent.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type that owns the reflection load methods.</summary>
-    private const string AssemblyMetadataName = "System.Reflection.Assembly";
-
-    /// <summary>The metadata name of the load context that owns <c>LoadFromStream</c>.</summary>
-    private const string AssemblyLoadContextMetadataName = "System.Runtime.Loader.AssemblyLoadContext";
-
     /// <summary>The name of the <c>Assembly.Load</c> method (raw-bytes overload is guarded).</summary>
     private const string LoadMethodName = "Load";
 
@@ -68,26 +64,17 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var assemblyType = start.Compilation.GetTypeByMetadataName(AssemblyMetadataName);
-            if (assemblyType is null)
-            {
-                return;
-            }
-
-            var loadContextType = start.Compilation.GetTypeByMetadataName(AssemblyLoadContextMetadataName);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, assemblyType, loadContextType),
-                SyntaxKind.InvocationExpression);
+            var types = new AssemblyTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1402 for a guarded assembly-load call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="assemblyType">The resolved <c>System.Reflection.Assembly</c> type.</param>
-    /// <param name="loadContextType">The resolved <c>AssemblyLoadContext</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType, INamedTypeSymbol? loadContextType)
+    /// <param name="types">The compilation-scoped framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AssemblyTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -100,11 +87,13 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
+        if (types.GetAssembly() is not { } assemblyType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
         {
             return;
         }
 
+        var loadContextType = types.GetLoadContext();
         var risk = Classify(method, assemblyType, loadContextType);
         if (risk == LoadRisk.None
             || GetFirstParameterArgument(invocation.ArgumentList, method) is not { } sourceArgument
@@ -255,4 +244,31 @@ public sealed class Ses1402UnsafeAssemblyLoadAnalyzer : DiagnosticAnalyzer
             LoadFromStreamMethodName => "AssemblyLoadContext.LoadFromStream",
             _ => $"Assembly.{method.Name}",
         };
+
+    /// <summary>Resolves each assembly-loading type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class AssemblyTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type that owns the reflection load methods.</summary>
+        private const string AssemblyMetadataName = "System.Reflection.Assembly";
+
+        /// <summary>The metadata name of the load context that owns <c>LoadFromStream</c>.</summary>
+        private const string AssemblyLoadContextMetadataName = "System.Runtime.Loader.AssemblyLoadContext";
+
+        /// <summary>The cached assembly type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _assembly;
+
+        /// <summary>The cached load-context type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _loadContext;
+
+        /// <summary>Resolves the assembly type on first demand and caches its absence too.</summary>
+        /// <returns>The assembly type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetAssembly() => (_assembly ??= [compilation.GetTypeByMetadataName(AssemblyMetadataName)])[0];
+
+        /// <summary>Resolves the load-context type on first demand and caches its absence too.</summary>
+        /// <returns>The load-context type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetLoadContext() => (_loadContext ??= [compilation.GetTypeByMetadataName(AssemblyLoadContextMetadataName)])[0];
+    }
 }

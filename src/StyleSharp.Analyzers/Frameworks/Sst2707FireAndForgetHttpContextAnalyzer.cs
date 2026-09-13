@@ -22,9 +22,9 @@ namespace StyleSharp.Analyzers;
 /// <c>Microsoft.AspNetCore.Mvc.ControllerBase</c>.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on both <c>HttpContext</c> and <c>ControllerBase</c> resolving,
-/// so a non-web project registers nothing. The clean path is a syntactic shape probe — the invoked name, the
-/// discard shape, and a lambda argument — before any binding; the semantic model is consulted only once that
+/// The framework types are resolved on the first syntactic candidate and cached for the compilation.
+/// The clean path is a syntactic shape probe — the invoked name, the discard shape, and a lambda argument —
+/// before any binding; the semantic model is consulted only once that
 /// shape matches, to confirm the call is <c>System.Threading.Tasks.Task.Run</c> on a controller and that the
 /// delegate really closes over an <c>HttpContext</c>-typed value.
 /// </para>
@@ -32,15 +32,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the request context whose capture is reported.</summary>
-    private const string HttpContextMetadataName = "Microsoft.AspNetCore.Http.HttpContext";
-
-    /// <summary>The metadata name of the controller base type the rule scopes to.</summary>
-    private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
-
-    /// <summary>The metadata name of the type that owns the offloading helper.</summary>
-    private const string TaskMetadataName = "System.Threading.Tasks.Task";
-
     /// <summary>The name of the offloading helper the rule reports.</summary>
     private const string RunMethodName = "Run";
 
@@ -64,30 +55,17 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            if (compilation.GetTypeByMetadataName(HttpContextMetadataName) is not { } httpContextType
-                || compilation.GetTypeByMetadataName(ControllerBaseMetadataName) is not { } controllerBaseType
-                || compilation.GetTypeByMetadataName(TaskMetadataName) is not { } taskType)
-            {
-                return;
-            }
-
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, httpContextType, controllerBaseType, taskType),
+                nodeContext => Analyze(nodeContext, frameworkTypes),
                 SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports a discarded <c>Task.Run</c> in a controller that captures the request's <c>HttpContext</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpContextType">The resolved <c>HttpContext</c> type.</param>
-    /// <param name="controllerBaseType">The resolved <c>ControllerBase</c> type.</param>
-    /// <param name="taskType">The resolved <c>System.Threading.Tasks.Task</c> type.</param>
-    private static void Analyze(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol httpContextType,
-        INamedTypeSymbol controllerBaseType,
-        INamedTypeSymbol taskType)
+    /// <param name="frameworkTypes">The deferred framework-type lookup for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -101,6 +79,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
 
         var typeDeclaration = invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>();
         if (typeDeclaration is null
+            || frameworkTypes.Get() is not [var httpContextType, var controllerBaseType, var taskType]
             || !IsOrDerivesFrom(context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken), controllerBaseType))
         {
             return;
@@ -213,6 +192,38 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the framework types only when a discarded delegate call needs them.</summary>
+    /// <param name="compilation">The compilation whose framework types are cached.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the request context whose capture is reported.</summary>
+        private const string HttpContextMetadataName = "Microsoft.AspNetCore.Http.HttpContext";
+
+        /// <summary>The metadata name of the controller base type the rule scopes to.</summary>
+        private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
+
+        /// <summary>The metadata name of the type that owns the offloading helper.</summary>
+        private const string TaskMetadataName = "System.Threading.Tasks.Task";
+
+        /// <summary>The published types, or an empty array when a required type is absent.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the cached framework types, resolving them on first use.</summary>
+        /// <returns>The context, controller and task types, or an empty array when any is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves all types required to recognize the discarded task and its capture.</summary>
+        /// <param name="compilation">The compilation to resolve against.</param>
+        /// <returns>The context, controller and task types, or an empty array when any is absent.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(HttpContextMetadataName) is not { } httpContextType
+                || compilation.GetTypeByMetadataName(ControllerBaseMetadataName) is not { } controllerBaseType
+                || compilation.GetTypeByMetadataName(TaskMetadataName) is not { } taskType
+                ? []
+                : [httpContextType, controllerBaseType, taskType];
     }
 
     /// <summary>The state threaded through the delegate-body descendant walk.</summary>

@@ -39,9 +39,6 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
     /// <summary>How the maximum element is described in the message.</summary>
     private const string LargestText = "largest";
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseSortedSetExtremeProperty);
 
@@ -54,14 +51,10 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
+            var enumerableType = new EnumerableTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -76,8 +69,8 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports PSH1122 for a sorted set whose extreme element is fetched through LINQ.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, EnumerableTypeCache typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsExtremeExtensionShape(invocation))
@@ -86,7 +79,8 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
         }
 
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        if (!IsSourceOnlyEnumerableExtension(context, invocation, enumerableType)
+        if (typeCache.Get() is not { } enumerableType
+            || !IsSourceOnlyEnumerableExtension(context, invocation, enumerableType)
             || !IsSortedSetReceiver(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type))
         {
             return;
@@ -140,4 +134,31 @@ public sealed class Psh1122UseSortedSetExtremePropertyAnalyzer : DiagnosticAnaly
         containing is not null
             && containing.Name == leaf
             && containing.ContainingNamespace is { Name: "Collections", ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true } };
+
+    /// <summary>Resolves the LINQ extension type on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EnumerableTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension class.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the LINQ extension type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no LINQ extension type.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
+    }
 }

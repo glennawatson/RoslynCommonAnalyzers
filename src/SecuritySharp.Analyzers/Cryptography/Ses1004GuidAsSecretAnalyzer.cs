@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace SecuritySharp.Analyzers;
@@ -16,7 +17,7 @@ namespace SecuritySharp.Analyzers;
 /// <c>pwd</c>, <c>nonce</c>, <c>salt</c>, <c>otp</c>, an API key, a session id/key, a verification code, or a
 /// reset token -- matched on word boundaries so an ordinary <c>Guid.NewGuid()</c> used as an id is never
 /// touched. The suggestion is <c>System.Security.Cryptography.RandomNumberGenerator</c>; the rule resolves
-/// that type once per compilation and registers nothing when it is absent, so a project that cannot act on
+/// that type on the first candidate per compilation and reports nothing when it is absent, so a project that cannot act on
 /// the diagnostic never receives it. There is no code fix because the correct replacement call
 /// (<c>GetBytes</c>, <c>GetInt32</c>, <c>GetHexString</c>, <c>GetString</c>, and its size) depends on the shape
 /// of the secret being minted.
@@ -29,12 +30,6 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The <c>ToString</c> method name skipped when it wraps the GUID before it reaches a target.</summary>
     private const string ToStringMethodName = "ToString";
-
-    /// <summary>The metadata name of the GUID type whose factory is matched.</summary>
-    private const string GuidMetadataName = "System.Guid";
-
-    /// <summary>The metadata name of the cryptographic RNG the rule suggests; the gate for the whole rule.</summary>
-    private const string RandomNumberGeneratorMetadataName = "System.Security.Cryptography.RandomNumberGenerator";
 
     /// <summary>Single-concept secret words matched against a whole identifier word (case-insensitive).</summary>
     private static readonly string[] SecretWords =
@@ -76,26 +71,17 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            // Gate the whole rule on the API we suggest: if a project cannot call RandomNumberGenerator, the
-            // diagnostic would not be actionable, so register nothing. The GUID type is resolved for the match
-            // and passed through; when it is absent (impossible once the RNG resolved) the symbol comparison
-            // simply never matches, so no separate guard is needed.
-            if (start.Compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is null)
-            {
-                return;
-            }
-
-            var guidType = start.Compilation.GetTypeByMetadataName(GuidMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, guidType), SyntaxKind.InvocationExpression);
+            var types = new SecretTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1004 for a <c>Guid.NewGuid()</c> call whose value flows into a secret-named target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="guidType">The resolved <c>System.Guid</c> type used to confirm the factory call; never matches when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? guidType)
+    /// <param name="types">The lazily resolved types used to confirm an actionable GUID secret diagnostic.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, SecretTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -116,7 +102,8 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NewGuidMethodName, IsStatic: true } method
+        if (types.GetGuidType() is not { } guidType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NewGuidMethodName, IsStatic: true } method
             || !method.Parameters.IsEmpty
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, guidType))
         {
@@ -246,7 +233,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             var word = words[i];
             for (var t = 0; t < SecretWords.Length; t++)
             {
-                if (string.Equals(word, SecretWords[t], StringComparison.Ordinal))
+                if (WordEquals(word.Span, SecretWords[t]))
                 {
                     return true;
                 }
@@ -268,14 +255,14 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <param name="words">The identifier's words.</param>
     /// <param name="run">The consecutive words to find.</param>
     /// <returns><see langword="true"/> when the run appears in order.</returns>
-    private static bool ContainsWordRun(List<string> words, string[] run)
+    private static bool ContainsWordRun(List<ReadOnlyMemory<char>> words, string[] run)
     {
         for (var start = 0; start + run.Length <= words.Count; start++)
         {
             var matched = true;
             for (var offset = 0; offset < run.Length; offset++)
             {
-                if (string.Equals(words[start + offset], run[offset], StringComparison.Ordinal))
+                if (WordEquals(words[start + offset].Span, run[offset]))
                 {
                     continue;
                 }
@@ -293,14 +280,14 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Splits an identifier into lowercase words on separators, case transitions, and acronym ends.</summary>
+    /// <summary>Splits an identifier into word slices on separators, case transitions, and acronym ends.</summary>
     /// <param name="name">The identifier to split.</param>
-    /// <returns>The lowercase words; empty when the identifier holds no letters or digits.</returns>
-    private static List<string> SplitIntoWords(string name)
+    /// <returns>The word slices; empty when the identifier holds no letters or digits.</returns>
+    private static List<ReadOnlyMemory<char>> SplitIntoWords(string name)
     {
         const int InitialIdentifierWordCapacity = 4;
 
-        var words = new List<string>(InitialIdentifierWordCapacity);
+        var words = new List<ReadOnlyMemory<char>>(InitialIdentifierWordCapacity);
         var start = -1;
         for (var i = 0; i < name.Length; i++)
         {
@@ -357,12 +344,12 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         return char.IsDigit(current) != char.IsDigit(previous);
     }
 
-    /// <summary>Appends the lowercased span <c>[start, end)</c> of <paramref name="name"/> as a word when non-empty.</summary>
+    /// <summary>Appends the slice <c>[start, end)</c> of <paramref name="name"/> as a word when non-empty.</summary>
     /// <param name="words">The accumulating word list.</param>
     /// <param name="name">The identifier being split.</param>
     /// <param name="start">The inclusive word start, or a negative value when no word is open.</param>
     /// <param name="end">The exclusive word end.</param>
-    private static void FlushWord(List<string> words, string name, int start, int end)
+    private static void FlushWord(List<ReadOnlyMemory<char>> words, string name, int start, int end)
     {
         // Callers only pass end > start once a word is open (start >= 0), so a single guard suffices.
         if (start < 0)
@@ -370,6 +357,52 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        words.Add(name.Substring(start, end - start).ToLowerInvariant());
+        words.Add(name.AsMemory(start, end - start));
+    }
+
+    /// <summary>Compares a word to the lowercase vocabulary using the original invariant lowercase mapping.</summary>
+    /// <param name="word">The identifier word.</param>
+    /// <param name="expected">The lowercase vocabulary entry.</param>
+    /// <returns>Whether the word's invariant lowercase spelling equals the entry.</returns>
+    private static bool WordEquals(ReadOnlySpan<char> word, string expected)
+    {
+        if (word.Length != expected.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < word.Length; i++)
+        {
+            if (char.ToLowerInvariant(word[i]) != expected[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Resolves the actionable GUID type only after a secret target passes the candidate checks.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class SecretTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the GUID type whose factory is matched.</summary>
+        private const string GuidMetadataName = "System.Guid";
+
+        /// <summary>The metadata name of the cryptographic RNG the rule suggests; the gate for the whole rule.</summary>
+        private const string RandomNumberGeneratorMetadataName = "System.Security.Cryptography.RandomNumberGenerator";
+
+        /// <summary>The cached GUID lookup, including a missing GUID or cryptographic RNG type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the GUID type when the suggested cryptographic RNG is available.</summary>
+        /// <returns>The GUID type, or null when either required type is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetGuidType() => (_resolved ??=
+        [
+            compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is not null
+                ? compilation.GetTypeByMetadataName(GuidMetadataName)
+                : null,
+        ])[0];
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -18,9 +20,6 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The invoked member name the syntax gate requires.</summary>
     internal const string EqualsMethodName = "Equals";
-
-    /// <summary>The metadata name of the comparer type the fix moves to.</summary>
-    private const string EqualityComparerMetadataName = "System.Collections.Generic.EqualityComparer`1";
 
     /// <summary>The argument count of the static object.Equals overload.</summary>
     private const int StaticEqualsArgumentCount = 2;
@@ -39,12 +38,8 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EqualityComparerMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            var comparerType = new ComparerType(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, comparerType), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -127,11 +122,14 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1012 for an equality call that boxes its type parameter operands.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="comparerType">The compilation's deferred comparer availability check.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ComparerType comparerType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count is not (1 or StaticEqualsArgumentCount)
             || GetInvokedName(invocation.Expression) != EqualsMethodName
+            || (invocation.ArgumentList.Arguments.Count == 1 && invocation.Expression is not MemberAccessExpressionSyntax)
+            || !comparerType.IsAvailable()
             || TryGetBoxingComparison(context.SemanticModel, invocation, context.CancellationToken) is not { } comparison)
         {
             return;
@@ -142,5 +140,21 @@ public sealed class Psh1012EqualityComparerDefaultAnalyzer : DiagnosticAnalyzer
             invocation.SyntaxTree,
             invocation.Span,
             comparison.TypeParameter.Name));
+    }
+
+    /// <summary>Checks comparer availability only after a candidate equality call is found.</summary>
+    /// <param name="compilation">The compilation whose comparer type is checked.</param>
+    private sealed class ComparerType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the comparer type the fix moves to.</summary>
+        private const string EqualityComparerMetadataName = "System.Collections.Generic.EqualityComparer`1";
+
+        /// <summary>The cached availability result, including an absent comparer type.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Gets whether the compilation exposes the comparer type.</summary>
+        /// <returns>True when the comparer type resolves.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??= [compilation.GetTypeByMetadataName(EqualityComparerMetadataName) is not null])[0];
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -36,9 +38,6 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member name.</summary>
     internal const string GetStringMethodName = "GetString";
 
-    /// <summary>The metadata name of the encoding base type a reported receiver must derive from.</summary>
-    private const string EncodingMetadataName = "System.Text.Encoding";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseEncodingGetString);
 
@@ -53,13 +52,9 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EncodingMetadataName) is not { } encoding)
-            {
-                return;
-            }
-
+            var types = new EncodingTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeStringCreation(nodeContext, encoding),
+                nodeContext => AnalyzeStringCreation(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression);
         });
     }
@@ -84,9 +79,9 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     internal static InvocationExpressionSyntax BuildGetString(InvocationExpressionSyntax decode)
     {
         var access = (MemberAccessExpressionSyntax)decode.Expression;
-        return decode
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName(GetStringMethodName)))
-            .WithoutTrivia();
+        return decode.Update(
+            access.WithName(SyntaxFactory.IdentifierName(GetStringMethodName)).WithoutLeadingTrivia(),
+            decode.ArgumentList.WithoutTrailingTrivia());
     }
 
     /// <summary>Confirms the rewrite binds to a <c>GetString</c> on the same encoding, returning a string.</summary>
@@ -109,11 +104,12 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1225 for a decode-then-copy that <c>GetString</c> does in one step.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="encoding">The encoding base type.</param>
-    private static void AnalyzeStringCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encoding)
+    /// <param name="types">The compilation's lazily resolved encoding type.</param>
+    private static void AnalyzeStringCreation(in SyntaxNodeAnalysisContext context, EncodingTypes types)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
-        if (TryGetDecodeCall(creation) is not { } decodeCall)
+        if (TryGetDecodeCall(creation) is not { } decodeCall
+            || types.Get() is not { } encoding)
         {
             return;
         }
@@ -209,5 +205,21 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    /// <summary>Resolves the encoding base type only after a decode-then-copy candidate is found.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EncodingTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the encoding base type a reported receiver must derive from.</summary>
+        private const string EncodingMetadataName = "System.Text.Encoding";
+
+        /// <summary>Caches the resolved type, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the encoding base type on first demand.</summary>
+        /// <returns>The resolved type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(EncodingMetadataName)])[0];
     }
 }

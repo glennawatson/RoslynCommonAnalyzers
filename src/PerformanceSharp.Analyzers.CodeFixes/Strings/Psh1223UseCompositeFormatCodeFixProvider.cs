@@ -137,7 +137,7 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
     /// <param name="formatIndex">The format argument's index.</param>
     /// <param name="fieldName">The name chosen for the field.</param>
     /// <returns>The field declaration, indented and spaced for the type it joins.</returns>
-    private static MemberDeclarationSyntax BuildFieldDeclaration(
+    private static FieldDeclarationSyntax BuildFieldDeclaration(
         SemanticModel model,
         TypeDeclarationSyntax owner,
         InvocationExpressionSyntax invocation,
@@ -153,9 +153,13 @@ public sealed class Psh1223UseCompositeFormatCodeFixProvider : CodeFixProvider
 
         var lineBreak = LineEndingHelper.GetLineBreak(owner);
         var indentation = GetMemberIndentation(owner);
-        return SyntaxFactory.ParseMemberDeclaration(text)!
-            .WithLeadingTrivia(SyntaxFactory.Whitespace(indentation))
-            .WithTrailingTrivia(lineBreak, lineBreak);
+        var field = (FieldDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(text)!;
+        var firstModifier = field.Modifiers[0];
+        return field.Update(
+            field.AttributeLists,
+            field.Modifiers.Replace(firstModifier, firstModifier.WithLeadingTrivia(SyntaxFactory.Whitespace(indentation))),
+            field.Declaration,
+            field.SemicolonToken.WithTrailingTrivia(lineBreak, lineBreak));
     }
 
     /// <summary>Returns the source text of the format the hoisted field should parse.</summary>

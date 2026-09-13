@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
 /// Requires <c>Debug.Assert</c> (SST1405) and <c>Debug.Fail</c> (SST1406) calls to
 /// pass message text. Resolution of <c>System.Diagnostics.Debug</c> is done once per
-/// compilation, so the rule costs nothing when the type is absent.
+/// compilation, only after a possible call without a message is found.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
@@ -38,13 +40,9 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var debug = start.Compilation.GetTypeByMetadataName("System.Diagnostics.Debug");
-            if (debug is null)
-            {
-                return;
-            }
+            var debug = new DebugTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, debug), SyntaxKind.InvocationExpression);
         });
@@ -52,8 +50,8 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a Debug.Assert/Debug.Fail call that omits a message.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="debug">The resolved <c>System.Diagnostics.Debug</c> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debug)
+    /// <param name="debug">The <c>System.Diagnostics.Debug</c> symbol, resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, DebugTypes debug)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access)
@@ -73,8 +71,9 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, debug))
+        if (debug.Get() is not { } resolved
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolved))
         {
             return;
         }
@@ -95,5 +94,18 @@ public sealed class DebugMessageAnalyzer : DiagnosticAnalyzer
 
         var expression = arguments[messageIndex].Expression;
         return expression is not LiteralExpressionSyntax literal || !string.IsNullOrWhiteSpace(literal.Token.ValueText);
+    }
+
+    /// <summary>Resolves the debug type only for a possible call without a message.</summary>
+    /// <param name="compilation">The compilation whose debug type is resolved.</param>
+    private sealed class DebugTypes(Compilation compilation)
+    {
+        /// <summary>The resolved type slot, including null when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the debug type, caching its absence too.</summary>
+        /// <returns>The debug type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.Diagnostics.Debug")])[0];
     }
 }

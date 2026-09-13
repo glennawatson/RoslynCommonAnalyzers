@@ -53,7 +53,10 @@ public sealed class Sst2269ConditionalConditionParenthesesCodeFixProvider : Code
             return null;
         }
 
-        var wrapped = SyntaxFactory.ParenthesizedExpression(found.WithoutTrivia()).WithTriviaFrom(found);
+        var wrapped = SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.Token(found.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            found.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, found.GetTrailingTrivia()));
         return new NodeReplacement(found, wrapped);
     }
 }

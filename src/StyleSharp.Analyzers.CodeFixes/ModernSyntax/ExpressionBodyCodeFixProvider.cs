@@ -84,40 +84,165 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
             MethodDeclarationSyntax method when ExpressionBodyAnalyzer.TryGetMethodExpression(method, out var expression)
                 => new NodeReplacement(
                     method,
-                    Layout(method, options, method.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(method.Body!.CloseBraceToken)))),
+                    Layout(method, options, ToExpressionBody(method, expression))),
 
             ConstructorDeclarationSyntax constructor when ExpressionBodyAnalyzer.TryGetConstructorExpression(constructor, out var expression)
                 => new NodeReplacement(
                     constructor,
-                    Layout(constructor, options, constructor.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(constructor.Body!.CloseBraceToken)))),
+                    Layout(constructor, options, ToExpressionBody(constructor, expression))),
 
             OperatorDeclarationSyntax declared when ExpressionBodyAnalyzer.TryGetOperatorExpression(declared, out var expression)
                 => new NodeReplacement(
                     declared,
-                    Layout(declared, options, declared.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(declared.Body!.CloseBraceToken)))),
+                    Layout(declared, options, ToExpressionBody(declared, expression))),
 
             ConversionOperatorDeclarationSyntax conversion when ExpressionBodyAnalyzer.TryGetConversionOperatorExpression(conversion, out var expression)
                 => new NodeReplacement(
                     conversion,
-                    Layout(conversion, options, conversion.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(conversion.Body!.CloseBraceToken)))),
+                    Layout(conversion, options, ToExpressionBody(conversion, expression))),
 
             PropertyDeclarationSyntax property when ExpressionBodyAnalyzer.TryGetPropertyExpression(property, out var expression)
                 => new NodeReplacement(
                     property,
-                    Layout(property, options, property.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(property.AccessorList!.CloseBraceToken)))),
+                    Layout(property, options, ToExpressionBody(property, expression))),
 
             IndexerDeclarationSyntax indexer when ExpressionBodyAnalyzer.TryGetIndexerExpression(indexer, out var expression)
                 => new NodeReplacement(
                     indexer,
-                    Layout(indexer, options, indexer.WithAccessorList(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(indexer.AccessorList!.CloseBraceToken)))),
+                    Layout(indexer, options, ToExpressionBody(indexer, expression))),
 
             LocalFunctionStatementSyntax localFunction when ExpressionBodyAnalyzer.TryGetLocalFunctionExpression(localFunction, out var expression)
                 => new NodeReplacement(
                     localFunction,
-                    Layout(localFunction, options, localFunction.WithBody(null).WithExpressionBody(Arrow(expression)).WithSemicolonToken(Semicolon(localFunction.Body!.CloseBraceToken)))),
+                    Layout(localFunction, options, ToExpressionBody(localFunction, expression))),
 
             _ => null,
         };
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="method">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static MethodDeclarationSyntax ToExpressionBody(MethodDeclarationSyntax method, ExpressionSyntax expression) =>
+        method.Update(
+            method.AttributeLists,
+            method.Modifiers,
+            method.ReturnType,
+            method.ExplicitInterfaceSpecifier,
+            method.Identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            null,
+            Arrow(expression),
+            Semicolon(method.Body!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="constructor">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ConstructorDeclarationSyntax ToExpressionBody(ConstructorDeclarationSyntax constructor, ExpressionSyntax expression) =>
+        constructor.Update(
+            constructor.AttributeLists,
+            constructor.Modifiers,
+            constructor.Identifier,
+            constructor.ParameterList,
+            constructor.Initializer,
+            null,
+            Arrow(expression),
+            Semicolon(constructor.Body!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="declared">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static OperatorDeclarationSyntax ToExpressionBody(OperatorDeclarationSyntax declared, ExpressionSyntax expression) =>
+        declared.Update(
+            declared.AttributeLists,
+            declared.Modifiers,
+            declared.ReturnType,
+            declared.ExplicitInterfaceSpecifier,
+            declared.OperatorKeyword,
+            declared.CheckedKeyword,
+            declared.OperatorToken,
+            declared.ParameterList,
+            null,
+            Arrow(expression),
+            Semicolon(declared.Body!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="conversion">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static ConversionOperatorDeclarationSyntax ToExpressionBody(ConversionOperatorDeclarationSyntax conversion, ExpressionSyntax expression) =>
+        conversion.Update(
+            conversion.AttributeLists,
+            conversion.Modifiers,
+            conversion.ImplicitOrExplicitKeyword,
+            conversion.ExplicitInterfaceSpecifier,
+            conversion.OperatorKeyword,
+            conversion.CheckedKeyword,
+            conversion.Type,
+            conversion.ParameterList,
+            null,
+            Arrow(expression),
+            Semicolon(conversion.Body!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="property">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static PropertyDeclarationSyntax ToExpressionBody(PropertyDeclarationSyntax property, ExpressionSyntax expression) =>
+        property.Update(
+            property.AttributeLists,
+            property.Modifiers,
+            property.Type,
+            property.ExplicitInterfaceSpecifier,
+            property.Identifier,
+            null,
+            Arrow(expression),
+            property.Initializer,
+            Semicolon(property.AccessorList!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="indexer">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static IndexerDeclarationSyntax ToExpressionBody(IndexerDeclarationSyntax indexer, ExpressionSyntax expression) =>
+        indexer.Update(
+            indexer.AttributeLists,
+            indexer.Modifiers,
+            indexer.Type,
+            indexer.ExplicitInterfaceSpecifier,
+            indexer.ThisKeyword,
+            indexer.ParameterList,
+            null,
+            Arrow(expression),
+            Semicolon(indexer.AccessorList!.CloseBraceToken));
+
+    /// <summary>Replaces the block with an expression body while preserving the other children.</summary>
+    /// <param name="localFunction">The original member.</param>
+    /// <param name="expression">The expression to return or execute.</param>
+    /// <returns>The member with an expression body.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LocalFunctionStatementSyntax ToExpressionBody(LocalFunctionStatementSyntax localFunction, ExpressionSyntax expression) =>
+        localFunction.Update(
+            localFunction.AttributeLists,
+            localFunction.Modifiers,
+            localFunction.ReturnType,
+            localFunction.Identifier,
+            localFunction.TypeParameterList,
+            localFunction.ParameterList,
+            localFunction.ConstraintClauses,
+            null,
+            Arrow(expression),
+            Semicolon(localFunction.Body!.CloseBraceToken));
 
     /// <summary>Gets the block body or accessor list a member was written with.</summary>
     /// <param name="original">The member as it was written.</param>
@@ -165,7 +290,7 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
     /// <returns>A semicolon token that keeps the member's trailing trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static SyntaxToken Semicolon(SyntaxToken closeBrace) =>
-        SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(closeBrace.TrailingTrivia);
+        SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, closeBrace.TrailingTrivia);
 
     /// <summary>Lays the new expression body out, wrapping it when one line would run past the maximum.</summary>
     /// <param name="original">The member as it was written.</param>
@@ -214,13 +339,22 @@ public sealed class ExpressionBodyCodeFixProvider : CodeFixProvider, IBatchFixab
         var text = original.SyntaxTree.GetText();
         var signatureEnd = body.GetFirstToken().GetPreviousToken().Span.End;
         var line = text.Lines.GetLineFromPosition(signatureEnd);
-        var signature = text.ToString(TextSpan.FromBounds(line.Start, signatureEnd)).TrimEnd();
+        while (signatureEnd > line.Start && char.IsWhiteSpace(text[signatureEnd - 1]))
+        {
+            signatureEnd--;
+        }
+
+        var signatureLength = signatureEnd - line.Start;
 
         var expressionText = expression.ToString();
         var firstBreak = expressionText.IndexOf('\n');
-        var head = firstBreak < 0 ? expressionText : expressionText[0..(0 + firstBreak)].TrimEnd();
+        var headLength = firstBreak < 0 ? expressionText.Length : firstBreak;
+        while (firstBreak >= 0 && headLength > 0 && char.IsWhiteSpace(expressionText[headLength - 1]))
+        {
+            headLength--;
+        }
 
-        return signature.Length + ArrowWidth + head.Length + (firstBreak < 0 ? 1 : 0) <= SizeLimitOptions.ReadMaxLineLength(options);
+        return signatureLength + ArrowWidth + headLength + (firstBreak < 0 ? 1 : 0) <= SizeLimitOptions.ReadMaxLineLength(options);
     }
 
     /// <summary>Gets the indentation a wrapped continuation line uses.</summary>

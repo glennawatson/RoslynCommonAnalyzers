@@ -479,7 +479,14 @@ internal static class CollectionExpressionAdvancedAnalysis
             return true;
         }
 
-        var builder = new System.Text.StringBuilder();
+        const int SeparatorLength = 2;
+        var capacity = arguments.Count * SeparatorLength;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            capacity += arguments[i].Expression.Span.Length;
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         _ = builder.Append('[');
         for (var i = 0; i < arguments.Count; i++)
         {

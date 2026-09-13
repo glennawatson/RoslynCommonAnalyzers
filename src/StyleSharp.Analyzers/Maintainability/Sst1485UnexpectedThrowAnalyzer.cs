@@ -76,7 +76,15 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         var allowed = new Lazy<AllowedThrowTypes>(
             () => AllowedThrowTypes.Create(compilation),
             LazyThreadSafetyMode.ExecutionAndPublication);
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions>();
+        var treeCount = 0;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions>(
+            concurrencyLevel: 1,
+            capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree, allowed),
             SyntaxKind.MethodDeclaration,

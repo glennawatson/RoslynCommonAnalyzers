@@ -4,6 +4,7 @@
 
 using System.Collections.Concurrent;
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -63,7 +64,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Sets up the per-compilation caches, then analyzes every parameter.</summary>
+    /// <summary>Defers the per-compilation caches until a candidate parameter needs them.</summary>
     /// <param name="context">The compilation start context.</param>
     /// <remarks>
     /// Whether a method is ever converted to a delegate is a whole-compilation fact — the conversion can
@@ -73,25 +74,22 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, InParameterOptions>();
-        var sizeByType = new ConcurrentDictionary<ITypeSymbol, int>(SymbolEqualityComparer.Default);
-        var delegateTargets = new MethodGroupTargets(context.Compilation);
+        var compilation = context.Compilation;
+
+        // Publish one cache owner so concurrent candidates share the mutable caches and delegate scan.
+        var caches = new Lazy<ParameterCaches>(() => new ParameterCaches(compilation));
 
         context.RegisterSyntaxNodeAction(
-            nodeContext => AnalyzeParameter(nodeContext, optionsByTree, sizeByType, delegateTargets),
+            nodeContext => AnalyzeParameter(nodeContext, caches),
             SyntaxKind.Parameter);
     }
 
     /// <summary>Reports one by-value parameter that would copy less as an <c>in</c> reference.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <param name="sizeByType">The per-compilation struct-size cache.</param>
-    /// <param name="delegateTargets">The methods the compilation converts to a delegate.</param>
+    /// <param name="caches">The deferred per-compilation caches.</param>
     private static void AnalyzeParameter(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree,
-        ConcurrentDictionary<ITypeSymbol, int> sizeByType,
-        MethodGroupTargets delegateTargets)
+        Lazy<ParameterCaches> caches)
     {
         var parameter = (ParameterSyntax)context.Node;
 
@@ -113,9 +111,10 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return;
         }
 
-        var size = GetReportableSize(context, container, symbol, type, optionsByTree, sizeByType);
+        var resolved = caches.Value;
+        var size = GetReportableSize(context, container, symbol, type, resolved);
         if (size == StructSizeEstimator.Unknown
-            || delegateTargets.Contains(symbol.ContainingSymbol.OriginalDefinition, context.CancellationToken))
+            || resolved.DelegateTargets.Contains(symbol.ContainingSymbol.OriginalDefinition, context.CancellationToken))
         {
             return;
         }
@@ -133,8 +132,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     /// <param name="container">The containing declaration.</param>
     /// <param name="symbol">The parameter symbol.</param>
     /// <param name="type">The parameter's struct type.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <param name="sizeByType">The per-compilation struct-size cache.</param>
+    /// <param name="caches">The per-compilation caches.</param>
     /// <returns>The estimated size, or <see cref="StructSizeEstimator.Unknown"/>.</returns>
     /// <remarks>
     /// The gates run cheapest first: an excluded type costs a name compare, the size a cached estimate, and
@@ -145,16 +143,15 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         SyntaxNode container,
         IParameterSymbol symbol,
         INamedTypeSymbol type,
-        ConcurrentDictionary<SyntaxTree, InParameterOptions> optionsByTree,
-        ConcurrentDictionary<ITypeSymbol, int> sizeByType)
+        ParameterCaches caches)
     {
-        var options = GetOptions(context, optionsByTree);
+        var options = GetOptions(context, caches.OptionsByTree);
         if (InParameterOptions.IsExcluded(type, options.ExcludedTypes))
         {
             return StructSizeEstimator.Unknown;
         }
 
-        var size = StructSizeEstimator.Estimate(type, sizeByType);
+        var size = StructSizeEstimator.Estimate(type, caches.SizeByType);
         if (size == StructSizeEstimator.Unknown || size < options.MinimumSize)
         {
             return StructSizeEstimator.Unknown;
@@ -165,7 +162,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return StructSizeEstimator.Unknown;
         }
 
-        return IsSignatureChangeable(symbol, context) && CanBodyTakeReadonlyReference(container, symbol, context)
+        return IsSignatureChangeable(symbol, caches) && CanBodyTakeReadonlyReference(container, symbol, context)
             ? size
             : StructSizeEstimator.Unknown;
     }
@@ -292,13 +289,13 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
 
     /// <summary>Returns whether the declaring member's signature is free of an inherited contract.</summary>
     /// <param name="parameter">The parameter symbol.</param>
-    /// <param name="context">The syntax node context.</param>
+    /// <param name="caches">The per-compilation caches.</param>
     /// <returns><see langword="true"/> when nothing outside the member fixes its shape.</returns>
     /// <remarks>
     /// An attribute's constructor is excluded because every use of the attribute would stop compiling
     /// (CS8358), which the constructor's own declaration gives no hint of.
     /// </remarks>
-    private static bool IsSignatureChangeable(IParameterSymbol parameter, in SyntaxNodeAnalysisContext context)
+    private static bool IsSignatureChangeable(IParameterSymbol parameter, ParameterCaches caches)
     {
         if (parameter.ContainingSymbol is not IMethodSymbol method)
         {
@@ -311,7 +308,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return false;
         }
 
-        return !HasUnmanagedCallersOnlyAttribute(method, context.Compilation);
+        return !HasUnmanagedCallersOnlyAttribute(method, caches);
     }
 
     /// <summary>Returns whether a type derives from <see cref="Attribute"/>.</summary>
@@ -354,9 +351,9 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
 
     /// <summary>Returns whether a method is a native callback whose signature the runtime fixes.</summary>
     /// <param name="method">The declaring method.</param>
-    /// <param name="compilation">The compilation.</param>
+    /// <param name="caches">The per-compilation caches.</param>
     /// <returns><see langword="true"/> when the method carries <c>[UnmanagedCallersOnly]</c>.</returns>
-    private static bool HasUnmanagedCallersOnlyAttribute(IMethodSymbol method, Compilation compilation)
+    private static bool HasUnmanagedCallersOnlyAttribute(IMethodSymbol method, ParameterCaches caches)
     {
         var attributes = method.GetAttributes();
         if (attributes.IsEmpty)
@@ -364,7 +361,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return false;
         }
 
-        var marker = compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
+        var marker = caches.GetUnmanagedCallersOnlyAttribute();
         if (marker is null)
         {
             return false;
@@ -403,4 +400,33 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         IndexerDeclarationSyntax indexer => (SyntaxNode?)indexer.AccessorList ?? indexer.ExpressionBody,
         _ => null,
     };
+
+    /// <summary>Owns the caches allocated only after a parameter is bound to a candidate struct.</summary>
+    /// <param name="compilation">The compilation whose parameters are analyzed.</param>
+    private sealed class ParameterCaches(Compilation compilation)
+    {
+        /// <summary>The initial entry capacity of the per-compilation dictionaries.</summary>
+        private const int InitialCacheCapacity = 31;
+
+        /// <summary>The number of independent writers supported by the small per-compilation caches.</summary>
+        private const int CacheConcurrencyLevel = 4;
+
+        /// <summary>The cached native-callback marker, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _unmanagedCallersOnly;
+
+        /// <summary>Gets the per-tree settings cache.</summary>
+        public ConcurrentDictionary<SyntaxTree, InParameterOptions> OptionsByTree { get; } = new(CacheConcurrencyLevel, InitialCacheCapacity);
+
+        /// <summary>Gets the per-compilation struct-size cache.</summary>
+        public ConcurrentDictionary<ITypeSymbol, int> SizeByType { get; } = new(CacheConcurrencyLevel, InitialCacheCapacity, SymbolEqualityComparer.Default);
+
+        /// <summary>Gets the methods the compilation converts to delegates.</summary>
+        public MethodGroupTargets DelegateTargets { get; } = new(compilation);
+
+        /// <summary>Gets the native-callback marker, resolving it on first demand.</summary>
+        /// <returns>The marker definition, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetUnmanagedCallersOnlyAttribute() =>
+            (_unmanagedCallersOnly ??= [compilation.GetTypeByMetadataName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute")])[0];
+    }
 }

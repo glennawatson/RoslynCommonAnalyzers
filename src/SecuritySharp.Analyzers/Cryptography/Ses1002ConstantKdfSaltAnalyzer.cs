@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace SecuritySharp.Analyzers;
@@ -14,18 +15,14 @@ namespace SecuritySharp.Analyzers;
 /// inline byte array of constant elements, a reference to a <c>static readonly</c> field (allocated once
 /// and shared across every call), or <c>Encoding.GetBytes</c> over a constant string. A predictable salt
 /// defeats the per-secret uniqueness that a salt exists to provide, so an attacker can precompute a
-/// rainbow table once and crack every password hashed with it. The rule is resolved once per compilation
-/// by probing <c>Rfc2898DeriveBytes</c>; on a target framework without that type nothing is registered,
-/// so a project that cannot call these APIs pays nothing and never receives a diagnostic it cannot act
-/// on. The random-salt <c>Rfc2898DeriveBytes(string, int, …)</c> overloads (whose parameter is
+/// rainbow table once and crack every password hashed with it. The rule resolves <c>Rfc2898DeriveBytes</c>
+/// only after a call passes the syntax prefilter and reports nothing on a target framework without that
+/// type. The random-salt <c>Rfc2898DeriveBytes(string, int, …)</c> overloads (whose parameter is
 /// <c>saltSize</c>, not <c>salt</c>) generate the salt internally and are never reported.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the password-based key-derivation type whose salt is guarded.</summary>
-    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
-
     /// <summary>The simple name of the key-derivation type, used by the allocation-free syntactic prefilter.</summary>
     private const string Rfc2898TypeSimpleName = "Rfc2898DeriveBytes";
 
@@ -34,9 +31,6 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The name of the salt parameter on every guarded overload.</summary>
     private const string SaltParameterName = "salt";
-
-    /// <summary>The metadata name of the text-encoding type used to detect a salt derived from a constant string.</summary>
-    private const string EncodingMetadataName = "System.Text.Encoding";
 
     /// <summary>The name of the <c>Encoding.GetBytes</c> method that turns a constant string into a fixed salt.</summary>
     private const string GetBytesMethodName = "GetBytes";
@@ -56,28 +50,18 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var kdfType = start.Compilation.GetTypeByMetadataName(Rfc2898MetadataName);
-            if (kdfType is null)
-            {
-                return;
-            }
-
-            // Encoding is present on every framework that has Rfc2898DeriveBytes, but resolve it here so
-            // the 'Encoding.GetBytes' salt check never touches metadata on the hot path.
-            var encodingType = start.Compilation.GetTypeByMetadataName(EncodingMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, kdfType, encodingType), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, kdfType, encodingType), SyntaxKind.InvocationExpression);
+            var markers = new Markers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, markers), SyntaxKind.ObjectCreationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, markers), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1002 for a <c>new Rfc2898DeriveBytes(…)</c> call whose salt argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    /// <param name="markers">The compilation's deferred cryptography and encoding types.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -88,20 +72,21 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(creation, context.CancellationToken) is not IObjectCreationOperation operation
+        if (markers.GetKdfType() is not { } kdfType
+            || context.SemanticModel.GetOperation(creation, context.CancellationToken) is not IObjectCreationOperation operation
             || !SymbolEqualityComparer.Default.Equals(operation.Type, kdfType))
         {
             return;
         }
 
+        var encodingType = markers.GetEncodingType();
         ReportIfFixedSalt(context, operation.Arguments, encodingType, $"the {Rfc2898TypeSimpleName} constructor");
     }
 
     /// <summary>Reports SES1002 for a <c>Rfc2898DeriveBytes.Pbkdf2(…)</c> call whose salt argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="kdfType">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    /// <param name="encodingType">The <c>Encoding</c> type, or <see langword="null"/> when it is absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol kdfType, INamedTypeSymbol? encodingType)
+    /// <param name="markers">The compilation's deferred cryptography and encoding types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -112,12 +97,14 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+        if (markers.GetKdfType() is not { } kdfType
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
             || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, kdfType))
         {
             return;
         }
 
+        var encodingType = markers.GetEncodingType();
         ReportIfFixedSalt(context, operation.Arguments, encodingType, $"{Rfc2898TypeSimpleName}.{Pbkdf2MethodName}");
     }
 
@@ -269,5 +256,32 @@ public sealed class Ses1002ConstantKdfSaltAnalyzer : DiagnosticAnalyzer
         }
 
         return type is SimpleNameSyntax { Identifier.ValueText: Rfc2898TypeSimpleName };
+    }
+
+    /// <summary>Resolves each framework type once per compilation, when its check first needs it.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the password-based key-derivation type whose salt is guarded.</summary>
+        private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
+
+        /// <summary>The metadata name of the text-encoding type used to detect a salt derived from a constant string.</summary>
+        private const string EncodingMetadataName = "System.Text.Encoding";
+
+        /// <summary>The single cached KDF result, including a null entry when absent.</summary>
+        private INamedTypeSymbol?[]? _kdfType;
+
+        /// <summary>The single cached encoding result, including a null entry when absent.</summary>
+        private INamedTypeSymbol?[]? _encodingType;
+
+        /// <summary>Gets the KDF type after a call passes the syntax prefilter.</summary>
+        /// <returns>The KDF type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetKdfType() => (_kdfType ??= [compilation.GetTypeByMetadataName(Rfc2898MetadataName)])[0];
+
+        /// <summary>Gets the encoding type after a call binds to the KDF type.</summary>
+        /// <returns>The encoding type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetEncodingType() => (_encodingType ??= [compilation.GetTypeByMetadataName(EncodingMetadataName)])[0];
     }
 }

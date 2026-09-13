@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -9,10 +11,9 @@ namespace SecuritySharp.Analyzers;
 /// nonce argument of <c>AesGcm.Encrypt</c>, <c>AesCcm.Encrypt</c>, and <c>ChaCha20Poly1305.Encrypt</c>
 /// when that argument is a fixed value: an inline <c>new byte[N]</c> (an all-zero buffer that no
 /// statement can write to before the call), an inline array of constant bytes, or a reference to a
-/// <c>static readonly</c> field (allocated once and shared across every call). The rule is resolved
-/// once per compilation by probing the three AEAD types; on a target framework without them
-/// (netstandard2.0, .NET Framework) nothing is registered, so a project that cannot call these APIs
-/// pays nothing and never receives a diagnostic it cannot act on.
+/// <c>static readonly</c> field (allocated once and shared across every call). The three AEAD types
+/// are resolved on demand for a syntactic candidate and cached per compilation, including when no
+/// types resolve. A target framework without them never receives a diagnostic it cannot act on.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
@@ -22,14 +23,6 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The name of the nonce parameter on every AEAD <c>Encrypt</c> overload.</summary>
     private const string NonceParameterName = "nonce";
-
-    /// <summary>The metadata names of the AEAD types whose <c>Encrypt</c> nonce is guarded.</summary>
-    private static readonly string[] AeadMetadataNames =
-    [
-        "System.Security.Cryptography.AesGcm",
-        "System.Security.Cryptography.AesCcm",
-        "System.Security.Cryptography.ChaCha20Poly1305"
-    ];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ConstantAeadNonce);
@@ -43,35 +36,29 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var aeadTypes = GetAeadTypes(start.Compilation);
-            if (aeadTypes is null)
-            {
-                return;
-            }
-
+            var aeadTypes = new AeadTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, aeadTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1001 for an AEAD <c>Encrypt</c> call whose nonce argument is a fixed value.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="aeadTypes">The gated AEAD types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] aeadTypes)
+    /// <param name="aeadTypes">The AEAD types resolved on demand for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AeadTypes aeadTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
-        // Syntactic prefilter: a member '.Encrypt(...)' call carrying at least one argument.
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: EncryptMethodName }
-            || invocation.ArgumentList.Arguments.Count == 0
-            || GetNonceArgument(invocation.ArgumentList) is not { } nonceArgument)
+        if (GetCandidateNonce(invocation) is not { } nonceArgument)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EncryptMethodName } method
-            || GetGatedAeadType(method.ContainingType, aeadTypes) is not { } aeadType
+        var resolvedTypes = aeadTypes.Get();
+        if (resolvedTypes.Length == 0
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EncryptMethodName } method
+            || GetGatedAeadType(method.ContainingType, resolvedTypes) is not { } aeadType
             || !IsFixedNonce(context.SemanticModel, nonceArgument, context.CancellationToken))
         {
             return;
@@ -82,6 +69,21 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
             nonceArgument.SyntaxTree,
             nonceArgument.Span,
             aeadType.Name));
+    }
+
+    /// <summary>Finds a possible fixed nonce before resolving encryption types.</summary>
+    /// <param name="invocation">The candidate Encrypt call.</param>
+    /// <returns>The nonce expression when its syntax can represent a fixed value, or null.</returns>
+    private static ExpressionSyntax? GetCandidateNonce(InvocationExpressionSyntax invocation)
+    {
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: EncryptMethodName }
+            || invocation.ArgumentList.Arguments.Count == 0)
+        {
+            return null;
+        }
+
+        var nonce = GetNonceArgument(invocation.ArgumentList);
+        return nonce is ArrayCreationExpressionSyntax or IdentifierNameSyntax or MemberAccessExpressionSyntax ? nonce : null;
     }
 
     /// <summary>Returns the nonce argument expression, honouring an explicit <c>nonce:</c> name.</summary>
@@ -167,23 +169,44 @@ public sealed class Ses1001ConstantAeadNonceAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Resolves the AEAD types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved AEAD type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetAeadTypes(Compilation compilation)
+    /// <summary>Resolves AEAD types only when a candidate needs them.</summary>
+    /// <param name="compilation">The compilation whose AEAD types are cached.</param>
+    private sealed class AeadTypes(Compilation compilation)
     {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < AeadMetadataNames.Length; i++)
+        /// <summary>The metadata names of the AEAD types whose <c>Encrypt</c> nonce is guarded.</summary>
+        private static readonly string[] AeadMetadataNames =
+        [
+            "System.Security.Cryptography.AesGcm",
+            "System.Security.Cryptography.AesCcm",
+            "System.Security.Cryptography.ChaCha20Poly1305"
+        ];
+
+        /// <summary>The resolved types, including an empty array when no AEAD type is available.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the AEAD types, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The resolved AEAD types, or an empty array when none resolve.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= GetAeadTypes(compilation) ?? [];
+
+        /// <summary>Resolves the AEAD types present in the compilation.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>An array whose slots hold each resolved AEAD type, or <see langword="null"/> when none resolve.</returns>
+        private static INamedTypeSymbol?[]? GetAeadTypes(Compilation compilation)
         {
-            if (compilation.GetTypeByMetadataName(AeadMetadataNames[i]) is not { } type)
+            INamedTypeSymbol?[]? types = null;
+            for (var i = 0; i < AeadMetadataNames.Length; i++)
             {
-                continue;
+                if (compilation.GetTypeByMetadataName(AeadMetadataNames[i]) is not { } type)
+                {
+                    continue;
+                }
+
+                types ??= new INamedTypeSymbol?[AeadMetadataNames.Length];
+                types[i] = type;
             }
 
-            types ??= new INamedTypeSymbol?[AeadMetadataNames.Length];
-            types[i] = type;
+            return types;
         }
-
-        return types;
     }
 }

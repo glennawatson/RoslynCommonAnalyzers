@@ -34,13 +34,13 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
-                || start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var extensions = new Lazy<INamedTypeSymbol?>(() =>
+                compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
+                    ? null
+                    : compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName));
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeInvocation(nodeContext, extensions),
@@ -112,8 +112,8 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1213 for an any-of search over an inline constant set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="extensions">The span extensions type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol extensions)
+    /// <param name="extensions">The span extensions type resolved on first demand when <c>SearchValues</c> exists.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> extensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 1
@@ -124,8 +124,9 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsSearchApi(method, extensions))
+        if (extensions.Value is not { } extensionsType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsSearchApi(method, extensionsType))
         {
             return;
         }

@@ -24,28 +24,36 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Make the lock field readonly", nameof(Sst1904ReadonlyLockFieldCodeFixProvider), TryRewrite);
+    public override Task RegisterCodeFixesAsync(CodeFixContext context)
+    {
+        var cancellationToken = context.CancellationToken;
+        return ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            "Make the lock field readonly",
+            nameof(Sst1904ReadonlyLockFieldCodeFixProvider),
+            (root, model, diagnostic) => TryRewrite(root, model, diagnostic, cancellationToken));
+    }
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
-        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+        ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, static (root, model, current) => TryRewrite(root, model, current, CancellationToken.None));
 
     /// <summary>Resolves the reported lock field and builds its readonly replacement.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="cancellationToken">A token that cancels symbol resolution and the assignment scan.</param>
     /// <returns>The nodes to swap, or <see langword="null"/> when the field must not be made readonly here.</returns>
-    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    private static NodeReplacement? TryRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic, CancellationToken cancellationToken)
     {
         if (root.FindNode(diagnostic.Location.SourceSpan) is not { } target
-            || model.GetSymbolInfo(target).Symbol is not IFieldSymbol field
+            || model.GetSymbolInfo(target, cancellationToken).Symbol is not IFieldSymbol field
             || field.DeclaringSyntaxReferences is not [var reference]
-            || reference.GetSyntax() is not VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax declaration }
+            || reference.GetSyntax(cancellationToken) is not VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax declaration }
             || declaration.Declaration.Variables.Count != 1
             || declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
-            || AssignedOutsideConstructor(declaration.Parent, field, model))
+            || AssignedOutsideConstructor(declaration.Parent, field, model, cancellationToken))
         {
             return null;
         }
@@ -58,25 +66,37 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
     /// <param name="typeDeclaration">The declaring type node.</param>
     /// <param name="field">The field symbol.</param>
     /// <param name="model">The semantic model for the document.</param>
+    /// <param name="cancellationToken">A token that cancels the assignment scan.</param>
     /// <returns><see langword="true"/> when a write outside a constructor makes the fix unsafe.</returns>
-    private static bool AssignedOutsideConstructor(SyntaxNode? typeDeclaration, IFieldSymbol field, SemanticModel model)
+    private static bool AssignedOutsideConstructor(SyntaxNode? typeDeclaration, IFieldSymbol field, SemanticModel model, CancellationToken cancellationToken)
     {
         if (typeDeclaration is null)
         {
             return false;
         }
 
-        foreach (var node in typeDeclaration.DescendantNodes())
-        {
-            if (node is AssignmentExpressionSyntax assignment
-                && node.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is null
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(assignment.Left).Symbol, field))
+        var state = new FieldAssignmentScanState(field, model, cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants(
+            typeDeclaration,
+            ref state,
+            static (AssignmentExpressionSyntax assignment, ref FieldAssignmentScanState current) =>
             {
-                return true;
-            }
-        }
+                current.CancellationToken.ThrowIfCancellationRequested();
+                var target = assignment.Left;
+                while (target is ParenthesizedExpressionSyntax parenthesized)
+                {
+                    target = parenthesized.Expression;
+                }
 
-        return false;
+                if ((target is IdentifierNameSyntax identifier && identifier.Identifier.ValueText != current.Field.Name)
+                    || (target is MemberAccessExpressionSyntax access && access.Name.Identifier.ValueText != current.Field.Name))
+                {
+                    return true;
+                }
+
+                return assignment.FirstAncestorOrSelf<ConstructorDeclarationSyntax>() is not null
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(assignment.Left, current.CancellationToken).Symbol, current.Field);
+            });
     }
 
     /// <summary>Inserts <c>readonly</c> into a field declaration's modifiers.</summary>
@@ -88,12 +108,20 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
         if (modifiers.Count == 0)
         {
             var lone = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithDeclaration(declaration.Declaration.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(lone));
+            return declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(lone),
+                declaration.Declaration.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+                declaration.SemicolonToken);
         }
 
         var appended = SyntaxFactory.Token(default, SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return declaration.WithModifiers(modifiers.Add(appended)).WithAdditionalAnnotations(Formatter.Annotation);
     }
+
+    /// <summary>Carries the field identity and semantic model used to check assignments.</summary>
+    /// <param name="Field">The field whose writes prevent the readonly fix.</param>
+    /// <param name="Model">The semantic model used to resolve assignment targets.</param>
+    /// <param name="CancellationToken">A token that cancels the assignment scan.</param>
+    private readonly record struct FieldAssignmentScanState(IFieldSymbol Field, SemanticModel Model, CancellationToken CancellationToken);
 }

@@ -79,7 +79,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
             }
 
             var optionsType = start.Compilation.GetTypeByMetadataName(RegexOptionsMetadataName);
-            var cache = new ConcurrentDictionary<(string Pattern, int Options), string?>();
+            var cache = new ConcurrentDictionary<(string Pattern, int Options), string?>(concurrencyLevel: 1, capacity: 4);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, regexType, optionsType, cache),
                 SyntaxKind.InvocationExpression,

@@ -114,11 +114,22 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideCodeFixProvider : CodeFixPr
             .WithTriviaFrom(method.ReturnType)
             .WithAdditionalAnnotations(Simplifier.Annotation);
 
-        var identifier = SyntaxFactory.Identifier(method.Identifier.ValueText + AsyncSuffix)
-            .WithTriviaFrom(method.Identifier);
+        var identifier = SyntaxFactory.Identifier(
+            method.Identifier.LeadingTrivia,
+            method.Identifier.ValueText + AsyncSuffix,
+            method.Identifier.TrailingTrivia);
 
-        return method
-            .WithReturnType(taskType)
-            .WithIdentifier(identifier);
+        return method.Update(
+            method.AttributeLists,
+            method.Modifiers,
+            taskType,
+            method.ExplicitInterfaceSpecifier,
+            identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            method.Body,
+            method.ExpressionBody,
+            method.SemicolonToken);
     }
 }

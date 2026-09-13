@@ -66,7 +66,14 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions>();
+        const int CacheConcurrencyLevel = 4;
+        var treeCount = 0;
+        foreach (var tree in context.Compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions>(CacheConcurrencyLevel, treeCount);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeIfChain(nodeContext, optionsByTree), SyntaxKind.IfStatement);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeConditionalExpression(nodeContext, optionsByTree), SyntaxKind.ConditionalExpression);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeSwitchStatement(nodeContext, optionsByTree), SyntaxKind.SwitchStatement);
@@ -133,7 +140,8 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <returns>The <c>if</c> and <c>else if</c> branches in order.</returns>
     private static List<IfStatementSyntax> CollectConditionedBranches(IfStatementSyntax head)
     {
-        var branches = new List<IfStatementSyntax>();
+        const int InitialBranchCapacity = 4;
+        var branches = new List<IfStatementSyntax>(InitialBranchCapacity);
         var current = head;
         while (true)
         {
@@ -344,15 +352,18 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when any designation names a variable.</returns>
     private static bool BindsAName(PatternSyntax pattern)
     {
-        foreach (var descendant in pattern.DescendantNodesAndSelf())
-        {
-            if (descendant is SingleVariableDesignationSyntax)
+        // A pattern cannot itself be a variable designation.
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            pattern,
+            ref found,
+            static (SingleVariableDesignationSyntax node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether two sections run the same body and could be written as one.</summary>

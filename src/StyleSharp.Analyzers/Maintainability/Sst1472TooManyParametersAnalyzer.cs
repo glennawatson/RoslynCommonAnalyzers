@@ -55,7 +55,15 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ParameterCountOptions>();
+        var treeCount = 0;
+        foreach (var tree in context.Compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ParameterCountOptions>(
+            concurrencyLevel: 1,
+            capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree),
             SyntaxKind.MethodDeclaration,

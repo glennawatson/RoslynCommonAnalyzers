@@ -52,9 +52,16 @@ public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider,
         // its own ';' on the declaration, so only the declarator's initializer is removed.
         if (initializer.Parent is PropertyDeclarationSyntax property)
         {
-            var trimmed = property
-                .WithInitializer(null)
-                .WithSemicolonToken(default)
+            var trimmed = property.Update(
+                    property.AttributeLists,
+                    property.Modifiers,
+                    property.Type,
+                    property.ExplicitInterfaceSpecifier,
+                    property.Identifier,
+                    property.AccessorList,
+                    property.ExpressionBody,
+                    initializer: null,
+                    semicolonToken: default)
                 .WithTrailingTrivia(property.GetTrailingTrivia());
             editor.ReplaceNode(property, trimmed);
             return;
@@ -78,9 +85,16 @@ public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider,
         // its own ';' on the declaration, so only the declarator's initializer is removed.
         if (initializer.Parent is PropertyDeclarationSyntax property)
         {
-            var trimmed = property
-                .WithInitializer(null)
-                .WithSemicolonToken(default)
+            var trimmed = property.Update(
+                    property.AttributeLists,
+                    property.Modifiers,
+                    property.Type,
+                    property.ExplicitInterfaceSpecifier,
+                    property.Identifier,
+                    property.AccessorList,
+                    property.ExpressionBody,
+                    initializer: null,
+                    semicolonToken: default)
                 .WithTrailingTrivia(property.GetTrailingTrivia());
             return document.WithSyntaxRoot(root.ReplaceNode(property, trimmed));
         }

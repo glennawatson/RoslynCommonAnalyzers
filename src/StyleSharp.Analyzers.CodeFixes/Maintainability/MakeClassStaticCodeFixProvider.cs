@@ -71,9 +71,19 @@ public sealed class MakeClassStaticCodeFixProvider : CodeFixProvider, IBatchFixa
         {
             // No modifiers: move the declaration's leading trivia onto 'static' and re-indent the keyword.
             var staticToken = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithKeyword(declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(staticToken));
+            return declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(staticToken),
+                declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken);
         }
 
         // 'partial' must stay last in the modifier list, so 'static' goes in front of it.

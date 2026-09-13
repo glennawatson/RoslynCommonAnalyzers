@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -18,12 +20,6 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
     /// <summary>The invoked member name the syntax gate requires.</summary>
     internal const string ToCharArrayMethodName = "ToCharArray";
 
-    /// <summary>The metadata name of the span action delegate string.Create requires.</summary>
-    private const string SpanActionMetadataName = "System.Buffers.SpanAction`2";
-
-    /// <summary>The string.Create member name.</summary>
-    private const string CreateMethodName = "Create";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseStringCreate);
 
@@ -38,13 +34,8 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(SpanActionMetadataName) is null
-                || start.Compilation.GetSpecialType(SpecialType.System_String).GetMembers(CreateMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            var markers = new StringCreateTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, markers), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -61,7 +52,8 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1209 for a copied char buffer that is mutated and rebuilt into a string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="markers">The replacement API resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, StringCreateTypes markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetBufferDeclaration(invocation) is not { } buffer)
@@ -74,6 +66,7 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
         _ = DescendantTraversalHelper.VisitDescendantTokens(buffer.Block, ref scan, static (in SyntaxToken token, ref BufferUsageScan state) => state.Visit(in token));
         if (!scan.Wrote
             || !scan.Rebuilt
+            || !markers.IsAvailable()
             || context.SemanticModel.GetTypeInfo(receiver, context.CancellationToken).Type?.SpecialType != SpecialType.System_String)
         {
             return;
@@ -83,6 +76,34 @@ public sealed class Psh1209StringCreateAnalyzer : DiagnosticAnalyzer
             StringRules.UseStringCreate,
             invocation.SyntaxTree,
             invocation.Span));
+    }
+
+    /// <summary>Checks replacement API availability only after the buffer pattern is found.</summary>
+    /// <param name="compilation">The compilation whose replacement API is checked.</param>
+    private sealed class StringCreateTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the span action delegate string.Create requires.</summary>
+        private const string SpanActionMetadataName = "System.Buffers.SpanAction`2";
+
+        /// <summary>The string.Create member name.</summary>
+        private const string CreateMethodName = "Create";
+
+        /// <summary>The cached span-action marker, or an empty array when the replacement is unavailable.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets whether the compilation supports the replacement, caching misses too.</summary>
+        /// <returns>Whether both span actions and string creation are available.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??= Resolve(compilation)).Length != 0;
+
+        /// <summary>Resolves the span-action marker only when string creation is available.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The span-action marker, or an empty array when the replacement is unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(SpanActionMetadataName) is not { } spanAction
+                || compilation.GetSpecialType(SpecialType.System_String).GetMembers(CreateMethodName).IsEmpty
+                ? []
+                : [spanAction];
     }
 
     /// <summary>Token-visitor state that finds indexer writes and string rebuilds of one buffer local.</summary>

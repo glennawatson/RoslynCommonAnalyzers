@@ -78,9 +78,23 @@ public sealed class Sst1221ConstraintClauseOrderCodeFixProvider : CodeFixProvide
         for (var slot = 0; slot < count; slot++)
         {
             var moved = clauses[order[slot]];
-            rebuilt[slot] = moved
-                .WithLeadingTrivia(clauses[slot].GetLeadingTrivia())
-                .WithTrailingTrivia(clauses[slot].GetTrailingTrivia());
+            var constraints = moved.Constraints;
+            var colonToken = moved.ColonToken;
+            if (constraints.Count > 0)
+            {
+                var last = constraints[constraints.Count - 1];
+                constraints = constraints.Replace(last, last.WithTrailingTrivia(clauses[slot].GetTrailingTrivia()));
+            }
+            else
+            {
+                colonToken = colonToken.WithTrailingTrivia(clauses[slot].GetTrailingTrivia());
+            }
+
+            rebuilt[slot] = moved.Update(
+                moved.WhereKeyword.WithLeadingTrivia(clauses[slot].GetLeadingTrivia()),
+                moved.Name,
+                colonToken,
+                constraints);
         }
 
         return SyntaxFactory.List(rebuilt);

@@ -50,11 +50,16 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
     {
         var text = context.Tree.GetText(context.CancellationToken);
         var root = context.Tree.GetRoot(context.CancellationToken);
-        foreach (var token in root.DescendantTokens())
-        {
-            AnalyzeTriviaList(context, text, token.LeadingTrivia);
-            AnalyzeTriviaList(context, text, token.TrailingTrivia);
-        }
+        var state = new CommentTraversalState(context, text);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            root,
+            ref state,
+            static (in SyntaxToken token, ref CommentTraversalState state) =>
+            {
+                AnalyzeTriviaList(state.Context, state.Text, token.LeadingTrivia);
+                AnalyzeTriviaList(state.Context, state.Text, token.TrailingTrivia);
+                return true;
+            });
     }
 
     /// <summary>Reports each empty comment inside the trivia list.</summary>
@@ -106,4 +111,9 @@ public sealed class Sst1120CommentContentAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
+
+    /// <summary>The context and source text used while visiting comment trivia.</summary>
+    /// <param name="Context">The syntax tree analysis context.</param>
+    /// <param name="Text">The source text.</param>
+    private readonly record struct CommentTraversalState(SyntaxTreeAnalysisContext Context, SourceText Text);
 }

@@ -62,8 +62,8 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
             return document;
         }
 
-        var values = new Dictionary<EnumMemberDeclarationSyntax, string>();
         var members = declaration.Members;
+        var values = new Dictionary<EnumMemberDeclarationSyntax, string>(members.Count);
         for (var i = 0; i < members.Count; i++)
         {
             var member = members[i];
@@ -96,7 +96,11 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
     {
         var equalsToken = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var assigned = SyntaxFactory.ParseExpression(value).WithTrailingTrivia(TrailingAfterValue(member.Identifier.TrailingTrivia));
-        return member.WithIdentifier(member.Identifier.WithTrailingTrivia()).WithEqualsValue(SyntaxFactory.EqualsValueClause(equalsToken, assigned));
+        return member.Update(
+            member.AttributeLists,
+            member.Modifiers,
+            member.Identifier.WithTrailingTrivia(),
+            SyntaxFactory.EqualsValueClause(equalsToken, assigned));
     }
 
     /// <summary>Moves the trivia that followed the member's name so it follows its value.</summary>

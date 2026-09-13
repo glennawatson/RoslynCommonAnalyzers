@@ -99,9 +99,29 @@ public sealed class Sst1222EnumMemberOrderCodeFixProvider : CodeFixProvider
         var sorted = new List<EnumMemberDeclarationSyntax>(members.Count);
         for (var i = 0; i < order.Length; i++)
         {
-            sorted.Add(members[order[i]]
-                .WithLeadingTrivia(members[i].GetLeadingTrivia())
-                .WithTrailingTrivia(members[i].GetTrailingTrivia()));
+            var member = members[order[i]];
+            var attributeLists = member.AttributeLists;
+            var modifiers = member.Modifiers;
+            var identifier = member.Identifier;
+            var leadingTrivia = members[i].GetLeadingTrivia();
+            if (attributeLists.Count > 0)
+            {
+                attributeLists = attributeLists.Replace(attributeLists[0], attributeLists[0].WithLeadingTrivia(leadingTrivia));
+            }
+            else if (modifiers.Count > 0)
+            {
+                modifiers = modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(leadingTrivia));
+            }
+            else
+            {
+                identifier = identifier.WithLeadingTrivia(leadingTrivia);
+            }
+
+            sorted.Add(member.Update(
+                attributeLists,
+                modifiers,
+                identifier,
+                member.EqualsValue!.WithTrailingTrivia(members[i].GetTrailingTrivia())));
         }
 
         var separators = new List<SyntaxToken>(members.SeparatorCount);

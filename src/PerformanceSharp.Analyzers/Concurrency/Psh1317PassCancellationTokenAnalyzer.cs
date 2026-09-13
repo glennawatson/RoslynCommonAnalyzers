@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -44,27 +45,20 @@ public sealed class Psh1317PassCancellationTokenAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(CancellationTokenScope.TokenMetadataName) is not { } tokenType)
-            {
-                return;
-            }
-
-            var targets = new ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?>(SymbolEqualityComparer.Default);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, tokenType, targets), SyntaxKind.InvocationExpression);
+            var state = new TokenAnalysisState(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, state), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1317 when a call could carry a token that is in scope, and does not.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tokenType">The cancellation token type resolved for the compilation.</param>
-    /// <param name="targets">The per-compilation cache of resolved token targets.</param>
-    private static void AnalyzeInvocation(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol tokenType,
-        ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?> targets)
+    /// <param name="state">The deferred token type and overload cache for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, TokenAnalysisState state)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (CancellationTokenOverload.TryFind(context.SemanticModel, invocation, tokenType, targets, context.CancellationToken) is not { } forwardable)
+        if (CancellationTokenScope.TryFindInScope(invocation) is null
+            || state.GetTokenType() is not { } tokenType
+            || CancellationTokenOverload.TryFind(context.SemanticModel, invocation, tokenType, state.GetTargets(), context.CancellationToken) is not { } forwardable)
         {
             return;
         }
@@ -75,5 +69,35 @@ public sealed class Psh1317PassCancellationTokenAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             forwardable.TokenName,
             forwardable.Method.Name));
+    }
+
+    /// <summary>Defers token resolution and overload-cache allocation until a call has a token in scope.</summary>
+    /// <param name="compilation">The compilation whose token type and overloads are cached.</param>
+    private sealed class TokenAnalysisState(Compilation compilation)
+    {
+        /// <summary>The published token-type lookup result, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>The shared overload cache, allocated only when a token type is available.</summary>
+        private ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?>? _targets;
+
+        /// <summary>Gets the cached token type, resolving it on first use.</summary>
+        /// <returns>The token type, or <see langword="null"/> when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetTokenType() => (_resolved ??= [compilation.GetTypeByMetadataName(CancellationTokenScope.TokenMetadataName)])[0];
+
+        /// <summary>Gets the single shared overload cache, publishing it atomically on first use.</summary>
+        /// <returns>The per-compilation overload cache.</returns>
+        public ConcurrentDictionary<ISymbol, CancellationTokenOverload.TokenTarget?> GetTargets()
+        {
+            var targets = Volatile.Read(ref _targets);
+            if (targets is null)
+            {
+                targets = new(concurrencyLevel: 4, capacity: 31, SymbolEqualityComparer.Default);
+                targets = Interlocked.CompareExchange(ref _targets, targets, null) ?? targets;
+            }
+
+            return targets;
+        }
     }
 }

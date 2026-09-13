@@ -84,9 +84,12 @@ public sealed class Psh1506SynchronousBodyIoCodeFixProvider : CodeFixProvider, I
             return null;
         }
 
-        var candidate = invocation
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName(sibling.Name)))
-            .WithoutTrivia();
+        var candidate = invocation.Update(
+            access.Update(
+                access.Expression.WithoutLeadingTrivia(),
+                access.OperatorToken,
+                SyntaxFactory.IdentifierName(sibling.Name)),
+            invocation.ArgumentList.WithoutTrailingTrivia());
         return BindsToSibling(model, invocation.SpanStart, candidate, sibling) ? candidate : null;
     }
 

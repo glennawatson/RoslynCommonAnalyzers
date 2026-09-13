@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// with credentials — leaks credentialed cross-origin responses to any site. The predicate body is inspected
 /// only locally (the expression body, or the block's own <c>return</c> statements); no value that flows in
 /// from elsewhere is followed. The rule resolves <c>Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder</c>
-/// once per compilation and registers nothing when it is absent, so a project without ASP.NET Core CORS pays
-/// nothing and never receives a diagnostic it cannot act on. The invoked method is bound to confirm it is
+/// on first demand per compilation, after the call and predicate pass the syntax checks. An absent type
+/// is cached too, and never produces a diagnostic. The invoked method is bound to confirm it is
 /// <c>SetIsOriginAllowed</c> on that type, so a same-named method on an unrelated type is never flagged.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -22,9 +24,6 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The name of the origin-predicate method whose argument is inspected.</summary>
     private const string SetIsOriginAllowedMethodName = "SetIsOriginAllowed";
-
-    /// <summary>The metadata name of the CORS policy builder that owns the guarded method.</summary>
-    private const string CorsPolicyBuilderMetadataName = "Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AlwaysAllowedCorsOrigin);
@@ -51,22 +50,17 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var builderType = start.Compilation.GetTypeByMetadataName(CorsPolicyBuilderMetadataName);
-            if (builderType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
+            var types = new CorsBuilderTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1502 for a <c>SetIsOriginAllowed</c> call whose predicate always returns true.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="types">The lazily resolved CORS builder type for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CorsBuilderTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -81,7 +75,7 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         // rejected before the semantic model is touched. A method group needs binding to find its declaration.
         var predicate = invocation.ArgumentList.Arguments[0].Expression;
         var shape = ClassifyPredicate(predicate);
-        if (shape == PredicateShape.None)
+        if (shape == PredicateShape.None || types.Get() is not { } builderType)
         {
             return;
         }
@@ -116,5 +110,21 @@ public sealed class Ses1502AlwaysAllowedCorsOriginAnalyzer : DiagnosticAnalyzer
         }
 
         return predicate is IdentifierNameSyntax or MemberAccessExpressionSyntax ? PredicateShape.MethodGroup : PredicateShape.None;
+    }
+
+    /// <summary>Resolves the CORS builder once a candidate needs it, caching missing types too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class CorsBuilderTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the CORS policy builder that owns the guarded method.</summary>
+        private const string CorsPolicyBuilderMetadataName = "Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder";
+
+        /// <summary>The resolved type in a published array, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the CORS builder type on first demand.</summary>
+        /// <returns>The resolved type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(CorsPolicyBuilderMetadataName)])[0];
     }
 }

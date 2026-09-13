@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -43,29 +44,26 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (AsyncSiblingResolver.TaskTypes.Create(start.Compilation) is not { } tasks)
-            {
-                return;
-            }
-
-            var siblings = new ConcurrentDictionary<ISymbol, IMethodSymbol?>(SymbolEqualityComparer.Default);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, tasks, siblings), SyntaxKind.InvocationExpression);
+            var taskSymbols = new TaskSymbols(start.Compilation);
+            var siblings = new ConcurrentDictionary<ISymbol, IMethodSymbol?>(concurrencyLevel: 4, capacity: 31, SymbolEqualityComparer.Default);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, taskSymbols, siblings), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1313 when a synchronous call has an async sibling that provably accepts the same arguments.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tasks">The task types resolved for the compilation.</param>
+    /// <param name="taskSymbols">The task types resolved on demand for the compilation.</param>
     /// <param name="siblings">The per-compilation cache of resolved async siblings.</param>
     private static void AnalyzeInvocation(
         in SyntaxNodeAnalysisContext context,
-        in AsyncSiblingResolver.TaskTypes tasks,
+        TaskSymbols taskSymbols,
         ConcurrentDictionary<ISymbol, IMethodSymbol?> siblings)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
+            || taskSymbols.Get() is not { } tasks
             || BlockingWait.TryMatch(invocation, context.SemanticModel, tasks, context.CancellationToken) is not null
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol sync)
         {
@@ -89,5 +87,18 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             sync.Name,
             sibling.Name));
+    }
+
+    /// <summary>Resolves task types only when an invocation is inside an async function.</summary>
+    /// <param name="compilation">The compilation whose task types are resolved.</param>
+    private sealed class TaskSymbols(Compilation compilation)
+    {
+        /// <summary>The resolved task types, including a null element when Task is unavailable.</summary>
+        private AsyncSiblingResolver.TaskTypes?[]? _resolved;
+
+        /// <summary>Gets task types, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The resolved task types, or null when Task is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public AsyncSiblingResolver.TaskTypes? Get() => (_resolved ??= [AsyncSiblingResolver.TaskTypes.Create(compilation)])[0];
     }
 }

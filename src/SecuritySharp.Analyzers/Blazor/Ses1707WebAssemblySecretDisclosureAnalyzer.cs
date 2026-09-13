@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,22 +15,13 @@ namespace SecuritySharp.Analyzers;
 /// project), whose whole assembly is downloaded, or the literal's enclosing component type carries an Interactive
 /// WebAssembly or Interactive Auto render-mode attribute. The WebAssembly render-mode marker
 /// (<c>Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode</c>) and the host builder
-/// (<c>Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder</c>) are probed once per
-/// compilation and gate the rule, so a project with neither pays nothing. The classifier keeps the no-diagnostic
-/// path allocation-free, and the reachability check runs only after a secret shape is found.
+/// (<c>Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder</c>) are probed only after
+/// a secret shape is found. The classifier keeps the no-diagnostic path allocation-free, and the framework
+/// markers gate the subsequent reachability check.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the Interactive WebAssembly render-mode marker gating the rule.</summary>
-    private const string WebAssemblyRenderModeMetadataName = "Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode";
-
-    /// <summary>The metadata name of the standalone WebAssembly host builder, whose whole assembly downloads to the browser.</summary>
-    private const string WebAssemblyHostBuilderMetadataName = "Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder";
-
-    /// <summary>The metadata name of the base render-mode attribute a component's fixed render mode derives from.</summary>
-    private const string RenderModeAttributeMetadataName = "Microsoft.AspNetCore.Components.RenderModeAttribute";
-
     /// <summary>The identifier spellings that mark a render-mode attribute as WebAssembly- or Auto-hosted (both download to the browser).</summary>
     private static readonly string[] WebAssemblyRenderModeMarkers =
     [
@@ -50,33 +43,17 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var hostBuilder = compilation.GetTypeByMetadataName(WebAssemblyHostBuilderMetadataName);
-            var webAssemblyRenderMode = compilation.GetTypeByMetadataName(WebAssemblyRenderModeMetadataName);
-
-            // Gate on the WebAssembly render-mode marker (or a standalone WebAssembly host): a project that
-            // references neither ships nothing to the browser and pays no analysis cost.
-            if (webAssemblyRenderMode is null && hostBuilder is null)
-            {
-                return;
-            }
-
-            var wholeAssemblyDownloads = hostBuilder is not null;
-            var renderModeAttribute = compilation.GetTypeByMetadataName(RenderModeAttributeMetadataName);
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeStringLiteral(nodeContext, wholeAssemblyDownloads, renderModeAttribute),
-                SyntaxKind.StringLiteralExpression);
+            var markers = new Markers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeStringLiteral(nodeContext, markers), SyntaxKind.StringLiteralExpression);
         });
     }
 
     /// <summary>Reports SES1707 for a secret-shaped literal that is reachable from the browser.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="wholeAssemblyDownloads">Whether the compilation is a WebAssembly host whose whole assembly downloads to the browser.</param>
-    /// <param name="renderModeAttribute">The base render-mode attribute type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeStringLiteral(in SyntaxNodeAnalysisContext context, bool wholeAssemblyDownloads, INamedTypeSymbol? renderModeAttribute)
+    /// <param name="markers">The compilation's deferred WebAssembly markers.</param>
+    private static void AnalyzeStringLiteral(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
 
@@ -87,6 +64,13 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         {
             return;
         }
+
+        if (markers.Get() is not [var hostBuilder, var renderModeAttribute])
+        {
+            return;
+        }
+
+        var wholeAssemblyDownloads = hostBuilder is not null;
 
         if (!IsWebAssemblyReachable(literal, context, wholeAssemblyDownloads, renderModeAttribute))
         {
@@ -188,12 +172,24 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         var references = attributeClass.DeclaringSyntaxReferences;
         for (var i = 0; i < references.Length; i++)
         {
-            foreach (var token in references[i].GetSyntax(cancellationToken).DescendantTokens())
-            {
-                if (token.IsKind(SyntaxKind.IdentifierToken) && IsWebAssemblyRenderModeMarker(token.ValueText))
+            var found = false;
+            _ = DescendantTraversalHelper.VisitDescendantTokens(
+                references[i].GetSyntax(cancellationToken),
+                ref found,
+                static (in SyntaxToken token, ref bool matched) =>
                 {
-                    return true;
-                }
+                    if (!token.IsKind(SyntaxKind.IdentifierToken) || !IsWebAssemblyRenderModeMarker(token.ValueText))
+                    {
+                        return true;
+                    }
+
+                    matched = true;
+                    return false;
+                });
+
+            if (found)
+            {
+                return true;
             }
         }
 
@@ -214,5 +210,39 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the WebAssembly markers once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose WebAssembly markers are resolved.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the Interactive WebAssembly render-mode marker gating the rule.</summary>
+        private const string WebAssemblyRenderModeMetadataName = "Microsoft.AspNetCore.Components.Web.InteractiveWebAssemblyRenderMode";
+
+        /// <summary>The metadata name of the standalone WebAssembly host builder, whose whole assembly downloads to the browser.</summary>
+        private const string WebAssemblyHostBuilderMetadataName = "Microsoft.AspNetCore.Components.WebAssembly.Hosting.WebAssemblyHostBuilder";
+
+        /// <summary>The metadata name of the base render-mode attribute a component's fixed render mode derives from.</summary>
+        private const string RenderModeAttributeMetadataName = "Microsoft.AspNetCore.Components.RenderModeAttribute";
+
+        /// <summary>The reachability markers, or an empty array when WebAssembly is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the reachability markers after the classifier finds a secret shape.</summary>
+        /// <returns>The optional host builder and render-mode attribute, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the reachability markers only when WebAssembly support exists.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The optional host builder and render-mode attribute, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol?[] Resolve(Compilation compilation)
+        {
+            var hostBuilder = compilation.GetTypeByMetadataName(WebAssemblyHostBuilderMetadataName);
+            var webAssemblyRenderMode = compilation.GetTypeByMetadataName(WebAssemblyRenderModeMetadataName);
+            return webAssemblyRenderMode is null && hostBuilder is null
+                ? []
+                : [hostBuilder, compilation.GetTypeByMetadataName(RenderModeAttributeMetadataName)];
+        }
     }
 }

@@ -121,7 +121,17 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
     /// <returns>The collection expression text.</returns>
     private static string CollectionExpressionText(ExpressionSyntax[] elements)
     {
-        var builder = new System.Text.StringBuilder();
+        var capacity = 2;
+        for (var i = 0; i < elements.Length; i++)
+        {
+            capacity += elements[i].Span.Length;
+            if (i > 0)
+            {
+                capacity += ", ".Length;
+            }
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         _ = builder.Append('[');
         for (var i = 0; i < elements.Length; i++)
         {

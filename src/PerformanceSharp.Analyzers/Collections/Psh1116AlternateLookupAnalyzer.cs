@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -31,9 +33,6 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
     /// <summary>The alternate lookup member the receiver must expose.</summary>
     private const string GetAlternateLookupMethodName = "GetAlternateLookup";
 
-    /// <summary>The metadata name of the dictionary type used as the compilation gate.</summary>
-    private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAlternateLookup);
 
@@ -48,31 +47,25 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(DictionaryMetadataName) is not { } dictionaryType
-                || dictionaryType.GetMembers(GetAlternateLookupMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            var types = new LookupTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1116 for a probe whose key is materialized from a char span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="types">The deferred framework support for alternate lookups.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, LookupTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.ArgumentList.Arguments.Count == 0
-            || invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText
-                is not (ContainsKeyMethodName or TryGetValueMethodName or ContainsMethodName or RemoveMethodName))
+        if (TryGetLookupAccess(invocation) is not { } access)
         {
             return;
         }
 
         var key = invocation.ArgumentList.Arguments[0].Expression;
         if (TryGetMaterialization(key) is not { } materialization
+            || types.Get() is null
             || !IsCharSpan(context, materialization.Source)
             || !ReceiverSupportsAlternateLookup(context, access.Expression))
         {
@@ -85,6 +78,16 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
             key.Span,
             materialization.Description));
     }
+
+    /// <summary>Gets a lookup member access with a key argument using syntax alone.</summary>
+    /// <param name="invocation">The invocation to inspect.</param>
+    /// <returns>The member access, or null when the syntax cannot match.</returns>
+    private static MemberAccessExpressionSyntax? TryGetLookupAccess(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count > 0
+            && invocation.Expression is MemberAccessExpressionSyntax access
+            && access.Name.Identifier.ValueText is ContainsKeyMethodName or TryGetValueMethodName or ContainsMethodName or RemoveMethodName
+            ? access
+            : null;
 
     /// <summary>Returns the span source and description of a key-materializing expression, before any binding.</summary>
     /// <param name="key">The key argument expression.</param>
@@ -131,5 +134,32 @@ public sealed class Psh1116AlternateLookupAnalyzer : DiagnosticAnalyzer
         }
 
         return !receiverType.OriginalDefinition.GetMembers(GetAlternateLookupMethodName).IsEmpty;
+    }
+
+    /// <summary>Checks alternate lookup availability on first demand and caches unsupported frameworks.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class LookupTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the dictionary type used as the compilation gate.</summary>
+        private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
+
+        /// <summary>The cached dictionary type, including null when alternate lookup is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the dictionary type when alternate lookup is available.</summary>
+        /// <returns>The supported dictionary type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the dictionary type and checks for alternate lookup support.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>The supported dictionary type, or null when unavailable.</returns>
+        private static INamedTypeSymbol? Resolve(Compilation compilation)
+        {
+            var dictionaryType = compilation.GetTypeByMetadataName(DictionaryMetadataName);
+            return dictionaryType is not null && !dictionaryType.GetMembers(GetAlternateLookupMethodName).IsEmpty
+                ? dictionaryType
+                : null;
+        }
     }
 }

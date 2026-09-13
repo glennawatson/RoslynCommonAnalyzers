@@ -84,9 +84,11 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
         };
 
         return SyntaxFactory.ElementAccessExpression(
-                memberAccess.Expression.WithoutTrailingTrivia(),
-                SyntaxFactory.BracketedArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(index))))
-            .WithTriviaFrom(invocation);
+            memberAccess.Expression.WithoutTrailingTrivia(),
+            SyntaxFactory.BracketedArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenBracketToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(index)),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the <c>receiver.Count - 1</c> index expression for the <c>Last()</c> rewrite.</summary>

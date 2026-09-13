@@ -24,9 +24,6 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count the reported overloads carry.</summary>
     internal const int CallbackAndStateArgumentCount = 2;
 
-    /// <summary>The metadata name of the cancellation token type.</summary>
-    private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UseUnsafeRegister);
 
@@ -39,13 +36,9 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(CancellationTokenMetadataName) is not { } tokenType
-                || tokenType.GetMembers(UnsafeRegisterMethodName).IsEmpty)
-            {
-                return;
-            }
+            var tokenType = new CancellationTokenType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, tokenType), SyntaxKind.InvocationExpression);
         });
@@ -61,16 +54,17 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1309 for a Register overload whose UnsafeRegister twin exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tokenType">The cancellation token type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol tokenType)
+    /// <param name="tokenType">The lazily resolved cancellation token type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CancellationTokenType tokenType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsRegisterShape(invocation)
+            || tokenType.Get() is not { } resolvedTokenType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.Name != RegisterMethodName
             || method.Parameters.Length != CallbackAndStateArgumentCount
             || method.Parameters[1].Type.SpecialType != SpecialType.System_Object
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, tokenType))
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedTokenType))
         {
             return;
         }
@@ -79,5 +73,25 @@ public sealed class Psh1309UnsafeRegisterAnalyzer : DiagnosticAnalyzer
             ConcurrencyRules.UseUnsafeRegister,
             invocation.SyntaxTree,
             invocation.Span));
+    }
+
+    /// <summary>Resolves cancellation-token support only after a two-argument Register call is found.</summary>
+    /// <param name="compilation">The compilation whose cancellation token type is cached.</param>
+    private sealed class CancellationTokenType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the cancellation token type.</summary>
+        private const string CancellationTokenMetadataName = "System.Threading.CancellationToken";
+
+        /// <summary>The supported token type, or an empty array when UnsafeRegister is unavailable.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the cancellation token type when it supports UnsafeRegister.</summary>
+        /// <returns>The supported token type, or null when it is unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(CancellationTokenMetadataName) is { } type
+                && !type.GetMembers(UnsafeRegisterMethodName).IsEmpty ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

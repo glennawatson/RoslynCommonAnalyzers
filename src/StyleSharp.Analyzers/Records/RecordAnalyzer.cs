@@ -210,21 +210,20 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var descendant in container.DescendantNodes())
-        {
-            if (WrittenMemberAccess(descendant) is not { } access)
+        var state = new RecordMutationState(context.SemanticModel, declared, context.CancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants(
+            container,
+            ref state,
+            static (SyntaxNode descendant, ref RecordMutationState state) =>
             {
-                continue;
-            }
+                if (WrittenMemberAccess(descendant) is not { } access)
+                {
+                    return true;
+                }
 
-            var owner = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-            if (owner is not null && SymbolEqualityComparer.Default.Equals(owner.OriginalDefinition, declared))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                var owner = state.Model.GetTypeInfo(access.Expression, state.CancellationToken).Type;
+                return owner is null || !SymbolEqualityComparer.Default.Equals(owner.OriginalDefinition, state.Declared);
+            });
     }
 
     /// <summary>Returns whether a declaration carries an instance member that a readonly struct forbids.</summary>
@@ -333,6 +332,12 @@ public sealed class RecordAnalyzer : DiagnosticAnalyzer
         PropertyDeclarationSyntax property,
         AccessorDeclarationSyntax accessor) =>
         context.ReportDiagnostic(DiagnosticHelper.Create(RecordRules.InitOnlyProperty, accessor.SyntaxTree, accessor.Keyword.Span, property.Identifier.ValueText));
+
+    /// <summary>The semantic information used to identify writes to a positional record.</summary>
+    /// <param name="Model">The semantic model.</param>
+    /// <param name="Declared">The declared record symbol.</param>
+    /// <param name="CancellationToken">The token that cancels semantic queries.</param>
+    private readonly record struct RecordMutationState(SemanticModel Model, INamedTypeSymbol Declared, CancellationToken CancellationToken);
 
     /// <summary>Caches the most recent per-tree parameter convention for one compilation.</summary>
     private sealed class ParameterConventionCache

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,9 +23,6 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The GC type name used by the syntax gate.</summary>
     private const string GcTypeName = "GC";
-
-    /// <summary>The metadata name of the GC type.</summary>
-    private const string GcMetadataName = "System.GC";
 
     /// <summary>The forced-collection method name.</summary>
     private const string CollectMethodName = "Collect";
@@ -53,21 +52,17 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(GcMetadataName) is not { } gcType)
-            {
-                return;
-            }
-
+            var types = new GcTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, gcType),
+                nodeContext => AnalyzeInvocation(nodeContext, types),
                 SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1021 for a call that manually drives the garbage collector.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gcType">The compilation's GC type symbol.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol gcType)
+    /// <param name="types">The compilation's deferred GC type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, GcTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (TryGetForcedGcMemberName(invocation) is not { } memberName)
@@ -75,7 +70,8 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (types.Get() is not { } gcType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, gcType))
         {
             return;
@@ -138,18 +134,14 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var descendant in scope.DescendantNodes())
-        {
-            if (descendant is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Name.Identifier.ValueText: { } name } } candidate
-                && IsAllocationSampleName(name)
-                && model.GetSymbolInfo(candidate, cancellationToken).Symbol is IMethodSymbol sample
-                && SymbolEqualityComparer.Default.Equals(sample.ContainingType, gcType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var state = (GcType: gcType, Model: model, CancellationToken: cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, (INamedTypeSymbol GcType, SemanticModel Model, CancellationToken CancellationToken)>(
+            scope,
+            ref state,
+            static (candidate, ref current) => candidate.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: { } name }
+                || !IsAllocationSampleName(name)
+                || current.Model.GetSymbolInfo(candidate, current.CancellationToken).Symbol is not IMethodSymbol sample
+                || !SymbolEqualityComparer.Default.Equals(sample.ContainingType, current.GcType));
     }
 
     /// <summary>Returns the nearest enclosing method-like declaration whose body to scan, or <see langword="null"/>.</summary>
@@ -189,5 +181,21 @@ public sealed class Psh1021ForcedGarbageCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the GC type on first demand and caches missing types too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class GcTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the GC type.</summary>
+        private const string GcMetadataName = "System.GC";
+
+        /// <summary>The cached type, or null before a candidate needs it.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the GC type for this compilation.</summary>
+        /// <returns>The GC type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(GcMetadataName)])[0];
     }
 }

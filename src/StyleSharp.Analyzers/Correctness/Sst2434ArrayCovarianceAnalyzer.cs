@@ -17,7 +17,7 @@ namespace StyleSharp.Analyzers;
 /// be a reference conversion, both its operand and result must be array types, their element types must
 /// differ, and the source element must be a reference type. Only that exact shape is array covariance. The
 /// message mentions <c>ReadOnlySpan&lt;T&gt;</c> as a read-only alternative only when the compilation has one,
-/// which is resolved once at compilation start.
+/// which is resolved once, when the first covariant array conversion is reported.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
@@ -39,7 +39,8 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var readOnlySpanResolves = start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null;
+            var compilation = start.Compilation;
+            var readOnlySpanResolves = new Lazy<bool>(() => compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null);
             start.RegisterOperationAction(operationContext => AnalyzeConversion(operationContext, readOnlySpanResolves), OperationKind.Conversion);
             start.RegisterOperationAction(operationContext => AnalyzeCoalesce(operationContext, readOnlySpanResolves), OperationKind.Coalesce);
         });
@@ -47,8 +48,8 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes one conversion for array covariance.</summary>
     /// <param name="context">The operation analysis context.</param>
-    /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
-    private static void AnalyzeConversion(in OperationAnalysisContext context, bool readOnlySpanResolves)
+    /// <param name="readOnlySpanResolves">The span availability cache, evaluated only when reporting covariance.</param>
+    private static void AnalyzeConversion(in OperationAnalysisContext context, Lazy<bool> readOnlySpanResolves)
     {
         var conversion = (IConversionOperation)context.Operation;
 
@@ -63,13 +64,13 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes the widened operand of a null-coalescing expression for array covariance.</summary>
     /// <param name="context">The operation analysis context.</param>
-    /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
+    /// <param name="readOnlySpanResolves">The span availability cache, evaluated only when reporting covariance.</param>
     /// <remarks>
     /// The conversion applied to the left operand of <c>??</c> is carried by the coalesce operation itself
     /// rather than by a nested conversion operation, so it is invisible to the conversion callback and has to
     /// be read from the operation directly.
     /// </remarks>
-    private static void AnalyzeCoalesce(in OperationAnalysisContext context, bool readOnlySpanResolves)
+    private static void AnalyzeCoalesce(in OperationAnalysisContext context, Lazy<bool> readOnlySpanResolves)
     {
         var coalesce = (ICoalesceOperation)context.Operation;
         if (!coalesce.ValueConversion.IsReference)
@@ -85,13 +86,13 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
     /// <param name="sourceType">The converted operand's type.</param>
     /// <param name="targetType">The conversion's result type.</param>
     /// <param name="syntax">The syntax to report on.</param>
-    /// <param name="readOnlySpanResolves">Whether the compilation can name <c>ReadOnlySpan&lt;T&gt;</c>.</param>
+    /// <param name="readOnlySpanResolves">The span availability cache, evaluated only when reporting covariance.</param>
     private static void Report(
         in OperationAnalysisContext context,
         ITypeSymbol? sourceType,
         ITypeSymbol? targetType,
         SyntaxNode syntax,
-        bool readOnlySpanResolves)
+        Lazy<bool> readOnlySpanResolves)
     {
         if (sourceType is not IArrayTypeSymbol source || targetType is not IArrayTypeSymbol target)
         {
@@ -107,7 +108,7 @@ public sealed class Sst2434ArrayCovarianceAnalyzer : DiagnosticAnalyzer
         var sourceDisplay = source.ToDisplayString();
         var elementDisplay = sourceElement.ToDisplayString();
         var advice = $"use IReadOnlyList<{elementDisplay}> for read-only access, or keep the array typed '{sourceDisplay}'";
-        if (readOnlySpanResolves)
+        if (readOnlySpanResolves.Value)
         {
             advice += $", or ReadOnlySpan<{elementDisplay}>";
         }

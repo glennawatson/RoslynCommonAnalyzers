@@ -58,7 +58,10 @@ public sealed class Sst2282ReferenceEqualsNullPatternCodeFixProvider : CodeFixPr
             nullPattern = SyntaxFactory.UnaryPattern(SyntaxFactory.Token(SyntaxKind.NotKeyword), nullPattern);
         }
 
-        var isPattern = SyntaxFactory.IsPatternExpression(subject, nullPattern).WithTriviaFrom(replaced);
+        var isPattern = SyntaxFactory.IsPatternExpression(
+            subject.WithLeadingTrivia(replaced.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.IsKeyword),
+            nullPattern.WithTrailingTrivia(replaced.GetTrailingTrivia()));
         return new NodeReplacement(replaced, isPattern);
     }
 }

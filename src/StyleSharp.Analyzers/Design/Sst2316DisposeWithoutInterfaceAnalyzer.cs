@@ -50,21 +50,12 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (DisposableTypes.Create(start.Compilation) is not { } types)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, types), SymbolKind.NamedType);
-        });
+        context.RegisterSymbolAction(static symbolContext => Analyze(symbolContext), SymbolKind.NamedType);
     }
 
     /// <summary>Analyzes one named type for an orphaned disposal method.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SymbolAnalysisContext context, in DisposableTypes types)
+    private static void Analyze(in SymbolAnalysisContext context)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -81,30 +72,35 @@ public sealed class Sst2316DisposeWithoutInterfaceAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportOrphan(context, types, type, disposeMembers, disposeAsyncMembers);
+        ReportOrphan(context, type, disposeMembers, disposeAsyncMembers);
     }
 
     /// <summary>Reports the orphaned disposal method, preferring the synchronous one.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
     /// <param name="type">The type being analyzed.</param>
     /// <param name="disposeMembers">The members named <c>Dispose</c>.</param>
     /// <param name="disposeAsyncMembers">The members named <c>DisposeAsync</c>.</param>
     private static void ReportOrphan(
         in SymbolAnalysisContext context,
-        in DisposableTypes types,
         INamedTypeSymbol type,
         ImmutableArray<ISymbol> disposeMembers,
         ImmutableArray<ISymbol> disposeAsyncMembers)
     {
-        if (FindSyncDisposeMethod(disposeMembers) is { } dispose && !types.ImplementsSyncDisposable(type))
+        var dispose = FindSyncDisposeMethod(disposeMembers);
+        var disposeAsync = FindAsyncDisposeMethod(disposeAsyncMembers);
+        if ((dispose is null && disposeAsync is null) || DisposableTypes.Create(context.Compilation) is not { } types)
+        {
+            return;
+        }
+
+        if (dispose is not null && !types.ImplementsSyncDisposable(type))
         {
             Report(context, dispose, type, DisposeName, nameof(IDisposable));
             return;
         }
 
         if (types.AsyncDisposable is null
-            || FindAsyncDisposeMethod(disposeAsyncMembers) is not { } disposeAsync
+            || disposeAsync is null
             || types.ImplementsAsyncDisposable(type))
         {
             return;

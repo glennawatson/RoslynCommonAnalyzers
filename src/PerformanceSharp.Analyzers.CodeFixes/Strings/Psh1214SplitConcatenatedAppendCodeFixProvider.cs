@@ -103,8 +103,9 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
         }
 
         return invocation
-            .WithExpression(access.WithExpression(chain))
-            .WithArgumentList(SingleArgumentList(operands[^1]).WithTriviaFrom(invocation.ArgumentList))
+            .Update(
+                access.WithExpression(chain),
+                SingleArgumentList(operands[^1]).WithTriviaFrom(invocation.ArgumentList))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 

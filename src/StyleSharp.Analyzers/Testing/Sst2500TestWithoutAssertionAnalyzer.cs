@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -13,9 +15,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on at least one framework's test attribute resolving; a project
-/// that references none registers nothing and pays nothing. The clean path is a syntactic prepass: a method is
-/// ignored outright unless one of its attributes is spelled with a known test-attribute simple name (<c>Fact</c>,
+/// Framework markers are resolved only for syntactically eligible methods. The clean path is a syntactic prepass:
+/// a method is ignored outright unless one of its attributes is spelled with a known test-attribute simple name (<c>Fact</c>,
 /// <c>Theory</c>, <c>Test</c>, <c>TestCase</c>, <c>TestCaseSource</c>, <c>TestMethod</c>, <c>DataTestMethod</c>,
 /// with or without the <c>Attribute</c> suffix). Only a method that clears that name check is bound, and only
 /// then to confirm one of its attributes really is a resolved framework marker.
@@ -45,33 +46,11 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of MSTest's expected-exception attribute base type.</summary>
-    private const string ExpectedExceptionBaseMetadataName =
-        "Microsoft.VisualStudio.TestTools.UnitTesting.ExpectedExceptionBaseAttribute";
-
-    /// <summary>The metadata name of MSTest's concrete expected-exception attribute.</summary>
-    private const string ExpectedExceptionMetadataName =
-        "Microsoft.VisualStudio.TestTools.UnitTesting.ExpectedExceptionAttribute";
-
     /// <summary>The suffix every attribute class carries but that is optional at the use site.</summary>
     private const string AttributeSuffix = "Attribute";
 
     /// <summary>The name of the root namespace the in-BCL verification helpers live under.</summary>
     private const string SystemNamespaceName = "System";
-
-    /// <summary>The metadata names of the supported frameworks' test-method marker attributes.</summary>
-    private static readonly string[] TestMarkerMetadataNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-        "TUnit.Core.TestAttribute",
-    ];
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(TestingRules.TestAssertsNothing);
@@ -84,29 +63,17 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Resolves the framework markers once, then registers the per-method check only when at least one resolves.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var markers = ResolveMarkers(context.Compilation);
-        if (markers.Length == 0)
+        context.RegisterCompilationStartAction(static start =>
         {
-            return;
-        }
-
-        var expectedException = context.Compilation.GetTypeByMetadataName(ExpectedExceptionBaseMetadataName)
-            ?? context.Compilation.GetTypeByMetadataName(ExpectedExceptionMetadataName);
-        var facts = new TestFrameworkFacts(markers, expectedException);
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, facts), SyntaxKind.MethodDeclaration);
+            var types = new FrameworkTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.MethodDeclaration);
+        });
     }
 
     /// <summary>Reports one test method whose body provably verifies nothing.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="facts">The resolved framework markers and expected-exception base type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, TestFrameworkFacts facts)
+    /// <param name="types">The compilation's deferred framework types.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, FrameworkTypes types)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists))
@@ -120,11 +87,15 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not IMethodSymbol symbol)
+        var markers = types.GetMarkers();
+        if (markers.Length == 0
+            || context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not IMethodSymbol symbol)
         {
             return;
         }
 
+        var expectedException = types.GetExpectedException();
+        var facts = new TestFrameworkFacts(markers, expectedException);
         if (!CarriesTestMarker(symbol, facts, out var hasExpectedException) || hasExpectedException)
         {
             return;
@@ -139,39 +110,6 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
             TestingRules.TestAssertsNothing,
             method.Identifier.GetLocation(),
             method.Identifier.ValueText));
-    }
-
-    /// <summary>Resolves the referenced frameworks' test markers into an exact-size array of the non-null ones.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns>The resolved marker types; empty when no supported framework is referenced.</returns>
-    private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation)
-    {
-        var resolved = new INamedTypeSymbol?[TestMarkerMetadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
-        {
-            var marker = compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]);
-            if (marker is null)
-            {
-                continue;
-            }
-
-            resolved[count] = marker;
-            count++;
-        }
-
-        if (count == 0)
-        {
-            return [];
-        }
-
-        var markers = new INamedTypeSymbol[count];
-        for (var i = 0; i < count; i++)
-        {
-            markers[i] = resolved[i]!;
-        }
-
-        return markers;
     }
 
     /// <summary>Returns whether any attribute in the lists is spelled with a known test-attribute simple name.</summary>
@@ -211,8 +149,8 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
     private static bool IsTestAttributeName(string name)
     {
         var bare = name.EndsWith(AttributeSuffix, StringComparison.Ordinal)
-            ? name.Substring(0, name.Length - AttributeSuffix.Length)
-            : name;
+            ? name.AsSpan(0, name.Length - AttributeSuffix.Length)
+            : name.AsSpan();
 
         return bare is "Fact" or "Theory" or "Test" or "TestCase" or "TestCaseSource" or "TestMethod" or "DataTestMethod";
     }
@@ -389,5 +327,85 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets or sets a value indicating whether the body might verify something.</summary>
         public bool MightVerify { get; set; }
+    }
+
+    /// <summary>Resolves framework types once per compilation, after their candidate checks pass.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of MSTest's expected-exception attribute base type.</summary>
+        private const string ExpectedExceptionBaseMetadataName =
+            "Microsoft.VisualStudio.TestTools.UnitTesting.ExpectedExceptionBaseAttribute";
+
+        /// <summary>The metadata name of MSTest's concrete expected-exception attribute.</summary>
+        private const string ExpectedExceptionMetadataName =
+            "Microsoft.VisualStudio.TestTools.UnitTesting.ExpectedExceptionAttribute";
+
+        /// <summary>The metadata names of the supported frameworks' test-method marker attributes.</summary>
+        private static readonly string[] TestMarkerMetadataNames =
+        [
+            "Xunit.FactAttribute",
+            "Xunit.TheoryAttribute",
+            "NUnit.Framework.TestAttribute",
+            "NUnit.Framework.TestCaseAttribute",
+            "NUnit.Framework.TestCaseSourceAttribute",
+            "NUnit.Framework.TheoryAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+            "TUnit.Core.TestAttribute",
+        ];
+
+        /// <summary>The resolved test markers, including an empty result when none are present.</summary>
+        private INamedTypeSymbol[]? _markers;
+
+        /// <summary>The resolved expected-exception result, including a null entry when absent.</summary>
+        private INamedTypeSymbol?[]? _expectedException;
+
+        /// <summary>Gets the test markers, resolving them on first demand.</summary>
+        /// <returns>The supported test markers, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] GetMarkers() => _markers ??= ResolveMarkers(compilation);
+
+        /// <summary>Gets the expected-exception type, caching an absent type too.</summary>
+        /// <returns>The expected-exception base or concrete type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetExpectedException() => (_expectedException ??=
+        [
+            compilation.GetTypeByMetadataName(ExpectedExceptionBaseMetadataName)
+                ?? compilation.GetTypeByMetadataName(ExpectedExceptionMetadataName),
+        ])[0];
+
+        /// <summary>Resolves the referenced frameworks' test markers into an exact-size array of the non-null ones.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <returns>The resolved marker types; empty when no supported framework is referenced.</returns>
+        private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation)
+        {
+            var resolved = new INamedTypeSymbol?[TestMarkerMetadataNames.Length];
+            var count = 0;
+            for (var i = 0; i < TestMarkerMetadataNames.Length; i++)
+            {
+                var marker = compilation.GetTypeByMetadataName(TestMarkerMetadataNames[i]);
+                if (marker is null)
+                {
+                    continue;
+                }
+
+                resolved[count] = marker;
+                count++;
+            }
+
+            if (count == 0)
+            {
+                return [];
+            }
+
+            var markers = new INamedTypeSymbol[count];
+            for (var i = 0; i < count; i++)
+            {
+                markers[i] = resolved[i]!;
+            }
+
+            return markers;
+        }
     }
 }

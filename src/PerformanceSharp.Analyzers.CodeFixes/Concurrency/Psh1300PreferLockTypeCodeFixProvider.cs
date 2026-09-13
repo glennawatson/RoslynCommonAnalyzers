@@ -61,10 +61,16 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
         var variable = declaration.Variables[0];
         if (variable.Initializer is { } initializer)
         {
-            var newValue = SyntaxFactory.ImplicitObjectCreationExpression().WithTriviaFrom(initializer.Value);
+            var newValue = SyntaxFactory.ImplicitObjectCreationExpression(
+                SyntaxFactory.Token(initializer.Value.GetLeadingTrivia(), SyntaxKind.NewKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                    default,
+                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, initializer.Value.GetTrailingTrivia())),
+                initializer: null);
             variable = variable.WithInitializer(initializer.WithValue(newValue));
         }
 
-        return field.WithDeclaration(declaration.WithType(newType).WithVariables(SyntaxFactory.SingletonSeparatedList(variable)));
+        return field.WithDeclaration(declaration.Update(newType, SyntaxFactory.SingletonSeparatedList(variable)));
     }
 }

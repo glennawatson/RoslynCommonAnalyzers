@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// to brute-force even when salted, so passwords need a deliberately slow KDF (<c>Rfc2898DeriveBytes</c>/
 /// <c>Pbkdf2</c>, Argon2, and the like); this is orthogonal to the iteration-count check, which only governs a
 /// KDF's work factor. Detection is a high-precision name-and-API heuristic: hashing arbitrary, non-password
-/// data is never reported. The rule resolves the fast-hash types once per compilation and registers nothing
-/// when none are present, so a target framework without them pays nothing.
+/// data is never reported. The rule resolves the fast-hash types only after a hashing call with a
+/// password-named input survives the syntactic prefilter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
@@ -61,24 +61,12 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // Gate the whole rule on the fast-hash types resolving: on a framework without them nothing is
-            // registered and the clean path costs nothing.
-            var fastHashTypes = ResolveFastHashTypes(start.Compilation);
-            if (fastHashTypes.Length == 0)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, fastHashTypes), SyntaxKind.InvocationExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeInvocation(nodeContext), SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports SES1009 for a fast-hash <c>HashData</c>/<c>ComputeHash</c> call over a password-named input.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="fastHashTypes">The gated fast-hash types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] fastHashTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -98,6 +86,12 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
 
         // Name heuristic: the hashed input must read as a password before anything is bound.
         if (GetPasswordName(invocation.ArgumentList.Arguments[0].Expression) is not { } passwordName)
+        {
+            return;
+        }
+
+        var fastHashTypes = ResolveFastHashTypes(context.Compilation);
+        if (fastHashTypes.Length == 0)
         {
             return;
         }

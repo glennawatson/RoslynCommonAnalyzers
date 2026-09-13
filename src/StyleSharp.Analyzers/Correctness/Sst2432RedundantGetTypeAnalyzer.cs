@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,8 +13,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// The clean path is a syntax check: only <c>receiver.GetType()</c> with no arguments reaches the semantic
-/// model, which rejects every other invocation before a bind. <see cref="System.Type"/> is resolved once per
-/// compilation and the whole rule is gated on it, so a compilation that somehow lacks the type pays nothing.
+/// model, which rejects every other invocation before a bind. <see cref="System.Type"/> is resolved only
+/// after a candidate survives the syntax check, and the rule reports nothing when the type is absent.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
@@ -31,29 +33,26 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Registers the invocation walk only when <see cref="System.Type"/> resolves.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.GetTypeByMetadataName("System.Type") is not { } systemType)
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, systemType), SyntaxKind.InvocationExpression);
+            var reflectionTypes = new ReflectionTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, reflectionTypes), SyntaxKind.InvocationExpression);
+        });
     }
 
     /// <summary>Reports one <c>GetType()</c> call whose receiver is already a Type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="systemType">The resolved <see cref="System.Type"/> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol systemType)
+    /// <param name="reflectionTypes">The reflection type cache for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ReflectionTypes reflectionTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0
             || invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetTypeName } memberAccess)
+        {
+            return;
+        }
+
+        if (reflectionTypes.Get() is not { } systemType)
         {
             return;
         }
@@ -96,5 +95,18 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves System.Type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class ReflectionTypes(Compilation compilation)
+    {
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets System.Type, resolving it on first demand.</summary>
+        /// <returns>The reflection type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.Type")])[0];
     }
 }

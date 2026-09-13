@@ -50,6 +50,11 @@ public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatch
     private static NodeReplacement? TryRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpression
             && Unwrap(notExpression.Operand) is IsPatternExpressionSyntax isPattern
-            ? new NodeReplacement(notExpression, isPattern.WithPattern(PatternNegation.Negate(isPattern.Pattern.WithoutLeadingTrivia())).WithTriviaFrom(notExpression))
+            ? new NodeReplacement(
+                notExpression,
+                isPattern.Update(
+                    isPattern.Expression.WithLeadingTrivia(notExpression.GetLeadingTrivia()),
+                    isPattern.IsKeyword,
+                    PatternNegation.Negate(isPattern.Pattern.WithoutLeadingTrivia()).WithTrailingTrivia(notExpression.GetTrailingTrivia())))
             : null;
 }

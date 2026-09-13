@@ -62,7 +62,15 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         var positionalTypes = new Lazy<PositionalConstructorTypes>(
             () => PositionalConstructorTypes.Create(compilation),
             LazyThreadSafetyMode.ExecutionAndPublication);
-        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>();
+        var treeCount = 0;
+        foreach (var tree in compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>(
+            concurrencyLevel: 1,
+            capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, settingsByTree, positionalTypes),
             SyntaxKind.NumericLiteralExpression);

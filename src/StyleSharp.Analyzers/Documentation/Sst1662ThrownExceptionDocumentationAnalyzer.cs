@@ -66,7 +66,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
             return;
         }
 
-        var thrown = new List<ThrownException>();
+        var thrown = new List<ThrownException>(member.Body?.Statements.Count ?? 1);
         CollectDirectThrows(body, thrown);
         if (thrown.Count == 0)
         {
@@ -159,8 +159,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// </remarks>
     private static string Escape(SyntaxNode expression)
     {
-        var builder = new StringBuilder();
         var text = expression.ToString();
+        var builder = new StringBuilder(text.Length);
         var pendingSpace = false;
         for (var i = 0; i < text.Length; i++)
         {
@@ -210,10 +210,10 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
     /// <summary>Collects the simple names documented by the member's top-level <c>&lt;exception&gt;</c> elements.</summary>
     /// <param name="documentation">The documentation comment.</param>
-    /// <returns>The set of documented exception simple names.</returns>
-    private static HashSet<string> CollectDocumentedExceptionNames(DocumentationCommentTriviaSyntax documentation)
+    /// <returns>The documented exception simple-name slices.</returns>
+    private static List<ReadOnlyMemory<char>> CollectDocumentedExceptionNames(DocumentationCommentTriviaSyntax documentation)
     {
-        var names = new HashSet<string>(StringComparer.Ordinal);
+        var names = new List<ReadOnlyMemory<char>>();
         foreach (var node in documentation.Content)
         {
             if (XmlDocumentationHelper.GetElementName(node) != "exception")
@@ -223,7 +223,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (CrefSimpleName(node) is { } simpleName)
             {
-                _ = names.Add(simpleName);
+                names.Add(simpleName);
             }
         }
 
@@ -238,18 +238,26 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <returns><see langword="true"/> when at least one thrown type is undocumented.</returns>
     private static bool TrySelectMissing(
         List<ThrownException> thrown,
-        HashSet<string> documented,
+        List<ReadOnlyMemory<char>> documented,
         out string missing,
         out string descriptions)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var types = new StringBuilder();
-        var reasons = new StringBuilder();
+        var typeCapacity = thrown.Count;
+        var reasonCapacity = thrown.Count;
+        foreach (var exception in thrown)
+        {
+            typeCapacity += exception.Type.Span.Length;
+            reasonCapacity += exception.Description.Length;
+        }
+
+        var types = new StringBuilder(typeCapacity);
+        var reasons = new StringBuilder(reasonCapacity);
         var found = false;
         foreach (var exception in thrown)
         {
             var simpleName = SimpleName(exception.Type);
-            if (simpleName.Length == 0 || documented.Contains(simpleName) || !seen.Add(simpleName))
+            if (simpleName.Length == 0 || IsDocumented(documented, simpleName) || !seen.Add(simpleName))
             {
                 continue;
             }
@@ -268,6 +276,23 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         missing = types.ToString();
         descriptions = reasons.ToString();
         return found;
+    }
+
+    /// <summary>Compares a thrown type's simple name to the documented name slices.</summary>
+    /// <param name="documented">The documented exception names.</param>
+    /// <param name="simpleName">The thrown type's simple name.</param>
+    /// <returns>Whether a documented name matches ordinally.</returns>
+    private static bool IsDocumented(List<ReadOnlyMemory<char>> documented, string simpleName)
+    {
+        foreach (var name in documented)
+        {
+            if (name.Span.SequenceEqual(simpleName.AsSpan()))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns the simple (rightmost, non-generic) name of a type as written.</summary>
@@ -292,7 +317,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Returns the simple name an <c>&lt;exception&gt;</c> element's cref refers to, or <see langword="null"/>.</summary>
     /// <param name="node">The <c>&lt;exception&gt;</c> element.</param>
     /// <returns>The documented type's simple name, or <see langword="null"/>.</returns>
-    private static string? CrefSimpleName(XmlNodeSyntax node)
+    private static ReadOnlyMemory<char>? CrefSimpleName(XmlNodeSyntax node)
     {
         var attributes = node switch
         {
@@ -315,7 +340,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <summary>Extracts the rightmost identifier from a cref's textual form, dropping any generic or parameter suffix.</summary>
     /// <param name="cref">The cref text.</param>
     /// <returns>The rightmost identifier segment.</returns>
-    private static string LastNameSegment(string cref)
+    private static ReadOnlyMemory<char> LastNameSegment(string cref)
     {
         var end = cref.Length;
         for (var i = 0; i < cref.Length; i++)
@@ -341,7 +366,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
             break;
         }
 
-        return cref.Substring(start, end - start);
+        return cref.AsMemory(start, end - start);
     }
 
     /// <summary>Returns the reported name token and text for a member.</summary>

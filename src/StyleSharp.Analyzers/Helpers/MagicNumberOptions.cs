@@ -48,7 +48,7 @@ internal static class MagicNumberOptions
             return false;
         }
 
-        return bool.TryParse(value.Trim(), out var parsed) && parsed;
+        return bool.TryParse(value, out var parsed) && parsed;
     }
 
     /// <summary>Returns whether a value is present in the allow-list.</summary>
@@ -73,12 +73,32 @@ internal static class MagicNumberOptions
     /// <returns>The parsed values, or <see langword="null"/> when none parsed.</returns>
     private static decimal[]? Parse(string value)
     {
-        var parts = value.Split(',');
-        var parsed = new decimal[parts.Length];
-        var count = 0;
-        for (var i = 0; i < parts.Length; i++)
+        var capacity = 1;
+        foreach (var character in value)
         {
-            if (!decimal.TryParse(parts[i].Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
+            if (character == ',')
+            {
+                capacity++;
+            }
+        }
+
+        var parsed = new decimal[capacity];
+        var count = 0;
+        var start = 0;
+        while (start < value.Length)
+        {
+            var end = value.IndexOf(',', start);
+            if (end < 0)
+            {
+                end = value.Length;
+            }
+
+            var segment = TrimSegment(value, start, end);
+            start = end + 1;
+
+            // netstandard2.0 requires a string for decimal parsing; materialize only the trimmed segment.
+            var text = segment.Length == value.Length ? value : segment.ToString();
+            if (segment.IsEmpty || !decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var number))
             {
                 continue;
             }
@@ -100,5 +120,25 @@ internal static class MagicNumberOptions
         var trimmed = new decimal[count];
         Array.Copy(parsed, trimmed, count);
         return trimmed;
+    }
+
+    /// <summary>Returns a numeric segment without its leading and trailing whitespace.</summary>
+    /// <param name="value">The option text.</param>
+    /// <param name="start">The inclusive segment start.</param>
+    /// <param name="end">The exclusive segment end.</param>
+    /// <returns>The trimmed segment as a view of the option text.</returns>
+    private static ReadOnlySpan<char> TrimSegment(string value, int start, int end)
+    {
+        while (start < end && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        while (end > start && char.IsWhiteSpace(value[end - 1]))
+        {
+            end--;
+        }
+
+        return value.AsSpan(start, end - start);
     }
 }

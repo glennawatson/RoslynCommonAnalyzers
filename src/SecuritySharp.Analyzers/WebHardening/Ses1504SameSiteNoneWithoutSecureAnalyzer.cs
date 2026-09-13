@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,8 +16,8 @@ namespace SecuritySharp.Analyzers;
 /// different members). A browser rejects a <c>SameSite=None</c> cookie that lacks the Secure attribute, and
 /// without it the cookie is also sent over plain HTTP. Detection is local to a single object initializer: a
 /// <c>Secure</c> flag set on a later statement is not tracked (no data-flow), so that form is intentionally not
-/// reported. The cookie types are probed once per compilation; a project without ASP.NET Core registers
-/// nothing and pays nothing.
+/// reported. The cookie types are resolved on first demand per compilation, after a matching initializer
+/// is found, so a project without candidates pays no metadata resolution cost.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyzer
@@ -32,18 +34,6 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
     /// <summary>The enum field name that denotes the unsecured value on both relevant enums.</summary>
     private const string NoneFieldName = "None";
 
-    /// <summary>The metadata name of the <c>CookieOptions</c> type.</summary>
-    private const string CookieOptionsMetadataName = "Microsoft.AspNetCore.Http.CookieOptions";
-
-    /// <summary>The metadata name of the <c>CookieBuilder</c> type.</summary>
-    private const string CookieBuilderMetadataName = "Microsoft.AspNetCore.Http.CookieBuilder";
-
-    /// <summary>The metadata name of the <c>SameSiteMode</c> enum.</summary>
-    private const string SameSiteModeMetadataName = "Microsoft.AspNetCore.Http.SameSiteMode";
-
-    /// <summary>The metadata name of the <c>CookieSecurePolicy</c> enum.</summary>
-    private const string CookieSecurePolicyMetadataName = "Microsoft.AspNetCore.Http.CookieSecurePolicy";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.SameSiteNoneWithoutSecure);
 
@@ -56,16 +46,11 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var cookieTypes = GetCookieTypes(start.Compilation);
-            if (cookieTypes is not { } types)
-            {
-                return;
-            }
-
+            var markers = new CookieTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, types),
+                nodeContext => AnalyzeObjectCreation(nodeContext, markers),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -73,13 +58,14 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports SES1504 for a gated cookie initializer that sets <c>SameSite = None</c> without securing the cookie.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated cookie types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in CookieInitializerTypes types)
+    /// <param name="markers">The cookie types resolved on first demand.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, CookieTypes markers)
     {
         // Syntactic prefilter: an initializer that contains a 'SameSite = <...>.None' member. No semantic
         // model is touched until this cheap shape check passes, so the clean path stays allocation-free.
         if (GetInitializer(context.Node) is not { } initializer
-            || GetSameSiteNoneMember(initializer) is not { } sameSiteMember)
+            || GetSameSiteNoneMember(initializer) is not { } sameSiteMember
+            || markers.Get() is not { } types)
         {
             return;
         }
@@ -240,49 +226,6 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
             _ => null,
         };
 
-    /// <summary>Resolves the cookie types and enum fields the rule gates on.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>The resolved types, or <see langword="null"/> when the rule cannot apply.</returns>
-    private static CookieInitializerTypes? GetCookieTypes(Compilation compilation)
-    {
-        if (compilation.GetTypeByMetadataName(SameSiteModeMetadataName) is not { } sameSiteMode
-            || GetEnumField(sameSiteMode, NoneFieldName) is not { } sameSiteNone)
-        {
-            return null;
-        }
-
-        var cookieOptions = compilation.GetTypeByMetadataName(CookieOptionsMetadataName);
-        var cookieBuilder = compilation.GetTypeByMetadataName(CookieBuilderMetadataName);
-        if (cookieOptions is null && cookieBuilder is null)
-        {
-            return null;
-        }
-
-        var securePolicyNone = compilation.GetTypeByMetadataName(CookieSecurePolicyMetadataName) is { } securePolicy
-            ? GetEnumField(securePolicy, NoneFieldName)
-            : null;
-
-        return new CookieInitializerTypes(cookieOptions, cookieBuilder, sameSiteNone, securePolicyNone);
-    }
-
-    /// <summary>Returns the named field of an enum type, if present.</summary>
-    /// <param name="enumType">The enum type.</param>
-    /// <param name="fieldName">The field name to resolve.</param>
-    /// <returns>The field symbol, or <see langword="null"/> when absent.</returns>
-    private static IFieldSymbol? GetEnumField(INamedTypeSymbol enumType, string fieldName)
-    {
-        var members = enumType.GetMembers(fieldName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IFieldSymbol field)
-            {
-                return field;
-            }
-        }
-
-        return null;
-    }
-
     /// <summary>The cookie types and enum fields resolved once per compilation for SES1504.</summary>
     /// <param name="CookieOptions">The resolved <c>CookieOptions</c> type, or <see langword="null"/>.</param>
     /// <param name="CookieBuilder">The resolved <c>CookieBuilder</c> type, or <see langword="null"/>.</param>
@@ -293,4 +236,72 @@ public sealed class Ses1504SameSiteNoneWithoutSecureAnalyzer : DiagnosticAnalyze
         INamedTypeSymbol? CookieBuilder,
         IFieldSymbol SameSiteNone,
         IFieldSymbol? SecurePolicyNone);
+
+    /// <summary>Defers cookie metadata resolution until an initializer passes the syntax filter.</summary>
+    /// <param name="compilation">The compilation whose cookie types are resolved.</param>
+    private sealed class CookieTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the <c>CookieOptions</c> type.</summary>
+        private const string CookieOptionsMetadataName = "Microsoft.AspNetCore.Http.CookieOptions";
+
+        /// <summary>The metadata name of the <c>CookieBuilder</c> type.</summary>
+        private const string CookieBuilderMetadataName = "Microsoft.AspNetCore.Http.CookieBuilder";
+
+        /// <summary>The metadata name of the <c>SameSiteMode</c> enum.</summary>
+        private const string SameSiteModeMetadataName = "Microsoft.AspNetCore.Http.SameSiteMode";
+
+        /// <summary>The metadata name of the <c>CookieSecurePolicy</c> enum.</summary>
+        private const string CookieSecurePolicyMetadataName = "Microsoft.AspNetCore.Http.CookieSecurePolicy";
+
+        /// <summary>The cached cookie types, including a null slot when the rule cannot apply.</summary>
+        private CookieInitializerTypes?[]? _resolved;
+
+        /// <summary>Gets the cookie types on first demand, caching an unavailable result too.</summary>
+        /// <returns>The cookie types, or null when the rule cannot apply.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public CookieInitializerTypes? Get() => (_resolved ??= [GetCookieTypes(compilation)])[0];
+
+        /// <summary>Resolves the cookie types and enum fields the rule gates on.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The resolved types, or null when the rule cannot apply.</returns>
+        private static CookieInitializerTypes? GetCookieTypes(Compilation compilation)
+        {
+            if (compilation.GetTypeByMetadataName(SameSiteModeMetadataName) is not { } sameSiteMode
+                || GetEnumField(sameSiteMode, NoneFieldName) is not { } sameSiteNone)
+            {
+                return null;
+            }
+
+            var cookieOptions = compilation.GetTypeByMetadataName(CookieOptionsMetadataName);
+            var cookieBuilder = compilation.GetTypeByMetadataName(CookieBuilderMetadataName);
+            if (cookieOptions is null && cookieBuilder is null)
+            {
+                return null;
+            }
+
+            var securePolicyNone = compilation.GetTypeByMetadataName(CookieSecurePolicyMetadataName) is { } securePolicy
+                ? GetEnumField(securePolicy, NoneFieldName)
+                : null;
+
+            return new CookieInitializerTypes(cookieOptions, cookieBuilder, sameSiteNone, securePolicyNone);
+        }
+
+        /// <summary>Returns the named field of an enum type, if present.</summary>
+        /// <param name="enumType">The enum type.</param>
+        /// <param name="fieldName">The field name to resolve.</param>
+        /// <returns>The field symbol, or null when absent.</returns>
+        private static IFieldSymbol? GetEnumField(INamedTypeSymbol enumType, string fieldName)
+        {
+            var members = enumType.GetMembers(fieldName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IFieldSymbol field)
+                {
+                    return field;
+                }
+            }
+
+            return null;
+        }
+    }
 }

@@ -53,7 +53,17 @@ internal static class FileHeaderHelper
     {
         var lines = template.Replace("{fileName}", FileName(filePath)).Split(LineSeparators, StringSplitOptions.None);
 
-        var builder = new StringBuilder();
+        var capacity = lines.Length - 1;
+        for (var i = 0; i < lines.Length; i++)
+        {
+            capacity += "//".Length;
+            if (lines[i].Length > 0)
+            {
+                capacity += lines[i].Length + 1;
+            }
+        }
+
+        var builder = new StringBuilder(capacity);
         for (var i = 0; i < lines.Length; i++)
         {
             if (i > 0)

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,12 +19,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the synchronous validation interface.</summary>
-    private const string ValidateOptionsMetadataName = "Microsoft.Extensions.Options.IValidateOptions`1";
-
-    /// <summary>The metadata name of the asynchronous validation interface.</summary>
-    private const string AsyncValidateOptionsMetadataName = "Microsoft.Extensions.Options.IAsyncValidateOptions`1";
-
     /// <summary>The method the synchronous interface requires.</summary>
     private const string ValidateMethodName = "Validate";
 
@@ -38,36 +34,26 @@ public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var syncInterface = start.Compilation.GetTypeByMetadataName(ValidateOptionsMetadataName);
-            var asyncInterface = start.Compilation.GetTypeByMetadataName(AsyncValidateOptionsMetadataName);
-            if (syncInterface is null
-                || asyncInterface is null
-                || AsyncSiblingResolver.TaskTypes.Create(start.Compilation) is not { } tasks)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, tasks, syncInterface, asyncInterface),
-                SyntaxKind.MethodDeclaration);
+            var validationTypes = new ValidationTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, validationTypes), SyntaxKind.MethodDeclaration);
         });
     }
 
     /// <summary>Reports one synchronous validator that blocks.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tasks">The task types resolved for the compilation.</param>
-    /// <param name="syncInterface">The synchronous validation interface definition.</param>
-    /// <param name="asyncInterface">The asynchronous validation interface definition.</param>
-    private static void Analyze(
-        in SyntaxNodeAnalysisContext context,
-        in AsyncSiblingResolver.TaskTypes tasks,
-        INamedTypeSymbol syncInterface,
-        INamedTypeSymbol asyncInterface)
+    /// <param name="validationTypes">The validation and task types resolved on demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ValidationTypes validationTypes)
     {
         var declaration = (MethodDeclarationSyntax)context.Node;
-        if (declaration.Identifier.ValueText != ValidateMethodName)
+        if (declaration.Identifier.ValueText != ValidateMethodName || !HasBlockingSyntax(declaration))
+        {
+            return;
+        }
+
+        if (validationTypes.GetInterfaces() is not [{ } syncInterface, { } asyncInterface]
+            || validationTypes.GetTasks() is not { } tasks)
         {
             return;
         }
@@ -88,6 +74,34 @@ public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
             declaration.Identifier.GetLocation(),
             method.ContainingType.Name,
             options.Name));
+    }
+
+    /// <summary>Checks for a possible blocking wait before resolving any framework types.</summary>
+    /// <param name="declaration">The declaration whose descendants the semantic scan visits.</param>
+    /// <returns>True when a descendant has a blocking-wait name and node shape.</returns>
+    private static bool HasBlockingSyntax(MethodDeclarationSyntax declaration)
+    {
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, bool>(declaration, ref found, VisitBlockingSyntax);
+        return found;
+    }
+
+    /// <summary>Stops the syntax scan at a member access or invocation that could block.</summary>
+    /// <param name="node">The descendant being checked.</param>
+    /// <param name="found">Whether a possible blocking wait has been found.</param>
+    /// <returns>False once a possible wait is found; otherwise true.</returns>
+    private static bool VisitBlockingSyntax(SyntaxNode node, ref bool found)
+    {
+        if (node is MemberAccessExpressionSyntax { Name.Identifier.ValueText: BlockingWait.ResultPropertyName }
+            || (node is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }
+                && access.Name.Identifier.ValueText is BlockingWait.GetResultMethodName or BlockingWait.WaitMethodName
+                    or BlockingWait.WaitAllMethodName or BlockingWait.WaitAnyMethodName or BlockingWait.RunSynchronouslyMethodName))
+        {
+            found = true;
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>Gets the options type a validator validates, when it only implements the synchronous interface.</summary>
@@ -161,4 +175,35 @@ public sealed class Psh1318AsyncOptionsValidationAnalyzer : DiagnosticAnalyzer
         AsyncSiblingResolver.TaskTypes Tasks,
         bool Found,
         CancellationToken CancellationToken);
+
+    /// <summary>Resolves validation interfaces and task types on first demand, including missing types.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class ValidationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the synchronous validation interface.</summary>
+        private const string ValidateOptionsMetadataName = "Microsoft.Extensions.Options.IValidateOptions`1";
+
+        /// <summary>The metadata name of the asynchronous validation interface.</summary>
+        private const string AsyncValidateOptionsMetadataName = "Microsoft.Extensions.Options.IAsyncValidateOptions`1";
+
+        /// <summary>The cached synchronous and asynchronous interfaces, with null entries for missing types.</summary>
+        private INamedTypeSymbol?[]? _interfaces;
+
+        /// <summary>The cached task-type result, with a null entry when tasks are unavailable.</summary>
+        private AsyncSiblingResolver.TaskTypes?[]? _tasks;
+
+        /// <summary>Gets both validation interfaces, resolving them only on first demand.</summary>
+        /// <returns>The synchronous and asynchronous interfaces, with null entries for missing types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] GetInterfaces() => _interfaces ??=
+        [
+            compilation.GetTypeByMetadataName(ValidateOptionsMetadataName),
+            compilation.GetTypeByMetadataName(AsyncValidateOptionsMetadataName)
+        ];
+
+        /// <summary>Gets the task types, caching their absence as well as their presence.</summary>
+        /// <returns>The resolved task types, or null when the framework has no task type.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public AsyncSiblingResolver.TaskTypes? GetTasks() => (_tasks ??= [AsyncSiblingResolver.TaskTypes.Create(compilation)])[0];
+    }
 }

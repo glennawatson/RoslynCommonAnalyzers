@@ -45,9 +45,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The simple name of the attribute that lets another assembly see internal types.</summary>
-    private const string InternalsVisibleToAttributeName = "InternalsVisibleToAttribute";
-
     /// <summary>The reachability of a <c>private</c> type: only the containing type can see it.</summary>
     private const int PrivateReach = 0;
 
@@ -87,31 +84,8 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var index = new SealCandidateIndex(context.Compilation, HasInternalsVisibleTo(context.Compilation.Assembly));
+        var index = new SealCandidateIndex(context.Compilation);
         context.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, index), SymbolKind.NamedType);
-    }
-
-    /// <summary>Returns whether the assembly lets another assembly see its internal types.</summary>
-    /// <param name="assembly">The compilation's assembly.</param>
-    /// <returns><see langword="true"/> when an <c>[InternalsVisibleTo]</c> is present.</returns>
-    /// <remarks>
-    /// Matched by name rather than by resolving the attribute type, so a compilation without the
-    /// attribute pays nothing to find that out. A friend assembly may derive from an internal class,
-    /// and that subclass is not in this compilation, so no internal class can be judged underived once
-    /// one of these exists.
-    /// </remarks>
-    private static bool HasInternalsVisibleTo(IAssemblySymbol assembly)
-    {
-        var attributes = assembly.GetAttributes();
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (attributes[i].AttributeClass is { Name: InternalsVisibleToAttributeName })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Reports one class when nothing in the compilation derives from or constrains to it.</summary>
@@ -237,7 +211,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
 
             case Accessibility.Internal or Accessibility.ProtectedAndInternal:
             {
-                return !index.AssemblyExposesInternals;
+                return !index.AssemblyExposesInternals();
             }
 
             default:
@@ -472,31 +446,34 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
     }
 
     /// <summary>The per-compilation state the symbol action judges each class against.</summary>
-    private sealed class SealCandidateIndex
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class SealCandidateIndex(Compilation compilation)
     {
+        /// <summary>The simple name of the attribute that lets another assembly see internal types.</summary>
+        private const string InternalsVisibleToAttributeName = "InternalsVisibleToAttribute";
+
         /// <summary>Guards the one-time build of the blocked set.</summary>
         private readonly object _gate = new();
 
         /// <summary>The compilation the blocked set is built from.</summary>
-        private readonly Compilation _compilation;
+        private readonly Compilation _compilation = compilation;
 
         /// <summary>The per-tree settings cache.</summary>
-        private readonly ConcurrentDictionary<SyntaxTree, SealNonDerivedTypeOptions> _optionsByTree = new();
+        private readonly ConcurrentDictionary<SyntaxTree, SealNonDerivedTypeOptions> _optionsByTree = new(concurrencyLevel: 4, capacity: 31);
 
         /// <summary>The blocked set, or <see langword="null"/> until the first candidate asks for it.</summary>
         private BlockedTypes? _blocked;
 
-        /// <summary>Initializes a new instance of the <see cref="SealCandidateIndex"/> class.</summary>
-        /// <param name="compilation">The compilation being analyzed.</param>
-        /// <param name="assemblyExposesInternals">Whether the assembly exposes its internals to a friend.</param>
-        public SealCandidateIndex(Compilation compilation, bool assemblyExposesInternals)
-        {
-            _compilation = compilation;
-            AssemblyExposesInternals = assemblyExposesInternals;
-        }
+        /// <summary>The cached friend-assembly check, or null until an internal candidate needs it.</summary>
+        private bool[]? _assemblyExposesInternals;
 
-        /// <summary>Gets a value indicating whether the assembly exposes its internals to a friend.</summary>
-        public bool AssemblyExposesInternals { get; }
+        /// <summary>Returns whether the assembly exposes its internals, resolving on first demand.</summary>
+        /// <returns>True when a friend assembly can see internal types.</returns>
+        public bool AssemblyExposesInternals()
+        {
+            var resolved = _assemblyExposesInternals ??= [HasInternalsVisibleTo(_compilation.Assembly)];
+            return resolved[0];
+        }
 
         /// <summary>Returns whether something derives from, or constrains to, a class.</summary>
         /// <param name="type">The class definition.</param>
@@ -530,6 +507,29 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
             options = SealNonDerivedTypeOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
             _ = _optionsByTree.TryAdd(tree, options);
             return options;
+        }
+
+        /// <summary>Returns whether the assembly lets another assembly see its internal types.</summary>
+        /// <param name="assembly">The compilation's assembly.</param>
+        /// <returns><see langword="true"/> when an <c>[InternalsVisibleTo]</c> is present.</returns>
+        /// <remarks>
+        /// Matched by name rather than by resolving the attribute type, so a compilation without the
+        /// attribute pays nothing to find that out. A friend assembly may derive from an internal class,
+        /// and that subclass is not in this compilation, so no internal class can be judged underived once
+        /// one of these exists.
+        /// </remarks>
+        private static bool HasInternalsVisibleTo(IAssemblySymbol assembly)
+        {
+            var attributes = assembly.GetAttributes();
+            for (var i = 0; i < attributes.Length; i++)
+            {
+                if (attributes[i].AttributeClass is { Name: InternalsVisibleToAttributeName })
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Gets the blocked set, building it on the first call.</summary>

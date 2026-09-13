@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -23,14 +25,14 @@ namespace StyleSharp.Analyzers;
 /// <para>
 /// Both MEF flavors are supported: <c>System.ComponentModel.Composition</c> (its <c>ExportAttribute</c> and
 /// <c>PartCreationPolicyAttribute</c>) and <c>System.Composition</c> (its <c>ExportAttribute</c> and
-/// <c>SharedAttribute</c>). The whole analyzer is gated at compilation start on at least one of those marker
-/// attributes resolving; a project that references no MEF assembly registers nothing and pays nothing.
+/// <c>SharedAttribute</c>). Marker resolution is deferred until a candidate reaches the semantic checks,
+/// and the result is cached for the compilation, including when no marker resolves.
 /// </para>
 /// <para>
 /// The clean path stays cheap. The attribute rules reject every non-MEF attribute on its written simple name
 /// alone, before any binding, and only an attribute whose name matches is bound to confirm it really is the
-/// marker type. The object-creation rule registers only when both an export and a shared marker resolve, so a
-/// MEF project that never constructs a shared part directly still pays only a symbol lookup per <c>new</c>.
+/// marker type. The object-creation rule requires both an export and a shared marker, resolving them only
+/// after the constructed type is bound and found to carry attributes.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -66,28 +68,20 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var symbols = MefContractSymbols.Resolve(start.Compilation);
-            if (symbols is null)
-            {
-                return;
-            }
+            var markers = new MefContractMarkers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, markers), SyntaxKind.Attribute);
 
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, symbols), SyntaxKind.Attribute);
-
-            if (symbols.HasAnyExport && symbols.HasAnySharedMarker)
-            {
-                start.RegisterSyntaxNodeAction(
-                    nodeContext => AnalyzeObjectCreation(nodeContext, symbols),
-                    SyntaxKind.ObjectCreationExpression,
-                    SyntaxKind.ImplicitObjectCreationExpression);
-            }
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeObjectCreation(nodeContext, markers),
+                SyntaxKind.ObjectCreationExpression,
+                SyntaxKind.ImplicitObjectCreationExpression);
         });
     }
 
     /// <summary>Routes a MEF attribute to the export or creation-policy rule after a syntactic name match.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="symbols">The resolved MEF marker symbols.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
+    /// <param name="markers">The compilation's lazily resolved MEF markers.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, MefContractMarkers markers)
     {
         var attribute = (AttributeSyntax)context.Node;
         var kind = ClassifyAttributeName(GetSimpleName(attribute.Name));
@@ -101,6 +95,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var symbols = markers.Get();
         if (kind == MefAttributeKind.Export)
         {
             AnalyzeExport(context, symbols, attribute, typeDeclaration);
@@ -178,16 +173,19 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SST2473 when a <c>new</c> expression constructs a shared export part directly.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="symbols">The resolved MEF marker symbols.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, MefContractSymbols symbols)
+    /// <param name="markers">The compilation's lazily resolved MEF markers.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, MefContractMarkers markers)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
-        if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } constructedType })
+        if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor, ContainingType: { } constructedType }
+            || constructedType.GetAttributes().IsEmpty)
         {
             return;
         }
 
-        if (!symbols.HasExportAttribute(constructedType) || !symbols.IsSharedPart(constructedType))
+        var symbols = markers.Get();
+        if (!symbols.HasAnyExport || !symbols.HasAnySharedMarker
+            || !symbols.HasExportAttribute(constructedType) || !symbols.IsSharedPart(constructedType))
         {
             return;
         }
@@ -299,8 +297,21 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         _ => string.Empty,
     };
 
+    /// <summary>Resolves MEF markers on first demand and caches missing markers too.</summary>
+    /// <param name="compilation">The compilation whose markers are resolved.</param>
+    private sealed class MefContractMarkers(Compilation compilation)
+    {
+        /// <summary>The resolved markers, or null before the first candidate.</summary>
+        private MefContractSymbols? _resolved;
+
+        /// <summary>Gets the markers, allowing equivalent resolutions during concurrent first use.</summary>
+        /// <returns>The resolved symbols, including an empty result when MEF is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public MefContractSymbols Get() => _resolved ??= MefContractSymbols.Resolve(compilation);
+    }
+
     /// <summary>
-    /// The MEF marker attribute symbols, resolved once per compilation. Holds whichever of the two flavors'
+    /// The MEF marker attribute symbols, resolved on demand per compilation. Holds whichever of the two flavors'
     /// attributes are present so every membership test binds against a real type rather than a name.
     /// </summary>
     private sealed class MefContractSymbols
@@ -364,10 +375,10 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         /// <summary>Gets a value indicating whether either flavor's shared or creation-policy attribute resolved.</summary>
         public bool HasAnySharedMarker => _mef1PartCreationPolicy is not null || _mef2Shared is not null;
 
-        /// <summary>Resolves the MEF marker symbols, or <see langword="null"/> when no MEF attribute is present.</summary>
+        /// <summary>Resolves the MEF marker symbols, retaining an empty result when no marker is present.</summary>
         /// <param name="compilation">The compilation to probe.</param>
-        /// <returns>The resolved symbols, or <see langword="null"/> to disable the analyzer.</returns>
-        public static MefContractSymbols? Resolve(Compilation compilation)
+        /// <returns>The resolved symbols, with absent markers represented by null fields.</returns>
+        public static MefContractSymbols Resolve(Compilation compilation)
         {
             var mef1Export = compilation.GetTypeByMetadataName(Mef1ExportMetadataName);
             var mef1PartCreationPolicy = compilation.GetTypeByMetadataName(Mef1PartCreationPolicyMetadataName);
@@ -376,7 +387,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
 
             if (mef1Export is null && mef1PartCreationPolicy is null && mef2Export is null && mef2Shared is null)
             {
-                return null;
+                return new(null, null, null, null, null);
             }
 
             var sharedPolicyValue = ReadSharedPolicyValue(compilation.GetTypeByMetadataName(Mef1CreationPolicyMetadataName));

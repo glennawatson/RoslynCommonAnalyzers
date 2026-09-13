@@ -79,7 +79,7 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
         var reads = CollectGuardedReads(shape);
         for (var i = 0; i < reads.Count; i++)
         {
-            editor.ReplaceNode(reads[i], SyntaxFactory.IdentifierName(valueName).WithTriviaFrom(reads[i]));
+            editor.ReplaceNode(reads[i], SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(reads[i].GetLeadingTrivia(), valueName, reads[i].GetTrailingTrivia())));
         }
     }
 
@@ -116,7 +116,7 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     private static SyntaxNode CreateReplacementNode(SyntaxNode original, InvocationExpressionSyntax invocation, string valueName) =>
         original == invocation
             ? CreateTryGetValueInvocation(invocation, valueName)
-            : SyntaxFactory.IdentifierName(valueName).WithTriviaFrom(original);
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(original.GetLeadingTrivia(), valueName, original.GetTrailingTrivia()));
 
     /// <summary>Builds the <c>receiver.TryGetValue(key, out var name)</c> replacement for the guard.</summary>
     /// <param name="invocation">The reported ContainsKey invocation.</param>
@@ -125,7 +125,10 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
     private static InvocationExpressionSyntax CreateTryGetValueInvocation(InvocationExpressionSyntax invocation, string valueName)
     {
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        var tryGetValueName = SyntaxFactory.IdentifierName(Psh1104UseTryGetValueAnalyzer.TryGetValueMethodName).WithTriviaFrom(memberAccess.Name);
+        var tryGetValueName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            memberAccess.Name.GetLeadingTrivia(),
+            Psh1104UseTryGetValueAnalyzer.TryGetValueMethodName,
+            memberAccess.Name.GetTrailingTrivia()));
         var outArgument = SyntaxFactory.Argument(
             nameColon: null,
             refKindKeyword: OutKeywordToken,
@@ -137,9 +140,9 @@ public sealed class Psh1104UseTryGetValueCodeFixProvider : CodeFixProvider, IBat
             [invocation.ArgumentList.Arguments[0], outArgument],
             [CommaWithSpaceToken]);
 
-        return invocation
-            .WithExpression(memberAccess.WithName(tryGetValueName))
-            .WithArgumentList(invocation.ArgumentList.WithArguments(arguments));
+        return invocation.Update(
+            memberAccess.WithName(tryGetValueName),
+            invocation.ArgumentList.WithArguments(arguments));
     }
 
     /// <summary>Collects every guarded indexer read matching the guard's receiver and key.</summary>

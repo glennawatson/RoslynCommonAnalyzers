@@ -60,8 +60,11 @@ public sealed class Psh1022PreferEventArgsEmptyCodeFixProvider : CodeFixProvider
 
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            type,
-            SyntaxFactory.IdentifierName(Psh1022PreferEventArgsEmptyAnalyzer.EmptyFieldName))
-            .WithTriviaFrom(creation);
+            type.WithLeadingTrivia(creation.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                Psh1022PreferEventArgsEmptyAnalyzer.EmptyFieldName,
+                creation.GetTrailingTrivia())));
     }
 }

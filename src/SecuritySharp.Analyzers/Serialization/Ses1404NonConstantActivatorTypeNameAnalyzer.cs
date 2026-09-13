@@ -19,8 +19,7 @@ namespace SecuritySharp.Analyzers;
 /// <see cref="string"/> (the assembly reference plus the type name), and only the <c>typeName</c>
 /// (second string) argument is inspected. Scope is intentionally the direct shape only -- a name first
 /// stored in a local is left alone because confirming it would require data-flow tracking, a non-goal
-/// here. The rule is resolved once per compilation by probing <c>System.Activator</c>; on a target
-/// framework without it nothing is registered, so a project that cannot hit this shape pays nothing.
+/// here. The rule resolves <c>System.Activator</c> only after a call passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnalyzer
@@ -30,9 +29,6 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
 
     /// <summary>The <c>Activator.CreateInstanceFrom</c> method whose by-name overloads are inspected.</summary>
     private const string CreateInstanceFromMethodName = "CreateInstanceFrom";
-
-    /// <summary>The metadata name of the type that hosts the by-name activation overloads.</summary>
-    private const string ActivatorMetadataName = "System.Activator";
 
     /// <summary>The position of the <c>typeName</c> parameter on every guarded by-name overload.</summary>
     private const int TypeNameParameterIndex = 1;
@@ -49,22 +45,17 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var activatorType = start.Compilation.GetTypeByMetadataName(ActivatorMetadataName);
-            if (activatorType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, activatorType), SyntaxKind.InvocationExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1404 when a by-name activator overload's <c>typeName</c> argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="activatorType">The resolved <c>System.Activator</c> type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol activatorType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -76,7 +67,8 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation call
+        if (frameworkType.Get() is not { } activatorType
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation call
             || !IsStringTypeNameOverload(call.TargetMethod, activatorType)
             || FindNonConstantTypeName(call) is not { } typeName)
         {
@@ -133,5 +125,24 @@ public sealed class Ses1404NonConstantActivatorTypeNameAnalyzer : DiagnosticAnal
         }
 
         return null;
+    }
+
+    /// <summary>Resolves the activator type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type that hosts the by-name activation overloads.</summary>
+        private const string ActivatorMetadataName = "System.Activator";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the activator type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(ActivatorMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

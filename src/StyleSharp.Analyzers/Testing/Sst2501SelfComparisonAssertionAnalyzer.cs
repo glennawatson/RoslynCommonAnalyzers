@@ -15,9 +15,9 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on at least one test framework's <c>Assert</c> type resolving —
+/// The rule resolves test framework <c>Assert</c> types only after a syntactic candidate is found —
 /// <c>Xunit.Assert</c>, <c>NUnit.Framework.Assert</c>, <c>NUnit.Framework.Legacy.ClassicAssert</c>, or the MSTest
-/// <c>Assert</c>. A project that references none registers no callback and pays nothing.
+/// <c>Assert</c>. The result is cached for the compilation, including when no framework is present.
 /// </para>
 /// <para>
 /// The clean path is syntax only. Every invocation is seen, but all but the equality/identity assertion names are
@@ -85,16 +85,26 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the framework <c>Assert</c> types once, then analyzes each invocation when at least one is present.</summary>
+    /// <summary>Registers invocation analysis with framework types resolved on first demand.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
+    {
+        var compilation = context.Compilation;
+        var hosts = new Lazy<INamedTypeSymbol[]>(() => ResolveHosts(compilation));
+        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, hosts), SyntaxKind.InvocationExpression);
+    }
+
+    /// <summary>Resolves the framework assertion types for a candidate compilation.</summary>
+    /// <param name="compilation">The compilation to resolve against.</param>
+    /// <returns>The resolved assertion types, or an empty array when none are present.</returns>
+    private static INamedTypeSymbol[] ResolveHosts(Compilation compilation)
     {
         var names = AssertionHostMetadataNames;
         var resolved = new INamedTypeSymbol[names.Length];
         var count = 0;
         for (var i = 0; i < names.Length; i++)
         {
-            if (context.Compilation.GetTypeByMetadataName(names[i]) is not { } type)
+            if (compilation.GetTypeByMetadataName(names[i]) is not { } type)
             {
                 continue;
             }
@@ -105,7 +115,7 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
 
         if (count == 0)
         {
-            return;
+            return [];
         }
 
         var hosts = new INamedTypeSymbol[count];
@@ -114,13 +124,13 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
             hosts[i] = resolved[i];
         }
 
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, hosts), SyntaxKind.InvocationExpression);
+        return hosts;
     }
 
     /// <summary>Analyzes one invocation for a self-comparing assertion.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="hosts">The resolved framework <c>Assert</c> types.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] hosts)
+    /// <param name="hosts">The lazily resolved framework <c>Assert</c> types.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol[]> hosts)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var shape = Classify(GetInvokedSimpleName(invocation.Expression));
@@ -135,8 +145,10 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsAssertionHost(method.ContainingType, hosts))
+        var resolvedHosts = hosts.Value;
+        if (resolvedHosts.Length == 0
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsAssertionHost(method.ContainingType, resolvedHosts))
         {
             return;
         }

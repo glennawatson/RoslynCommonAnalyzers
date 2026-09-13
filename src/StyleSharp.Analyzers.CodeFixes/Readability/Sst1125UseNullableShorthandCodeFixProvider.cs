@@ -53,7 +53,9 @@ public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider
         }
 
         var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
-        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
+        var shorthand = SyntaxFactory.NullableType(
+            elementType.WithLeadingTrivia(outer.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.QuestionToken, outer.GetTrailingTrivia()));
         editor.ReplaceNode(outer, shorthand);
     }
 
@@ -66,7 +68,9 @@ public sealed class Sst1125UseNullableShorthandCodeFixProvider : CodeFixProvider
     internal static Document Replace(Document document, SyntaxNode root, SyntaxNode outer, GenericNameSyntax generic)
     {
         var elementType = generic.TypeArgumentList.Arguments[0].WithoutTrivia();
-        var shorthand = SyntaxFactory.NullableType(elementType).WithTriviaFrom(outer);
+        var shorthand = SyntaxFactory.NullableType(
+            elementType.WithLeadingTrivia(outer.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.QuestionToken, outer.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(outer, shorthand));
     }
 

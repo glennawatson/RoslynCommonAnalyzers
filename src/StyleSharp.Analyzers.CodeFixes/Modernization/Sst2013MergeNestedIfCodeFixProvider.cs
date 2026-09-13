@@ -108,8 +108,14 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     {
         var condition = Join(Parenthesize(outer.Condition), Parenthesize(inner.Condition));
         var merged = outer
-            .WithCondition(condition)
-            .WithStatement(inner.Statement)
+            .Update(
+                outer.AttributeLists,
+                outer.IfKeyword,
+                outer.OpenParenToken,
+                condition,
+                outer.CloseParenToken,
+                inner.Statement,
+                outer.Else)
             .WithAdditionalAnnotations(Formatter.Annotation);
 
         var carried = CollectDiscardedComments(outer, inner);
@@ -145,7 +151,10 @@ public sealed class Sst2013MergeNestedIfCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The operand, parenthesized only where the grouping would otherwise change.</returns>
     private static ExpressionSyntax Parenthesize(ExpressionSyntax expression) =>
         NeedsParentheses(expression)
-            ? SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression)
+            ? SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.Token(expression.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                expression.WithoutTrivia(),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, expression.GetTrailingTrivia()))
             : expression;
 
     /// <summary>Returns whether an expression binds looser than <c>&amp;&amp;</c>.</summary>

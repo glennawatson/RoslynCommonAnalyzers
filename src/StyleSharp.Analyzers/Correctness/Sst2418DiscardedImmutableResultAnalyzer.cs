@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -33,24 +35,18 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the span-like types once, then analyzes each expression statement.</summary>
+    /// <summary>Defers resolving span-like types until a discarded result needs them.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var spanTypes = new[]
-        {
-            context.Compilation.GetTypeByMetadataName("System.Span`1"),
-            context.Compilation.GetTypeByMetadataName("System.ReadOnlySpan`1"),
-            context.Compilation.GetTypeByMetadataName("System.Memory`1"),
-            context.Compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1"),
-        };
+        var spanTypes = new SpanTypes(context.Compilation);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, spanTypes), SyntaxKind.ExpressionStatement);
     }
 
     /// <summary>Reports one discarded immutable-value result.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="spanTypes">The resolved span and memory type definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] spanTypes)
+    /// <param name="spanTypes">The span and memory types resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, SpanTypes spanTypes)
     {
         if (((ExpressionStatementSyntax)context.Node).Expression is not InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation)
         {
@@ -98,11 +94,11 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the call's only effect is a discarded immutable value.</summary>
     /// <param name="method">The resolved method.</param>
     /// <param name="container">The method's containing type.</param>
-    /// <param name="spanTypes">The resolved span and memory type definitions.</param>
+    /// <param name="spanTypes">The span and memory types resolved on first demand.</param>
     /// <returns><see langword="true"/> when the discarded result makes the call pointless.</returns>
-    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, INamedTypeSymbol?[] spanTypes) =>
+    private static bool IsDiscardedImmutableResult(IMethodSymbol method, INamedTypeSymbol container, SpanTypes spanTypes) =>
         IsStatelessHelper(method, container)
-            || IsSpanLike(method.ReturnType, spanTypes)
+            || IsSpanLike(method.ReturnType, spanTypes.Get())
             || IsFallbackImmutableValueType(container)
             || IsReadonlyStructSelfReturn(method, container);
 
@@ -164,5 +160,24 @@ public sealed class Sst2418DiscardedImmutableResultAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves span and memory types once per compilation, only for a candidate result.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class SpanTypes(Compilation compilation)
+    {
+        /// <summary>The cached span and memory definitions, including missing types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the span and memory definitions, resolving them on first use.</summary>
+        /// <returns>The span and memory type definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName("System.Span`1"),
+            compilation.GetTypeByMetadataName("System.ReadOnlySpan`1"),
+            compilation.GetTypeByMetadataName("System.Memory`1"),
+            compilation.GetTypeByMetadataName("System.ReadOnlyMemory`1"),
+        ];
     }
 }

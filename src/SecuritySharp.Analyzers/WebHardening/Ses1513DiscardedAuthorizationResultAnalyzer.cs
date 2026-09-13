@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,10 +15,9 @@ namespace SecuritySharp.Analyzers;
 /// produced value is discarded: the call (optionally <c>await</c>ed, optionally wrapped in
 /// <c>.ConfigureAwait(...)</c>) forms an expression statement, or it is assigned to a discard (<c>_ = ...</c>).
 /// A call whose result is stored in a variable, returned, passed as an argument, or read (for example
-/// <c>.Succeeded</c>) is a legitimate use and is left alone. The rule is resolved once per compilation by
-/// probing <c>IAuthorizationService</c>; on a project without ASP.NET Core authorization nothing is registered,
-/// so a project that cannot call the API pays nothing. Detection is purely local to the single statement and
-/// never traces values across calls.
+/// <c>.Succeeded</c>) is a legitimate use and is left alone. The authorization service type is resolved on
+/// first demand after a discarded call passes the syntax checks, and cached for the compilation.
+/// Detection is purely local to the single statement and never traces values across calls.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnalyzer
@@ -30,9 +31,6 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
     /// <summary>The identifier text of a discard target (<c>_ = ...</c>).</summary>
     private const string DiscardIdentifier = "_";
 
-    /// <summary>The metadata name of the authorization service the reported call must bind to.</summary>
-    private const string AuthorizationServiceMetadataName = "Microsoft.AspNetCore.Authorization.IAuthorizationService";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.DiscardedAuthorizationResult);
 
@@ -45,22 +43,17 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var authorizationService = start.Compilation.GetTypeByMetadataName(AuthorizationServiceMetadataName);
-            if (authorizationService is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, authorizationService), SyntaxKind.InvocationExpression);
+            var authorizationTypes = new AuthorizationTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, authorizationTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1513 for an <c>AuthorizeAsync</c> call on the authorization service whose result is discarded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="authorizationService">The <c>IAuthorizationService</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol authorizationService)
+    /// <param name="authorizationTypes">The authorization service type cache for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AuthorizationTypes authorizationTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -73,7 +66,8 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         }
 
         // Rare path: confirm the call binds to IAuthorizationService.AuthorizeAsync before touching the model further.
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AuthorizeAsyncMethodName } method
+        if (authorizationTypes.Get() is not { } authorizationService
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AuthorizeAsyncMethodName } method
             || !IsAuthorizeAsyncOnAuthorizationService(method, authorizationService))
         {
             return;
@@ -175,5 +169,21 @@ public sealed class Ses1513DiscardedAuthorizationResultAnalyzer : DiagnosticAnal
         return definition.IsExtensionMethod
             && !definition.Parameters.IsEmpty
             && SymbolEqualityComparer.Default.Equals(definition.Parameters[0].Type, authorizationService);
+    }
+
+    /// <summary>Resolves the authorization service type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class AuthorizationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the authorization service the reported call must bind to.</summary>
+        private const string AuthorizationServiceMetadataName = "Microsoft.AspNetCore.Authorization.IAuthorizationService";
+
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the authorization service type, resolving it on first demand.</summary>
+        /// <returns>The service type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(AuthorizationServiceMetadataName)])[0];
     }
 }

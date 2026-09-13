@@ -114,9 +114,12 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
     private static BaseMethodDeclarationSyntax WithAttribute(BaseMethodDeclarationSyntax declaration, in SyntaxTrivia lineBreak)
     {
         var leading = declaration.GetLeadingTrivia();
-        var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{AttributeText} void P();")!).AttributeLists[0]
-            .WithLeadingTrivia(leading)
-            .WithTrailingTrivia(lineBreak, GetIndentation(leading));
+        var attributeList = ((MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"{AttributeText} void P();")!).AttributeLists[0];
+        attributeList = attributeList.Update(
+            attributeList.OpenBracketToken.WithLeadingTrivia(leading),
+            attributeList.Target,
+            attributeList.Attributes,
+            attributeList.CloseBracketToken.WithTrailingTrivia(lineBreak, GetIndentation(leading)));
 
         var stripped = declaration.WithLeadingTrivia(default(SyntaxTriviaList));
         return stripped.WithAttributeLists(stripped.AttributeLists.Insert(0, attributeList));
@@ -141,8 +144,14 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
             return unit;
         }
 
-        var directive = SyntaxFactory.UsingDirective(SyntaxFactory.ParseName(CompilerServicesNamespace))
-            .WithTrailingTrivia(lineBreak);
+        var directive = SyntaxFactory.UsingDirective(
+            globalKeyword: default,
+            SyntaxFactory.Token(SyntaxKind.UsingKeyword),
+            staticKeyword: default,
+            unsafeKeyword: default,
+            alias: null,
+            SyntaxFactory.ParseName(CompilerServicesNamespace),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(lineBreak)));
 
         return unit.Usings.Count == 0
             ? InsertFirstImport(unit, directive, lineBreak)
@@ -234,9 +243,12 @@ public sealed class Psh1410AggressiveInliningCodeFixProvider : CodeFixProvider
             : Splice(lineBreak, leading, directiveIndex);
         var moved = directiveIndex < 0 ? leading : Take(leading, directiveIndex);
 
-        return unit
-            .WithMembers(unit.Members.Replace(first, first.WithLeadingTrivia(kept)))
-            .WithUsings(SyntaxFactory.SingletonList(directive.WithLeadingTrivia(moved)));
+        return unit.Update(
+            unit.Externs,
+            SyntaxFactory.SingletonList(directive.WithLeadingTrivia(moved)),
+            unit.AttributeLists,
+            unit.Members.Replace(first, first.WithLeadingTrivia(kept)),
+            unit.EndOfFileToken);
     }
 
     /// <summary>Returns the position of the first directive in a trivia list.</summary>

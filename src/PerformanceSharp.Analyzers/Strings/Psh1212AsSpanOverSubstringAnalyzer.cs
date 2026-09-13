@@ -40,13 +40,12 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
-                || extensions.GetMembers(AsSpanMethodName).IsEmpty)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var hasAsSpan = new Lazy<bool>(() =>
+                compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+                    && !extensions.GetMembers(AsSpanMethodName).IsEmpty);
 
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, hasAsSpan), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -61,11 +60,13 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1212 for a Substring argument the consumer can take as a span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="hasAsSpan">Whether the compilation provides <c>AsSpan</c>, resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<bool> hasAsSpan)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsSubstringArgumentShape(invocation)
             || invocation.Parent!.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax outer } argumentList
+            || !hasAsSpan.Value
             || TryBindConsumer(context, invocation, outer) is not { } method)
         {
             return;

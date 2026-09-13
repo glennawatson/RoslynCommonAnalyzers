@@ -319,11 +319,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = statement;
-        return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+        return SyntaxFactory.ExpressionStatement(
+            SyntaxFactory.AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
-                SyntaxFactory.IdentifierName("_"),
-                statement.Expression.WithoutTrivia()))
-            .WithTriviaFrom(statement);
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(statement.GetLeadingTrivia(), "_", SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+                statement.Expression.WithoutTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, statement.GetTrailingTrivia()));
     }
 
     /// <summary>Returns whether a discard assignment can be emitted without binding to an existing underscore symbol.</summary>
@@ -397,9 +398,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         {
             oldNode = local;
             var variable = local.Declaration.Variables[0];
-            variable = variable
-                .WithIdentifier(variable.Identifier.WithTrailingTrivia())
-                .WithInitializer(null);
+            variable = variable.Update(
+                variable.Identifier.WithTrailingTrivia(),
+                variable.ArgumentList,
+                null);
             return local.WithDeclaration(local.Declaration.WithVariables(SyntaxFactory.SingletonSeparatedList(variable)));
         }
 
@@ -444,12 +446,13 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             && TryGetEmbeddedAssignment(ifStatement.Statement, out var target, out var value))
         {
             oldNode = ifStatement;
-            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+            return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
                     SyntaxKind.CoalesceAssignmentExpression,
-                    target.WithoutTrivia(),
+                    target.WithoutTrailingTrivia().WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
                     SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
-                    value.WithoutTrivia()))
-                .WithTriviaFrom(ifStatement);
+                    value.WithoutTrivia()),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
         }
 
         if (FindAncestor<BinaryExpressionSyntax>(root, span) is { } coalesce
@@ -458,11 +461,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         {
             oldNode = coalesce;
             return SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.CoalesceAssignmentExpression,
-                    coalesce.Left.WithoutTrivia(),
-                    SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
-                    assignment.Right.WithoutTrivia())
-                .WithTriviaFrom(coalesce);
+                SyntaxKind.CoalesceAssignmentExpression,
+                coalesce.Left.WithoutTrailingTrivia(),
+                SyntaxFactory.Token(SyntaxKind.QuestionQuestionEqualsToken),
+                assignment.Right.WithoutLeadingTrivia().WithTrailingTrivia(coalesce.GetTrailingTrivia()));
         }
 
         oldNode = null;
@@ -503,7 +505,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = anonymous;
-        return SyntaxFactory.TupleExpression(SyntaxFactory.SeparatedList(arguments)).WithTriviaFrom(anonymous);
+        return SyntaxFactory.TupleExpression(
+            SyntaxFactory.Token(anonymous.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.SeparatedList(arguments),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, anonymous.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a foreach source cast with <c>System.Linq.Enumerable.Cast&lt;T&gt;</c>.</summary>
@@ -580,11 +585,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         {
             oldNode = previous;
             var folded = SyntaxFactory.BinaryExpression(SyntaxKind.CoalesceExpression, value.WithoutTrivia(), right);
-            return SyntaxFactory.ExpressionStatement(SyntaxFactory.AssignmentExpression(
+            return SyntaxFactory.ExpressionStatement(
+                SyntaxFactory.AssignmentExpression(
                     SyntaxKind.SimpleAssignmentExpression,
-                    target.WithoutTrivia(),
-                    folded))
-                .WithTriviaFrom(previous);
+                    target.WithoutTrailingTrivia().WithLeadingTrivia(previous.GetLeadingTrivia()),
+                    folded),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, previous.GetTrailingTrivia()));
         }
 
         return null;
@@ -610,17 +616,19 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
         oldNode = local;
         return SyntaxFactory.LocalFunctionStatement(
-                attributeLists: default,
-                modifiers: default,
-                returnType: returnType.WithoutTrivia(),
-                identifier: SyntaxFactory.Identifier(variable.Identifier.ValueText),
-                typeParameterList: null,
-                parameterList: SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
-                constraintClauses: default,
-                body: lambda.Block,
-                expressionBody: lambda.ExpressionBody is null ? null : SyntaxFactory.ArrowExpressionClause(lambda.ExpressionBody.WithoutTrivia()),
-                semicolonToken: lambda.ExpressionBody is null ? default : SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-            .WithTriviaFrom(local);
+            attributeLists: default,
+            modifiers: default,
+            returnType: returnType.WithoutTrailingTrivia().WithLeadingTrivia(local.GetLeadingTrivia()),
+            identifier: SyntaxFactory.Identifier(variable.Identifier.ValueText),
+            typeParameterList: null,
+            parameterList: SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(parameters)),
+            constraintClauses: default,
+            body: lambda.Block?.WithTrailingTrivia(local.GetTrailingTrivia()),
+            expressionBody: lambda.ExpressionBody is null ? null : SyntaxFactory.ArrowExpressionClause(lambda.ExpressionBody.WithoutTrivia()),
+            semicolonToken: lambda.ExpressionBody is null ? default : SyntaxFactory.Token(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                SyntaxKind.SemicolonToken,
+                local.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a direct null-pattern replacement for a broad object pattern.</summary>
@@ -646,7 +654,10 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         oldNode = binary;
-        return SyntaxFactory.IsPatternExpression(binary.Left.WithoutTrivia(), CreateNullPattern(negated: false)).WithTriviaFrom(binary);
+        return SyntaxFactory.IsPatternExpression(
+            binary.Left.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(SyntaxKind.IsKeyword),
+            CreateNullPattern(negated: false).WithTrailingTrivia(binary.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a null pattern, negated when required.</summary>
@@ -674,14 +685,20 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             return null;
         }
 
-        var names = new List<GenericNameSyntax>();
-        foreach (var node in invocation.ArgumentList.Arguments[0].DescendantNodesAndSelf())
-        {
-            if (node is GenericNameSyntax genericName && HasConcreteTypeArgument(genericName))
+        const int InitialGenericNameCapacity = 2;
+        var names = new List<GenericNameSyntax>(InitialGenericNameCapacity);
+        _ = DescendantTraversalHelper.VisitDescendants(
+            invocation.ArgumentList.Arguments[0],
+            ref names,
+            static (GenericNameSyntax genericName, ref List<GenericNameSyntax> state) =>
             {
-                names.Add(genericName);
-            }
-        }
+                if (HasConcreteTypeArgument(genericName))
+                {
+                    state.Add(genericName);
+                }
+
+                return true;
+            });
 
         if (names.Count == 0)
         {
@@ -760,7 +777,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
                 return false;
             }
 
-            parameters.Add(SyntaxFactory.Parameter(simple.Parameter.Identifier).WithType(parameterTypes[0].WithoutTrivia()));
+            parameters.Add(SyntaxFactory.Parameter(
+                attributeLists: default,
+                modifiers: default,
+                type: parameterTypes[0].WithoutTrivia(),
+                identifier: simple.Parameter.Identifier,
+                @default: null));
             return true;
         }
 
@@ -772,7 +794,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
 
         for (var i = 0; i < parameterTypes.Count; i++)
         {
-            parameters.Add(SyntaxFactory.Parameter(parenthesized.ParameterList.Parameters[i].Identifier).WithType(parameterTypes[i].WithoutTrivia()));
+            parameters.Add(SyntaxFactory.Parameter(
+                attributeLists: default,
+                modifiers: default,
+                type: parameterTypes[i].WithoutTrivia(),
+                identifier: parenthesized.ParameterList.Parameters[i].Identifier,
+                @default: null));
         }
 
         return true;
@@ -966,13 +993,12 @@ public sealed class ModernSyntaxValueCodeFixProvider : CodeFixProvider, IBatchFi
             ImmutableArray<Diagnostic> diagnostics,
             CancellationToken cancellationToken)
         {
-            var seen = new HashSet<TextSpan>();
-            var targets = new List<SyntaxNode>();
-            var replacements = new Dictionary<TextSpan, SyntaxNode>();
+            var targets = new List<SyntaxNode>(diagnostics.Length);
+            var replacements = new Dictionary<TextSpan, SyntaxNode>(diagnostics.Length);
             foreach (var diagnostic in diagnostics)
             {
                 var replacement = CreateIgnoredValueFix(root, model, diagnostic.Location.SourceSpan, out var oldNode, cancellationToken);
-                if (replacement is null || oldNode is null || !seen.Add(oldNode.Span))
+                if (replacement is null || oldNode is null || replacements.ContainsKey(oldNode.Span))
                 {
                     continue;
                 }

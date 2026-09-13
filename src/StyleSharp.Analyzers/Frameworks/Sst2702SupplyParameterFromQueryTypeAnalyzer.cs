@@ -18,10 +18,9 @@ namespace StyleSharp.Analyzers;
 /// target framework without DateOnly, TimeOnly, or DateTimeOffset simply never matches those — the rule never
 /// suggests a type the compilation lacks.
 /// <para>
-/// The whole rule is gated at compilation start on the
-/// <c>Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute</c> marker resolving; a project that does
-/// not reference it registers nothing and pays nothing. The property need not be public — the framework binds it
-/// by reflection regardless of accessibility — so accessibility is not part of the check.
+/// The marker and supported types are resolved only after a property carries a candidate
+/// <c>Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute</c> attribute. The property need not be
+/// public — the framework binds it by reflection regardless of accessibility — so accessibility is not part of the check.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -41,23 +40,24 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var model = QueryBindingModel.Resolve(start.Compilation);
-            if (model is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, model), SymbolKind.Property);
+            var models = new QueryBindingModels(start.Compilation);
+            start.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, models), SymbolKind.Property);
         });
     }
 
     /// <summary>Reports a supplied query property whose type is outside the bindable set.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="model">The resolved marker and supported-type set.</param>
-    private static void AnalyzeProperty(in SymbolAnalysisContext context, QueryBindingModel model)
+    /// <param name="models">The marker and supported-type set resolved on demand.</param>
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, QueryBindingModels models)
     {
         var property = (IPropertySymbol)context.Symbol;
-        if (!model.HasMarker(property))
+        if (!HasCandidateAttribute(property))
+        {
+            return;
+        }
+
+        var model = models.Get();
+        if (model is null || !model.HasMarker(property))
         {
             return;
         }
@@ -72,6 +72,36 @@ public sealed class Sst2702SupplyParameterFromQueryTypeAnalyzer : DiagnosticAnal
             property.Locations[0],
             property.Name,
             property.Type.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)));
+    }
+
+    /// <summary>Checks attribute names before resolving the query-binding types, preserving aliases.</summary>
+    /// <param name="property">The property to inspect.</param>
+    /// <returns>Whether a bound attribute has the query marker's simple name.</returns>
+    private static bool HasCandidateAttribute(IPropertySymbol property)
+    {
+        var attributes = property.GetAttributes();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            if (attributes[i].AttributeClass?.Name == "SupplyParameterFromQueryAttribute")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Resolves the query-binding model on demand and caches a missing marker.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class QueryBindingModels(Compilation compilation)
+    {
+        /// <summary>The resolved model slot, or null before the first candidate.</summary>
+        private QueryBindingModel?[]? _resolved;
+
+        /// <summary>Gets the query-binding model, resolving it on first use.</summary>
+        /// <returns>The model, or null when the marker is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public QueryBindingModel? Get() => (_resolved ??= [QueryBindingModel.Resolve(compilation)])[0];
     }
 
     /// <summary>

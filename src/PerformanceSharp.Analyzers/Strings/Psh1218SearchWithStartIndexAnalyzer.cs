@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -55,9 +57,6 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
     /// <summary>The search whose <see cref="string"/> overload taking a string is already ordinal.</summary>
     private const string ContainsMethodName = "Contains";
 
-    /// <summary>The metadata name of the extensions type providing the span slice and the span searches.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The simple name of the extensions type providing the span slice and the span searches.</summary>
     private const string MemoryExtensionsTypeName = "MemoryExtensions";
 
@@ -75,13 +74,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
-                || extensions.GetMembers(AsSpanMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeSearch, SyntaxKind.InvocationExpression);
+            var spanSupport = new SpanSupport(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeSearch(nodeContext, spanSupport), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -106,7 +100,8 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1218 for a substring that exists only to be searched.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeSearch(SyntaxNodeAnalysisContext context)
+    /// <param name="spanSupport">The span API availability resolved on first demand.</param>
+    private static void AnalyzeSearch(in SyntaxNodeAnalysisContext context, SpanSupport spanSupport)
     {
         var outer = (InvocationExpressionSyntax)context.Node;
         if (!TryGetSearchShape(outer, out var slice, out var searchName))
@@ -120,6 +115,7 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
             || search.IsStatic
             || search.ContainingType.SpecialType != SpecialType.System_String
             || !PreservesComparison(search)
+            || !spanSupport.IsAvailable()
             || !RewriteBindsToSpanSearch(model, outer, slice!, search, context.CancellationToken)
             || SpanRewriteGuard.IsInsideExpressionTree(outer, model, context.CancellationToken))
         {
@@ -264,5 +260,23 @@ public sealed class Psh1218SearchWithStartIndexAnalyzer : DiagnosticAnalyzer
                 Name: MemoryExtensionsTypeName,
                 ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
             };
+    }
+
+    /// <summary>Checks span API availability only for a matching substring search.</summary>
+    /// <param name="compilation">The compilation whose API availability is cached.</param>
+    private sealed class SpanSupport(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type providing span slices and searches.</summary>
+        private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
+
+        /// <summary>The published availability result, including an unavailable API.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Gets whether the span API exists, resolving it on first demand.</summary>
+        /// <returns>Whether the extensions type declares an AsSpan member.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??=
+            [compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+                && !extensions.GetMembers(AsSpanMethodName).IsEmpty])[0];
     }
 }

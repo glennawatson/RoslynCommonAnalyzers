@@ -31,12 +31,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type that hosts the reflection member-lookup methods.</summary>
-    private const string TypeMetadataName = "System.Type";
-
-    /// <summary>The metadata name of the flags enum that selects which members a lookup reaches.</summary>
-    private const string BindingFlagsMetadataName = "System.Reflection.BindingFlags";
-
     /// <summary>The name of the <c>BindingFlags</c> member whose bit selects non-public members.</summary>
     private const string NonPublicFieldName = "NonPublic";
 
@@ -70,23 +64,18 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            // The keyed types anchor the match rather than a suggested API, and BindingFlags is present on
-            // every target framework, so they are resolved once and passed through: when a symbol is absent
-            // the comparisons below simply never match and the rule stays silent, avoiding a dead early-return.
-            var bindingFlagsType = start.Compilation.GetTypeByMetadataName(BindingFlagsMetadataName);
-            var typeType = start.Compilation.GetTypeByMetadataName(TypeMetadataName);
+            var reflectionTypes = new ReflectionTypes(start.Compilation);
 
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, typeType, bindingFlagsType), SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, reflectionTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1406 when a <c>System.Type</c> member lookup passes a constant <c>BindingFlags</c> that includes <c>NonPublic</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
-    /// <param name="bindingFlagsType">The resolved <c>System.Reflection.BindingFlags</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeType, INamedTypeSymbol? bindingFlagsType)
+    /// <param name="reflectionTypes">The lazily resolved reflection types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ReflectionTypes reflectionTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -99,6 +88,9 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        var types = reflectionTypes.Get();
+        var typeType = types[0];
+        var bindingFlagsType = types[1];
         if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation call
             || !SymbolEqualityComparer.Default.Equals(call.TargetMethod.ContainingType, typeType)
             || !HasNonPublicFlagsArgument(context.SemanticModel, call, bindingFlagsType, context.CancellationToken))
@@ -159,5 +151,25 @@ public sealed class Ses1406NonPublicReflectionAnalyzer : DiagnosticAnalyzer
         // NonPublic is a permanent public member of the enum, so it resolves whenever the enum itself does.
         var nonPublicField = (IFieldSymbol)bindingFlagsType.GetMembers(NonPublicFieldName)[0];
         return Convert.ToInt64(nonPublicField.ConstantValue, CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>Resolves reflection types only after a member-lookup candidate is found.</summary>
+    /// <param name="compilation">The compilation whose reflection types are cached.</param>
+    private sealed class ReflectionTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type that hosts the reflection member-lookup methods.</summary>
+        private const string TypeMetadataName = "System.Type";
+
+        /// <summary>The metadata name of the flags enum that selects which members a lookup reaches.</summary>
+        private const string BindingFlagsMetadataName = "System.Reflection.BindingFlags";
+
+        /// <summary>The cached System.Type and BindingFlags lookups, including missing types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the reflection types, resolving them on first use.</summary>
+        /// <returns>The System.Type and BindingFlags symbols, in that order.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+            [compilation.GetTypeByMetadataName(TypeMetadataName), compilation.GetTypeByMetadataName(BindingFlagsMetadataName)];
     }
 }

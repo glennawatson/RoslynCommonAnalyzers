@@ -149,7 +149,7 @@ public sealed class Psh1317PassCancellationTokenCodeFixProvider : CodeFixProvide
     private static bool BindsToTarget(SemanticModel model, InvocationExpressionSyntax invocation, ArgumentListSyntax arguments, IMethodSymbol target) =>
         model.GetSpeculativeSymbolInfo(
                     invocation.SpanStart,
-                    invocation.WithArgumentList(arguments).WithoutTrivia(),
+                    invocation.Update(invocation.Expression.WithoutLeadingTrivia(), arguments.WithoutTrailingTrivia()),
                     SpeculativeBindingOption.BindAsExpression).Symbol
                 is IMethodSymbol bound
             && SymbolEqualityComparer.Default.Equals(bound.OriginalDefinition, target.OriginalDefinition);

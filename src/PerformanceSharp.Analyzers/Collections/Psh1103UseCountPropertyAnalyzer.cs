@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -12,17 +14,14 @@ namespace PerformanceSharp.Analyzers;
 /// <c>System.Linq.Enumerable</c> method, and the receiver's static type exposes an
 /// accessible constant-time <see cref="int"/> count — directly on the type or a base
 /// type, or via <c>ICollection&lt;T&gt;</c>/<c>IReadOnlyCollection&lt;T&gt;</c> for
-/// interface and type-parameter receivers. The rule is resolved once per compilation by
-/// probing for <c>System.Linq.Enumerable</c>, so it costs nothing when LINQ is absent.
+/// interface and type-parameter receivers. The rule resolves <c>System.Linq.Enumerable</c>
+/// on first demand per compilation, after a candidate has passed the syntax and receiver checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The diagnostic property key carrying the suggested count property name for the code fix.</summary>
     internal const string PropertyNameKey = "PropertyName";
-
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>Cached diagnostic properties suggesting the Count property.</summary>
     private static readonly ImmutableDictionary<string, string?> CountProperties =
@@ -44,27 +43,20 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
+            var types = new EnumerableTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1103 for a parameterless Enumerable Count/Any call whose receiver has a constant-time count.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="types">The deferred <c>System.Linq.Enumerable</c> type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, EnumerableTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.ArgumentList.Arguments.Count != 0
-            || invocation.Expression is not MemberAccessExpressionSyntax memberAccess
-            || !memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
-            || memberAccess.Name.Identifier.ValueText is not ("Count" or "Any"))
+        if (TryGetCountAccess(invocation) is not { } memberAccess)
         {
             return;
         }
@@ -78,7 +70,8 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
+        if (types.Get() is not { } enumerableType
+            || !IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
         {
             return;
         }
@@ -91,6 +84,17 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
             properties,
             propertyName));
     }
+
+    /// <summary>Gets a parameterless Count or Any member access using syntax alone.</summary>
+    /// <param name="invocation">The invocation to inspect.</param>
+    /// <returns>The member access, or null when the syntax cannot match.</returns>
+    private static MemberAccessExpressionSyntax? TryGetCountAccess(InvocationExpressionSyntax invocation) =>
+        invocation.ArgumentList.Arguments.Count == 0
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess
+            && memberAccess.IsKind(SyntaxKind.SimpleMemberAccessExpression)
+            && memberAccess.Name.Identifier.ValueText is "Count" or "Any"
+            ? memberAccess
+            : null;
 
     /// <summary>Returns whether an invocation binds to an Enumerable extension whose only parameter is the source.</summary>
     /// <param name="model">The semantic model.</param>
@@ -105,4 +109,20 @@ public sealed class Psh1103UseCountPropertyAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken) =>
         model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { Parameters.Length: 1 } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
+
+    /// <summary>Resolves Enumerable on first demand and caches missing types too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class EnumerableTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The cached type, or null before a candidate needs it.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the Enumerable type for this compilation.</summary>
+        /// <returns>The Enumerable type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(EnumerableMetadataName)])[0];
+    }
 }

@@ -94,9 +94,9 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
 
         var newDeclarator = declarator.WithInitializer(declarator.Initializer.WithValue(wrapped));
         return field.WithDeclaration(
-            field.Declaration
-                .WithType(frozenType.WithTriviaFrom(typeName))
-                .WithVariables(SyntaxFactory.SingletonSeparatedList(newDeclarator)));
+            field.Declaration.Update(
+                frozenType.WithTriviaFrom(typeName),
+                SyntaxFactory.SingletonSeparatedList(newDeclarator)));
     }
 
     /// <summary>Gives a target-typed creation the type the field declared.</summary>

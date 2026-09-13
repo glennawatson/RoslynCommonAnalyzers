@@ -76,22 +76,18 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var classMarkers = ResolveMarkers(start.Compilation, ClassMarkerMetadataNames);
-            if (classMarkers.Length == 0)
-            {
-                return;
-            }
-
-            var methodMarkers = ResolveMarkers(start.Compilation, TestMethodMarkerMetadataNames);
+            var compilation = start.Compilation;
+            var classMarkers = new Lazy<INamedTypeSymbol[]>(() => ResolveMarkers(compilation, ClassMarkerMetadataNames));
+            var methodMarkers = new Lazy<INamedTypeSymbol[]>(() => ResolveMarkers(compilation, TestMethodMarkerMetadataNames));
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, classMarkers, methodMarkers), SyntaxKind.ClassDeclaration);
         });
     }
 
     /// <summary>Analyzes one class declaration for a test fixture with no tests.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="classMarkers">The resolved test-class attribute markers.</param>
-    /// <param name="methodMarkers">The resolved test-method attribute markers.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] classMarkers, INamedTypeSymbol[] methodMarkers)
+    /// <param name="classMarkers">The lazily resolved test-class attribute markers.</param>
+    /// <param name="methodMarkers">The lazily resolved test-method attribute markers.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol[]> classMarkers, Lazy<INamedTypeSymbol[]> methodMarkers)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         if (IsAbstract(declaration.Modifiers) || !CarriesTestClassAttributeName(declaration.AttributeLists))
@@ -99,10 +95,12 @@ public sealed class Sst2504EmptyTestClassAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } classSymbol
-            || !HasAttributeFrom(classSymbol.GetAttributes(), classMarkers)
-            || HasTestMethod(classSymbol, methodMarkers)
-            || InheritsTests(classSymbol, classMarkers, methodMarkers))
+        var resolvedClassMarkers = classMarkers.Value;
+        if (resolvedClassMarkers.Length == 0
+            || context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } classSymbol
+            || !HasAttributeFrom(classSymbol.GetAttributes(), resolvedClassMarkers)
+            || HasTestMethod(classSymbol, methodMarkers.Value)
+            || InheritsTests(classSymbol, resolvedClassMarkers, methodMarkers.Value))
         {
             return;
         }

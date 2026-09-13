@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -15,14 +17,11 @@ namespace SecuritySharp.Analyzers;
 /// open redirect (CWE-601). The optional <c>securitysharp.SES1705.validators</c> option (falling back to
 /// <c>securitysharp.validators</c>) lists method names whose result is trusted, so
 /// <c>NavigateTo(Sanitize(url))</c> stays silent when <c>Sanitize</c> is allow-listed. The whole rule is
-/// gated on <c>NavigationManager</c> resolving, so a non-Blazor project registers nothing and pays nothing.
+/// gated on <c>NavigationManager</c> resolving, and resolves it only for a candidate navigation call.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the Blazor navigation service the rule gates on.</summary>
-    private const string NavigationManagerMetadataName = "Microsoft.AspNetCore.Components.NavigationManager";
-
     /// <summary>The name of the navigation method whose target is guarded.</summary>
     private const string NavigateToMethodName = "NavigateTo";
 
@@ -52,33 +51,30 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var navigationManager = start.Compilation.GetTypeByMetadataName(NavigationManagerMetadataName);
-            if (navigationManager is null)
-            {
-                return;
-            }
+            var navigationTypes = new NavigationTypes(start.Compilation);
 
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, navigationManager), SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, navigationTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1705 for a <c>NavigateTo</c> call whose target is not a verified relative URL.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="navigationManager">The resolved <c>NavigationManager</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol navigationManager)
+    /// <param name="navigationTypes">The lazily resolved navigation type for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, NavigationTypes navigationTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to 'NavigateTo' carrying at least the URL argument.
         if (invocation.ArgumentList.Arguments.Count == 0
-            || !string.Equals(BlazorInvocation.GetInvokedName(invocation.Expression), NavigateToMethodName, StringComparison.Ordinal))
+            || !string.Equals(BlazorInvocation.GetInvokedName(invocation.Expression), NavigateToMethodName, StringComparison.Ordinal)
+            || BlazorInvocation.GetArgument(invocation.ArgumentList, UriParameterName, UriPosition) is not { } uriArgument)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NavigateToMethodName } method
-            || !IsOrDerivesFrom(method.ContainingType, navigationManager)
-            || BlazorInvocation.GetArgument(invocation.ArgumentList, UriParameterName, UriPosition) is not { } uriArgument)
+        if (navigationTypes.Get() is not { } navigationManager
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NavigateToMethodName } method
+            || !IsOrDerivesFrom(method.ContainingType, navigationManager))
         {
             return;
         }
@@ -220,5 +216,21 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the navigation type only after a call passes the syntax filter.</summary>
+    /// <param name="compilation">The compilation that owns the cached symbol.</param>
+    private sealed class NavigationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the Blazor navigation service the rule gates on.</summary>
+        private const string NavigationManagerMetadataName = "Microsoft.AspNetCore.Components.NavigationManager";
+
+        /// <summary>The cached lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the navigation type on first demand.</summary>
+        /// <returns>The framework navigation type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(NavigationManagerMetadataName)])[0];
     }
 }

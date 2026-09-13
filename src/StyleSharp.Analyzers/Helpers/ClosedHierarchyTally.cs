@@ -26,15 +26,21 @@ internal sealed class ClosedHierarchyTally
     /// <summary>The contextual keyword that closes a hierarchy.</summary>
     private const string ClosedModifierText = "closed";
 
+    /// <summary>The initial capacity for the small set of abstract bases and their descendant counts.</summary>
+    private const int InitialHierarchyCapacity = 16;
+
+    /// <summary>The number of independent writers supported by the hierarchy maps.</summary>
+    private const int HierarchyConcurrencyLevel = 4;
+
     /// <summary>The kind the host compiler gives the <c>closed</c> keyword, or <see cref="SyntaxKind.None"/> where it has none.</summary>
     /// <remarks>Resolved against the host, so the floor build recognises the keyword on a C# 15 host.</remarks>
     private static readonly SyntaxKind ClosedKeywordKind = SyntaxFacts.GetContextualKeywordKind(ClosedModifierText);
 
     /// <summary>The abstract bases that could carry the modifier, used as a set.</summary>
-    private readonly ConcurrentDictionary<INamedTypeSymbol, bool> _candidates = new(SymbolEqualityComparer.Default);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, bool> _candidates = new(HierarchyConcurrencyLevel, InitialHierarchyCapacity, SymbolEqualityComparer.Default);
 
     /// <summary>How many direct descendants each base type has in this compilation.</summary>
-    private readonly ConcurrentDictionary<INamedTypeSymbol, int> _derivedCounts = new(SymbolEqualityComparer.Default);
+    private readonly ConcurrentDictionary<INamedTypeSymbol, int> _derivedCounts = new(HierarchyConcurrencyLevel, InitialHierarchyCapacity, SymbolEqualityComparer.Default);
 
     /// <summary>Records what one type contributes: a candidate base, a descendant, or both.</summary>
     /// <param name="type">The declared type.</param>

@@ -74,11 +74,80 @@ public sealed class Sst1491RedundantModifierCodeFixProvider : CodeFixProvider, I
             }
 
             // Removing the first modifier would otherwise take the declaration's indentation with it.
-            return member
-                .WithModifiers(modifiers.RemoveAt(i))
-                .WithLeadingTrivia(member.GetLeadingTrivia());
+            modifiers = modifiers.RemoveAt(i);
+            if (member.AttributeLists.Count > 0)
+            {
+                return member.WithModifiers(modifiers);
+            }
+
+            var leading = member.GetLeadingTrivia();
+            if (modifiers.Count > 0)
+            {
+                modifiers = modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(leading));
+                return member.WithModifiers(modifiers);
+            }
+
+            return RemoveLastModifier(member, modifiers, leading);
         }
 
         return member;
     }
+
+    /// <summary>Removes the last modifier and moves its leading trivia to the next declaration child.</summary>
+    /// <param name="member">The member whose last modifier was removed.</param>
+    /// <param name="modifiers">The emptied modifier list.</param>
+    /// <param name="leading">The declaration's original leading trivia.</param>
+    /// <returns>The member with its leading trivia preserved.</returns>
+    private static MemberDeclarationSyntax RemoveLastModifier(MemberDeclarationSyntax member, in SyntaxTokenList modifiers, in SyntaxTriviaList leading) =>
+        member switch
+        {
+            MethodDeclarationSyntax method => method.Update(
+                method.AttributeLists,
+                modifiers,
+                method.ReturnType.WithLeadingTrivia(leading),
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                method.TypeParameterList,
+                method.ParameterList,
+                method.ConstraintClauses,
+                method.Body,
+                method.ExpressionBody,
+                method.SemicolonToken),
+            PropertyDeclarationSyntax property => property.Update(
+                property.AttributeLists,
+                modifiers,
+                property.Type.WithLeadingTrivia(leading),
+                property.ExplicitInterfaceSpecifier,
+                property.Identifier,
+                property.AccessorList,
+                property.ExpressionBody,
+                property.Initializer,
+                property.SemicolonToken),
+            IndexerDeclarationSyntax indexer => indexer.Update(
+                indexer.AttributeLists,
+                modifiers,
+                indexer.Type.WithLeadingTrivia(leading),
+                indexer.ExplicitInterfaceSpecifier,
+                indexer.ThisKeyword,
+                indexer.ParameterList,
+                indexer.AccessorList,
+                indexer.ExpressionBody,
+                indexer.SemicolonToken),
+            EventDeclarationSyntax eventDeclaration => eventDeclaration.Update(
+                eventDeclaration.AttributeLists,
+                modifiers,
+                eventDeclaration.EventKeyword.WithLeadingTrivia(leading),
+                eventDeclaration.Type,
+                eventDeclaration.ExplicitInterfaceSpecifier,
+                eventDeclaration.Identifier,
+                eventDeclaration.AccessorList,
+                eventDeclaration.SemicolonToken),
+            EventFieldDeclarationSyntax eventField => eventField.Update(
+                eventField.AttributeLists,
+                modifiers,
+                eventField.EventKeyword.WithLeadingTrivia(leading),
+                eventField.Declaration,
+                eventField.SemicolonToken),
+            _ => member.WithModifiers(modifiers).WithLeadingTrivia(leading)
+        };
 }

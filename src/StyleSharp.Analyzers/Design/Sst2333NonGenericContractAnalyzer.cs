@@ -58,26 +58,24 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (ComparisonContractTypes.Create(start.Compilation) is not { } contracts)
-            {
-                return;
-            }
-
+            var contracts = new ContractTypes(start.Compilation);
             start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, contracts), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports each generic contract on a type whose non-generic counterpart is missing.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="contracts">The comparison contracts resolved for the compilation.</param>
-    private static void Analyze(in SymbolAnalysisContext context, in ComparisonContractTypes contracts)
+    /// <param name="contractTypes">The comparison contracts resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, ContractTypes contractTypes)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
             || type.IsStatic
             || !SymbolVisibility.IsExternallyVisible(type)
             || type.Locations.IsEmpty
-            || !type.Locations[0].IsInSource)
+            || !type.Locations[0].IsInSource
+            || type.AllInterfaces.IsEmpty
+            || contractTypes.Get() is not { } contracts)
         {
             return;
         }
@@ -180,5 +178,18 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves comparison contracts only when a visible type implements interfaces.</summary>
+    /// <param name="compilation">The compilation whose contracts are cached.</param>
+    private sealed class ContractTypes(Compilation compilation)
+    {
+        /// <summary>The published result, including a missing set of contracts.</summary>
+        private ComparisonContractTypes?[]? _resolved;
+
+        /// <summary>Gets the contracts, resolving them on first demand.</summary>
+        /// <returns>The contracts, or null when the framework has none.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ComparisonContractTypes? Get() => (_resolved ??= [ComparisonContractTypes.Create(compilation)])[0];
     }
 }

@@ -132,9 +132,10 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
             accumulated = invocation.WithExpression(memberAccess.WithExpression(accumulated));
         }
 
-        return SyntaxFactory.ExpressionStatement(accumulated.WithoutTrivia())
-            .WithLeadingTrivia(first.GetLeadingTrivia())
-            .WithTrailingTrivia(last.GetTrailingTrivia());
+        return SyntaxFactory.ExpressionStatement(
+            default,
+            accumulated.WithoutTrivia().WithLeadingTrivia(first.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, last.GetTrailingTrivia()));
     }
 
     /// <summary>The first statement to replace, the statements to drop, and the folded replacement.</summary>

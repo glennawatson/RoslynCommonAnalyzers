@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,18 +16,12 @@ namespace SecuritySharp.Analyzers;
 /// flagged. Each attribute is bound to its symbol and matched by attribute class (including a subclass of
 /// either marker), never by written name, so <c>[Authorize]</c>, <c>[AuthorizeAttribute]</c>, and a fully
 /// qualified spelling all count. The whole rule is gated on
-/// <c>Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute</c> resolving; a project without ASP.NET
-/// Core authorization registers nothing and pays nothing.
+/// both framework markers resolving; those lookups are cached only after a declaration carries enough
+/// attributes to permit a conflict.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the marker whose presence enables the rule and wins at runtime.</summary>
-    private const string AllowAnonymousMetadataName = "Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute";
-
-    /// <summary>The metadata name of the dead authorization marker the rule reports.</summary>
-    private const string AuthorizeMetadataName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
-
     /// <summary>The message word used when the conflict sits on a method declaration.</summary>
     private const string MethodWord = "method";
 
@@ -49,15 +45,9 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var allowAnonymous = start.Compilation.GetTypeByMetadataName(AllowAnonymousMetadataName);
-            var authorize = start.Compilation.GetTypeByMetadataName(AuthorizeMetadataName);
-            if (allowAnonymous is null || authorize is null)
-            {
-                return;
-            }
-
+            var types = new AuthorizationTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeDeclaration(nodeContext, allowAnonymous, authorize),
+                nodeContext => AnalyzeDeclaration(nodeContext, types),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.ClassDeclaration,
                 SyntaxKind.StructDeclaration,
@@ -69,14 +59,18 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
 
     /// <summary>Reports SES1507 when one declaration carries both authorization markers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="allowAnonymous">The resolved <c>AllowAnonymousAttribute</c> type.</param>
-    /// <param name="authorize">The resolved <c>AuthorizeAttribute</c> type.</param>
-    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol allowAnonymous, INamedTypeSymbol authorize)
+    /// <param name="types">The authorization markers resolved on first candidate.</param>
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, AuthorizationTypes types)
     {
         var attributeLists = ((MemberDeclarationSyntax)context.Node).AttributeLists;
 
         // Syntactic prefilter: the conflict needs at least two attributes on this one declaration.
         if (!HasAtLeastTwoAttributes(attributeLists))
+        {
+            return;
+        }
+
+        if (types.Get() is not [{ } allowAnonymous, { } authorize])
         {
             return;
         }
@@ -108,6 +102,7 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
     {
         AttributeSyntax? authorizeAttribute = null;
         var sawAllowAnonymous = false;
+        var declaredAttributes = context.SemanticModel.GetDeclaredSymbol(context.Node, context.CancellationToken)?.GetAttributes() ?? ImmutableArray<AttributeData>.Empty;
 
         for (var i = 0; i < attributeLists.Count; i++)
         {
@@ -115,7 +110,7 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attribute = attributes[j];
-                if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: { } attributeType })
+                if (GetAttributeConstructor(context, attribute, declaredAttributes) is not { ContainingType: { } attributeType })
                 {
                     continue;
                 }
@@ -132,6 +127,30 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
         }
 
         return sawAllowAnonymous ? authorizeAttribute : null;
+    }
+
+    /// <summary>Reads an attribute's constructor from its declaration, retaining binding for other attribute targets.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="attribute">The attribute on the current declaration.</param>
+    /// <param name="declaredAttributes">The containing symbol's attributes, including other partial declarations.</param>
+    /// <returns>The resolved constructor, or <see langword="null"/> when the attribute does not bind.</returns>
+    private static IMethodSymbol? GetAttributeConstructor(
+        in SyntaxNodeAnalysisContext context,
+        AttributeSyntax attribute,
+        ImmutableArray<AttributeData> declaredAttributes)
+    {
+        foreach (var data in declaredAttributes)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+            if (data.ApplicationSyntaxReference is { } reference
+                && reference.SyntaxTree == attribute.SyntaxTree
+                && reference.Span == attribute.Span)
+            {
+                return data.AttributeConstructor;
+            }
+        }
+
+        return context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol as IMethodSymbol;
     }
 
     /// <summary>Returns whether a declaration carries at least two attributes across all its lists.</summary>
@@ -167,5 +186,25 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
         }
 
         return false;
+    }
+
+    /// <summary>Caches authorization marker resolution after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose authorization types are cached.</param>
+    private sealed class AuthorizationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the marker whose presence enables the rule and wins at runtime.</summary>
+        private const string AllowAnonymousMetadataName = "Microsoft.AspNetCore.Authorization.AllowAnonymousAttribute";
+
+        /// <summary>The metadata name of the dead authorization marker the rule reports.</summary>
+        private const string AuthorizeMetadataName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
+
+        /// <summary>The anonymous and authorize symbols, including missing-type results.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the authorization markers only when a declaration needs them.</summary>
+        /// <returns>The anonymous and authorize symbols in that order, each possibly null.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+            [compilation.GetTypeByMetadataName(AllowAnonymousMetadataName), compilation.GetTypeByMetadataName(AuthorizeMetadataName)];
     }
 }

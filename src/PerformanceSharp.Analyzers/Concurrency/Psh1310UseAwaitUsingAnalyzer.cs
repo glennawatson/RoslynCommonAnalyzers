@@ -33,13 +33,10 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var asyncDisposableType = start.Compilation.GetTypeByMetadataName(AsyncDisposableMetadataName);
-            if (asyncDisposableType is null)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var asyncDisposableType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(AsyncDisposableMetadataName));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeUsingStatement(nodeContext, asyncDisposableType), SyntaxKind.UsingStatement);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeUsingDeclaration(nodeContext, asyncDisposableType), SyntaxKind.LocalDeclarationStatement);
@@ -48,14 +45,16 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1310 for a synchronous using statement over async-disposable resources in an async function.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="asyncDisposableType">The async disposable interface.</param>
-    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
+    /// <param name="asyncDisposableType">The async disposable interface, resolved only for a candidate.</param>
+    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> asyncDisposableType)
     {
         var usingStatement = (UsingStatementSyntax)context.Node;
         if (!usingStatement.AwaitKeyword.IsKind(SyntaxKind.None)
             || !IsLanguageVersionAtLeast(usingStatement, CSharp8)
             || !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(usingStatement)
-            || !UsingStatementResourcesAreAsyncDisposable(usingStatement, context, asyncDisposableType))
+            || !(usingStatement.Declaration is { } declaration ? HasInitializers(declaration) : usingStatement.Expression is not null)
+            || asyncDisposableType.Value is not { } resolvedType
+            || !UsingStatementResourcesAreAsyncDisposable(usingStatement, context, resolvedType))
         {
             return;
         }
@@ -68,15 +67,17 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1310 for a synchronous using declaration over async-disposable resources in an async function.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="asyncDisposableType">The async disposable interface.</param>
-    private static void AnalyzeUsingDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol asyncDisposableType)
+    /// <param name="asyncDisposableType">The async disposable interface, resolved only for a candidate.</param>
+    private static void AnalyzeUsingDeclaration(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> asyncDisposableType)
     {
         var declarationStatement = (LocalDeclarationStatementSyntax)context.Node;
         if (!declarationStatement.UsingKeyword.IsKind(SyntaxKind.UsingKeyword)
             || !declarationStatement.AwaitKeyword.IsKind(SyntaxKind.None)
             || !IsLanguageVersionAtLeast(declarationStatement, CSharp8)
             || !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(declarationStatement)
-            || !AllDeclaratorsAreAsyncDisposable(declarationStatement.Declaration, context, asyncDisposableType))
+            || !HasInitializers(declarationStatement.Declaration)
+            || asyncDisposableType.Value is not { } resolvedType
+            || !AllDeclaratorsAreAsyncDisposable(declarationStatement.Declaration, context, resolvedType))
         {
             return;
         }
@@ -85,6 +86,28 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
             ConcurrencyRules.UseAwaitUsing,
             declarationStatement.SyntaxTree,
             declarationStatement.UsingKeyword.Span));
+    }
+
+    /// <summary>Rejects declarations with missing initializers before resolving framework symbols.</summary>
+    /// <param name="declaration">The candidate resource declaration.</param>
+    /// <returns>True when every resource has an initializer.</returns>
+    private static bool HasInitializers(VariableDeclarationSyntax declaration)
+    {
+        var variables = declaration.Variables;
+        if (variables.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < variables.Count; i++)
+        {
+            if (variables[i].Initializer is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>Returns whether a using statement's resources are all asynchronously disposable.</summary>

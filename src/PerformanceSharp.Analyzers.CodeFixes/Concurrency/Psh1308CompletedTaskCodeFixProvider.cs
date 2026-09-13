@@ -48,9 +48,12 @@ public sealed class Psh1308CompletedTaskCodeFixProvider : CodeFixProvider, IBatc
     {
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
         return SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                access.Expression.WithoutTrivia(),
-                SyntaxFactory.IdentifierName(Psh1308CompletedTaskAnalyzer.CompletedTaskPropertyName))
-            .WithTriviaFrom(invocation);
+            SyntaxKind.SimpleMemberAccessExpression,
+            access.Expression.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                Psh1308CompletedTaskAnalyzer.CompletedTaskPropertyName,
+                invocation.GetTrailingTrivia())));
     }
 }

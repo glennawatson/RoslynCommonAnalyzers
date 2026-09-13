@@ -40,9 +40,6 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
     /// <summary>How the last-element extension call is written into the message.</summary>
     private const string LastCallText = "Last()";
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The unqualified name of the linked list type.</summary>
     private const string LinkedListTypeName = "LinkedList";
 
@@ -58,14 +55,10 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
+            var enumerableType = new EnumerableTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -80,11 +73,12 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1124 for a linked list whose end element is fetched through LINQ.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, EnumerableTypeCache typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsEndExtensionShape(invocation))
+        if (!IsEndExtensionShape(invocation)
+            || typeCache.Get() is not { } enumerableType)
         {
             return;
         }
@@ -160,5 +154,32 @@ public sealed class Psh1124UseLinkedListEndPropertyAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the LINQ extension type on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EnumerableTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension class.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the LINQ extension type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no LINQ extension type.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
     }
 }

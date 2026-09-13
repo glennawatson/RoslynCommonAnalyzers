@@ -51,6 +51,9 @@ public sealed class Psh1218SearchWithStartIndexCodeFixProvider : CodeFixProvider
             && ((MemberAccessExpressionSyntax)slice.Expression).Name is { } name
             ? new NodeReplacement(
                 name,
-                SyntaxFactory.IdentifierName(Psh1218SearchWithStartIndexAnalyzer.AsSpanMethodName).WithTriviaFrom(name))
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    name.GetLeadingTrivia(),
+                    Psh1218SearchWithStartIndexAnalyzer.AsSpanMethodName,
+                    name.GetTrailingTrivia())))
             : null;
 }

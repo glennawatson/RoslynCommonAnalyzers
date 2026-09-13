@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 using Microsoft.CodeAnalysis.Text;
 
 namespace PerformanceSharp.Analyzers;
@@ -18,9 +20,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the expression-tree delegate wrapper type.</summary>
-    private const string ExpressionOfTMetadataName = "System.Linq.Expressions.Expression`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.MakeAnonymousFunctionStatic);
 
@@ -33,11 +32,11 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var expressionOfTType = start.Compilation.GetTypeByMetadataName(ExpressionOfTMetadataName);
+            var expressionTreeType = new ExpressionTreeType(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAnonymousFunction(nodeContext, expressionOfTType),
+                nodeContext => AnalyzeAnonymousFunction(nodeContext, expressionTreeType),
                 SyntaxKind.SimpleLambdaExpression,
                 SyntaxKind.ParenthesizedLambdaExpression,
                 SyntaxKind.AnonymousMethodExpression);
@@ -64,12 +63,17 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1000 for an anonymous function that provably captures nothing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    /// <param name="expressionTreeType">The compilation's deferred expression-tree type.</param>
+    private static void AnalyzeAnonymousFunction(in SyntaxNodeAnalysisContext context, ExpressionTreeType expressionTreeType)
     {
         var function = (AnonymousFunctionExpressionSyntax)context.Node;
-        if (!IsSyntaxCandidate(function)
-            || IsExpressionTreeConversion(context.SemanticModel, function, expressionOfTType, context.CancellationToken)
+        if (!IsSyntaxCandidate(function))
+        {
+            return;
+        }
+
+        var expressionOfTType = expressionTreeType.Get();
+        if (IsExpressionTreeConversion(context.SemanticModel, function, expressionOfTType, context.CancellationToken)
             || !HasNoCaptures(context.SemanticModel, function))
         {
             return;
@@ -111,5 +115,21 @@ public sealed class Psh1000StaticAnonymousFunctionAnalyzer : DiagnosticAnalyzer
     {
         var dataFlow = model.AnalyzeDataFlow(function);
         return dataFlow is { Succeeded: true, CapturedInside.IsEmpty: true };
+    }
+
+    /// <summary>Resolves the expression-tree type once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class ExpressionTreeType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the expression-tree delegate wrapper type.</summary>
+        private const string ExpressionOfTMetadataName = "System.Linq.Expressions.Expression`1";
+
+        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the expression-tree type, caching an absent type too.</summary>
+        /// <returns>The expression-tree type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ExpressionOfTMetadataName)])[0];
     }
 }

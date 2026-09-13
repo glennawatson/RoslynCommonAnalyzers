@@ -76,7 +76,7 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
         }
 
         var combined = 0UL;
-        var names = new List<string>();
+        var names = new List<string>(singleBits.Count);
         for (var i = 0; i < singleBits.Count; i++)
         {
             var bit = singleBits[i];
@@ -109,7 +109,7 @@ public sealed class Sst2330FlagsCombinationLiteralAnalyzer : DiagnosticAnalyzer
     /// <returns>The single-bit members.</returns>
     private static List<SingleBitMember> CollectSingleBits(ImmutableArray<ISymbol> members)
     {
-        var singleBits = new List<SingleBitMember>();
+        var singleBits = new List<SingleBitMember>(members.Length);
         for (var i = 0; i < members.Length; i++)
         {
             if (EnumFlagValues.TryGetValue(members[i], out var value) && EnumFlagValues.IsSingleBit(value))

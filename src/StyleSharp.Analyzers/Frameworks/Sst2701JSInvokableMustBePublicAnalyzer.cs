@@ -10,11 +10,9 @@ namespace StyleSharp.Analyzers;
 /// internal, or protected method carries the attribute yet is silently uncallable at runtime.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the <c>Microsoft.JSInterop.JSInvokableAttribute</c> marker
-/// resolving; a project that references no JavaScript-interop assembly registers nothing and pays nothing. The
-/// clean path is symbol-only: each ordinary method's attribute list is scanned, and a method is bound to the
-/// marker and its accessibility read only once an attribute is present, so a method with no attributes costs a
-/// single empty-list check.
+/// The <c>Microsoft.JSInterop.JSInvokableAttribute</c> marker is resolved only for a non-public ordinary
+/// method with attributes. Analysis stays on the method symbol so partial declarations share their attributes
+/// and diagnostic location. A method with no attributes performs no metadata lookup.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
@@ -34,22 +32,12 @@ public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var marker = start.Compilation.GetTypeByMetadataName(JSInvokableAttributeMetadataName);
-            if (marker is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeMethod(symbolContext, marker), SymbolKind.Method);
-        });
+        context.RegisterSymbolAction(static symbolContext => AnalyzeMethod(symbolContext), SymbolKind.Method);
     }
 
     /// <summary>Reports a non-public method that carries the invokable attribute.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="marker">The resolved invokable attribute type.</param>
-    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol marker)
+    private static void AnalyzeMethod(in SymbolAnalysisContext context)
     {
         var method = (IMethodSymbol)context.Symbol;
         if (method.MethodKind != MethodKind.Ordinary || method.DeclaredAccessibility == Accessibility.Public)
@@ -57,7 +45,7 @@ public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!HasMarker(method, marker))
+        if (!HasMarker(method, context.Compilation))
         {
             return;
         }
@@ -67,11 +55,17 @@ public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a method carries the invokable marker attribute.</summary>
     /// <param name="method">The method to inspect.</param>
-    /// <param name="marker">The resolved invokable attribute type.</param>
+    /// <param name="compilation">The compilation used to resolve the marker after attributes are found.</param>
     /// <returns><see langword="true"/> when the marker is present.</returns>
-    private static bool HasMarker(IMethodSymbol method, INamedTypeSymbol marker)
+    private static bool HasMarker(IMethodSymbol method, Compilation compilation)
     {
         var attributes = method.GetAttributes();
+        if (attributes.IsEmpty
+            || compilation.GetTypeByMetadataName(JSInvokableAttributeMetadataName) is not { } marker)
+        {
+            return false;
+        }
+
         for (var i = 0; i < attributes.Length; i++)
         {
             if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, marker))

@@ -52,24 +52,20 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var pathType = start.Compilation.GetTypeByMetadataName(PathMetadataName);
-            if (pathType is null)
-            {
-                return;
-            }
-
-            var suggestion = BuildSuggestion(start.Compilation);
+            var compilation = start.Compilation;
+            var pathType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(PathMetadataName));
+            var suggestion = new Lazy<string>(() => BuildSuggestion(compilation));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, pathType, suggestion), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1307 for a bound, parameterless <c>Path.GetTempFileName()</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="pathType">The resolved <c>System.IO.Path</c> type gating the containing-type check.</param>
-    /// <param name="suggestion">The replacement guidance resolved once for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol pathType, string suggestion)
+    /// <param name="pathType">The path type, resolved only for a matching invocation shape.</param>
+    /// <param name="suggestion">The replacement guidance, resolved only when a diagnostic is reported.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> pathType, Lazy<string> suggestion)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -81,8 +77,9 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: GetTempFileNameMethodName, IsStatic: true } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, pathType))
+        if (pathType.Value is not { } resolvedType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: GetTempFileNameMethodName, IsStatic: true } method
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedType))
         {
             return;
         }
@@ -91,7 +88,7 @@ public sealed class Ses1307InsecureTempFileAnalyzer : DiagnosticAnalyzer
             SecurityRules.InsecureTempFile,
             invocation.SyntaxTree,
             invocation.Span,
-            suggestion));
+            suggestion.Value));
     }
 
     /// <summary>Returns the simple invoked name from a member access or bare identifier expression.</summary>

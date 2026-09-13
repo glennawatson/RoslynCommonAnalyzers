@@ -82,7 +82,10 @@ public sealed class Psh1001UseArrayEmptyCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The replacement expression, carrying the creation's surrounding trivia.</returns>
     private static ExpressionSyntax Rewrite(ArrayCreationExpressionSyntax creation, bool useCollectionExpression) =>
         useCollectionExpression
-            ? SyntaxFactory.CollectionExpression().WithTriviaFrom(creation)
+            ? SyntaxFactory.CollectionExpression(
+                SyntaxFactory.Token(creation.GetLeadingTrivia(), SyntaxKind.OpenBracketToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                default,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, creation.GetTrailingTrivia()))
             : CreateArrayEmptyInvocation(creation);
 
     /// <summary>Rewrites the creation to a fully-qualified <c>System.Array.Empty&lt;T&gt;()</c> invocation.</summary>
@@ -91,16 +94,22 @@ public sealed class Psh1001UseArrayEmptyCodeFixProvider : CodeFixProvider, IBatc
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static InvocationExpressionSyntax CreateArrayEmptyInvocation(ArrayCreationExpressionSyntax creation) =>
         SyntaxFactory.InvocationExpression(
+            SyntaxFactory.MemberAccessExpression(
+                SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        SyntaxFactory.IdentifierName("System"),
-                        SyntaxFactory.IdentifierName(nameof(Array))),
-                    SyntaxFactory.GenericName(
-                        SyntaxFactory.Identifier("Empty"),
-                        SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(GetElementTypeSyntax(creation.Type))))))
-            .WithTriviaFrom(creation);
+                    SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                        creation.GetLeadingTrivia(),
+                        "System",
+                        SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+                    SyntaxFactory.IdentifierName(nameof(Array))),
+                SyntaxFactory.GenericName(
+                    SyntaxFactory.Identifier("Empty"),
+                    SyntaxFactory.TypeArgumentList(SyntaxFactory.SingletonSeparatedList(GetElementTypeSyntax(creation.Type))))),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                default,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, creation.GetTrailingTrivia())));
 
     /// <summary>Builds the <c>Array.Empty</c> type argument from the creation's array type syntax.</summary>
     /// <param name="arrayType">The created array type.</param>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,12 +22,6 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
     /// <summary>The invoked member name the ConfigureAwait unwrap requires.</summary>
     private const string ConfigureAwaitMethodName = "ConfigureAwait";
 
-    /// <summary>The metadata name of the non-generic task type.</summary>
-    private const string TaskMetadataName = "System.Threading.Tasks.Task";
-
-    /// <summary>The metadata name of the generic task type.</summary>
-    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.RemovePassThroughStateMachine);
 
@@ -38,17 +34,11 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null)
-            {
-                return;
-            }
-
-            var taskOfTType = start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName);
+            var taskTypes = new TaskTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeDeclaration(nodeContext, taskType, taskOfTType),
+                nodeContext => AnalyzeDeclaration(nodeContext, taskTypes),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.LocalFunctionStatement);
         });
@@ -150,9 +140,8 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
 
     /// <summary>Reports PSH1311 for an async declaration whose whole body forwards one task of the declared return type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    /// <param name="taskTypes">The deferred task definitions for this compilation.</param>
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, TaskTypes taskTypes)
     {
         var node = context.Node;
         if (!TryGetShape(node, out var asyncKeyword, out var awaitExpression, out var isStatementAwait))
@@ -167,20 +156,18 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not IMethodSymbol declared)
+        var types = taskTypes.Get();
+        if (types[0] is not { } taskType
+            || context.SemanticModel.GetDeclaredSymbol(node, context.CancellationToken) is not IMethodSymbol declared)
         {
             return;
         }
 
         var returnType = declared.ReturnType;
         var isPlainTask = SymbolEqualityComparer.Default.Equals(returnType, taskType);
-        if (!isPlainTask && !IsGenericTask(returnType, taskOfTType))
-        {
-            return;
-        }
 
         // A lone `await X;` statement can only forward when the declaration returns the non-generic Task.
-        if (isStatementAwait && !isPlainTask)
+        if (!isPlainTask && (isStatementAwait || !IsGenericTask(returnType, types[1])))
         {
             return;
         }
@@ -206,4 +193,27 @@ public sealed class Psh1311RemovePassThroughStateMachineAnalyzer : DiagnosticAna
         taskOfTType is not null
             && returnType is INamedTypeSymbol named
             && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, taskOfTType);
+
+    /// <summary>Resolves task definitions only when a tail-await candidate needs them.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class TaskTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the non-generic task type.</summary>
+        private const string TaskMetadataName = "System.Threading.Tasks.Task";
+
+        /// <summary>The metadata name of the generic task type.</summary>
+        private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
+
+        /// <summary>The cached task definitions, including missing-type results.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the task definitions, resolving them on first demand.</summary>
+        /// <returns>The non-generic and generic task definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(TaskMetadataName),
+            compilation.GetTypeByMetadataName(TaskOfTMetadataName),
+        ];
+    }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -69,21 +71,23 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         return true;
     }
 
-    /// <summary>Registers the argument-null-helper probe, then analyzes every <c>if</c> statement.</summary>
+    /// <summary>Defers the argument-null-helper probe until a matching guard needs it.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var argumentNullFolded = HasStaticThrowIfNull(context.Compilation.GetTypeByMetadataName("System.ArgumentNullException"));
+        var argumentNullFolded = new ArgumentNullHelper(context.Compilation);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, argumentNullFolded), SyntaxKind.IfStatement);
     }
 
     /// <summary>Reports a foldable guard-then-assignment shape.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="argumentNullFolded">Whether the runtime argument-null helper exists in this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, bool argumentNullFolded)
+    /// <param name="argumentNullFolded">The deferred runtime argument-null-helper probe.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ArgumentNullHelper argumentNullFolded)
     {
         var ifStatement = (IfStatementSyntax)context.Node;
-        if (!TryGetFold(ifStatement, context.SemanticModel, argumentNullFolded, context.CancellationToken, out _, out _, out _))
+        if (!TryMatchGuardShape(ifStatement, argumentNullFolded: false, out var checkedIdentifier, out _, out _)
+            || (ThrowGuardPatterns.TryMatchArgumentNull(ifStatement, out _) && argumentNullFolded.Get())
+            || !IsFoldableGuardedValue(ifStatement.Condition, checkedIdentifier, context.SemanticModel, context.CancellationToken))
         {
             return;
         }
@@ -148,28 +152,6 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
         // local or parameter is — and a reference type keeps the coalescing throw legal and identical.
         return model.GetSymbolInfo(checkedIdentifier, cancellationToken).Symbol is ILocalSymbol or IParameterSymbol
             && model.GetTypeInfo(checkedIdentifier, cancellationToken).Type is { IsReferenceType: true };
-    }
-
-    /// <summary>Returns whether a type declares a static <c>ThrowIfNull</c> method.</summary>
-    /// <param name="type">The resolved <c>ArgumentNullException</c> type, when available.</param>
-    /// <returns><see langword="true"/> when the runtime null-check helper exists.</returns>
-    private static bool HasStaticThrowIfNull(INamedTypeSymbol? type)
-    {
-        if (type is null)
-        {
-            return false;
-        }
-
-        var members = type.GetMembers("ThrowIfNull");
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Finds the identifier checked against <see langword="null"/> by the guard condition.</summary>
@@ -325,4 +307,39 @@ public sealed class Sst2283FoldGuardIntoAssignedValueAnalyzer : DiagnosticAnalyz
     /// <returns><see langword="true"/> when throw expressions are available.</returns>
     private static bool SupportsThrowExpression(SyntaxNode node) =>
         node.SyntaxTree.Options is CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp7 };
+
+    /// <summary>Probes runtime null-guard support only when an argument-null guard needs it.</summary>
+    /// <param name="compilation">The compilation whose helper is resolved.</param>
+    private sealed class ArgumentNullHelper(Compilation compilation)
+    {
+        /// <summary>The cached helper availability, including an unavailable helper.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Gets whether the runtime supplies a static argument-null helper.</summary>
+        /// <returns><see langword="true"/> when the runtime helper exists.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Get() => (_resolved ??= [HasStaticThrowIfNull(compilation.GetTypeByMetadataName("System.ArgumentNullException"))])[0];
+
+        /// <summary>Returns whether a type declares a static <c>ThrowIfNull</c> method.</summary>
+        /// <param name="type">The resolved <c>ArgumentNullException</c> type, when available.</param>
+        /// <returns><see langword="true"/> when the runtime null-check helper exists.</returns>
+        private static bool HasStaticThrowIfNull(INamedTypeSymbol? type)
+        {
+            if (type is null)
+            {
+                return false;
+            }
+
+            var members = type.GetMembers("ThrowIfNull");
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IMethodSymbol { IsStatic: true })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

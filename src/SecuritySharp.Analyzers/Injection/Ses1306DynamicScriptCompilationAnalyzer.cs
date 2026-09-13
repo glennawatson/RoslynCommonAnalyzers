@@ -12,18 +12,14 @@ namespace SecuritySharp.Analyzers;
 /// <c>Create</c> methods on <c>Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript</c> when that argument
 /// is not a compile-time constant -- a variable, a concatenation or interpolation folding in a variable, a
 /// method result, or any other runtime value. A constant literal, a <c>const</c> reference, or a folded
-/// constant expression is a trusted, author-written template and is never reported. The class is probed
-/// once per compilation; a project that does not reference the C# scripting package registers nothing and
-/// pays nothing. The clean path binds nothing: a syntactic screen requires a member call to one of the
-/// three method names before any symbol resolution runs. Only the local shape is inspected -- no data-flow
+/// constant expression is a trusted, author-written template and is never reported. The scripting class is
+/// resolved only for a syntax candidate. The clean path binds nothing: a syntactic screen requires a member
+/// call to one of the three method names before any symbol resolution runs. Only the local shape is inspected -- no data-flow
 /// or interprocedural tracking is performed, so the constant/non-constant decision is made at the call site.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the C# scripting entry-point class whose code channel is guarded.</summary>
-    private const string CSharpScriptMetadataName = "Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript";
-
     /// <summary>The name of the source-code parameter inspected on every gated scripting method.</summary>
     private const string CodeParameterName = "code";
 
@@ -48,22 +44,17 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var scriptType = start.Compilation.GetTypeByMetadataName(CSharpScriptMetadataName);
-            if (scriptType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, scriptType), SyntaxKind.InvocationExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1306 for a gated scripting call whose <c>code</c> argument is not a constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="scriptType">The gated <c>CSharpScript</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol scriptType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -76,7 +67,8 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+        if (frameworkType.Get() is not { } scriptType
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
             || !IsGatedMethodName(operation.TargetMethod.Name)
             || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, scriptType)
             || GetNonConstantCodeArgument(operation) is not { } codeSyntax)
@@ -117,5 +109,24 @@ public sealed class Ses1306DynamicScriptCompilationAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
+    }
+
+    /// <summary>Resolves the C# scripting type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the C# scripting entry-point class whose code channel is guarded.</summary>
+        private const string CSharpScriptMetadataName = "Microsoft.CodeAnalysis.CSharp.Scripting.CSharpScript";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the C# scripting type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(CSharpScriptMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

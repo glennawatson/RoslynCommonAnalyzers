@@ -54,19 +54,55 @@ internal readonly record struct LogLevelFloorOptions(int Floor)
     /// <returns><see langword="true"/> when the name is a known level.</returns>
     private static bool TryParseLevel(string value, out int level)
     {
-        var parsed = value.Trim().ToLowerInvariant() switch
+        var name = TrimLevelName(value);
+        var parsed = Unknown;
+        if (name.Equals("trace".AsSpan(), StringComparison.OrdinalIgnoreCase))
         {
-            "trace" => Trace,
-            "debug" => Debug,
-            "information" => Information,
-            "warning" => Warning,
-            "error" => Error,
-            "critical" => Critical,
-            _ => Unknown,
-        };
+            parsed = Trace;
+        }
+        else if (name.Equals("debug".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Debug;
+        }
+        else if (name.Equals("information".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Information;
+        }
+        else if (name.Equals("warning".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Warning;
+        }
+        else if (name.Equals("error".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Error;
+        }
+        else if (name.Equals("critical".AsSpan(), StringComparison.OrdinalIgnoreCase))
+        {
+            parsed = Critical;
+        }
 
         var known = parsed != Unknown;
         level = known ? parsed : Error;
         return known;
+    }
+
+    /// <summary>Excludes surrounding whitespace from a configured level name without copying it.</summary>
+    /// <param name="value">The configured level name.</param>
+    /// <returns>The level-name slice with surrounding whitespace excluded.</returns>
+    private static ReadOnlySpan<char> TrimLevelName(string value)
+    {
+        var start = 0;
+        var end = value.Length;
+        while (start < end && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        while (end > start && char.IsWhiteSpace(value[end - 1]))
+        {
+            end--;
+        }
+
+        return value.AsSpan(start, end - start);
     }
 }

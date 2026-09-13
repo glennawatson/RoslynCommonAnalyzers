@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Operations;
 
 namespace SecuritySharp.Analyzers;
@@ -15,8 +16,8 @@ namespace SecuritySharp.Analyzers;
 /// construction or deserialization touches the file system, network, or a process turns a crafted type name
 /// into code execution. Scope is intentionally the inline shape only -- a type first stored in a local is
 /// left alone because confirming it would require data-flow tracking, a non-goal here. The rule is resolved
-/// once per compilation by probing <c>System.Activator</c> and <c>System.Type</c>; on a target framework
-/// without them nothing is registered, so a project that cannot hit this shape pays nothing.
+/// on the first syntactic candidate by probing <c>System.Activator</c> and <c>System.Type</c>, with both
+/// lookup results cached for the compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyzer
@@ -30,12 +31,6 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     /// <summary>The static <c>Type.GetType</c> factory that resolves a type from a name.</summary>
     private const string GetTypeMethodName = "GetType";
 
-    /// <summary>The metadata name of the type that hosts <c>CreateInstance</c>.</summary>
-    private const string ActivatorMetadataName = "System.Activator";
-
-    /// <summary>The metadata name of the type that hosts the static <c>GetType</c> factory.</summary>
-    private const string TypeMetadataName = "System.Type";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.NonConstantTypeActivation);
 
@@ -48,23 +43,17 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            // The keyed types anchor the match rather than a suggested API, and both are present on every
-            // target framework, so they are resolved once and passed through: when a symbol is absent the
-            // comparison below simply never matches and the rule stays silent, avoiding a dead early-return.
-            var activatorType = start.Compilation.GetTypeByMetadataName(ActivatorMetadataName);
-            var typeType = start.Compilation.GetTypeByMetadataName(TypeMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, activatorType, typeType), SyntaxKind.InvocationExpression);
+            var types = new ActivationTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1401 when a call's <see cref="System.Type"/> argument is an inline <c>Type.GetType(nonConstant)</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="activatorType">The resolved <c>System.Activator</c> type, or <see langword="null"/> when absent.</param>
-    /// <param name="typeType">The resolved <c>System.Type</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? activatorType, INamedTypeSymbol? typeType)
+    /// <param name="types">The activation types resolved on first candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ActivationTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -77,9 +66,10 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
             return;
         }
 
+        var resolved = types.Get();
         if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation outerCall
-            || !IsGuardedTarget(outerCall.TargetMethod, activatorType)
-            || FindNonConstantTypeSource(context.SemanticModel, outerCall, typeType, context.CancellationToken) is not { } getType)
+            || !IsGuardedTarget(outerCall.TargetMethod, resolved[0])
+            || FindNonConstantTypeSource(context.SemanticModel, outerCall, resolved[1], context.CancellationToken) is not { } getType)
         {
             return;
         }
@@ -177,5 +167,25 @@ public sealed class Ses1401NonConstantTypeActivationAnalyzer : DiagnosticAnalyze
     {
         var nameExpression = getType.ArgumentList.Arguments[0].Expression;
         return !model.GetConstantValue(nameExpression, cancellationToken).HasValue;
+    }
+
+    /// <summary>Caches activation type lookups after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose type lookups are cached.</param>
+    private sealed class ActivationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type that hosts <c>CreateInstance</c>.</summary>
+        private const string ActivatorMetadataName = "System.Activator";
+
+        /// <summary>The metadata name of the type that hosts the static <c>GetType</c> factory.</summary>
+        private const string TypeMetadataName = "System.Type";
+
+        /// <summary>The activator and type symbols, including missing-type results.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the activation types only when a candidate needs them.</summary>
+        /// <returns>The activator and type symbols in that order, each possibly null.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+            [compilation.GetTypeByMetadataName(ActivatorMetadataName), compilation.GetTypeByMetadataName(TypeMetadataName)];
     }
 }

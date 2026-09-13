@@ -77,15 +77,22 @@ public sealed class Sst1455UnnecessaryUnsafeModifierAnalyzer : DiagnosticAnalyze
     /// <returns><see langword="true"/> when unsafe syntax is present.</returns>
     private static bool ContainsUnsafeSyntax(MemberDeclarationSyntax declaration)
     {
-        foreach (var node in declaration.DescendantNodes())
-        {
-            if (RequiresUnsafeContext(node))
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            declaration,
+            ref found,
+            static (SyntaxNode node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                if (!RequiresUnsafeContext(node))
+                {
+                    return true;
+                }
 
-        return false;
+                state = true;
+                return false;
+            });
+
+        return found;
     }
 
     /// <summary>Returns whether a node is an unsafe-only syntax form.</summary>

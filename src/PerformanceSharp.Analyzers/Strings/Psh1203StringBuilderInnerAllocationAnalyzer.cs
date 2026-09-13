@@ -10,8 +10,8 @@ namespace PerformanceSharp.Analyzers;
 /// (use <c>AppendFormat</c>), <c>Append(x.ToString())</c> where a typed <c>Append</c>
 /// overload takes the value directly, and <c>Append(s.Substring(...))</c> on a simple
 /// receiver (use <c>Append(string, int, int)</c>). The <c>StringBuilder</c> type and the
-/// overloads each shape rewrites to are probed once per compilation, so the rule costs
-/// nothing where they are missing.
+/// overloads each shape rewrites to are resolved on the first syntax candidate and cached
+/// for that compilation, including when the type is missing.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnalyzer
@@ -59,14 +59,10 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (!StringBuilderAppendSurface.TryResolve(start.Compilation, out var surface))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, surface), SyntaxKind.InvocationExpression);
+            var symbols = new AppendSurfaceSymbols(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, symbols), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -100,12 +96,15 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
 
     /// <summary>Reports PSH1203 for an Append argument the builder could format itself.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="surface">The string builder overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in StringBuilderAppendSurface surface)
+    /// <param name="symbols">The lazily resolved string builder overloads for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AppendSurfaceSymbols symbols)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        var shape = ClassifyShape(invocation, surface, out var inner, out var innerAccess, out var name);
+        var shape = ClassifyShape(invocation, out var inner, out var innerAccess, out var name);
         if (shape == InnerCallShape.None
+            || !symbols.TryGet(out var surface)
+            || (shape == InnerCallShape.Format && !surface.HasAppendFormat)
+            || (shape == InnerCallShape.Substring && !surface.HasAppendSegment)
             || !IsStringBuilderAppendString(context.SemanticModel, invocation, surface.BuilderType, context.CancellationToken))
         {
             return;
@@ -133,14 +132,12 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
 
     /// <summary>Runs the syntax-only checks: member name, argument count, and inner call shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
-    /// <param name="surface">The string builder overloads available in this compilation.</param>
     /// <param name="inner">The inner call passed as the Append argument.</param>
     /// <param name="innerAccess">The inner call's member access.</param>
     /// <param name="name">The outer <c>Append</c> identifier the diagnostic reports on.</param>
     /// <returns>The syntactic shape of the inner call, or <see cref="InnerCallShape.None"/>.</returns>
     private static InnerCallShape ClassifyShape(
         InvocationExpressionSyntax invocation,
-        in StringBuilderAppendSurface surface,
         out InvocationExpressionSyntax? inner,
         out MemberAccessExpressionSyntax? innerAccess,
         out IdentifierNameSyntax? name)
@@ -158,10 +155,9 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
         var innerArgumentCount = inner!.ArgumentList.Arguments.Count;
         return innerName!.Identifier.ValueText switch
         {
-            "Format" when surface.HasAppendFormat => InnerCallShape.Format,
+            "Format" => InnerCallShape.Format,
             "ToString" when innerArgumentCount == 0 => InnerCallShape.ToString,
-            "Substring" when surface.HasAppendSegment
-                && innerArgumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount
+            "Substring" when innerArgumentCount is SubstringStartOnlyArgumentCount or SubstringStartAndLengthArgumentCount
                 && IsSimpleReceiver(innerAccess!.Expression) => InnerCallShape.Substring,
             _ => InnerCallShape.None,
         };
@@ -401,5 +397,29 @@ public sealed class Psh1203StringBuilderInnerAllocationAnalyzer : DiagnosticAnal
                 or SpecialType.System_Decimal
                 or SpecialType.System_Double
                 or SpecialType.System_Single;
+    }
+
+    /// <summary>Resolves the Append surface on demand and caches missing types as an empty array.</summary>
+    /// <param name="compilation">The compilation whose string builder surface is probed.</param>
+    private sealed class AppendSurfaceSymbols(Compilation compilation)
+    {
+        /// <summary>The resolved surface, or an empty array when the string builder type is missing.</summary>
+        private StringBuilderAppendSurface[]? _resolved;
+
+        /// <summary>Gets the surface, resolving it only when a syntax candidate needs it.</summary>
+        /// <param name="surface">The available string builder overloads.</param>
+        /// <returns><see langword="true"/> when the string builder type exists.</returns>
+        public bool TryGet(out StringBuilderAppendSurface surface)
+        {
+            var resolved = _resolved ??= Resolve(compilation);
+            surface = resolved.Length == 0 ? default : resolved[0];
+            return resolved.Length != 0;
+        }
+
+        /// <summary>Builds a complete result before publishing it to concurrent callbacks.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>A single surface, or an empty array when the type is missing.</returns>
+        private static StringBuilderAppendSurface[] Resolve(Compilation compilation) =>
+            StringBuilderAppendSurface.TryResolve(compilation, out var surface) ? [surface] : [];
     }
 }

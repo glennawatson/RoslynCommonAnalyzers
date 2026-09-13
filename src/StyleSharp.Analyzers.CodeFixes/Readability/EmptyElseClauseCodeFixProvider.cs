@@ -37,10 +37,14 @@ public sealed class EmptyElseClauseCodeFixProvider : CodeFixProvider, IBatchFixa
             return null;
         }
 
-        var withoutElse = ifStatement
-            .WithStatement(ifStatement.Statement.WithTrailingTrivia(SyntaxFactory.TriviaList()))
-            .WithElse(null)
-            .WithTrailingTrivia(ifStatement.GetTrailingTrivia());
+        var withoutElse = ifStatement.Update(
+            ifStatement.AttributeLists,
+            ifStatement.IfKeyword,
+            ifStatement.OpenParenToken,
+            ifStatement.Condition,
+            ifStatement.CloseParenToken,
+            ifStatement.Statement.WithTrailingTrivia(ifStatement.GetTrailingTrivia()),
+            @else: null);
 
         return new NodeReplacement(ifStatement, withoutElse);
     }

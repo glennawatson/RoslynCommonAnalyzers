@@ -28,7 +28,7 @@ namespace PerformanceSharp.Analyzers;
 /// at all, so the view and the copy answer every question the same way.
 /// </para>
 /// <para>
-/// The rule is switched off at compilation start when <c>MemoryExtensions</c> has no
+/// After a range-indexer candidate is found, the rule checks that <c>MemoryExtensions</c> has a
 /// <see cref="Range"/>-taking slice, and the rewritten call is bound speculatively before anything is
 /// reported, so a target framework that cannot express the fix never sees the diagnostic.
 /// </para>
@@ -82,15 +82,7 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (!HasRangeSlice(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeElementAccess, SyntaxKind.ElementAccessExpression);
-        });
+        context.RegisterSyntaxNodeAction(AnalyzeElementAccess, SyntaxKind.ElementAccessExpression);
     }
 
     /// <summary>Returns whether an element access is a plain <c>x[a..b]</c>, before any binding.</summary>
@@ -157,7 +149,7 @@ public sealed class Psh1019UseAsSpanOverRangeIndexerAnalyzer : DiagnosticAnalyze
     private static void AnalyzeElementAccess(SyntaxNodeAnalysisContext context)
     {
         var access = (ElementAccessExpressionSyntax)context.Node;
-        if (!IsRangeIndexerShape(access))
+        if (!IsRangeIndexerShape(access) || !HasRangeSlice(context.Compilation))
         {
             return;
         }

@@ -11,7 +11,7 @@ namespace PerformanceSharp.Analyzers;
 /// contains zero expressions (<c>new T[] { }</c>). Creations inside attribute arguments
 /// are skipped because a method call is not a valid attribute constant, and
 /// multi-dimensional creations are skipped because <c>Array.Empty&lt;T&gt;()</c> cannot
-/// produce them. The rule is resolved once per compilation by probing
+/// produce them. The rule probes the compilation only after a syntax candidate is found, checking
 /// <c>System.Array</c> for an <c>Empty</c> member, so it reports nothing on frameworks
 /// without the API. On C# 12+ the suggested replacement is an empty collection
 /// expression (which compiles to the same shared instance) whenever the creation sits
@@ -45,15 +45,7 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (start.Compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Empty").IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeArrayCreation, SyntaxKind.ArrayCreationExpression);
-        });
+        context.RegisterSyntaxNodeAction(AnalyzeArrayCreation, SyntaxKind.ArrayCreationExpression);
     }
 
     /// <summary>Returns whether an array creation is a syntax-level zero-length rank-1 candidate.</summary>
@@ -101,7 +93,8 @@ public sealed class Psh1001UseArrayEmptyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not IArrayTypeSymbol arrayType
+        if (context.Compilation.GetSpecialType(SpecialType.System_Array).GetMembers("Empty").IsEmpty
+            || context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type is not IArrayTypeSymbol arrayType
             || !IsValidTypeArgument(arrayType.ElementType))
         {
             return;

@@ -152,17 +152,20 @@ public sealed class Sst2403ThisEscapesConstructorAnalyzer : DiagnosticAnalyzer
         SyntaxNode? node = escaping;
         for (; node is ExpressionSyntax or ArgumentSyntax or ArgumentListSyntax; node = node.Parent)
         {
-            if (node is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left })
+            if (node.IsKind(SyntaxKind.SimpleAssignmentExpression))
             {
-                continue;
+                break;
             }
-
-            var target = left is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: { } name } ? name : left;
-            return context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol
-                is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
         }
 
-        return false;
+        if (node is not AssignmentExpressionSyntax { RawKind: (int)SyntaxKind.SimpleAssignmentExpression, Left: { } left })
+        {
+            return false;
+        }
+
+        var target = left is MemberAccessExpressionSyntax { Expression: ThisExpressionSyntax, Name: { } name } ? name : left;
+        return context.SemanticModel.GetSymbolInfo(target, context.CancellationToken).Symbol
+            is IFieldSymbol { IsStatic: false } or IPropertySymbol { IsStatic: false };
     }
 
     /// <summary>Gets the expression that would carry the object out, if this one were handed over.</summary>

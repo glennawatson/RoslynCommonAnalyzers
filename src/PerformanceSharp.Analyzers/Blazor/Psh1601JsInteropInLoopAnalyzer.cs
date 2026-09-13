@@ -12,8 +12,8 @@ namespace PerformanceSharp.Analyzers;
 /// collection of N items becomes N network hops instead of one batched call.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>Microsoft.JSInterop.IJSRuntime</c> resolving; a
-/// project that does not reference Blazor registers no syntax action. On the clean path a candidate
+/// The JavaScript-interop types are resolved once per compilation, after a candidate passes the syntax
+/// checks. On the clean path a candidate
 /// invocation fails fast on syntax — its invoked member must be named <c>InvokeAsync</c> or
 /// <c>InvokeVoidAsync</c>, and its nearest enclosing statement (reached without crossing a lambda or
 /// local function) must be a <c>for</c>/<c>foreach</c> — before the receiver type is bound. The receiver
@@ -52,21 +52,16 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var jsRuntime = start.Compilation.GetTypeByMetadataName(JsRuntimeMetadataName);
-            if (jsRuntime is null)
-            {
-                return;
-            }
-
-            var gate = new InteropGate(jsRuntime, start.Compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName));
+            var compilation = start.Compilation;
+            var gate = new Lazy<InteropGate?>(() => CreateGate(compilation));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1601 when an interop call on a JavaScript-runtime receiver sits directly inside a loop.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The resolved JavaScript-interop types gating the rule.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, InteropGate gate)
+    /// <param name="gate">The JavaScript-interop types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<InteropGate?> gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access)
@@ -79,13 +74,14 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsDirectlyInsideLoop(invocation))
+        if (!IsDirectlyInsideLoop(invocation)
+            || gate.Value is not { } resolvedGate)
         {
             return;
         }
 
         var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        if (!IsJsInteropReceiver(receiverType, gate))
+        if (!IsJsInteropReceiver(receiverType, resolvedGate))
         {
             return;
         }
@@ -160,8 +156,19 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
+    /// <summary>Resolves the JavaScript-interop types when a candidate first needs them.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The resolved types, or null when the runtime interface is absent.</returns>
+    private static InteropGate? CreateGate(Compilation compilation)
+    {
+        var jsRuntime = compilation.GetTypeByMetadataName(JsRuntimeMetadataName);
+        return jsRuntime is null
+            ? null
+            : new InteropGate(jsRuntime, compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName));
+    }
+
     /// <summary>The JavaScript-interop types resolved once per compilation.</summary>
-    /// <param name="JsRuntime">The runtime interface; always present while the rule is registered.</param>
+    /// <param name="JsRuntime">The runtime interface required to report a diagnostic.</param>
     /// <param name="JsObjectReference">The object-reference interface, when the framework exposes one.</param>
     private readonly record struct InteropGate(INamedTypeSymbol JsRuntime, INamedTypeSymbol? JsObjectReference);
 }

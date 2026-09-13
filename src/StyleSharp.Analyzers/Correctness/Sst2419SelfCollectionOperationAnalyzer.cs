@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -25,12 +27,6 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the list insert-range operation, whose collection argument is second.</summary>
     private const string InsertRange = "InsertRange";
 
-    /// <summary>The metadata name of the generic set interface.</summary>
-    private const string SetInterfaceMetadataName = "System.Collections.Generic.ISet`1";
-
-    /// <summary>The metadata name of the generic list interface.</summary>
-    private const string ListInterfaceMetadataName = "System.Collections.Generic.IList`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.SelfCollectionOperation);
 
@@ -45,25 +41,18 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Resolves the collection interfaces once, then analyzes each call.</summary>
+    /// <summary>Defers resolving the collection interfaces until a self-applied call needs them.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var setInterface = context.Compilation.GetTypeByMetadataName(SetInterfaceMetadataName);
-        var listInterface = context.Compilation.GetTypeByMetadataName(ListInterfaceMetadataName);
-        if (setInterface is null && listInterface is null)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, setInterface, listInterface), SyntaxKind.InvocationExpression);
+        var interfaces = new CollectionInterfaces(context.Compilation);
+        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, interfaces), SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Reports one self-applied collection operation.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="setInterface">The resolved <c>ISet&lt;T&gt;</c> definition, if any.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? setInterface, INamedTypeSymbol? listInterface)
+    /// <param name="interfaces">The collection interfaces resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionInterfaces interfaces)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax member)
@@ -84,7 +73,8 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var required = IsListMethod(name) ? listInterface : setInterface;
+        var resolved = interfaces.Get();
+        var required = resolved[IsListMethod(name) ? 1 : 0];
         var receiverType = context.SemanticModel.GetTypeInfo(member.Expression, context.CancellationToken).Type;
         if (required is null || receiverType is null || !Implements(receiverType, required))
         {
@@ -159,4 +149,27 @@ public sealed class Sst2419SelfCollectionOperationAnalyzer : DiagnosticAnalyzer
     private static bool SameSideEffectFree(ExpressionSyntax first, ExpressionSyntax second) =>
         SideEffectFreeExpression.IsSideEffectFree(first)
             && SyntaxFactory.AreEquivalent(first, second, topLevel: false);
+
+    /// <summary>Resolves collection interfaces once per compilation, only for a candidate call.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class CollectionInterfaces(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic set interface.</summary>
+        private const string SetInterfaceMetadataName = "System.Collections.Generic.ISet`1";
+
+        /// <summary>The metadata name of the generic list interface.</summary>
+        private const string ListInterfaceMetadataName = "System.Collections.Generic.IList`1";
+
+        /// <summary>The cached set and list interface definitions, including missing types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the collection interfaces, resolving them on first use.</summary>
+        /// <returns>The set and list interface definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(SetInterfaceMetadataName),
+            compilation.GetTypeByMetadataName(ListInterfaceMetadataName),
+        ];
+    }
 }

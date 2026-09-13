@@ -340,21 +340,34 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        var expressionSpan = expression.Span;
-        var containerEnd = container.Span.End;
-        foreach (var trivia in container.DescendantTrivia())
-        {
-            if (!IsComment(trivia.Kind())
-                || expressionSpan.Contains(trivia.SpanStart)
-                || trivia.SpanStart >= containerEnd)
+        var state = (ExpressionSpan: expression.Span, ContainerEnd: container.Span.End);
+        return !DescendantTraversalHelper.VisitDescendantTokens(
+            container,
+            ref state,
+            static (in token, ref current) =>
             {
-                continue;
-            }
+                foreach (var trivia in token.LeadingTrivia)
+                {
+                    if (IsComment(trivia.Kind())
+                        && !current.ExpressionSpan.Contains(trivia.SpanStart)
+                        && trivia.SpanStart < current.ContainerEnd)
+                    {
+                        return false;
+                    }
+                }
 
-            return true;
-        }
+                foreach (var trivia in token.TrailingTrivia)
+                {
+                    if (IsComment(trivia.Kind())
+                        && !current.ExpressionSpan.Contains(trivia.SpanStart)
+                        && trivia.SpanStart < current.ContainerEnd)
+                    {
+                        return false;
+                    }
+                }
 
-        return false;
+                return true;
+            });
     }
 
     /// <summary>Returns whether a body is split across preprocessor branches.</summary>

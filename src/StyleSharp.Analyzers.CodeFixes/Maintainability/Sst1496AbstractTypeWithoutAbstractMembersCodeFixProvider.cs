@@ -160,7 +160,7 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
     private static ClassDeclarationSyntax Seal(ClassDeclarationSyntax declaration, int index)
     {
         var modifier = declaration.Modifiers[index];
-        var sealedKeyword = SyntaxFactory.Token(SyntaxKind.SealedKeyword).WithTriviaFrom(modifier);
+        var sealedKeyword = SyntaxFactory.Token(modifier.LeadingTrivia, SyntaxKind.SealedKeyword, modifier.TrailingTrivia);
         return declaration.WithModifiers(declaration.Modifiers.Replace(modifier, sealedKeyword));
     }
 
@@ -184,8 +184,18 @@ public sealed class Sst1496AbstractTypeWithoutAbstractMembersCodeFixProvider : C
 
         return modifiers.Count > 0
             ? declaration.WithModifiers(modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(modifier.LeadingTrivia)))
-            : declaration
-            .WithModifiers(modifiers)
-            .WithKeyword(declaration.Keyword.WithLeadingTrivia(modifier.LeadingTrivia));
+            : declaration.Update(
+                declaration.AttributeLists,
+                modifiers,
+                declaration.Keyword.WithLeadingTrivia(modifier.LeadingTrivia),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken);
     }
 }

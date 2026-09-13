@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -15,8 +17,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>Microsoft.IdentityModel.Logging.IdentityModelEventSource</c>. The rule reports the enabling call or
 /// assignment when no enclosing <c>if</c> statement or conditional whose condition calls a method named
 /// <c>IsDevelopment</c> guards it -- a purely local ancestor scan, no data-flow. Each surface is independently
-/// marker-gated: the invocation check is registered only when a builder type resolves and the assignment check
-/// only when the event source resolves, so a project using just one of the two frameworks pays only for that one.
+/// marker-gated: builder types and the event source are resolved only after the corresponding syntax filter
+/// matches, so a compilation with no candidate calls or assignments performs no metadata lookup.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAnalyzer
@@ -32,9 +34,6 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
     /// <summary>The simple type name reported alongside a guarded identity-logging property.</summary>
     private const string IdentityModelEventSourceTypeName = "IdentityModelEventSource";
-
-    /// <summary>The metadata name of the identity-logging event source whose sensitive properties are guarded.</summary>
-    private const string IdentityModelEventSourceMetadataName = "Microsoft.IdentityModel.Logging.IdentityModelEventSource";
 
     /// <summary>The metadata names of the EF Core option builders whose <c>EnableSensitiveDataLogging</c> is guarded.</summary>
     private static readonly string[] DbContextOptionsBuilderMetadataNames =
@@ -55,38 +54,31 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeInvocation(nodeContext), SyntaxKind.InvocationExpression);
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var builderTypes = GetDbContextOptionsBuilderTypes(start.Compilation);
-            if (builderTypes is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderTypes), SyntaxKind.InvocationExpression);
-            }
-
-            if (start.Compilation.GetTypeByMetadataName(IdentityModelEventSourceMetadataName) is { } eventSourceType)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, eventSourceType), SyntaxKind.SimpleAssignmentExpression);
-            }
+            var eventSourceTypes = new IdentityEventSourceTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, eventSourceTypes), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1512 for an unguarded <c>EnableSensitiveDataLogging</c> call on a gated builder type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderTypes">The gated EF Core option-builder types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] builderTypes)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a call to a member named 'EnableSensitiveDataLogging'.
         if (InvokedName.Of(invocation.Expression) is not EnableSensitiveDataLoggingMethodName
-            || !IsUnconditionallyEnabled(invocation.ArgumentList, context.SemanticModel, context.CancellationToken))
+            || DevelopmentGuard.Encloses(invocation))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EnableSensitiveDataLoggingMethodName } method
-            || !IsGatedBuilderType(method.ContainingType.OriginalDefinition, builderTypes)
-            || DevelopmentGuard.Encloses(invocation))
+        if (!IsUnconditionallyEnabled(invocation.ArgumentList, context.SemanticModel, context.CancellationToken)
+            || GetDbContextOptionsBuilderTypes(context.Compilation) is not { } builderTypes
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: EnableSensitiveDataLoggingMethodName } method
+            || !IsGatedBuilderType(method.ContainingType.OriginalDefinition, builderTypes))
         {
             return;
         }
@@ -100,22 +92,23 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
 
     /// <summary>Reports SES1512 for an unguarded <c>true</c> assignment to a gated identity-logging property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="eventSourceType">The gated identity event-source type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventSourceType)
+    /// <param name="eventSourceTypes">The identity event-source type cache for this compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, IdentityEventSourceTypes eventSourceTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '<expr>.ShowPII = true' / '<expr>.LogCompleteSecurityArtifact = true' or the
         // bare-identifier form under a 'using static'. Both bind the left member to the property below.
         if (!assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression)
-            || GetSensitiveIdentityMember(assignment.Left) is not { } memberExpression)
+            || GetSensitiveIdentityMember(assignment.Left) is not { } memberExpression
+            || DevelopmentGuard.Encloses(assignment))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { IsStatic: true } property
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, eventSourceType)
-            || DevelopmentGuard.Encloses(assignment))
+        if (eventSourceTypes.Get() is not { } eventSourceType
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { IsStatic: true } property
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, eventSourceType))
         {
             return;
         }
@@ -203,5 +196,21 @@ public sealed class Ses1512SensitiveFrameworkDiagnosticsAnalyzer : DiagnosticAna
         }
 
         return types;
+    }
+
+    /// <summary>Resolves the identity event-source type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class IdentityEventSourceTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the identity-logging event source whose sensitive properties are guarded.</summary>
+        private const string IdentityModelEventSourceMetadataName = "Microsoft.IdentityModel.Logging.IdentityModelEventSource";
+
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the identity event-source type, resolving it on first demand.</summary>
+        /// <returns>The event-source type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(IdentityModelEventSourceMetadataName)])[0];
     }
 }

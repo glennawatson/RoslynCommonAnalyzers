@@ -120,14 +120,18 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         var root = context.Tree.GetRoot(context.CancellationToken);
         var collectionPadded = ReadCollectionExpressionPadded(context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Tree));
 
-        var previous = default(SyntaxToken);
-        foreach (var token in root.DescendantTokens())
-        {
-            ProcessTrivia(context, text, token.LeadingTrivia, isTrailing: false);
-            ProcessTrivia(context, text, token.TrailingTrivia, isTrailing: true);
-            CheckPair(context, previous, token, collectionPadded);
-            previous = token;
-        }
+        var state = new SpacingTraversalState(context, text, collectionPadded);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            root,
+            ref state,
+            static (in SyntaxToken token, ref SpacingTraversalState state) =>
+            {
+                ProcessTrivia(state.Context, state.Text, token.LeadingTrivia, isTrailing: false);
+                ProcessTrivia(state.Context, state.Text, token.TrailingTrivia, isTrailing: true);
+                CheckPair(state.Context, state.Previous, token, state.CollectionPadded);
+                state.Previous = token;
+                return true;
+            });
     }
 
     /// <summary>Dispatches every token-pair spacing rule for an adjacent token pair (single separation read).</summary>
@@ -1054,5 +1058,33 @@ public sealed class SpacingAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Holds the inputs and previous token for one spacing traversal.</summary>
+    private struct SpacingTraversalState
+    {
+        /// <summary>Initializes a new instance of the <see cref="SpacingTraversalState"/> struct.</summary>
+        /// <param name="context">The syntax tree analysis context.</param>
+        /// <param name="text">The source text.</param>
+        /// <param name="collectionPadded">Whether collection-expression brackets are padded.</param>
+        public SpacingTraversalState(in SyntaxTreeAnalysisContext context, SourceText text, bool collectionPadded)
+        {
+            Context = context;
+            Text = text;
+            Previous = default;
+            CollectionPadded = collectionPadded;
+        }
+
+        /// <summary>Gets the syntax tree analysis context.</summary>
+        public readonly SyntaxTreeAnalysisContext Context { get; }
+
+        /// <summary>Gets the source text.</summary>
+        public readonly SourceText Text { get; }
+
+        /// <summary>Gets or sets the previous token in document order.</summary>
+        public SyntaxToken Previous { get; set; }
+
+        /// <summary>Gets a value indicating whether collection-expression brackets are padded.</summary>
+        public readonly bool CollectionPadded { get; }
     }
 }

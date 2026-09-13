@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -15,25 +17,13 @@ namespace SecuritySharp.Analyzers;
 /// constant string that is ReDoS-prone -- an unbounded quantifier (<c>*</c>, <c>+</c>, or <c>{n,}</c>) applied to
 /// a group whose body itself repeats or offers a top-level alternation, as in <c>(a+)+</c>, <c>(a*)*</c>,
 /// <c>([a-z]+)*</c>, <c>(.*)*</c>, <c>(a|aa)+</c>, or <c>(\d+)*</c>. A non-constant pattern is a separate injection
-/// concern and is not reported here, so the two rules never overlap. The <c>Regex</c> type is probed once per
-/// compilation and, when absent, nothing is registered. There is no code fix: adding a timeout or switching to the
+/// concern and is not reported here, so the two rules never overlap. The required types are resolved on the first
+/// syntactic candidate in each compilation. There is no code fix: adding a timeout or switching to the
 /// non-backtracking engine is a semantic choice, so the rewrite is left to the author.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the regular-expression type whose pattern argument is guarded.</summary>
-    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
-
-    /// <summary>The metadata name of the options enum whose <c>NonBacktracking</c> flag disables backtracking.</summary>
-    private const string RegexOptionsMetadataName = "System.Text.RegularExpressions.RegexOptions";
-
-    /// <summary>The metadata name of the source-generator attribute whose pattern argument is guarded.</summary>
-    private const string GeneratedRegexAttributeMetadataName = "System.Text.RegularExpressions.GeneratedRegexAttribute";
-
-    /// <summary>The metadata name of the type whose argument on a call supplies a match timeout.</summary>
-    private const string TimeSpanMetadataName = "System.TimeSpan";
-
     /// <summary>The simple type name used to prefilter object-creation nodes syntactically.</summary>
     private const string RegexTypeName = "Regex";
 
@@ -76,39 +66,30 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var regexType = start.Compilation.GetTypeByMetadataName(RegexMetadataName);
-            var optionsType = start.Compilation.GetTypeByMetadataName(RegexOptionsMetadataName);
-            var timeSpanType = start.Compilation.GetTypeByMetadataName(TimeSpanMetadataName);
-            if (regexType is null || optionsType is null || timeSpanType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, regexType, timeSpanType, optionsType), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, regexType, timeSpanType, optionsType), SyntaxKind.InvocationExpression);
-
-            var generatedRegexAttributeType = start.Compilation.GetTypeByMetadataName(GeneratedRegexAttributeMetadataName);
-            if (generatedRegexAttributeType is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, generatedRegexAttributeType, timeSpanType, optionsType), SyntaxKind.Attribute);
-            }
+            var types = new RegexTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, types), SyntaxKind.ObjectCreationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, types), SyntaxKind.Attribute);
         });
     }
 
     /// <summary>Reports SES1509 for a <c>new Regex(pattern, ...)</c> whose constant pattern is ReDoS-prone and unbounded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
-    /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    /// <param name="types">The types resolved on the first syntactic candidate.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, RegexTypes types)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a 'new <...>.Regex(...)' with at least one argument.
         if (objectCreation.ArgumentList is not { Arguments.Count: > 0 } argumentList
             || !IsRegexTypeName(objectCreation.Type))
+        {
+            return;
+        }
+
+        if (types.Get() is not [{ } regexType, { } optionsType, { } timeSpanType, _])
         {
             return;
         }
@@ -130,10 +111,8 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
 
     /// <summary>Reports SES1509 for a static <c>Regex</c> call whose constant pattern is ReDoS-prone and unbounded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
-    /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    /// <param name="types">The types resolved on the first syntactic candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, RegexTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -142,6 +121,11 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: { } methodName }
             || !IsGuardedStaticMethodName(methodName)
             || invocation.ArgumentList.Arguments.Count < 2)
+        {
+            return;
+        }
+
+        if (types.Get() is not [{ } regexType, { } optionsType, { } timeSpanType, _])
         {
             return;
         }
@@ -164,16 +148,19 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
 
     /// <summary>Reports SES1509 for a <c>[GeneratedRegex(pattern, ...)]</c> whose constant pattern is ReDoS-prone.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributeType">The gated <c>GeneratedRegexAttribute</c> type resolved for the compilation.</param>
-    /// <param name="timeSpanType">The gated <c>TimeSpan</c> type used to detect a match-timeout argument.</param>
-    /// <param name="optionsType">The gated <c>RegexOptions</c> type used to locate the options argument.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType, INamedTypeSymbol timeSpanType, INamedTypeSymbol optionsType)
+    /// <param name="types">The types resolved on the first syntactic candidate.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, RegexTypes types)
     {
         var attribute = (AttributeSyntax)context.Node;
 
         // Syntactic prefilter: the attribute is spelled 'GeneratedRegex' or 'GeneratedRegexAttribute' and carries a pattern.
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
             || GetAttributeSimpleName(attribute.Name) is not (GeneratedRegexShortName or GeneratedRegexLongName))
+        {
+            return;
+        }
+
+        if (types.Get() is not [{ }, { } optionsType, { } timeSpanType, { } attributeType])
         {
             return;
         }
@@ -600,4 +587,35 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
         c is '*' or '+'
             || (c == '{' && IsOpenEndedBrace(pattern, index))
             || (c == '|' && depth == 0);
+
+    /// <summary>Resolves the guarded types on demand and caches absent types too.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class RegexTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the regular-expression type whose pattern argument is guarded.</summary>
+        private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
+
+        /// <summary>The metadata name of the options enum whose <c>NonBacktracking</c> flag disables backtracking.</summary>
+        private const string RegexOptionsMetadataName = "System.Text.RegularExpressions.RegexOptions";
+
+        /// <summary>The metadata name of the source-generator attribute whose pattern argument is guarded.</summary>
+        private const string GeneratedRegexAttributeMetadataName = "System.Text.RegularExpressions.GeneratedRegexAttribute";
+
+        /// <summary>The metadata name of the type whose argument on a call supplies a match timeout.</summary>
+        private const string TimeSpanMetadataName = "System.TimeSpan";
+
+        /// <summary>The resolved type array, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the guarded types, resolving them on first use.</summary>
+        /// <returns>The regex, options, timeout, and generated-attribute types, in that order.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(RegexMetadataName),
+            compilation.GetTypeByMetadataName(RegexOptionsMetadataName),
+            compilation.GetTypeByMetadataName(TimeSpanMetadataName),
+            compilation.GetTypeByMetadataName(GeneratedRegexAttributeMetadataName),
+        ];
+    }
 }

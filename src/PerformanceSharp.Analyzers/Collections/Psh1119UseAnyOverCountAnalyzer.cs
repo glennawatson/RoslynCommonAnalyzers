@@ -14,8 +14,7 @@ namespace PerformanceSharp.Analyzers;
 /// <c>&lt; 1</c>, <c>&lt;= 0</c>) are recognized, and the predicate overload qualifies too.
 /// A receiver whose static type exposes an accessible constant-time <c>Count</c> or
 /// <c>Length</c> property is never reported — that receiver is PSH1103's territory. The rule
-/// is resolved once per compilation by probing for <c>System.Linq.Enumerable</c>, so it costs
-/// nothing when LINQ is absent.
+/// probes for <c>System.Linq.Enumerable</c> only after the comparison passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
@@ -28,9 +27,6 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The 64-bit count member name, which walks the sequence exactly as <c>Count</c> does.</summary>
     private const string LongCountMethodName = "LongCount";
-
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The message argument for comparisons that mean the sequence has elements.</summary>
     private const string AnyReplacementText = "Any()";
@@ -50,14 +46,10 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
+            var enumerableType = new EnumerableTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeComparison(nodeContext, enumerableType),
                 SyntaxKind.EqualsExpression,
                 SyntaxKind.NotEqualsExpression,
@@ -79,8 +71,8 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1119 for an emptiness comparison of an Enumerable Count() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, EnumerableTypeCache typeCache)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)
@@ -88,7 +80,8 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!IsEnumerableCountExtension(context.SemanticModel, shape.Invocation, enumerableType, context.CancellationToken))
+        if (typeCache.Get() is not { } enumerableType
+            || !IsEnumerableCountExtension(context.SemanticModel, shape.Invocation, enumerableType, context.CancellationToken))
         {
             return;
         }
@@ -131,4 +124,31 @@ public sealed class Psh1119UseAnyOverCountAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken) =>
         model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
+
+    /// <summary>Resolves the LINQ extension type on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EnumerableTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the LINQ extension type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no LINQ extension type.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
+    }
 }

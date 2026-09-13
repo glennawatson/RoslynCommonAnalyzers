@@ -70,7 +70,10 @@ public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, I
     private static MemberAccessExpressionSyntax Rewrite(ObjectCreationExpressionSyntax creation) =>
         SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            TypeNameExpression.From(((NameSyntax)creation.Type).WithoutTrivia()),
-            SyntaxFactory.IdentifierName(Psh1413UseUnixEpochFieldAnalyzer.UnixEpochFieldName))
-            .WithTriviaFrom(creation);
+            TypeNameExpression.From(((NameSyntax)creation.Type).WithoutTrivia()).WithLeadingTrivia(creation.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                Psh1413UseUnixEpochFieldAnalyzer.UnixEpochFieldName,
+                creation.GetTrailingTrivia())));
 }

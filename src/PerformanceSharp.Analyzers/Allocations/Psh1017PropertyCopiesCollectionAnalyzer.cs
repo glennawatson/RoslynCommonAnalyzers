@@ -82,7 +82,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>();
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>(concurrencyLevel: 4, capacity: 31);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeProperty(nodeContext, optionsByTree), SyntaxKind.PropertyDeclaration);
     }
 

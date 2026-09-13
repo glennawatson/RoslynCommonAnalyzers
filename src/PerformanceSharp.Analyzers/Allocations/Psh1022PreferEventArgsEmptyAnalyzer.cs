@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -33,9 +35,6 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member.</summary>
     internal const string EmptyFieldName = "Empty";
 
-    /// <summary>The metadata name of the constructed type.</summary>
-    private const string EventArgsMetadataName = "System.EventArgs";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.PreferEventArgsEmpty);
 
@@ -50,14 +49,9 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EventArgsMetadataName) is not { } eventArgsType
-                || !HasEmptyField(eventArgsType))
-            {
-                return;
-            }
-
+            var types = new EventArgsType(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, eventArgsType),
+                nodeContext => AnalyzeCreation(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -75,11 +69,13 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1022 for a construction of the base <c>EventArgs</c> the singleton could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    /// <param name="types">The compilation's deferred <c>EventArgs</c> type.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, EventArgsType types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
-        if (!IsParameterlessCreationShape(creation) || !IsNamedEventArgsOrImplicit(creation))
+        if (!IsParameterlessCreationShape(creation)
+            || !IsNamedEventArgsOrImplicit(creation)
+            || types.Get() is not { } eventArgsType)
         {
             return;
         }
@@ -150,23 +146,6 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether the compilation's <c>EventArgs</c> exposes the shared empty instance.</summary>
-    /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
-    /// <returns><see langword="true"/> when the static <c>Empty</c> field exists.</returns>
-    private static bool HasEmptyField(INamedTypeSymbol eventArgsType)
-    {
-        var members = eventArgsType.GetMembers(EmptyFieldName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IFieldSymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns the rightmost identifier of a written type name.</summary>
     /// <param name="type">The written type syntax.</param>
     /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
@@ -177,4 +156,46 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
         _ => null,
     };
+
+    /// <summary>Resolves the singleton-bearing type only when a candidate construction needs it.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class EventArgsType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the constructed type.</summary>
+        private const string EventArgsMetadataName = "System.EventArgs";
+
+        /// <summary>The cached type, including a null entry when the singleton is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the type when it exposes the shared empty instance.</summary>
+        /// <returns>The singleton-bearing type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the type and verifies that its singleton exists.</summary>
+        /// <param name="compilation">The compilation whose type is resolved.</param>
+        /// <returns>The singleton-bearing type, or null when unavailable.</returns>
+        private static INamedTypeSymbol? Resolve(Compilation compilation)
+        {
+            var type = compilation.GetTypeByMetadataName(EventArgsMetadataName);
+            return type is not null && HasEmptyField(type) ? type : null;
+        }
+
+        /// <summary>Returns whether the compilation's <c>EventArgs</c> exposes the shared empty instance.</summary>
+        /// <param name="eventArgsType">The compilation's <c>EventArgs</c> type.</param>
+        /// <returns><see langword="true"/> when the static <c>Empty</c> field exists.</returns>
+        private static bool HasEmptyField(INamedTypeSymbol eventArgsType)
+        {
+            var members = eventArgsType.GetMembers(EmptyFieldName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IFieldSymbol { IsStatic: true })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

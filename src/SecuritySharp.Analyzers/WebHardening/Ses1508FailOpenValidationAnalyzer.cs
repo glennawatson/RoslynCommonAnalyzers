@@ -49,7 +49,7 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
             var knownExceptions = new KnownSecurityExceptions(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeCatchClause(nodeContext, knownExceptions), SyntaxKind.CatchClause);
@@ -58,7 +58,7 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1508 for a <c>catch</c> that swallows a broad or security-relevant exception and returns success.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="knownExceptions">The broad and security-relevant exception types resolved for the compilation.</param>
+    /// <param name="knownExceptions">The compilation's exception types, resolved on first demand.</param>
     private static void AnalyzeCatchClause(in SyntaxNodeAnalysisContext context, KnownSecurityExceptions knownExceptions)
     {
         var catchClause = (CatchClauseSyntax)context.Node;
@@ -258,7 +258,7 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a catch swallows a broad or security-relevant exception.</summary>
     /// <param name="catchClause">The catch clause under inspection.</param>
     /// <param name="semanticModel">The semantic model.</param>
-    /// <param name="knownExceptions">The resolved broad and security-relevant exception types.</param>
+    /// <param name="knownExceptions">The broad and security-relevant exception types, resolved on first demand.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the caught type is broad or security-relevant.</returns>
     private static bool CatchesBroadOrSecurityException(
@@ -277,37 +277,32 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
             && knownExceptions.IsBroadOrSecurityRelevant(caughtType);
     }
 
-    /// <summary>Holds the broad and security-relevant exception types resolved once per compilation.</summary>
-    private sealed class KnownSecurityExceptions
+    /// <summary>Resolves broad and security-relevant exception types on the first typed catch candidate.</summary>
+    /// <param name="compilation">The compilation to probe.</param>
+    private sealed class KnownSecurityExceptions(Compilation compilation)
     {
         /// <summary>The suffix that identifies a security-token exception type by its unqualified name.</summary>
         private const string SecurityTokenExceptionSuffix = "SecurityTokenException";
 
-        /// <summary>The <c>System.Exception</c> base type, or <see langword="null"/> when unavailable.</summary>
-        private readonly INamedTypeSymbol? _exception;
-
-        /// <summary>The <c>System.Security.Cryptography.CryptographicException</c> type, or <see langword="null"/> when unavailable.</summary>
-        private readonly INamedTypeSymbol? _cryptographicException;
-
-        /// <summary>The <c>System.Security.Authentication.AuthenticationException</c> type, or <see langword="null"/> when unavailable.</summary>
-        private readonly INamedTypeSymbol? _authenticationException;
-
-        /// <summary>Initializes a new instance of the <see cref="KnownSecurityExceptions"/> class.</summary>
-        /// <param name="compilation">The compilation to probe.</param>
-        public KnownSecurityExceptions(Compilation compilation)
-        {
-            _exception = compilation.GetTypeByMetadataName("System.Exception");
-            _cryptographicException = compilation.GetTypeByMetadataName("System.Security.Cryptography.CryptographicException");
-            _authenticationException = compilation.GetTypeByMetadataName("System.Security.Authentication.AuthenticationException");
-        }
+        /// <summary>The cached exception types, including null slots for missing types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
 
         /// <summary>Returns whether a caught type is <c>System.Exception</c> or a security-relevant exception.</summary>
         /// <param name="caughtType">The declared caught exception type.</param>
         /// <returns><see langword="true"/> for a broad or security-relevant exception.</returns>
-        public bool IsBroadOrSecurityRelevant(INamedTypeSymbol caughtType) =>
-            SymbolEqualityComparer.Default.Equals(caughtType, _exception)
-                || SymbolEqualityComparer.Default.Equals(caughtType, _cryptographicException)
-                || SymbolEqualityComparer.Default.Equals(caughtType, _authenticationException)
+        public bool IsBroadOrSecurityRelevant(INamedTypeSymbol caughtType)
+        {
+            var resolved = _resolved ??=
+            [
+                compilation.GetTypeByMetadataName("System.Exception"),
+                compilation.GetTypeByMetadataName("System.Security.Cryptography.CryptographicException"),
+                compilation.GetTypeByMetadataName("System.Security.Authentication.AuthenticationException"),
+            ];
+
+            return SymbolEqualityComparer.Default.Equals(caughtType, resolved[0])
+                || SymbolEqualityComparer.Default.Equals(caughtType, resolved[1])
+                || SymbolEqualityComparer.Default.Equals(caughtType, resolved[2])
                 || caughtType.Name.EndsWith(SecurityTokenExceptionSuffix, StringComparison.Ordinal);
+        }
     }
 }

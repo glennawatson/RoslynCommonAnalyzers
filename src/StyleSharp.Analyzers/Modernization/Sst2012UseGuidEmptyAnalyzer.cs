@@ -38,11 +38,8 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var guid = start.Compilation.GetTypeByMetadataName(GuidMetadataName);
-            if (guid is null)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var guid = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(GuidMetadataName));
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, guid),
@@ -53,8 +50,8 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one parameterless construction of a <c>Guid</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="guid">The <c>System.Guid</c> symbol for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol guid)
+    /// <param name="guid">The <c>System.Guid</c> symbol resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> guid)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: 0 } || creation.Initializer is not null)
@@ -67,10 +64,15 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (guid.Value is not { } guidType)
+        {
+            return;
+        }
+
         // The type is read rather than the constructor: a struct's parameterless constructor is synthesized,
         // and a target-typed 'new()' has no type syntax to read at all.
         var created = context.SemanticModel.GetTypeInfo(creation, context.CancellationToken).Type;
-        if (!SymbolEqualityComparer.Default.Equals(created, guid))
+        if (!SymbolEqualityComparer.Default.Equals(created, guidType))
         {
             return;
         }

@@ -34,6 +34,11 @@ public sealed class RegionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxTreeAnalysisContext context)
     {
         var root = context.Tree.GetRoot(context.CancellationToken);
+        if (!root.ContainsDirectives)
+        {
+            return;
+        }
+
         foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
         {
             if (!trivia.IsKind(SyntaxKind.RegionDirectiveTrivia))

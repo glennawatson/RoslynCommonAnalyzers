@@ -313,24 +313,20 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
     /// </returns>
     private static bool ReferencesAreCompatible(SemanticModel model, in AsAssignmentPatternCandidate candidate, ILocalSymbol local, CancellationToken token)
     {
-        var conditionSpan = candidate.IfStatement.Condition.Span;
-        var bodySpan = candidate.IfStatement.Statement.Span;
-        foreach (var node in candidate.Block.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax reference
-                || reference.Identifier.Text != local.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(reference, token).Symbol, local))
-            {
-                continue;
-            }
-
-            if (!ReferenceIsAllowed(candidate.IsNegative, reference, conditionSpan, bodySpan))
-            {
-                return false;
-            }
-        }
-
-        return true;
+        var state = new ReferenceCompatibilityState(
+            model,
+            local,
+            candidate.IfStatement.Condition.Span,
+            candidate.IfStatement.Statement.Span,
+            candidate.IsNegative,
+            token);
+        return DescendantTraversalHelper.VisitDescendants(
+            candidate.Block,
+            ref state,
+            static (IdentifierNameSyntax reference, ref ReferenceCompatibilityState state) =>
+                reference.Identifier.Text != state.Local.Name
+                    || ReferenceIsAllowed(state.IsNegative, reference, state.ConditionSpan, state.BodySpan)
+                    || !SymbolEqualityComparer.Default.Equals(state.Model.GetSymbolInfo(reference, state.CancellationToken).Symbol, state.Local));
     }
 
     /// <summary>Returns whether a single reference to the local keeps the fold behaviour-preserving.</summary>
@@ -379,4 +375,19 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
         TypeSyntax Type,
         IfStatementSyntax IfStatement,
         bool IsNegative);
+
+    /// <summary>Carries the local binding and allowed-use spans through reference validation.</summary>
+    /// <param name="Model">The semantic model used to bind matching names.</param>
+    /// <param name="Local">The local being folded into a pattern.</param>
+    /// <param name="ConditionSpan">The guard condition where the local can be read.</param>
+    /// <param name="BodySpan">The guarded body whose permitted reads depend on polarity.</param>
+    /// <param name="IsNegative">Whether the guard exits when the conversion fails.</param>
+    /// <param name="CancellationToken">A token that cancels binding.</param>
+    private readonly record struct ReferenceCompatibilityState(
+        SemanticModel Model,
+        ILocalSymbol Local,
+        TextSpan ConditionSpan,
+        TextSpan BodySpan,
+        bool IsNegative,
+        CancellationToken CancellationToken);
 }

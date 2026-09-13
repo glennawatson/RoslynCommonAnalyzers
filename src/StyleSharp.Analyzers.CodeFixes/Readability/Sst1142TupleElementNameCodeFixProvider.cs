@@ -63,7 +63,7 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
-        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name!).WithTriviaFrom(identifier.Identifier));
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(identifier.Identifier.LeadingTrivia, name!, identifier.Identifier.TrailingTrivia));
         editor.ReplaceNode(identifier, renamed);
     }
 
@@ -75,7 +75,7 @@ public sealed class Sst1142TupleElementNameCodeFixProvider : CodeFixProvider, IA
     /// <returns>The updated document.</returns>
     internal static Document Replace(Document document, SyntaxNode root, IdentifierNameSyntax identifier, string name)
     {
-        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(name).WithTriviaFrom(identifier.Identifier));
+        var renamed = identifier.WithIdentifier(SyntaxFactory.Identifier(identifier.Identifier.LeadingTrivia, name, identifier.Identifier.TrailingTrivia));
         return document.WithSyntaxRoot(root.ReplaceNode(identifier, renamed));
     }
 }

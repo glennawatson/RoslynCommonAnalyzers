@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -20,31 +21,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the attribute that marks a controller as an API controller.</summary>
-    private const string ApiControllerAttributeMetadataName = "Microsoft.AspNetCore.Mvc.ApiControllerAttribute";
-
-    /// <summary>The metadata name of the MVC controller base type.</summary>
-    private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
-
-    /// <summary>The metadata name of the attribute that opts a method out of action discovery.</summary>
-    private const string NonActionAttributeMetadataName = "Microsoft.AspNetCore.Mvc.NonActionAttribute";
-
-    /// <summary>The metadata name of the data-annotations required marker.</summary>
-    private const string RequiredAttributeMetadataName = "System.ComponentModel.DataAnnotations.RequiredAttribute";
-
-    /// <summary>The metadata name of the model-binding required marker.</summary>
-    private const string BindRequiredAttributeMetadataName = "Microsoft.AspNetCore.Mvc.ModelBinding.BindRequiredAttribute";
-
-    /// <summary>The metadata names of the binding-source attributes that route a parameter away from the request body.</summary>
-    private static readonly string[] NonBodySourceMetadataNames =
-    [
-        "Microsoft.AspNetCore.Mvc.FromQueryAttribute",
-        "Microsoft.AspNetCore.Mvc.FromRouteAttribute",
-        "Microsoft.AspNetCore.Mvc.FromFormAttribute",
-        "Microsoft.AspNetCore.Mvc.FromHeaderAttribute",
-        "Microsoft.AspNetCore.Mvc.FromServicesAttribute"
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(FrameworksRules.UnderpostedModelMember);
 
@@ -59,40 +35,45 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var apiControllerAttribute = start.Compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
-            var controllerBase = start.Compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
-            if (apiControllerAttribute is null || controllerBase is null)
-            {
-                return;
-            }
-
-            var markers = new BindingMarkers(
-                apiControllerAttribute,
-                controllerBase,
-                start.Compilation.GetTypeByMetadataName(NonActionAttributeMetadataName),
-                start.Compilation.GetTypeByMetadataName(RequiredAttributeMetadataName),
-                start.Compilation.GetTypeByMetadataName(BindRequiredAttributeMetadataName),
-                ResolveNonBodySources(start.Compilation));
-
+            var markers = new BindingMarkerResolver(start.Compilation);
             start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, markers), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports SST2705 for the under-postable members of every body-bound model on an <c>[ApiController]</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="markers">The resolved MVC and validation marker types.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, in BindingMarkers markers)
+    /// <param name="resolver">The deferred MVC and validation marker types.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, BindingMarkerResolver resolver)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Class
+        if (type.TypeKind != TypeKind.Class)
+        {
+            return;
+        }
+
+        var members = type.GetMembers();
+        if (!HasPotentialAction(members)
+            || resolver.Get() is not [var markers]
             || !HasApiControllerAttribute(type, markers.ApiControllerAttribute)
             || !IsOrDerivesFrom(type, markers.ControllerBase))
         {
             return;
         }
 
+        foreach (var model in GetBodyBoundModels(members, markers))
+        {
+            ReportUnderpostedMembers(context, model, markers);
+        }
+    }
+
+    /// <summary>Collects distinct body-bound types from the controller's actions.</summary>
+    /// <param name="members">The controller's declared members.</param>
+    /// <param name="markers">The resolved binding marker types.</param>
+    /// <returns>The model types whose members need underposting checks.</returns>
+    private static HashSet<INamedTypeSymbol> GetBodyBoundModels(ImmutableArray<ISymbol> members, in BindingMarkers markers)
+    {
         var models = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        foreach (var member in type.GetMembers())
+        foreach (var member in members)
         {
             if (member is not IMethodSymbol method || !IsAction(method, markers.NonActionAttribute))
             {
@@ -108,10 +89,23 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        foreach (var model in models)
+        return models;
+    }
+
+    /// <summary>Checks for a possible action before resolving framework marker types.</summary>
+    /// <param name="members">The candidate controller's declared members.</param>
+    /// <returns>Whether a member has the action shape required by this rule.</returns>
+    private static bool HasPotentialAction(ImmutableArray<ISymbol> members)
+    {
+        foreach (var member in members)
         {
-            ReportUnderpostedMembers(context, model, markers);
+            if (member is IMethodSymbol method && HasActionShape(method))
+            {
+                return true;
+            }
         }
+
+        return false;
     }
 
     /// <summary>Reports every under-postable public member declared on a body-bound model type.</summary>
@@ -329,34 +323,6 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Resolves the non-body binding-source attribute types present in the compilation.</summary>
-    /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns>The resolved non-body binding-source attribute types (absent ones are dropped).</returns>
-    private static INamedTypeSymbol[] ResolveNonBodySources(Compilation compilation)
-    {
-        var resolved = new INamedTypeSymbol[NonBodySourceMetadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < NonBodySourceMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(NonBodySourceMetadataNames[i]) is not { } source)
-            {
-                continue;
-            }
-
-            resolved[count] = source;
-            count++;
-        }
-
-        if (count == NonBodySourceMetadataNames.Length)
-        {
-            return resolved;
-        }
-
-        var trimmed = new INamedTypeSymbol[count];
-        System.Array.Copy(resolved, trimmed, count);
-        return trimmed;
-    }
-
     /// <summary>The resolved marker types carried through the per-type analysis.</summary>
     /// <param name="ApiControllerAttribute">The resolved <c>ApiControllerAttribute</c> type.</param>
     /// <param name="ControllerBase">The resolved <c>ControllerBase</c> type.</param>
@@ -371,4 +337,90 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol? RequiredAttribute,
         INamedTypeSymbol? BindRequiredAttribute,
         INamedTypeSymbol[] NonBodySources);
+
+    /// <summary>Resolves marker types on the first possible action and caches missing framework types too.</summary>
+    /// <param name="compilation">The compilation whose marker types are resolved.</param>
+    private sealed class BindingMarkerResolver(Compilation compilation)
+    {
+        /// <summary>The metadata name of the attribute that marks a controller as an API controller.</summary>
+        private const string ApiControllerAttributeMetadataName = "Microsoft.AspNetCore.Mvc.ApiControllerAttribute";
+
+        /// <summary>The metadata name of the MVC controller base type.</summary>
+        private const string ControllerBaseMetadataName = "Microsoft.AspNetCore.Mvc.ControllerBase";
+
+        /// <summary>The metadata name of the attribute that opts a method out of action discovery.</summary>
+        private const string NonActionAttributeMetadataName = "Microsoft.AspNetCore.Mvc.NonActionAttribute";
+
+        /// <summary>The metadata name of the data-annotations required marker.</summary>
+        private const string RequiredAttributeMetadataName = "System.ComponentModel.DataAnnotations.RequiredAttribute";
+
+        /// <summary>The metadata name of the model-binding required marker.</summary>
+        private const string BindRequiredAttributeMetadataName = "Microsoft.AspNetCore.Mvc.ModelBinding.BindRequiredAttribute";
+
+        /// <summary>The metadata names of the binding-source attributes that route a parameter away from the request body.</summary>
+        private static readonly string[] NonBodySourceMetadataNames =
+        [
+            "Microsoft.AspNetCore.Mvc.FromQueryAttribute",
+            "Microsoft.AspNetCore.Mvc.FromRouteAttribute",
+            "Microsoft.AspNetCore.Mvc.FromFormAttribute",
+            "Microsoft.AspNetCore.Mvc.FromHeaderAttribute",
+            "Microsoft.AspNetCore.Mvc.FromServicesAttribute"
+        ];
+
+        /// <summary>The resolved marker set, or an empty array when the required framework types are absent.</summary>
+        private BindingMarkers[]? _resolved;
+
+        /// <summary>Gets the marker set, resolving it on first demand.</summary>
+        /// <returns>A single marker set, or an empty array when the rule cannot apply.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public BindingMarkers[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the MVC and validation types required by the rule.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>A single marker set, or an empty array when the required MVC types are absent.</returns>
+        private static BindingMarkers[] Resolve(Compilation compilation)
+        {
+            var apiControllerAttribute = compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
+            var controllerBase = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
+            return apiControllerAttribute is null || controllerBase is null
+                ? []
+                : [
+                    new BindingMarkers(
+                        apiControllerAttribute,
+                        controllerBase,
+                        compilation.GetTypeByMetadataName(NonActionAttributeMetadataName),
+                        compilation.GetTypeByMetadataName(RequiredAttributeMetadataName),
+                        compilation.GetTypeByMetadataName(BindRequiredAttributeMetadataName),
+                        ResolveNonBodySources(compilation)),
+                ];
+        }
+
+        /// <summary>Resolves the non-body binding-source attribute types present in the compilation.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>The resolved non-body binding-source attribute types (absent ones are dropped).</returns>
+        private static INamedTypeSymbol[] ResolveNonBodySources(Compilation compilation)
+        {
+            var resolved = new INamedTypeSymbol[NonBodySourceMetadataNames.Length];
+            var count = 0;
+            for (var i = 0; i < NonBodySourceMetadataNames.Length; i++)
+            {
+                if (compilation.GetTypeByMetadataName(NonBodySourceMetadataNames[i]) is not { } source)
+                {
+                    continue;
+                }
+
+                resolved[count] = source;
+                count++;
+            }
+
+            if (count == NonBodySourceMetadataNames.Length)
+            {
+                return resolved;
+            }
+
+            var trimmed = new INamedTypeSymbol[count];
+            System.Array.Copy(resolved, trimmed, count);
+            return trimmed;
+        }
+    }
 }

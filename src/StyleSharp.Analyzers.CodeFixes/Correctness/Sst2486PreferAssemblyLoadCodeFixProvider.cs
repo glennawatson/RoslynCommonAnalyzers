@@ -57,7 +57,7 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
             return null;
         }
 
-        var replacement = name.WithIdentifier(SyntaxFactory.Identifier(LoadName).WithTriviaFrom(name.Identifier));
+        var replacement = name.WithIdentifier(SyntaxFactory.Identifier(name.Identifier.LeadingTrivia, LoadName, name.Identifier.TrailingTrivia));
         return new NodeReplacement(name, replacement);
     }
 }

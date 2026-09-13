@@ -99,8 +99,8 @@ public sealed class Sst1118ParameterOnSingleLineCodeFixProvider : CodeFixProvide
     /// <returns>The changes, or an empty list when the item cannot be collapsed.</returns>
     private static List<TextChange> BuildCollapse(SourceText text, SyntaxNode root, Diagnostic diagnostic, int maximum)
     {
-        var changes = new List<TextChange>();
         var span = diagnostic.Location.SourceSpan;
+        var changes = new List<TextChange>(text.Lines.GetLinePosition(span.End).Line - text.Lines.GetLinePosition(span.Start).Line);
         var item = root.FindNode(span);
         if (item.Span != span)
         {

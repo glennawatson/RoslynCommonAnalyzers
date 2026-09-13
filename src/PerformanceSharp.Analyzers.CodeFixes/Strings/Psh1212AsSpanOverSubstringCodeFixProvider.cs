@@ -40,6 +40,9 @@ public sealed class Psh1212AsSpanOverSubstringCodeFixProvider : CodeFixProvider,
             && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { } name
             ? new NodeReplacement(
                 name,
-                SyntaxFactory.IdentifierName(Psh1212AsSpanOverSubstringAnalyzer.AsSpanMethodName).WithTriviaFrom(name))
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    name.GetLeadingTrivia(),
+                    Psh1212AsSpanOverSubstringAnalyzer.AsSpanMethodName,
+                    name.GetTrailingTrivia())))
             : null;
 }

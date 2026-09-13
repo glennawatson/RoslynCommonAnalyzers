@@ -15,7 +15,7 @@ namespace SecuritySharp.Analyzers;
 /// types. Second, a <c>SqlConnectionStringBuilder</c> object-initializer member or property assignment setting
 /// <c>TrustServerCertificate = true</c>, <c>Encrypt = false</c>, or
 /// <c>Encrypt = SqlConnectionEncryptOption.Optional</c>. The rule is gated on a <c>SqlConnection</c> type
-/// resolving in the compilation; a project without either SQL client registers nothing and pays nothing. Only a
+/// resolving in the compilation, with the lookup deferred until the syntax checks find a candidate. Only a
 /// local configuration is examined -- a connection string built from a variable, interpolation, or configuration
 /// is deliberately not tracked -- so the rule stays fast and free of false positives.
 /// </summary>
@@ -67,26 +67,16 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var types = GetSqlTypes(start.Compilation);
-            if (types is not { } sqlTypes)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, sqlTypes),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, sqlTypes), SyntaxKind.SimpleAssignmentExpression);
-        });
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => AnalyzeObjectCreation(nodeContext),
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeAssignment(nodeContext), SyntaxKind.SimpleAssignmentExpression);
     }
 
     /// <summary>Reports SES1107 for a weakening literal connection string passed to a SQL constructor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in SqlTransportTypes types)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context)
     {
         // Syntactic prefilter: an object creation carrying a string-literal argument whose text names a
         // weakening keyword. No semantic model is touched until this cheap scan matches.
@@ -97,7 +87,8 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         }
 
         // Semantic confirmation: the created type is a gated SqlConnection or SqlConnectionStringBuilder.
-        if (context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
+        if (GetSqlTypes(context.Compilation) is not { } types
+            || context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
             || !IsConnectionOrBuilderType(createdType, types))
         {
             return;
@@ -108,26 +99,24 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
 
     /// <summary>Reports SES1107 for a weakening connection-string literal assignment or builder member assignment.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, in SqlTransportTypes types)
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
         var memberName = GetAssignedMemberName(assignment.Left);
         if (memberName is ConnectionStringMemberName)
         {
-            AnalyzeConnectionStringAssignment(context, assignment, types);
+            AnalyzeConnectionStringAssignment(context, assignment);
         }
         else if (memberName is TrustServerCertificateMemberName or EncryptMemberName)
         {
-            AnalyzeBuilderMemberAssignment(context, assignment, memberName, types);
+            AnalyzeBuilderMemberAssignment(context, assignment, memberName);
         }
     }
 
     /// <summary>Reports SES1107 for a <c>ConnectionString = "…"</c> literal that carries a weakening setting.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assignment">The assignment expression.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeConnectionStringAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, in SqlTransportTypes types)
+    private static void AnalyzeConnectionStringAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment)
     {
         // Syntactic prefilter: a string literal whose text carries a weakening keyword setting.
         if (GetWeakeningStringLiteral(assignment.Right, out var setting) is not { } literal)
@@ -136,7 +125,8 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
         }
 
         // Semantic confirmation: the assigned instance is a gated SqlConnection or SqlConnectionStringBuilder.
-        if (GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
+        if (GetSqlTypes(context.Compilation) is not { } types
+            || GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
             || !IsConnectionOrBuilderType(instanceType, types))
         {
             return;
@@ -149,11 +139,11 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="assignment">The assignment expression.</param>
     /// <param name="memberName">The assigned member name.</param>
-    /// <param name="types">The gated SQL types resolved for the compilation.</param>
-    private static void AnalyzeBuilderMemberAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, string memberName, in SqlTransportTypes types)
+    private static void AnalyzeBuilderMemberAssignment(in SyntaxNodeAnalysisContext context, AssignmentExpressionSyntax assignment, string memberName)
     {
         // Semantic confirmation: the assigned instance is a gated SqlConnectionStringBuilder.
-        if (GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
+        if (GetSqlTypes(context.Compilation) is not { } types
+            || GetAssignedInstanceType(context.SemanticModel, assignment, context.CancellationToken) is not { } instanceType
             || !IsBuilderType(instanceType, types)
             || !IsWeakeningMemberValue(context.SemanticModel, memberName, assignment.Right, types, context.CancellationToken))
         {
@@ -501,7 +491,7 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
             compilation.GetTypeByMetadataName(EncryptOptionMetadataName));
     }
 
-    /// <summary>The SQL client types resolved once per compilation for SES1107.</summary>
+    /// <summary>The SQL client types resolved for a syntax candidate for SES1107.</summary>
     /// <param name="MicrosoftConnection">The resolved <c>Microsoft.Data.SqlClient.SqlConnection</c>, or <see langword="null"/>.</param>
     /// <param name="SystemConnection">The resolved <c>System.Data.SqlClient.SqlConnection</c>, or <see langword="null"/>.</param>
     /// <param name="MicrosoftBuilder">The resolved <c>Microsoft.Data.SqlClient.SqlConnectionStringBuilder</c>, or <see langword="null"/>.</param>

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -16,26 +18,16 @@ namespace PerformanceSharp.Analyzers;
 /// which the middleware pipeline invokes once for any unhandled exception.
 /// </para>
 /// <para>
-/// The clean path costs nothing on a non-web compilation: the whole rule is gated on
-/// <c>Microsoft.AspNetCore.Diagnostics.IExceptionHandler</c> resolving (the modern replacement must exist
-/// for the suggestion to be actionable) and on at least one of the two filter interfaces resolving. Only a
-/// class whose own base list syntactically names <c>IExceptionFilter</c> or <c>IAsyncExceptionFilter</c>
-/// is bound, and the bound interface is confirmed to be the ASP.NET Core one so a same-named interface in
-/// another namespace is never reported.
+/// Only a class whose own base list syntactically names <c>IExceptionFilter</c> or
+/// <c>IAsyncExceptionFilter</c> causes framework types to be resolved. The rule requires
+/// <c>Microsoft.AspNetCore.Diagnostics.IExceptionHandler</c> and at least one filter interface to exist
+/// for the suggestion to be actionable. The bound interface is confirmed to be the ASP.NET Core one
+/// so a same-named interface in another namespace is never reported.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the modern replacement that gates the rule.</summary>
-    private const string ExceptionHandlerMetadataName = "Microsoft.AspNetCore.Diagnostics.IExceptionHandler";
-
-    /// <summary>The metadata name of the synchronous MVC exception filter interface.</summary>
-    private const string ExceptionFilterMetadataName = "Microsoft.AspNetCore.Mvc.Filters.IExceptionFilter";
-
-    /// <summary>The metadata name of the asynchronous MVC exception filter interface.</summary>
-    private const string AsyncExceptionFilterMetadataName = "Microsoft.AspNetCore.Mvc.Filters.IAsyncExceptionFilter";
-
     /// <summary>The unqualified name of the synchronous MVC exception filter interface.</summary>
     private const string ExceptionFilterName = "IExceptionFilter";
 
@@ -54,35 +46,17 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            // Marker-gate: the modern replacement must exist for the suggestion to be actionable.
-            if (start.Compilation.GetTypeByMetadataName(ExceptionHandlerMetadataName) is null)
-            {
-                return;
-            }
-
-            var exceptionFilter = start.Compilation.GetTypeByMetadataName(ExceptionFilterMetadataName);
-            var asyncExceptionFilter = start.Compilation.GetTypeByMetadataName(AsyncExceptionFilterMetadataName);
-            if (exceptionFilter is null && asyncExceptionFilter is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeClassDeclaration(nodeContext, exceptionFilter, asyncExceptionFilter),
-                SyntaxKind.ClassDeclaration);
+            var markers = new Markers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeClassDeclaration(nodeContext, markers), SyntaxKind.ClassDeclaration);
         });
     }
 
     /// <summary>Reports a class that names an MVC exception filter interface directly in its base list.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="exceptionFilter">The resolved synchronous filter interface, or <see langword="null"/> when absent.</param>
-    /// <param name="asyncExceptionFilter">The resolved asynchronous filter interface, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeClassDeclaration(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol? exceptionFilter,
-        INamedTypeSymbol? asyncExceptionFilter)
+    /// <param name="markers">The compilation's deferred exception-handling types.</param>
+    private static void AnalyzeClassDeclaration(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var declaration = (ClassDeclarationSyntax)context.Node;
         if (declaration.BaseList is not { } baseList)
@@ -97,6 +71,12 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
             if (baseTypes[i].Type is not NameSyntax name || !IsFilterInterfaceName(GetSimpleName(name)))
             {
                 continue;
+            }
+
+            // The modern replacement must exist for the suggestion to be actionable.
+            if (markers.Get() is not [var exceptionFilter, var asyncExceptionFilter])
+            {
+                return;
             }
 
             if (context.SemanticModel.GetSymbolInfo(name, context.CancellationToken).Symbol is not INamedTypeSymbol bound
@@ -141,4 +121,43 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
         _ => string.Empty,
     };
+
+    /// <summary>Resolves the exception-handling types once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose exception-handling types are resolved.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the modern replacement that gates the rule.</summary>
+        private const string ExceptionHandlerMetadataName = "Microsoft.AspNetCore.Diagnostics.IExceptionHandler";
+
+        /// <summary>The metadata name of the synchronous MVC exception filter interface.</summary>
+        private const string ExceptionFilterMetadataName = "Microsoft.AspNetCore.Mvc.Filters.IExceptionFilter";
+
+        /// <summary>The metadata name of the asynchronous MVC exception filter interface.</summary>
+        private const string AsyncExceptionFilterMetadataName = "Microsoft.AspNetCore.Mvc.Filters.IAsyncExceptionFilter";
+
+        /// <summary>The resolved filter interfaces, or an empty array when required APIs are absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the filter interfaces after a base type passes the syntax filter.</summary>
+        /// <returns>The two optional filter interfaces, or an empty array when required APIs are absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the filter interfaces only when the modern replacement exists.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The two optional filter interfaces, or an empty array when required APIs are absent.</returns>
+        private static INamedTypeSymbol?[] Resolve(Compilation compilation)
+        {
+            if (compilation.GetTypeByMetadataName(ExceptionHandlerMetadataName) is null)
+            {
+                return [];
+            }
+
+            var exceptionFilter = compilation.GetTypeByMetadataName(ExceptionFilterMetadataName);
+            var asyncExceptionFilter = compilation.GetTypeByMetadataName(AsyncExceptionFilterMetadataName);
+            return exceptionFilter is null && asyncExceptionFilter is null
+                ? []
+                : [exceptionFilter, asyncExceptionFilter];
+        }
+    }
 }

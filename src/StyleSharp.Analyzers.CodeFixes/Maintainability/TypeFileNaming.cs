@@ -85,7 +85,7 @@ internal static class TypeFileNaming
     /// <returns>The list of top-level type-like declarations in source order.</returns>
     internal static List<MemberDeclarationSyntax> TopLevelTypes(CompilationUnitSyntax root)
     {
-        var result = new List<MemberDeclarationSyntax>();
+        var result = new List<MemberDeclarationSyntax>(root.Members.Count);
         CollectTopLevelTypes(root.Members, result);
         return result;
     }

@@ -14,8 +14,8 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on <c>Microsoft.Extensions.Logging.ILogger</c> resolving; a
-/// project that references no such abstraction registers no per-node work and pays nothing. The generic
+/// The rule resolves <c>Microsoft.Extensions.Logging.ILogger</c> only after a member passes the syntax filter.
+/// A project with no candidate members performs no metadata lookup. The generic
 /// <c>ILogger&lt;T&gt;</c> is recognised through the non-generic interface it derives from, so no second type
 /// needs resolving.
 /// </para>
@@ -36,9 +36,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the logger abstraction the rule gates on.</summary>
-    private const string LoggerTypeMetadataName = "Microsoft.Extensions.Logging.ILogger";
-
     /// <summary>The simple type name a candidate member's declared type must carry.</summary>
     private const string LoggerTypeSimpleName = "ILogger";
 
@@ -54,46 +51,43 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Gates the rule on the logger abstraction being available, then analyzes each member.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        if (context.Compilation.GetTypeByMetadataName(LoggerTypeMetadataName) is not { } loggerType)
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(
-            nodeContext => Analyze(nodeContext, loggerType),
-            SyntaxKind.FieldDeclaration,
-            SyntaxKind.PropertyDeclaration);
+            var types = new LoggerTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(
+                nodeContext => Analyze(nodeContext, types),
+                SyntaxKind.FieldDeclaration,
+                SyntaxKind.PropertyDeclaration);
+        });
     }
 
     /// <summary>Dispatches a field or property declaration to the matching check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, LoggerTypes types)
     {
         if (context.Node is FieldDeclarationSyntax field)
         {
-            AnalyzeField(context, field, loggerType);
+            AnalyzeField(context, field, types);
         }
         else if (context.Node is PropertyDeclarationSyntax property)
         {
-            AnalyzeProperty(context, property, loggerType);
+            AnalyzeProperty(context, property, types);
         }
     }
 
     /// <summary>Checks each declarator of a logger-typed field against the convention for its modifiers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="field">The field declaration.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, FieldDeclarationSyntax field, LoggerTypes types)
     {
         if (!IsLoggerTypeName(field.Declaration.Type))
+        {
+            return;
+        }
+
+        if (types.Get() is not { } loggerType)
         {
             return;
         }
@@ -115,15 +109,16 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     /// <summary>Checks a logger-typed property against the convention for its accessibility and static-ness.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="property">The property declaration.</param>
-    /// <param name="loggerType">The resolved logger type.</param>
-    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, INamedTypeSymbol loggerType)
+    /// <param name="types">The compilation-scoped logger type cache.</param>
+    private static void AnalyzeProperty(in SyntaxNodeAnalysisContext context, PropertyDeclarationSyntax property, LoggerTypes types)
     {
         if (property.ExplicitInterfaceSpecifier is not null || !IsLoggerTypeName(property.Type))
         {
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { } symbol
+        if (types.Get() is not { } loggerType
+            || context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { } symbol
             || !IsLoggerType(symbol.Type, loggerType))
         {
             return;
@@ -269,5 +264,21 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the logger type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose logger type is resolved.</param>
+    private sealed class LoggerTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the logger abstraction the rule gates on.</summary>
+        private const string LoggerTypeMetadataName = "Microsoft.Extensions.Logging.ILogger";
+
+        /// <summary>The cached logger type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the logger type on first demand and caches its absence too.</summary>
+        /// <returns>The logger type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(LoggerTypeMetadataName)])[0];
     }
 }

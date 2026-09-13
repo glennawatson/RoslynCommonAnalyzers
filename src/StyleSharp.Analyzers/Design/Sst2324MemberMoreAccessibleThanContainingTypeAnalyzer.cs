@@ -50,23 +50,6 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <summary>The caller set a <c>public</c> element admits — everything.</summary>
     private const int FullReach = SameAssemblyDerived | OtherAssemblyDerived | SameAssemblyOther | OtherAssemblyOther;
 
-    /// <summary>
-    /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>: narrowing
-    /// such a member — all this rule could suggest — would break the framework contract, not tidy dead reach.
-    /// TUnit lifecycle hooks reject any lesser accessibility (its generator demands public); Blazor binds a
-    /// component parameter by reflection and requires it public.
-    /// </summary>
-    private static readonly string[] PublicMandatingAttributeMetadataNames =
-    [
-        "TUnit.Core.BeforeAttribute",
-        "TUnit.Core.AfterAttribute",
-        "TUnit.Core.BeforeEveryAttribute",
-        "TUnit.Core.AfterEveryAttribute",
-        "Microsoft.AspNetCore.Components.ParameterAttribute",
-        "Microsoft.AspNetCore.Components.CascadingParameterAttribute",
-        "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute",
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.MemberMoreAccessibleThanContainingType);
 
@@ -95,7 +78,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var publicMandatingAttributes = ResolvePublicMandatingAttributes(start.Compilation);
+            var publicMandatingAttributes = new PublicMandatingAttributes(start.Compilation);
 
             // A member inherited from a base class can implicitly implement an interface listed only by a
             // derived type, which forces it to stay public — a relationship invisible from the base's own
@@ -113,9 +96,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
 
     /// <summary>Reports each member of a type whose modifier promises more reach than the type can deliver.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    /// <param name="publicMandatingAttributes">The deferred attributes whose framework requires the member be public.</param>
     /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol[] publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, PublicMandatingAttributes publicMandatingAttributes, Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations)
     {
         var type = (INamedTypeSymbol)context.Symbol;
 
@@ -171,7 +154,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// <param name="member">The declared member.</param>
     /// <param name="type">The containing type.</param>
     /// <param name="containerReach">The container's effective caller set.</param>
-    /// <param name="publicMandatingAttributes">The resolved attributes whose framework requires the member be public.</param>
+    /// <param name="publicMandatingAttributes">The deferred attributes whose framework requires the member be public.</param>
     /// <param name="inheritedInterfaceImplementations">The lazily-built set of inherited members that implicitly implement an interface.</param>
     /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The offending modifier's location, or <see langword="null"/> when nothing should be reported.</returns>
@@ -179,7 +162,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         ISymbol member,
         INamedTypeSymbol type,
         int containerReach,
-        INamedTypeSymbol[] publicMandatingAttributes,
+        PublicMandatingAttributes publicMandatingAttributes,
         Lazy<HashSet<ISymbol>> inheritedInterfaceImplementations,
         CancellationToken cancellationToken)
     {
@@ -345,50 +328,19 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         return false;
     }
 
-    /// <summary>Resolves each public-mandating attribute type that binds in the compilation, packed with no gaps.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns>The resolved attribute types; empty when none — such as a project referencing no such framework — bind.</returns>
-    private static INamedTypeSymbol[] ResolvePublicMandatingAttributes(Compilation compilation)
-    {
-        var resolved = new INamedTypeSymbol[PublicMandatingAttributeMetadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < PublicMandatingAttributeMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            resolved[count] = type;
-            count++;
-        }
-
-        if (count == resolved.Length)
-        {
-            return resolved;
-        }
-
-        var trimmed = new INamedTypeSymbol[count];
-        for (var i = 0; i < count; i++)
-        {
-            trimmed[i] = resolved[i];
-        }
-
-        return trimmed;
-    }
-
     /// <summary>Returns whether a member carries an attribute whose framework requires it be declared public.</summary>
     /// <param name="member">The declared member.</param>
-    /// <param name="publicMandatingAttributes">The resolved public-mandating attribute types.</param>
+    /// <param name="publicMandatingAttributes">The deferred public-mandating attribute types.</param>
     /// <returns><see langword="true"/> when the member carries one of the resolved attributes.</returns>
-    private static bool HasPublicMandatingAttribute(ISymbol member, INamedTypeSymbol[] publicMandatingAttributes)
+    private static bool HasPublicMandatingAttribute(ISymbol member, PublicMandatingAttributes publicMandatingAttributes)
     {
-        if (publicMandatingAttributes.Length == 0)
+        var attributes = member.GetAttributes();
+        if (attributes.IsEmpty)
         {
             return false;
         }
 
-        var attributes = member.GetAttributes();
+        var resolved = publicMandatingAttributes.Get();
         for (var i = 0; i < attributes.Length; i++)
         {
             var attributeClass = attributes[i].AttributeClass;
@@ -397,9 +349,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                 continue;
             }
 
-            for (var j = 0; j < publicMandatingAttributes.Length; j++)
+            for (var j = 0; j < resolved.Length; j++)
             {
-                if (SymbolEqualityComparer.Default.Equals(attributeClass, publicMandatingAttributes[j]))
+                if (SymbolEqualityComparer.Default.Equals(attributeClass, resolved[j]))
                 {
                     return true;
                 }
@@ -419,8 +371,9 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     private static HashSet<ISymbol> BuildInheritedInterfaceImplementationSet(Compilation compilation)
     {
         var result = new HashSet<ISymbol>(SymbolEqualityComparer.Default);
-        var pending = new Stack<INamespaceOrTypeSymbol>();
-        pending.Push(compilation.Assembly.GlobalNamespace);
+        INamespaceOrTypeSymbol globalNamespace = compilation.Assembly.GlobalNamespace;
+        var pending = new Stack<INamespaceOrTypeSymbol>(Math.Max(1, globalNamespace.GetMembers().Length));
+        pending.Push(globalNamespace);
         while (pending.Count > 0)
         {
             var members = pending.Pop().GetMembers();
@@ -476,7 +429,7 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     /// declaring type appears in that enclosing type's declarations. The match is syntactic — a name occurrence,
     /// not a bound reference, since an analyzer must not build a semantic model here — so it errs toward leaving
     /// a member alone: an unrelated same-named identifier suppresses the report but never invents one. The
-    /// declaring type's own subtree is pruned, so a self-reference does not count as an outside use.
+    /// declaring type's own subtree is excluded, so a self-reference does not count as an outside use.
     /// </remarks>
     private static bool IsReferencedOutsideDeclaringType(ISymbol member, CancellationToken cancellationToken)
     {
@@ -486,17 +439,33 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
             return false;
         }
 
-        var declaringNodes = DeclaringNodes(declaringType, cancellationToken);
+        var state = new OutsideReferenceState(member.Name, DeclaringNodes(declaringType, cancellationToken));
         var enclosingReferences = enclosing.DeclaringSyntaxReferences;
         for (var i = 0; i < enclosingReferences.Length; i++)
         {
             var enclosingNode = enclosingReferences[i].GetSyntax(cancellationToken);
-            foreach (var descendant in enclosingNode.DescendantNodes(node => !IsAny(node, declaringNodes)))
-            {
-                if (descendant is SimpleNameSyntax name && name.Identifier.ValueText == member.Name)
+            if (!DescendantTraversalHelper.VisitDescendants(
+                enclosingNode,
+                ref state,
+                static (SimpleNameSyntax name, ref OutsideReferenceState scan) =>
                 {
-                    return true;
-                }
+                    if (name.Identifier.ValueText != scan.Name)
+                    {
+                        return true;
+                    }
+
+                    for (var ancestor = name.Parent; ancestor is not null; ancestor = ancestor.Parent)
+                    {
+                        if (IsAny(ancestor, scan.DeclaringNodes))
+                        {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                }))
+            {
+                return true;
             }
         }
 
@@ -573,5 +542,86 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
         }
 
         return null;
+    }
+
+    /// <summary>Identifies names to find and declaring subtrees whose references are excluded.</summary>
+    private readonly record struct OutsideReferenceState
+    {
+        /// <summary>Initializes a new instance of the <see cref="OutsideReferenceState"/> struct.</summary>
+        /// <param name="name">The member name to find.</param>
+        /// <param name="declaringNodes">The declarations whose descendants do not count as outside references.</param>
+        public OutsideReferenceState(string name, SyntaxNode[] declaringNodes)
+        {
+            Name = name;
+            DeclaringNodes = declaringNodes;
+        }
+
+        /// <summary>Gets the member name to find.</summary>
+        public string Name { get; }
+
+        /// <summary>Gets the declarations whose descendants are excluded.</summary>
+        public SyntaxNode[] DeclaringNodes { get; }
+    }
+
+    /// <summary>Resolves framework attribute types on demand and caches empty results for this compilation.</summary>
+    /// <param name="compilation">The compilation whose attribute types are resolved.</param>
+    private sealed class PublicMandatingAttributes(Compilation compilation)
+    {
+        /// <summary>
+        /// The metadata names of attributes whose framework requires the annotated member be <c>public</c>: narrowing
+        /// such a member — all this rule could suggest — would break the framework contract, not tidy dead reach.
+        /// TUnit lifecycle hooks reject any lesser accessibility (its generator demands public); Blazor binds a
+        /// component parameter by reflection and requires it public.
+        /// </summary>
+        private static readonly string[] PublicMandatingAttributeMetadataNames =
+        [
+            "TUnit.Core.BeforeAttribute",
+            "TUnit.Core.AfterAttribute",
+            "TUnit.Core.BeforeEveryAttribute",
+            "TUnit.Core.AfterEveryAttribute",
+            "Microsoft.AspNetCore.Components.ParameterAttribute",
+            "Microsoft.AspNetCore.Components.CascadingParameterAttribute",
+            "Microsoft.AspNetCore.Components.SupplyParameterFromQueryAttribute",
+        ];
+
+        /// <summary>The resolved types, or null before the first attributed candidate.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Returns the cached types; concurrent first calls may repeat deterministic resolution.</summary>
+        /// <returns>The resolved attribute types, including an empty array when none bind.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= ResolvePublicMandatingAttributes(compilation);
+
+        /// <summary>Resolves each public-mandating attribute type that binds in the compilation, packed with no gaps.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <returns>The resolved attribute types; empty when none — such as a project referencing no such framework — bind.</returns>
+        private static INamedTypeSymbol[] ResolvePublicMandatingAttributes(Compilation compilation)
+        {
+            var resolved = new INamedTypeSymbol[PublicMandatingAttributeMetadataNames.Length];
+            var count = 0;
+            for (var i = 0; i < PublicMandatingAttributeMetadataNames.Length; i++)
+            {
+                if (compilation.GetTypeByMetadataName(PublicMandatingAttributeMetadataNames[i]) is not { } type)
+                {
+                    continue;
+                }
+
+                resolved[count] = type;
+                count++;
+            }
+
+            if (count == resolved.Length)
+            {
+                return resolved;
+            }
+
+            var trimmed = new INamedTypeSymbol[count];
+            for (var i = 0; i < count; i++)
+            {
+                trimmed[i] = resolved[i];
+            }
+
+            return trimmed;
+        }
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -40,9 +42,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the expression-tree delegate wrapper type.</summary>
-    private const string ExpressionOfTMetadataName = "System.Linq.Expressions.Expression`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.EmptyStringComparison);
 
@@ -55,9 +54,9 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var expressionOfTType = start.Compilation.GetTypeByMetadataName(ExpressionOfTMetadataName);
+            var expressionOfTType = new ExpressionTreeType(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeComparison(nodeContext, expressionOfTType),
                 SyntaxKind.EqualsExpression,
@@ -114,8 +113,8 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1204 for a comparison of a string against the empty string.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionOfTType)
+    /// <param name="expressionOfTType">The deferred expression-tree type lookup.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, ExpressionTreeType expressionOfTType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryGetOperands(binary, out var empty, out var value, out var emptyIsLiteral))
@@ -208,21 +207,17 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the comparison sits inside a lambda converted to an expression tree.</summary>
     /// <param name="model">The semantic model.</param>
     /// <param name="node">The comparison node.</param>
-    /// <param name="expressionOfTType">The compilation's <c>Expression&lt;TDelegate&gt;</c> type, when it exists.</param>
+    /// <param name="expressionOfTType">The deferred expression-tree type lookup.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when an enclosing anonymous function's converted type is constructed from <c>Expression&lt;TDelegate&gt;</c>.</returns>
-    private static bool IsInsideExpressionTree(SemanticModel model, SyntaxNode node, INamedTypeSymbol? expressionOfTType, CancellationToken cancellationToken)
+    private static bool IsInsideExpressionTree(SemanticModel model, SyntaxNode node, ExpressionTreeType expressionOfTType, CancellationToken cancellationToken)
     {
-        if (expressionOfTType is null)
-        {
-            return false;
-        }
-
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is AnonymousFunctionExpressionSyntax function
+                && expressionOfTType.Get() is { } expressionType
                 && model.GetTypeInfo(function, cancellationToken).ConvertedType is INamedTypeSymbol convertedType
-                && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionOfTType))
+                && SymbolEqualityComparer.Default.Equals(convertedType.ConstructedFrom, expressionType))
             {
                 return true;
             }
@@ -234,5 +229,21 @@ public sealed class Psh1204EmptyStringComparisonAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the expression-tree type only when an enclosing anonymous function needs it.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class ExpressionTreeType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the expression-tree delegate wrapper type.</summary>
+        private const string ExpressionOfTMetadataName = "System.Linq.Expressions.Expression`1";
+
+        /// <summary>The cached result, including a missing expression-tree type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the expression-tree type, caching an absent result too.</summary>
+        /// <returns>The expression-tree type, or <see langword="null"/> when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ExpressionOfTMetadataName)])[0];
     }
 }

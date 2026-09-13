@@ -82,9 +82,11 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
                 isKeys ? new VariableDesignationSyntax[] { variable, discard } : [discard, variable]));
 
         var declaration = SyntaxFactory.DeclarationExpression(
-                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")),
-                designation.WithLeadingTrivia(SyntaxFactory.Space))
-            .WithTrailingTrivia(SyntaxFactory.Space);
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier("var")),
+            designation.Update(
+                designation.OpenParenToken.WithLeadingTrivia(SyntaxFactory.Space),
+                designation.Variables,
+                designation.CloseParenToken.WithTrailingTrivia(SyntaxFactory.Space)));
 
         return SyntaxFactory.ForEachVariableStatement(
             statement.AttributeLists,

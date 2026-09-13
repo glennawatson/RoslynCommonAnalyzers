@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -31,12 +33,6 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The write spelling reported in messages.</summary>
     internal const string VolatileWriteSpelling = "Volatile.Write";
 
-    /// <summary>The metadata name of the interlocked type.</summary>
-    private const string InterlockedMetadataName = "System.Threading.Interlocked";
-
-    /// <summary>The metadata name of the volatile type.</summary>
-    private const string VolatileMetadataName = "System.Threading.Volatile";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.VolatileInterlockedField);
 
@@ -49,16 +45,11 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var interlockedType = start.Compilation.GetTypeByMetadataName(InterlockedMetadataName);
-            if (interlockedType is null || start.Compilation.GetTypeByMetadataName(VolatileMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, interlockedType),
+            var threadingTypes = new ThreadingTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeType(nodeContext, threadingTypes),
                 SyntaxKind.ClassDeclaration,
                 SyntaxKind.StructDeclaration,
                 SyntaxKind.RecordDeclaration,
@@ -120,8 +111,8 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Scans one type for interlocked targets and reports their plain accesses.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="interlockedType">The interlocked type.</param>
-    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol interlockedType)
+    /// <param name="threadingTypes">The threading types resolved on demand for this compilation.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, ThreadingTypes threadingTypes)
     {
         var containingType = (TypeDeclarationSyntax)context.Node;
         var seeds = new SeedScan(containingType);
@@ -142,7 +133,9 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
 
         var scan = new AccessScan(candidates, containingType);
         _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref AccessScan state) => state.Visit(in token));
-        if (scan.Usages is not { } usages || VerifyTargets(context, calls, interlockedType) is not { } targets)
+        if (scan.Usages is not { } usages
+            || threadingTypes.Get() is not [var interlockedType]
+            || VerifyTargets(context, calls, interlockedType) is not { } targets)
         {
             return;
         }
@@ -160,6 +153,12 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         HashSet<string>? targets = null;
         foreach (var call in calls)
         {
+            var targetName = TryGetInterlockedTargetName(call)!;
+            if (targets is not null && targets.Contains(targetName))
+            {
+                continue;
+            }
+
             var receiver = ((MemberAccessExpressionSyntax)call.Expression).Expression;
             if (context.SemanticModel.GetSymbolInfo(receiver, context.CancellationToken).Symbol is not INamedTypeSymbol bound || !SymbolEqualityComparer.Default.Equals(bound, interlockedType))
             {
@@ -167,7 +166,7 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
             }
 
             targets ??= new HashSet<string>(StringComparer.Ordinal);
-            _ = targets.Add(TryGetInterlockedTargetName(call)!);
+            _ = targets.Add(targetName);
         }
 
         return targets;
@@ -292,6 +291,34 @@ public sealed class Psh1307VolatileInterlockedFieldAnalyzer : DiagnosticAnalyzer
         specialType is SpecialType.System_Boolean
             or SpecialType.System_Single or SpecialType.System_Double
             or SpecialType.System_IntPtr or SpecialType.System_UIntPtr;
+
+    /// <summary>Resolves the threading types on first demand and caches unavailable types too.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class ThreadingTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the interlocked type.</summary>
+        private const string InterlockedMetadataName = "System.Threading.Interlocked";
+
+        /// <summary>The metadata name of the volatile type.</summary>
+        private const string VolatileMetadataName = "System.Threading.Volatile";
+
+        /// <summary>The cached interlocked type, empty when either required type is unavailable.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the interlocked type once both threading types are known to exist.</summary>
+        /// <returns>The interlocked type, or an empty array when either required type is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Returns the interlocked type only when volatile accessors are also available.</summary>
+        /// <param name="compilation">The compilation whose framework types are resolved.</param>
+        /// <returns>The interlocked type, or an empty array when either required type is unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(InterlockedMetadataName) is { } interlockedType
+                && compilation.GetTypeByMetadataName(VolatileMetadataName) is not null
+                ? [interlockedType]
+                : [];
+    }
 
     /// <summary>Token-visitor state that finds the interlocked-shaped calls of one type.</summary>
     private sealed class SeedScan

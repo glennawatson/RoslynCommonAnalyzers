@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -14,9 +16,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name for <c>SuppressMessageAttribute</c>.</summary>
-    private const string SuppressMessageAttributeMetadataName = "System.Diagnostics.CodeAnalysis.SuppressMessageAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(
         MaintainabilityRules.ValidGlobalSuppressionTarget,
@@ -33,29 +32,26 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var suppressMessageAttribute = start.Compilation.GetTypeByMetadataName(SuppressMessageAttributeMetadataName);
-            if (suppressMessageAttribute is null)
-            {
-                return;
-            }
+            var suppressionTypes = new SuppressionTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAttribute(nodeContext, suppressMessageAttribute),
+                nodeContext => AnalyzeAttribute(nodeContext, suppressionTypes),
                 SyntaxKind.Attribute);
         });
     }
 
     /// <summary>Reports invalid or legacy global suppression targets.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="suppressMessageAttribute">The suppression attribute symbol.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol suppressMessageAttribute)
+    /// <param name="suppressionTypes">The lazily resolved suppression attribute type.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, SuppressionTypes suppressionTypes)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.Parent is not AttributeListSyntax { Target.Identifier.RawKind: (int)SyntaxKind.AssemblyKeyword }
+            || TryGetNamedString(attribute.ArgumentList, "Target", context.SemanticModel, context.CancellationToken) is not { Length: > 0 } target
+            || (target[0] != '~' && !LooksLikeDeclarationId(target))
+            || suppressionTypes.Get() is not { } suppressMessageAttribute
             || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: var attributeType }
-            || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute)
-            || TryGetNamedString(attribute.ArgumentList, "Target", context.SemanticModel, context.CancellationToken) is not { } target
-            || target.Length == 0)
+            || !SymbolEqualityComparer.Default.Equals(attributeType, suppressMessageAttribute))
         {
             return;
         }
@@ -65,11 +61,6 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 MaintainabilityRules.UseDeclarationIdSuppressionTarget,
                 attribute.GetLocation()));
-            return;
-        }
-
-        if (!LooksLikeDeclarationId(target))
-        {
             return;
         }
 
@@ -124,4 +115,20 @@ public sealed class GlobalSuppressionTargetAnalyzer : DiagnosticAnalyzer
         target.Length > 2
             && target[1] == ':'
             && target[0] is 'E' or 'F' or 'M' or 'N' or 'P' or 'T';
+
+    /// <summary>Resolves the suppression type only when a global attribute has a target to validate.</summary>
+    /// <param name="compilation">The compilation that owns the cached symbol.</param>
+    private sealed class SuppressionTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name for <c>SuppressMessageAttribute</c>.</summary>
+        private const string SuppressMessageAttributeMetadataName = "System.Diagnostics.CodeAnalysis.SuppressMessageAttribute";
+
+        /// <summary>The cached lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the suppression type on first demand.</summary>
+        /// <returns>The framework attribute type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(SuppressMessageAttributeMetadataName)])[0];
+    }
 }

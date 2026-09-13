@@ -87,10 +87,12 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         }
 
         oldNode = invocation;
-        return invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName("Contains").WithTriviaFrom(memberAccess.Name)))
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value.WithoutTrivia()))))
-            .WithTriviaFrom(invocation);
+        return invocation.Update(
+            memberAccess.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.Name.GetLeadingTrivia(), "Contains", memberAccess.Name.GetTrailingTrivia()))),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(value.WithoutTrivia())),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Creates the native-predicate replacement stored in the diagnostic's target-name property.</summary>
@@ -116,7 +118,7 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         if (!target.StartsWith(ArrayTargetPrefix, StringComparison.Ordinal))
         {
             oldNode = memberAccess.Name;
-            return SyntaxFactory.IdentifierName(target).WithTriviaFrom(memberAccess.Name);
+            return SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.Name.GetLeadingTrivia(), target, memberAccess.Name.GetTrailingTrivia()));
         }
 
         oldNode = invocation;
@@ -148,7 +150,12 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
             [
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(), SyntaxKind.CommaToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))
             ]);
-        return SyntaxFactory.InvocationExpression(helperAccess, SyntaxFactory.ArgumentList(arguments)).WithTriviaFrom(invocation);
+        return SyntaxFactory.InvocationExpression(
+            helperAccess.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                arguments,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Reads the analyzer's replacement target name from the diagnostic.</summary>

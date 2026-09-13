@@ -189,7 +189,11 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
                 memberAccess.Name.WithoutTrivia(),
                 value.WithoutTrivia())));
 
-        return objectCreation.WithInitializer(initializer).WithTriviaFrom(objectCreation);
+        return objectCreation.Update(
+            objectCreation.NewKeyword,
+            objectCreation.Type,
+            objectCreation.ArgumentList,
+            initializer.WithTrailingTrivia(objectCreation.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a collection-initializer replacement.</summary>
@@ -213,7 +217,11 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             SyntaxKind.CollectionInitializerExpression,
             SyntaxFactory.SingletonSeparatedList(invocation.ArgumentList.Arguments[0].Expression.WithoutTrivia()));
 
-        return objectCreation.WithInitializer(initializer).WithTriviaFrom(objectCreation);
+        return objectCreation.Update(
+            objectCreation.NewKeyword,
+            objectCreation.Type,
+            objectCreation.ArgumentList,
+            initializer.WithTrailingTrivia(objectCreation.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a null-coalescing replacement.</summary>
@@ -233,10 +241,10 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.BinaryExpression(
-                SyntaxKind.CoalesceExpression,
-                operand.WithoutTrivia(),
-                fallback.WithoutTrivia())
-            .WithTriviaFrom(conditional);
+            SyntaxKind.CoalesceExpression,
+            operand.WithoutTrailingTrivia().WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.QuestionQuestionToken),
+            fallback.WithoutLeadingTrivia().WithTrailingTrivia(conditional.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a null-propagation replacement.</summary>
@@ -258,9 +266,10 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.ConditionalAccessExpression(
-                operand.WithoutTrivia(),
-                SyntaxFactory.MemberBindingExpression(memberAccess.Name.WithoutTrivia()))
-            .WithTriviaFrom(conditional);
+            operand.WithoutTrailingTrivia().WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.QuestionToken),
+            SyntaxFactory.MemberBindingExpression(
+                memberAccess.Name.WithoutLeadingTrivia().WithTrailingTrivia(conditional.GetTrailingTrivia())));
     }
 
     /// <summary>Creates a conditional-return replacement.</summary>
@@ -292,10 +301,9 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = followingReturn;
         var conditional = LayOutConditional(ifStatement, options, ifStatement.Condition, whenTrue, whenFalse, ReturnWidth);
         return SyntaxFactory.ReturnStatement(
-                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                conditional,
-                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
-            .WithTriviaFrom(ifStatement);
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            conditional,
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
     }
 
     /// <summary>Builds a conditional expression, wrapping its branches when one line would run past the maximum.</summary>
@@ -373,15 +381,17 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             return true;
         }
 
-        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
-        {
-            if (node is ConditionalExpressionSyntax)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            expression,
+            ref found,
+            static (ConditionalExpressionSyntax node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Creates a conditional-assignment replacement.</summary>
@@ -415,13 +425,12 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
             whenFalse,
             AssignmentWidth + assigned.Span.Length);
         return SyntaxFactory.ExpressionStatement(
-                SyntaxFactory.AssignmentExpression(
-                    SyntaxKind.SimpleAssignmentExpression,
-                    assigned,
-                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                    conditional),
-                SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, default))
-            .WithTriviaFrom(ifStatement);
+            SyntaxFactory.AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                assigned.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.EqualsToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                conditional),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a <c>nameof</c> replacement.</summary>
@@ -439,9 +448,11 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         }
 
         return SyntaxFactory.InvocationExpression(
-                SyntaxFactory.IdentifierName("nameof"),
-                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(SyntaxFactory.ParseExpression(type.ToString())))))
-            .WithTriviaFrom(memberAccess);
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(memberAccess.GetLeadingTrivia(), "nameof", SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(SyntaxFactory.ParseExpression(type.ToString()))),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, memberAccess.GetTrailingTrivia())));
     }
 
     /// <summary>Returns the next statement in a block.</summary>

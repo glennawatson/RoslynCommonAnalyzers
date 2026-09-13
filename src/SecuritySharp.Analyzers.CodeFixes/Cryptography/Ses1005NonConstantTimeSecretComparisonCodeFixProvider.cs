@@ -113,7 +113,7 @@ public sealed class Ses1005NonConstantTimeSecretComparisonCodeFixProvider : Code
         var arguments = SyntaxFactory.SeparatedList(
         [
             SyntaxFactory.Argument(left.WithoutTrivia()),
-            SyntaxFactory.Argument(right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Argument(null, default, right.WithLeadingTrivia(SyntaxFactory.Space).WithoutTrailingTrivia()),
         ]);
 
         return SyntaxFactory.InvocationExpression(access, SyntaxFactory.ArgumentList(arguments));

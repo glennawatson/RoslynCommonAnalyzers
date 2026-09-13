@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,9 +21,9 @@ namespace StyleSharp.Analyzers;
 /// <c>new</c>, and an instance call on an injected dependency, are left alone too.
 /// </para>
 /// <para>
-/// The prepass, in order and each free before the next: the type is a class or struct that does not already
-/// implement a disposal interface. Only then are its members' initializers examined, and the collection
-/// proof scans the declaration only for a type that reached it.
+/// The syntax prepass requires an instance member with a candidate initializer. Disposal types are resolved
+/// only after that prepass succeeds, and a type that already implements disposal is left alone. The
+/// collection proof scans the declaration only for a type that reached it.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -57,14 +59,9 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (DisposableTypes.Create(start.Compilation) is not { } types)
-            {
-                return;
-            }
-
-            var collectionInterface = start.Compilation.GetTypeByMetadataName("System.Collections.Generic.ICollection`1");
+            var markers = new OwnershipTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, types, collectionInterface),
+                nodeContext => Analyze(nodeContext, markers),
                 SyntaxKind.ClassDeclaration,
                 SyntaxKind.StructDeclaration,
                 SyntaxKind.RecordDeclaration,
@@ -74,19 +71,20 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes one type declaration for unadvertised ownership of a disposable.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    /// <param name="collectionInterface">The unbound <c>ICollection&lt;T&gt;</c> interface, if resolved.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types, INamedTypeSymbol? collectionInterface)
+    /// <param name="markers">The ownership types resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, OwnershipTypes markers)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
-        if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type
+        if (!HasCandidateMember(declaration)
+            || context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type
             || type.IsRefLikeType
+            || markers.GetDisposalTypes() is not { } types
             || types.ImplementsDisposable(type))
         {
             return;
         }
 
-        var scan = new OwnershipScan(context, types, collectionInterface, declaration);
+        var scan = new OwnershipScan(context, types, markers, declaration);
         var members = declaration.Members;
         for (var i = 0; i < members.Count; i++)
         {
@@ -102,6 +100,61 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
         var properties = ImmutableDictionary<string, string?>.Empty.Add(MembersToDisposeKey, members2);
         context.ReportDiagnostic(Diagnostic.Create(DesignRules.OwnsDisposableField, declaration.Identifier.GetLocation(), properties, type.Name, scan.FirstOwned));
     }
+
+    /// <summary>Returns whether a type has an instance member with a potentially owned initializer.</summary>
+    /// <param name="declaration">The type declaration to inspect.</param>
+    /// <returns>Whether any member can reach the ownership checks.</returns>
+    private static bool HasCandidateMember(TypeDeclarationSyntax declaration)
+    {
+        foreach (var member in declaration.Members)
+        {
+            if (IsCandidateMember(member))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks a member's storage and initializer shape without binding it.</summary>
+    /// <param name="member">The member to inspect.</param>
+    /// <returns>Whether the member can own a resource reported by this rule.</returns>
+    private static bool IsCandidateMember(MemberDeclarationSyntax member) => member switch
+    {
+        FieldDeclarationSyntax field => HasCandidateField(field),
+        PropertyDeclarationSyntax property => !property.Modifiers.Any(SyntaxKind.StaticKeyword)
+            && IsCandidateInitializer(property.Initializer?.Value)
+            && IsAutoProperty(property),
+        _ => false,
+    };
+
+    /// <summary>Checks whether an instance field has a candidate initializer.</summary>
+    /// <param name="field">The field to inspect.</param>
+    /// <returns>Whether any declarator can reach the ownership checks.</returns>
+    private static bool HasCandidateField(FieldDeclarationSyntax field)
+    {
+        if (field.Modifiers.Any(SyntaxKind.StaticKeyword) || field.Modifiers.Any(SyntaxKind.ConstKeyword))
+        {
+            return false;
+        }
+
+        foreach (var variable in field.Declaration.Variables)
+        {
+            if (IsCandidateInitializer(variable.Initializer?.Value))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks for a factory call or creation that can establish resource ownership.</summary>
+    /// <param name="initializer">The member initializer, if present.</param>
+    /// <returns>Whether the initializer can reach an ownership check.</returns>
+    private static bool IsCandidateInitializer(ExpressionSyntax? initializer) =>
+        initializer is InvocationExpressionSyntax or ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax;
 
     /// <summary>Classifies one type member and records any disposable it owns.</summary>
     /// <param name="scan">The ownership scan state.</param>
@@ -191,9 +244,9 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the type creates the collection and adds a <c>new</c> disposable to it.</returns>
     private static bool IsOwnedDisposableCollection(ref OwnershipScan scan, IFieldSymbol field, ExpressionSyntax initializer)
     {
-        if (scan.CollectionInterface is null
-            || initializer is not (ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
-            || !HasDisposableElement(scan.Types, scan.CollectionInterface, field.Type))
+        if (initializer is not (ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+            || scan.Markers.GetCollectionInterface() is not { } collectionInterface
+            || !HasDisposableElement(scan.Types, collectionInterface, field.Type))
         {
             return false;
         }
@@ -273,12 +326,12 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     /// <summary>The state threaded through one type's ownership scan.</summary>
     /// <param name="Context">The syntax node analysis context.</param>
     /// <param name="Types">The disposal types resolved for this compilation.</param>
-    /// <param name="CollectionInterface">The unbound <c>ICollection&lt;T&gt;</c> interface, if resolved.</param>
+    /// <param name="Markers">The collection interface resolved on first demand.</param>
     /// <param name="Declaration">The type declaration being analyzed.</param>
     private record struct OwnershipScan(
         SyntaxNodeAnalysisContext Context,
         DisposableTypes Types,
-        INamedTypeSymbol? CollectionInterface,
+        OwnershipTypes Markers,
         TypeDeclarationSyntax Declaration)
     {
         /// <summary>Gets the first owned member's name, for the message.</summary>
@@ -319,5 +372,26 @@ public sealed class Sst2315OwnsDisposableFieldAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Gets or sets a value indicating whether a matching add-of-new was found.</summary>
         public bool Found { get; set; }
+    }
+
+    /// <summary>Resolves ownership metadata only when a declaration contains a candidate member.</summary>
+    /// <param name="compilation">The compilation whose ownership types are resolved.</param>
+    private sealed class OwnershipTypes(Compilation compilation)
+    {
+        /// <summary>The cached disposal types, including a null slot when they are unavailable.</summary>
+        private DisposableTypes?[]? _disposalTypes;
+
+        /// <summary>The cached collection interface, including a null slot when it is unavailable.</summary>
+        private INamedTypeSymbol?[]? _collectionInterface;
+
+        /// <summary>Gets the disposal types on first demand, caching their absence too.</summary>
+        /// <returns>The disposal types, or null when disposal cannot be analyzed.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DisposableTypes? GetDisposalTypes() => (_disposalTypes ??= [DisposableTypes.Create(compilation)])[0];
+
+        /// <summary>Gets the collection interface on first demand, caching its absence too.</summary>
+        /// <returns>The unbound collection interface, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetCollectionInterface() => (_collectionInterface ??= [compilation.GetTypeByMetadataName("System.Collections.Generic.ICollection`1")])[0];
     }
 }

@@ -38,7 +38,9 @@ public sealed class Sst1660ParameterDocumentationOrderCodeFixProvider : CodeFixP
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            var changes = new List<TextChange>();
+            var node = root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true);
+            var capacity = XmlDocumentationHelper.DocumentedMember(node) is { } member ? DocumentedParameterList.Of(member).Count : 0;
+            var changes = new List<TextChange>(capacity);
             BuildChanges(text, root, diagnostic, changes);
             if (changes.Count == 0)
             {

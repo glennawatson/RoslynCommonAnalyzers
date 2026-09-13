@@ -95,6 +95,6 @@ public sealed class Sst2503BooleanLiteralAssertionCodeFixProvider : CodeFixProvi
 
         var actualExpression = invocation.ArgumentList.Arguments[actualIndex].Expression.WithoutTrivia();
         var newArguments = invocation.ArgumentList.WithArguments(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(actualExpression)));
-        return invocation.WithExpression(expression).WithArgumentList(newArguments);
+        return invocation.Update(expression, newArguments);
     }
 }

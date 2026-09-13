@@ -111,8 +111,12 @@ public sealed class Sst2247MemberCopyDeconstructionCodeFixProvider : CodeFixProv
     /// <param name="candidate">The resolved run.</param>
     /// <returns>The deconstruction statement carrying the run's outer trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static StatementSyntax BuildDeconstruction(in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate) =>
-        SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};")
-            .WithLeadingTrivia(candidate.FirstStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(candidate.LastStatement.GetTrailingTrivia());
+    private static ExpressionStatementSyntax BuildDeconstruction(in Sst2247MemberCopyDeconstructionAnalyzer.MemberCopyDeconstruction candidate)
+    {
+        var statement = (ExpressionStatementSyntax)SyntaxFactory.ParseStatement($"var ({string.Join(", ", candidate.Names)}) = {candidate.SourceName};");
+        return statement.Update(
+            statement.AttributeLists,
+            statement.Expression.WithLeadingTrivia(candidate.FirstStatement.GetLeadingTrivia()),
+            statement.SemicolonToken.WithTrailingTrivia(candidate.LastStatement.GetTrailingTrivia()));
+    }
 }

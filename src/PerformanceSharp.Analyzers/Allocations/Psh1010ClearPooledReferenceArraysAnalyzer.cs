@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,9 +23,6 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
     /// <summary>The name of the flag parameter the fix supplies.</summary>
     internal const string ClearArrayParameterName = "clearArray";
 
-    /// <summary>The metadata name of the array pool type.</summary>
-    private const string ArrayPoolMetadataName = "System.Buffers.ArrayPool`1";
-
     /// <summary>The argument count of the Return overload that carries the clear flag.</summary>
     private const int FlagArgumentCount = 2;
 
@@ -39,32 +38,27 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var poolType = start.Compilation.GetTypeByMetadataName(ArrayPoolMetadataName);
-            if (poolType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, poolType), SyntaxKind.InvocationExpression);
+            var poolTypes = new PoolTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, poolTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1010 for a pool return of reference-containing elements without clearing.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="poolType">The array pool type definition.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol poolType)
+    /// <param name="poolTypes">The lazily resolved array pool type definition.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, PoolTypes poolTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.Expression is not MemberAccessExpressionSyntax access
-            || access.Name.Identifier.ValueText != ReturnMethodName
+        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ReturnMethodName }
             || invocation.ArgumentList.Arguments.Count is not (1 or FlagArgumentCount))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (poolTypes.Get() is not { } poolType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.ContainingType is not { } containingType
             || !SymbolEqualityComparer.Default.Equals(containingType.OriginalDefinition, poolType)
             || !ElementKeepsReferencesAlive(containingType.TypeArguments[0]))
@@ -131,5 +125,21 @@ public sealed class Psh1010ClearPooledReferenceArraysAnalyzer : DiagnosticAnalyz
 
         var constant = context.SemanticModel.GetConstantValue(clearArgument.Expression, context.CancellationToken);
         return constant is { HasValue: true, Value: false };
+    }
+
+    /// <summary>Resolves the array pool type only after a return call passes the syntax gate.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class PoolTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the array pool type.</summary>
+        private const string ArrayPoolMetadataName = "System.Buffers.ArrayPool`1";
+
+        /// <summary>The cached type lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the array pool type, resolving it on first use.</summary>
+        /// <returns>The array pool definition, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ArrayPoolMetadataName)])[0];
     }
 }

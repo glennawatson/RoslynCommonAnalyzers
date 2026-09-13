@@ -97,9 +97,14 @@ public sealed class Sst2712SetterlessInjectedPropertyCodeFixProvider : CodeFixPr
     /// <returns>The property with a private setter.</returns>
     private static PropertyDeclarationSyntax AddPrivateSetter(PropertyDeclarationSyntax property)
     {
-        var setter = SyntaxFactory.AccessorDeclaration(SyntaxKind.SetAccessorDeclaration)
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        var setter = SyntaxFactory.AccessorDeclaration(
+            SyntaxKind.SetAccessorDeclaration,
+            attributeLists: default,
+            SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PrivateKeyword)),
+            SyntaxFactory.Token(SyntaxKind.SetKeyword),
+            body: null,
+            expressionBody: null,
+            SyntaxFactory.Token(SyntaxKind.SemicolonToken));
 
         return property
             .WithAccessorList(property.AccessorList!.AddAccessors(setter))

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -19,12 +21,6 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <summary>The invoked member name the syntax gate requires.</summary>
     internal const string ToStringMethodName = nameof(ToString);
 
-    /// <summary>The metadata name of the builder type whose appends PSH1203 already covers.</summary>
-    private const string StringBuilderMetadataName = "System.Text.StringBuilder";
-
-    /// <summary>The metadata name of the handler that lets a hole format a value without boxing it.</summary>
-    private const string InterpolatedStringHandlerMetadataName = "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.RemoveIntermediateToString);
 
@@ -37,12 +33,11 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var builderType = start.Compilation.GetTypeByMetadataName(StringBuilderMetadataName);
-            var hasInterpolationHandler = start.Compilation.GetTypeByMetadataName(InterpolatedStringHandlerMetadataName) is not null;
+            var types = new FrameworkTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, builderType, hasInterpolationHandler),
+                nodeContext => AnalyzeInvocation(nodeContext, types),
                 SyntaxKind.InvocationExpression);
         });
     }
@@ -57,9 +52,8 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
 
     /// <summary>Reports PSH1211 for a ToString result feeding a value-capable consumer.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The StringBuilder type, or <see langword="null"/> when absent.</param>
-    /// <param name="hasInterpolationHandler">Whether the framework can format a ref struct in a hole.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? builderType, bool hasInterpolationHandler)
+    /// <param name="types">The framework types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsBareToStringShape(invocation))
@@ -70,9 +64,9 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
         var report = invocation.Parent switch
         {
             InterpolationSyntax interpolation => IsPlainStringInterpolation(context, interpolation)
-                                                 && CanFormatReceiverDirectly(context, invocation, hasInterpolationHandler),
-            ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax outer } argument
-                => HasDirectOverload(context, invocation, argument, outer, builderType),
+                                                 && CanFormatReceiverDirectly(context, invocation, types.HasInterpolationHandler()),
+            ArgumentSyntax { NameColon: null, Parent.Parent: InvocationExpressionSyntax outer } argument
+                => HasDirectOverload(context, invocation, argument, outer, types),
             _ => false,
         };
 
@@ -127,19 +121,19 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
     /// <param name="toStringCall">The ToString invocation.</param>
     /// <param name="argument">The argument holding the ToString call.</param>
     /// <param name="outer">The consuming invocation.</param>
-    /// <param name="builderType">The StringBuilder type, or <see langword="null"/> when absent.</param>
+    /// <param name="types">The framework types resolved on first demand.</param>
     /// <returns><see langword="true"/> when a same-shape overload accepts the receiver's type in that position.</returns>
     private static bool HasDirectOverload(
         in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax toStringCall,
         ArgumentSyntax argument,
         InvocationExpressionSyntax outer,
-        INamedTypeSymbol? builderType)
+        FrameworkTypes types)
     {
         var model = context.SemanticModel;
         var access = (MemberAccessExpressionSyntax)toStringCall.Expression;
         var receiverType = model.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        if (!IsDirectlyPassableValue(receiverType) || argument.NameColon is not null)
+        if (!IsDirectlyPassableValue(receiverType))
         {
             return false;
         }
@@ -147,7 +141,7 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
         if (model.GetSymbolInfo(outer, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.IsExtensionMethod
             || method.ReducedFrom is not null
-            || SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType))
+            || SymbolEqualityComparer.Default.Equals(method.ContainingType, types.GetBuilderType()))
         {
             return false;
         }
@@ -229,5 +223,32 @@ public sealed class Psh1211RemoveIntermediateToStringAnalyzer : DiagnosticAnalyz
 
         var conversion = context.SemanticModel.Compilation.ClassifyConversion(receiverType, slotType);
         return conversion.IsIdentity || (conversion.IsImplicit && !conversion.IsUserDefined && !conversion.IsBoxing);
+    }
+
+    /// <summary>Resolves each framework type on first demand, caching missing types as well.</summary>
+    /// <param name="compilation">The compilation whose framework types are cached.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the builder type whose appends PSH1203 already covers.</summary>
+        private const string StringBuilderMetadataName = "System.Text.StringBuilder";
+
+        /// <summary>The metadata name of the handler that lets a hole format a value without boxing it.</summary>
+        private const string InterpolatedStringHandlerMetadataName = "System.Runtime.CompilerServices.DefaultInterpolatedStringHandler";
+
+        /// <summary>The cached builder lookup, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _builder;
+
+        /// <summary>The cached interpolation handler lookup, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _handler;
+
+        /// <summary>Resolves the builder type only when a consuming call needs it.</summary>
+        /// <returns>The builder type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetBuilderType() => (_builder ??= [compilation.GetTypeByMetadataName(StringBuilderMetadataName)])[0];
+
+        /// <summary>Resolves handler support only when an interpolation needs it.</summary>
+        /// <returns>Whether the framework supplies the default interpolation handler.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool HasInterpolationHandler() => (_handler ??= [compilation.GetTypeByMetadataName(InterpolatedStringHandlerMetadataName)])[0] is not null;
     }
 }

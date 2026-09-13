@@ -47,16 +47,26 @@ public sealed class Sst1804EmptyPositionalRecordBodyCodeFixProvider : CodeFixPro
     /// <returns>The semicolon-terminated record.</returns>
     private static RecordDeclarationSyntax ToSemicolonForm(RecordDeclarationSyntax record)
     {
-        var semicolon = SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(record.CloseBraceToken.TrailingTrivia);
+        var semicolon = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, record.CloseBraceToken.TrailingTrivia);
         var previous = record.OpenBraceToken.GetPreviousToken();
 
         var updated = previous.IsKind(SyntaxKind.None)
             ? record
             : record.ReplaceToken(previous, previous.WithTrailingTrivia(SyntaxFactory.TriviaList()));
 
-        return updated
-            .WithOpenBraceToken(default)
-            .WithCloseBraceToken(default)
-            .WithSemicolonToken(semicolon);
+        return updated.Update(
+            updated.AttributeLists,
+            updated.Modifiers,
+            updated.Keyword,
+            updated.ClassOrStructKeyword,
+            updated.Identifier,
+            updated.TypeParameterList,
+            updated.ParameterList,
+            updated.BaseList,
+            updated.ConstraintClauses,
+            default,
+            updated.Members,
+            default,
+            semicolon);
     }
 }

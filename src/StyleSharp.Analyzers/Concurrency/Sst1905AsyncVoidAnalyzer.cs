@@ -70,7 +70,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } symbol
-            || IsEventHandlerShape(symbol, eventArgs.Value)
+            || IsEventHandlerShape(symbol, eventArgs)
             || IsInheritedSignature(symbol))
         {
             return;
@@ -91,7 +91,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(localFunction, context.CancellationToken) is IMethodSymbol symbol
-            && IsEventHandlerShape(symbol, eventArgs.Value))
+            && IsEventHandlerShape(symbol, eventArgs))
         {
             return;
         }
@@ -114,7 +114,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         // void, a Func<Task>-shaped target returns a Task and is correct.
         if (context.SemanticModel.GetSymbolInfo(function, context.CancellationToken).Symbol is not IMethodSymbol symbol
             || !symbol.ReturnsVoid
-            || IsEventHandlerShape(symbol, eventArgs.Value))
+            || IsEventHandlerShape(symbol, eventArgs))
         {
             return;
         }
@@ -130,17 +130,17 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a symbol has the standard <c>(object, TEventArgs)</c> event-handler shape.</summary>
     /// <param name="method">The candidate method symbol.</param>
-    /// <param name="eventArgs">The resolved <c>System.EventArgs</c> type, if any.</param>
+    /// <param name="eventArgs">The lazily resolved <c>System.EventArgs</c> type.</param>
     /// <returns><see langword="true"/> when the method is a genuine event handler.</returns>
-    private static bool IsEventHandlerShape(IMethodSymbol method, INamedTypeSymbol? eventArgs)
+    private static bool IsEventHandlerShape(IMethodSymbol method, Lazy<INamedTypeSymbol?> eventArgs)
     {
-        if (eventArgs is null || method.Parameters.Length != 2)
+        if (method.Parameters.Length != 2 || method.Parameters[0].Type.SpecialType != SpecialType.System_Object)
         {
             return false;
         }
 
-        return method.Parameters[0].Type.SpecialType == SpecialType.System_Object
-            && DerivesFrom(method.Parameters[1].Type, eventArgs);
+        return eventArgs.Value is { } resolvedEventArgs
+            && DerivesFrom(method.Parameters[1].Type, resolvedEventArgs);
     }
 
     /// <summary>Returns whether a method overrides or implements a signature its author cannot change.</summary>

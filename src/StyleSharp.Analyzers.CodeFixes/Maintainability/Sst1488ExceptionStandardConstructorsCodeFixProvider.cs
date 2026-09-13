@@ -202,21 +202,40 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
     /// </remarks>
     private static ConstructorDeclarationSyntax BuildConstructor(string name, SyntaxKind accessibility, string newLine, bool withMessage, bool withInner)
     {
+        const string SummaryPrefix = "/// <summary>Initializes a new instance of the <see cref=\"";
+        const string SummarySuffix = "\"/> class.</summary>";
+        const string MessageDocumentation = "/// <param name=\"message\">The message that describes the error.</param>";
+        const string InnerDocumentation = "/// <param name=\"innerException\">The exception that is the cause of this exception.</param>";
+        const int BaseLineCount = 4;
+        const int MessageLineCount = 2;
         var keyword = SyntaxFactory.Token(accessibility).ValueText;
-        var builder = new System.Text.StringBuilder();
-        _ = builder.Append("/// <summary>Initializes a new instance of the <see cref=\"")
-            .Append(name)
-            .Append("\"/> class.</summary>")
-            .Append(newLine);
-
+        var capacity = SummaryPrefix.Length + name.Length + SummarySuffix.Length
+            + keyword.Length + name.Length + " (){}".Length + (newLine.Length * BaseLineCount);
         if (withMessage)
         {
-            _ = builder.Append("/// <param name=\"message\">The message that describes the error.</param>").Append(newLine);
+            capacity += MessageDocumentation.Length + "string message".Length + "    : base(message)".Length + (newLine.Length * MessageLineCount);
         }
 
         if (withInner)
         {
-            _ = builder.Append("/// <param name=\"innerException\">The exception that is the cause of this exception.</param>").Append(newLine);
+            capacity += InnerDocumentation.Length + ", System.Exception innerException".Length
+                + newLine.Length + (withMessage ? ", innerException".Length : 0);
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
+        _ = builder.Append(SummaryPrefix)
+            .Append(name)
+            .Append(SummarySuffix)
+            .Append(newLine);
+
+        if (withMessage)
+        {
+            _ = builder.Append(MessageDocumentation).Append(newLine);
+        }
+
+        if (withInner)
+        {
+            _ = builder.Append(InnerDocumentation).Append(newLine);
         }
 
         _ = builder.Append(keyword).Append(' ').Append(name).Append('(');
@@ -246,8 +265,8 @@ public sealed class Sst1488ExceptionStandardConstructorsCodeFixProvider : CodeFi
         _ = builder.Append('{').Append(newLine).Append('}').Append(newLine);
 
         var constructor = (ConstructorDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration(builder.ToString())!;
-        return constructor
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Simplification.Simplifier.Annotation)
-            .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
+        return constructor.WithAdditionalAnnotations(
+            Microsoft.CodeAnalysis.Simplification.Simplifier.Annotation,
+            Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 }

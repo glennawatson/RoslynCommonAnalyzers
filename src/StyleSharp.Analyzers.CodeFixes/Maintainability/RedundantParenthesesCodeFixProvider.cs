@@ -75,9 +75,12 @@ public sealed class RedundantParenthesesCodeFixProvider : CodeFixProvider, IBatc
         var anonymous = node.FirstAncestorOrSelf<AnonymousMethodExpressionSyntax>();
         if (anonymous?.ParameterList is not null)
         {
-            var updated = anonymous
-                .WithParameterList(null)
-                .WithDelegateKeyword(anonymous.DelegateKeyword.WithTrailingTrivia(SyntaxFactory.Space));
+            var updated = anonymous.Update(
+                anonymous.Modifiers,
+                anonymous.DelegateKeyword.WithTrailingTrivia(SyntaxFactory.Space),
+                parameterList: null,
+                anonymous.Block,
+                anonymous.ExpressionBody);
             return (anonymous, updated);
         }
 

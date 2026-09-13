@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -34,19 +36,15 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (DisposableTypes.Create(start.Compilation) is not { } types)
-            {
-                return;
-            }
-
+            var types = new DisposalTypeCache(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.ReturnStatement, SyntaxKind.YieldReturnStatement);
         });
     }
 
     /// <summary>Analyzes one return or yield-return statement.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The lazily resolved disposal types for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, DisposalTypeCache types)
     {
         var expression = context.Node switch
         {
@@ -81,12 +79,13 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports when an identifier resolves to a <c>using</c>-owned disposable being returned.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
+    /// <param name="types">The lazily resolved disposal types for this compilation.</param>
     /// <param name="identifier">The returned identifier.</param>
-    private static void CheckIdentifier(in SyntaxNodeAnalysisContext context, in DisposableTypes types, IdentifierNameSyntax identifier)
+    private static void CheckIdentifier(in SyntaxNodeAnalysisContext context, DisposalTypeCache types, IdentifierNameSyntax identifier)
     {
         if (context.SemanticModel.GetSymbolInfo(identifier, context.CancellationToken).Symbol is not ILocalSymbol { IsUsing: true } local
-            || !types.ImplementsDisposable(local.Type))
+            || types.Get() is not { } resolved
+            || !resolved.ImplementsDisposable(local.Type))
         {
             return;
         }
@@ -95,5 +94,18 @@ public sealed class Sst2423DisposableReturnedFromUsingAnalyzer : DiagnosticAnaly
             CorrectnessRules.DisposableReturnedFromUsing,
             identifier.GetLocation(),
             local.Name));
+    }
+
+    /// <summary>Resolves disposal types only when a returned identifier names a using-owned local.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class DisposalTypeCache(Compilation compilation)
+    {
+        /// <summary>The cached disposal types, including an unavailable result.</summary>
+        private DisposableTypes?[]? _resolved;
+
+        /// <summary>Gets the disposal types, resolving them on first use.</summary>
+        /// <returns>The disposal types, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DisposableTypes? Get() => (_resolved ??= [DisposableTypes.Create(compilation)])[0];
     }
 }

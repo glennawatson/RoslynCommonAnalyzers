@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -18,9 +20,6 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
     /// <summary>The console type name used in the syntax gate.</summary>
     private const string ConsoleTypeName = "Console";
 
-    /// <summary>The metadata name of the console type.</summary>
-    private const string ConsoleMetadataName = "System.Console";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.NoConsoleOutput);
 
@@ -35,10 +34,7 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(ConsoleMetadataName) is not { } consoleType)
-            {
-                return;
-            }
+            var consoleType = new ConsoleTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeInvocation(nodeContext, consoleType),
@@ -48,8 +44,8 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a write call whose receiver binds to <c>System.Console</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="consoleType">The compilation's console type symbol.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol consoleType)
+    /// <param name="consoleType">The compilation's console type, resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ConsoleTypes consoleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
@@ -68,8 +64,9 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, consoleType))
+        if (consoleType.Get() is not { } resolved
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolved))
         {
             return;
         }
@@ -92,4 +89,20 @@ public sealed class Sst1449NoConsoleOutputAnalyzer : DiagnosticAnalyzer
             AliasQualifiedNameSyntax aliasQualified => aliasQualified.Name.Identifier.ValueText == ConsoleTypeName,
             _ => false,
         };
+
+    /// <summary>Resolves the console type only for a possible console write.</summary>
+    /// <param name="compilation">The compilation whose console type is resolved.</param>
+    private sealed class ConsoleTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the console type.</summary>
+        private const string ConsoleMetadataName = "System.Console";
+
+        /// <summary>The resolved type slot, including null when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the console type, caching its absence too.</summary>
+        /// <returns>The console type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ConsoleMetadataName)])[0];
+    }
 }

@@ -171,8 +171,12 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     {
         var name = CreateMethodName(typeDeclaration);
         var callAnnotation = new SyntaxAnnotation();
-        var call = SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name))
-            .WithTriviaFrom(creation)
+        var call = SyntaxFactory.InvocationExpression(
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(creation.GetLeadingTrivia(), name, default)),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                    arguments: default,
+                    SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, creation.GetTrailingTrivia())))
             .WithAdditionalAnnotations(callAnnotation);
 
         var rootWithCall = root.ReplaceNode(creation, call);
@@ -212,14 +216,21 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
             SyntaxFactory.AttributeArgumentList(SyntaxFactory.SingletonSeparatedList(attributeArgument)));
         var attributeList = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(attribute));
 
-        return SyntaxFactory.MethodDeclaration(SyntaxFactory.IdentifierName(RegexTypeName), SyntaxFactory.Identifier(name))
-            .WithAttributeLists(SyntaxFactory.SingletonList(attributeList))
-            .WithModifiers(SyntaxFactory.TokenList(
-                SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
-                SyntaxFactory.Token(SyntaxKind.StaticKeyword),
-                SyntaxFactory.Token(SyntaxKind.PartialKeyword)))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-            .WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed)
+        return SyntaxFactory.MethodDeclaration(
+                SyntaxFactory.SingletonList(attributeList.WithLeadingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed)),
+                SyntaxFactory.TokenList(
+                    SyntaxFactory.Token(SyntaxKind.PrivateKeyword),
+                    SyntaxFactory.Token(SyntaxKind.StaticKeyword),
+                    SyntaxFactory.Token(SyntaxKind.PartialKeyword)),
+                SyntaxFactory.IdentifierName(RegexTypeName),
+                explicitInterfaceSpecifier: null,
+                SyntaxFactory.Identifier(name),
+                typeParameterList: null,
+                SyntaxFactory.ParameterList(),
+                constraintClauses: default,
+                body: null,
+                expressionBody: null,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken))
             .WithAdditionalAnnotations(Formatter.Annotation);
     }
 
@@ -235,16 +246,77 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
 
         if (type.Modifiers.Count == 0)
         {
-            var keyword = type.Keyword;
-            var partial = SyntaxFactory.Token(SyntaxKind.PartialKeyword)
-                .WithLeadingTrivia(keyword.LeadingTrivia)
-                .WithTrailingTrivia(SyntaxFactory.Space);
-            return type.WithKeyword(keyword.WithLeadingTrivia()).WithModifiers(SyntaxFactory.TokenList(partial));
+            var partial = SyntaxFactory.Token(type.Keyword.LeadingTrivia, SyntaxKind.PartialKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
+            return AddPartialModifier(type, partial);
         }
 
         var partialToken = SyntaxFactory.Token(default, SyntaxKind.PartialKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return type.WithModifiers(type.Modifiers.Add(partialToken));
     }
+
+    /// <summary>Adds the partial modifier and transfers the leading keyword trivia in one update.</summary>
+    /// <param name="type">The original type declaration.</param>
+    /// <param name="partial">The partial keyword carrying the declaration's leading trivia.</param>
+    /// <returns>The type with the partial modifier.</returns>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    private static TypeDeclarationSyntax AddPartialModifier(TypeDeclarationSyntax type, in SyntaxToken partial) =>
+        type switch
+        {
+            ClassDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(partial),
+                type.Keyword.WithLeadingTrivia(),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            StructDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(partial),
+                type.Keyword.WithLeadingTrivia(),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            InterfaceDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(partial),
+                type.Keyword.WithLeadingTrivia(),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            RecordDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(partial),
+                type.Keyword.WithLeadingTrivia(),
+                declaration.ClassOrStructKeyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            _ => type
+        };
 
     /// <summary>Picks a method name the host type does not already use.</summary>
     /// <param name="type">The host type declaration.</param>

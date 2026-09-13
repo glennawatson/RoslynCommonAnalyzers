@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace SecuritySharp.Analyzers;
 
@@ -17,8 +18,8 @@ namespace SecuritySharp.Analyzers;
 /// A value of 0 selects the framework default, and any value at or below the ceiling, or one whose size
 /// cannot be judged from the source, is left alone -- so only a deliberately raised constant is reported.
 /// This is a purely local shape: the value is the direct right-hand side, so no flow analysis is needed.
-/// The rule is gated on <c>JsonSerializerOptions</c> resolving in the compilation, so a target framework
-/// without <c>System.Text.Json</c> pays nothing and never receives a diagnostic it cannot act on.
+/// The JSON option types are resolved on first demand after a <c>MaxDepth</c> assignment is found,
+/// and cached per compilation, including when none are available.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
@@ -38,14 +39,6 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
     /// <summary>The smallest ceiling that means anything: a ceiling below 1 would flag every positive depth.</summary>
     private const int SmallestCeiling = 1;
 
-    /// <summary>The metadata names of the JSON option types whose <c>MaxDepth</c> is guarded.</summary>
-    private static readonly string[] JsonOptionMetadataNames =
-    [
-        "System.Text.Json.JsonSerializerOptions",
-        "System.Text.Json.JsonReaderOptions",
-        "System.Text.Json.JsonDocumentOptions"
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.JsonMaxDepth);
 
@@ -58,22 +51,17 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var jsonTypes = GetJsonOptionTypes(start.Compilation);
-            if (jsonTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, jsonTypes), SyntaxKind.SimpleAssignmentExpression);
+            var types = new JsonOptionTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1403 for a <c>MaxDepth</c> assignment whose constant value exceeds the ceiling.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="jsonTypes">The gated JSON option types resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[] jsonTypes)
+    /// <param name="types">The lazily resolved JSON option types for the compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, JsonOptionTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -84,7 +72,9 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxDepthPropertyName } property
+        var jsonTypes = types.Get();
+        if (jsonTypes.Length == 0
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: MaxDepthPropertyName } property
             || GetGatedJsonType(property.ContainingType, jsonTypes) is null)
         {
             return;
@@ -159,23 +149,44 @@ public sealed class Ses1403JsonMaxDepthAnalyzer : DiagnosticAnalyzer
             : DefaultMaxDepthCeiling;
     }
 
-    /// <summary>Resolves the JSON option types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetJsonOptionTypes(Compilation compilation)
+    /// <summary>Resolves JSON option types only for candidate assignments, caching misses too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class JsonOptionTypes(Compilation compilation)
     {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < JsonOptionMetadataNames.Length; i++)
+        /// <summary>The metadata names of the JSON option types whose <c>MaxDepth</c> is guarded.</summary>
+        private static readonly string[] JsonOptionMetadataNames =
+        [
+            "System.Text.Json.JsonSerializerOptions",
+            "System.Text.Json.JsonReaderOptions",
+            "System.Text.Json.JsonDocumentOptions"
+        ];
+
+        /// <summary>The resolved types, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the JSON option types on first demand.</summary>
+        /// <returns>The resolved types, or an empty array when none are available.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= GetJsonOptionTypes(compilation) ?? [];
+
+        /// <summary>Resolves the JSON option types present in the compilation.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>An array whose slots hold each resolved type, or <see langword="null"/> when none resolve.</returns>
+        private static INamedTypeSymbol?[]? GetJsonOptionTypes(Compilation compilation)
         {
-            if (compilation.GetTypeByMetadataName(JsonOptionMetadataNames[i]) is not { } type)
+            INamedTypeSymbol?[]? types = null;
+            for (var i = 0; i < JsonOptionMetadataNames.Length; i++)
             {
-                continue;
+                if (compilation.GetTypeByMetadataName(JsonOptionMetadataNames[i]) is not { } type)
+                {
+                    continue;
+                }
+
+                types ??= new INamedTypeSymbol?[JsonOptionMetadataNames.Length];
+                types[i] = type;
             }
 
-            types ??= new INamedTypeSymbol?[JsonOptionMetadataNames.Length];
-            types[i] = type;
+            return types;
         }
-
-        return types;
     }
 }

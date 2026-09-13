@@ -39,9 +39,19 @@ internal static class SealedModifierRewrite
         {
             var keyword = declaration.Keyword;
             sealedToken = sealedToken.WithLeadingTrivia(keyword.LeadingTrivia);
-            return declaration
-                .WithKeyword(keyword.WithLeadingTrivia())
-                .WithModifiers(SyntaxFactory.TokenList(sealedToken));
+            return declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(sealedToken),
+                keyword.WithLeadingTrivia(),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken);
         }
 
         var first = modifiers[0];

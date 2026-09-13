@@ -10,8 +10,7 @@ namespace PerformanceSharp.Analyzers;
 /// <c>Append("x")</c> and <c>Insert(index, "x")</c> when the receiver is a
 /// <c>StringBuilder</c> and the argument is a plain single-character string literal.
 /// The <c>StringBuilder</c> type and its <c>Append(char)</c>/<c>Insert(int, char)</c>
-/// overloads are probed once per compilation, so the rule costs nothing where they
-/// are missing.
+/// overloads are probed once per compilation, only after a call passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
@@ -34,25 +33,32 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (!StringBuilderOverloads.TryResolve(start.Compilation, out var overloads))
+            var compilation = start.Compilation;
+            var overloads = new Lazy<StringBuilderOverloads>(() =>
             {
-                return;
-            }
-
+                _ = StringBuilderOverloads.TryResolve(compilation, out var resolved);
+                return resolved;
+            });
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, overloads), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1202 for a single-character literal passed to <c>Append</c> or <c>Insert</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The string builder char overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, StringBuilderOverloads overloads)
+    /// <param name="overloads">The lazily resolved string builder char overloads.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<StringBuilderOverloads> overloads)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!TryGetCandidateLiteral(invocation, overloads, out var literal, out var methodName, out var literalIndex)
-            || !IsReportableMethod(context.SemanticModel, invocation, overloads, literalIndex, context.CancellationToken))
+        if (!TryGetCandidateLiteral(invocation, out var literal, out var methodName, out var literalIndex))
+        {
+            return;
+        }
+
+        var resolved = overloads.Value;
+        if (!(literalIndex == 0 ? resolved.HasAppendChar : resolved.HasInsertChar)
+            || !IsReportableMethod(context.SemanticModel, invocation, resolved, literalIndex, context.CancellationToken))
         {
             return;
         }
@@ -64,16 +70,14 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
             methodName!));
     }
 
-    /// <summary>Runs the syntax-only checks: member name, gated shape, argument count, and literal shape.</summary>
+    /// <summary>Runs the syntax-only checks: member name, argument count, and literal shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
-    /// <param name="overloads">The string builder char overloads available in this compilation.</param>
     /// <param name="literal">The matched single-character literal argument.</param>
     /// <param name="methodName">The invoked member name (<c>Append</c> or <c>Insert</c>).</param>
     /// <param name="literalIndex">The argument index holding the literal.</param>
     /// <returns><see langword="true"/> when the invocation is a syntactic candidate.</returns>
     private static bool TryGetCandidateLiteral(
         InvocationExpressionSyntax invocation,
-        in StringBuilderOverloads overloads,
         out LiteralExpressionSyntax? literal,
         out string? methodName,
         out int literalIndex)
@@ -84,7 +88,7 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is not MemberAccessExpressionSyntax access
             || !access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             || access.Name is not IdentifierNameSyntax name
-            || !TryGetLiteralIndex(name.Identifier.ValueText, invocation.ArgumentList.Arguments.Count, overloads, out literalIndex))
+            || !TryGetLiteralIndex(name.Identifier.ValueText, invocation.ArgumentList.Arguments.Count, out literalIndex))
         {
             literalIndex = 0;
             return false;
@@ -120,21 +124,20 @@ public sealed class Psh1202StringBuilderAppendCharAnalyzer : DiagnosticAnalyzer
         return literalIndex == 0 || method.Parameters[0].Type.SpecialType == SpecialType.System_Int32;
     }
 
-    /// <summary>Maps a member name and argument count to the literal argument position, honoring the overload gates.</summary>
+    /// <summary>Maps a member name and argument count to the literal argument position.</summary>
     /// <param name="methodName">The invoked member name.</param>
     /// <param name="argumentCount">The invocation's argument count.</param>
-    /// <param name="overloads">The string builder char overloads available in this compilation.</param>
     /// <param name="literalIndex">The argument index that must be the single-character literal.</param>
-    /// <returns><see langword="true"/> when the member is a gated append shape.</returns>
-    private static bool TryGetLiteralIndex(string methodName, int argumentCount, in StringBuilderOverloads overloads, out int literalIndex)
+    /// <returns><see langword="true"/> when the member has an append or insert shape.</returns>
+    private static bool TryGetLiteralIndex(string methodName, int argumentCount, out int literalIndex)
     {
-        if (methodName == "Append" && argumentCount == AppendArgumentCount && overloads.HasAppendChar)
+        if (methodName == "Append" && argumentCount == AppendArgumentCount)
         {
             literalIndex = 0;
             return true;
         }
 
-        if (methodName == "Insert" && argumentCount == InsertArgumentCount && overloads.HasInsertChar)
+        if (methodName == "Insert" && argumentCount == InsertArgumentCount)
         {
             literalIndex = 1;
             return true;

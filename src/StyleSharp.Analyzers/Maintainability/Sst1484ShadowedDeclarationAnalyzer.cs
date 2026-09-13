@@ -26,10 +26,10 @@ namespace StyleSharp.Analyzers;
 /// <para>
 /// Ordered so the clean path never touches the semantic model. The member table is built once per type
 /// declaration and cached on the declaration node, so a local costs a parent walk and two hash probes; only
-/// the first declaration inside a type pays for the type symbol, and only a name that actually collides pays
-/// for the static-context walk or the assignment scan. A nested type's field or property is measured against
-/// its containing types' cached tables the same way, and a member of a non-nested type is rejected by a
-/// single parent probe before anything is looked up.
+/// the first candidate inside a type pays for the type symbol, and only a name that actually collides pays
+/// for the static-context walk. Parameters that feed a member are rejected first. A nested type's field or
+/// property is measured against its containing types' cached tables the same way, and a member of a
+/// non-nested type is rejected by a single parent probe before anything is looked up.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -52,7 +52,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Registers the per-compilation caches, then analyzes every declaration that introduces a name.</summary>
+    /// <summary>Defers the per-compilation caches until needed, then analyzes declarations that introduce names.</summary>
     /// <param name="context">The compilation start context.</param>
     /// <remarks>
     /// One <c>SingleVariableDesignation</c> registration covers every declaration the pattern forms
@@ -61,8 +61,8 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var tablesByType = new ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>();
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>();
+        var tablesByType = new Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>>(static () => new(concurrencyLevel: 4, capacity: 31));
+        var optionsByTree = new Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>>(static () => new(concurrencyLevel: 4, capacity: 31));
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, tablesByType, optionsByTree),
             SyntaxKind.Parameter,
@@ -79,8 +79,8 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
-        ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType,
+        Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>> optionsByTree)
     {
         switch (context.Node)
         {
@@ -129,7 +129,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeParameter(
         in SyntaxNodeAnalysisContext context,
         ParameterSyntax parameter,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType)
     {
         // A primary constructor's parameter — a positional record's included — is scoped over the type body
         // by design and exists to back a member, and a delegate's parameter has no body to be ambiguous in.
@@ -139,8 +139,9 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!TryGetShadowedMember(context, parameter, parameter.Identifier, tablesByType, out var member)
-            || FeedsShadowedMember(parameter, parameter.Identifier.ValueText))
+        if (!CanShadow(parameter.Identifier.ValueText)
+            || FeedsShadowedMember(parameter, parameter.Identifier.ValueText)
+            || !TryGetShadowedMember(context, parameter, parameter.Identifier, tablesByType, out var member))
         {
             return;
         }
@@ -160,8 +161,8 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeVariableDeclarator(
         in SyntaxNodeAnalysisContext context,
         VariableDeclaratorSyntax declarator,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
-        ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType,
+        Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>> optionsByTree)
     {
         if (declarator.Parent is not VariableDeclarationSyntax declaration)
         {
@@ -203,16 +204,16 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         VariableDeclaratorSyntax declarator,
         FieldDeclarationSyntax field,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
-        ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType,
+        Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>> optionsByTree)
     {
         if (TryReportNestedTypeMember(context, field, field.Modifiers, declarator.Identifier, tablesByType))
         {
             return;
         }
 
-        if (!GetOptions(context, optionsByTree).CheckBaseTypes
-            || ModifierListHelper.Contains(field.Modifiers, SyntaxKind.NewKeyword))
+        if (ModifierListHelper.Contains(field.Modifiers, SyntaxKind.NewKeyword)
+            || !GetOptions(context, optionsByTree).CheckBaseTypes)
         {
             return;
         }
@@ -241,7 +242,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeProperty(
         in SyntaxNodeAnalysisContext context,
         PropertyDeclarationSyntax property,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType)
     {
         if (property.ExplicitInterfaceSpecifier is not null)
         {
@@ -270,7 +271,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         MemberDeclarationSyntax member,
         in SyntaxTokenList modifiers,
         SyntaxToken identifier,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType)
     {
         if (member.Parent is not TypeDeclarationSyntax { Parent: TypeDeclarationSyntax } nestedType)
         {
@@ -315,7 +316,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         SyntaxNode declaration,
         SyntaxToken identifier,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType)
     {
         if (!TryGetShadowedMember(context, declaration, identifier, tablesByType, out var member))
         {
@@ -341,7 +342,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         SyntaxNode declaration,
         SyntaxToken identifier,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType,
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType,
         out ShadowedMember member)
     {
         member = default;
@@ -385,9 +386,10 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     private static ShadowedMemberTable GetTable(
         in SyntaxNodeAnalysisContext context,
         TypeDeclarationSyntax typeDeclaration,
-        ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable> tablesByType)
+        Lazy<ConcurrentDictionary<TypeDeclarationSyntax, ShadowedMemberTable>> tablesByType)
     {
-        if (tablesByType.TryGetValue(typeDeclaration, out var table))
+        var cache = tablesByType.Value;
+        if (cache.TryGetValue(typeDeclaration, out var table))
         {
             return table;
         }
@@ -395,7 +397,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         table = context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is INamedTypeSymbol type
             ? ShadowedMemberTable.Create(type)
             : ShadowedMemberTable.Empty;
-        _ = tablesByType.TryAdd(typeDeclaration, table);
+        _ = cache.TryAdd(typeDeclaration, table);
         return table;
     }
 
@@ -405,16 +407,17 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
     /// <returns>The resolved settings.</returns>
     private static ShadowedDeclarationOptions GetOptions(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions> optionsByTree)
+        Lazy<ConcurrentDictionary<SyntaxTree, ShadowedDeclarationOptions>> optionsByTree)
     {
+        var cache = optionsByTree.Value;
         var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
+        if (cache.TryGetValue(tree, out var options))
         {
             return options;
         }
 
         options = ShadowedDeclarationOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
+        _ = cache.TryAdd(tree, options);
         return options;
     }
 

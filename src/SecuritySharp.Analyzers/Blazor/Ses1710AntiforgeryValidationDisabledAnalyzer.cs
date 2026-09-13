@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -12,7 +14,7 @@ namespace SecuritySharp.Analyzers;
 /// a method -- whose <c>required</c> argument is the constant <c>false</c>, in either the named
 /// (<c>required: false</c>) or positional (<c>false</c>) form. A syntactic name screen runs before the attribute is
 /// bound, and the constructor's containing type is confirmed against the gated attribute. The attribute type is
-/// probed once per compilation and gates the rule, so a project without antiforgery pays nothing.
+/// probed on first demand per compilation, after the syntactic screen accepts a candidate.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAnalyzer
@@ -26,9 +28,6 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
     /// <summary>The name of the constructor parameter that, when false, disables antiforgery validation.</summary>
     private const string RequiredParameterName = "required";
 
-    /// <summary>The metadata name of the attribute whose <c>required: false</c> application disables validation.</summary>
-    private const string RequireAntiforgeryTokenAttributeMetadataName = "Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryTokenAttribute";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AntiforgeryValidationDisabled);
 
@@ -41,21 +40,17 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(RequireAntiforgeryTokenAttributeMetadataName) is not { } attributeType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, attributeType), SyntaxKind.Attribute);
+            var types = new AttributeTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAttribute(nodeContext, types), SyntaxKind.Attribute);
         });
     }
 
     /// <summary>Reports SES1710 for a <c>[RequireAntiforgeryToken(required: false)]</c> application.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributeType">The gated <c>RequireAntiforgeryTokenAttribute</c> type.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="types">The deferred <c>RequireAntiforgeryTokenAttribute</c> type.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, AttributeTypes types)
     {
         var attribute = (AttributeSyntax)context.Node;
 
@@ -67,7 +62,8 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+        if (types.Get() is not { } attributeType
+            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType)
             || !RequiredArgumentIsFalse(argumentList, constructor, context.SemanticModel, context.CancellationToken))
         {
@@ -136,4 +132,20 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
             AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
             _ => null,
         };
+
+    /// <summary>Resolves the antiforgery attribute on first demand, including missing results.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class AttributeTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the attribute whose <c>required: false</c> application disables validation.</summary>
+        private const string RequireAntiforgeryTokenAttributeMetadataName = "Microsoft.AspNetCore.Antiforgery.RequireAntiforgeryTokenAttribute";
+
+        /// <summary>The cached attribute type, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the antiforgery attribute type.</summary>
+        /// <returns>The attribute type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(RequireAntiforgeryTokenAttributeMetadataName)])[0];
+    }
 }

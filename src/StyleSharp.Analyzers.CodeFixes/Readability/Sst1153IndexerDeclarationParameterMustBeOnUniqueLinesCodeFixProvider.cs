@@ -56,8 +56,10 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
         node.ConvertNodeIfAble(
                static inner => inner.ParameterList?.Parameters,
                static (inner, parameters) => inner.WithParameterList(
-                   SyntaxFactory.BracketedParameterList(parameters)
-                       .WithOpenBracketToken(inner.ParameterList.OpenBracketToken
-                           .WithTrailingTrivia(UniqueLineCodeFixerHelperExtensions.GetEndOfLine(inner, elastic: true)))))
+                   SyntaxFactory.BracketedParameterList(
+                       inner.ParameterList.OpenBracketToken
+                           .WithTrailingTrivia(UniqueLineCodeFixerHelperExtensions.GetEndOfLine(inner, elastic: true)),
+                       parameters,
+                       SyntaxFactory.Token(SyntaxKind.CloseBracketToken))))
            ?? node;
 }

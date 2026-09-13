@@ -90,7 +90,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, ShiftCountOptions>();
+        var optionsByTree = new OptionsCache();
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree),
             SyntaxKind.LeftShiftExpression,
@@ -101,7 +101,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one shift whose constant count cannot mean what it says.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, ShiftCountOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, OptionsCache optionsByTree)
     {
         var shift = (BinaryExpressionSyntax)context.Node;
         if (IsCountAlwaysInRange(shift.Right))
@@ -127,7 +127,7 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (count == 0 && (DeclaresAnEnumMember(shift) || GetOptions(context, optionsByTree).AllowZeroShift))
+        if (count == 0 && (DeclaresAnEnumMember(shift) || optionsByTree.Get(context).AllowZeroShift))
         {
             return;
         }
@@ -165,25 +165,6 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    /// <summary>Reads the settings for the shift's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static ShiftCountOptions GetOptions(
-        in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, ShiftCountOptions> optionsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
-        {
-            return options;
-        }
-
-        options = ShiftCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
-        return options;
     }
 
     /// <summary>Returns whether a count is a plain literal that is in range for every operand this rule measures.</summary>
@@ -340,5 +321,32 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
         return effective == 0
             ? MasksToZeroClause
             : MasksToPrefix + effective.ToString(CultureInfo.InvariantCulture) + MasksToSuffix;
+    }
+
+    /// <summary>Allocates the per-tree settings cache only for a zero shift that needs its settings.</summary>
+    private sealed class OptionsCache
+    {
+        /// <summary>The initial capacity for trees containing a relevant zero shift.</summary>
+        private const int InitialTreeCapacity = 4;
+
+        /// <summary>The settings cache, created on first use.</summary>
+        private ConcurrentDictionary<SyntaxTree, ShiftCountOptions>? _optionsByTree;
+
+        /// <summary>Reads and caches the settings for the shift's tree.</summary>
+        /// <param name="context">The syntax node context.</param>
+        /// <returns>The resolved settings.</returns>
+        public ShiftCountOptions Get(in SyntaxNodeAnalysisContext context)
+        {
+            var optionsByTree = _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, ShiftCountOptions>(concurrencyLevel: 1, capacity: InitialTreeCapacity);
+            var tree = context.Node.SyntaxTree;
+            if (optionsByTree.TryGetValue(tree, out var options))
+            {
+                return options;
+            }
+
+            options = ShiftCountOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
+            _ = optionsByTree.TryAdd(tree, options);
+            return options;
+        }
     }
 }

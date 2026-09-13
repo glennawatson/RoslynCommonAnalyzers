@@ -50,21 +50,11 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var capabilities = ModernSyntaxReadabilityCapabilities.Create(start.Compilation);
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(AnalyzeDeclarationPattern, SyntaxKind.DeclarationPattern);
-            start.RegisterSyntaxNodeAction(AnalyzeLocalDeclaration, SyntaxKind.LocalDeclarationStatement);
-            start.RegisterSyntaxNodeAction(AnalyzeTupleArgument, SyntaxKind.Argument);
-
-            if (!capabilities.HasHashCodeCombine)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeHashReturn, SyntaxKind.ReturnStatement, SyntaxKind.ArrowExpressionClause);
-        });
+        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(AnalyzeDeclarationPattern, SyntaxKind.DeclarationPattern);
+        context.RegisterSyntaxNodeAction(AnalyzeLocalDeclaration, SyntaxKind.LocalDeclarationStatement);
+        context.RegisterSyntaxNodeAction(AnalyzeTupleArgument, SyntaxKind.Argument);
+        context.RegisterSyntaxNodeAction(AnalyzeHashReturn, SyntaxKind.ReturnStatement, SyntaxKind.ArrowExpressionClause);
     }
 
     /// <summary>Reports UTF-8 encoding calls over string literals.</summary>
@@ -177,7 +167,8 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     {
         if (!TryGetReturnedExpression(context.Node, out var expression)
             || !ModernSyntaxReadabilityAnalysis.IsGetHashCodeBody(expression, context.SemanticModel, context.CancellationToken)
-            || !ModernSyntaxReadabilityAnalysis.HasSafeHashCodeCombineInputs(expression, context.SemanticModel, context.CancellationToken))
+            || !ModernSyntaxReadabilityAnalysis.HasSafeHashCodeCombineInputs(expression, context.SemanticModel, context.CancellationToken)
+            || !ModernSyntaxReadabilityCapabilities.Create(context.Compilation).HasHashCodeCombine)
         {
             return;
         }
@@ -243,7 +234,7 @@ public sealed class ModernSyntaxReadabilityAnalyzer : DiagnosticAnalyzer
     private static bool IsLanguageVersionAtLeast(SyntaxNode node, LanguageVersion version) =>
         node.SyntaxTree.Options is CSharpParseOptions options && options.LanguageVersion >= version;
 
-    /// <summary>Capability flags resolved once per compilation.</summary>
+    /// <summary>Capability flags resolved for a reportable hash-code candidate.</summary>
     /// <param name="HasHashCodeCombine">Whether <c>System.HashCode.Combine</c> is available.</param>
     private readonly record struct ModernSyntaxReadabilityCapabilities(bool HasHashCodeCombine)
     {

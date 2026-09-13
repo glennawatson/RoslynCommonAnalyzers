@@ -91,15 +91,16 @@ public sealed class Sst2334MissingDebuggerDisplayCodeFixProvider : CodeFixProvid
         var newLine = LineEndingHelper.GetLineBreak(declaration);
 
         var attributeList = SyntaxFactory.AttributeList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Attribute(SyntaxFactory.ParseName(DebuggerDisplayAttributeName), SyntaxFactory.AttributeArgumentList(
-                            SyntaxFactory.SingletonSeparatedList(
-                                SyntaxFactory.AttributeArgument(
-                                    SyntaxFactory.LiteralExpression(
-                                        SyntaxKind.StringLiteralExpression,
-                                        SyntaxFactory.Literal(DisplayString(declaration)))))))))
-            .WithLeadingTrivia(leading)
-            .WithTrailingTrivia(newLine);
+            SyntaxFactory.Token(leading, SyntaxKind.OpenBracketToken, default),
+            target: null,
+            SyntaxFactory.SingletonSeparatedList(
+                SyntaxFactory.Attribute(SyntaxFactory.ParseName(DebuggerDisplayAttributeName), SyntaxFactory.AttributeArgumentList(
+                        SyntaxFactory.SingletonSeparatedList(
+                            SyntaxFactory.AttributeArgument(
+                                SyntaxFactory.LiteralExpression(
+                                    SyntaxKind.StringLiteralExpression,
+                                    SyntaxFactory.Literal(DisplayString(declaration)))))))),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBracketToken, SyntaxFactory.TriviaList(newLine)));
 
         var relocated = declaration.WithLeadingTrivia(indent);
         var updated = relocated.WithAttributeLists(relocated.AttributeLists.Insert(0, attributeList));

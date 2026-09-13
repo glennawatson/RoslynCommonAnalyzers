@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -65,12 +67,7 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var overloads = StartsWithOverloads.Resolve(start.Compilation);
-            if (!overloads.HasAny)
-            {
-                return;
-            }
-
+            var overloads = new StartsWithSupport(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeComparison(nodeContext, overloads),
                 SyntaxKind.EqualsExpression,
@@ -101,7 +98,10 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
     {
         var access = (MemberAccessExpressionSyntax)indexOf.Expression;
         var startsWith = indexOf.WithExpression(
-            access.WithName(SyntaxFactory.IdentifierName(StartsWithMethodName).WithTriviaFrom(access.Name)));
+            access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                access.Name.GetLeadingTrivia(),
+                StartsWithMethodName,
+                access.Name.GetTrailingTrivia()))));
 
         return comparison.IsKind(SyntaxKind.NotEqualsExpression)
             ? SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, startsWith)
@@ -124,8 +124,8 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1221 for a prefix question asked with a whole-string search.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The <c>StartsWith</c> overloads available in this compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, in StartsWithOverloads overloads)
+    /// <param name="overloads">The <c>StartsWith</c> overloads resolved on first demand.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, StartsWithSupport overloads)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (TryGetIndexOfCall(comparison) is not { } indexOf)
@@ -138,7 +138,7 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
         if (model.GetSymbolInfo(indexOf, cancellationToken).Symbol is not IMethodSymbol search
             || search.IsStatic
             || search.ContainingType.SpecialType != SpecialType.System_String
-            || !PreservesComparison(search, overloads)
+            || !PreservesComparison(search, overloads.Get())
             || SpanRewriteGuard.IsInsideExpressionTree(comparison, model, cancellationToken)
             || !RewriteBindsToStartsWith(model, comparison, indexOf, cancellationToken))
         {
@@ -233,5 +233,18 @@ public sealed class Psh1221UseStartsWithOverIndexOfAnalyzer : DiagnosticAnalyzer
 
             return new(hasChar, hasString, hasStringComparison);
         }
+    }
+
+    /// <summary>Resolves prefix-test overloads only after an IndexOf comparison matches.</summary>
+    /// <param name="compilation">The compilation whose overloads are cached.</param>
+    private sealed class StartsWithSupport(Compilation compilation)
+    {
+        /// <summary>The published overload result, including an empty overload set.</summary>
+        private StartsWithOverloads[]? _resolved;
+
+        /// <summary>Gets the overloads, resolving them on first demand.</summary>
+        /// <returns>The available prefix-test overloads.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public StartsWithOverloads Get() => (_resolved ??= [StartsWithOverloads.Resolve(compilation)])[0];
     }
 }

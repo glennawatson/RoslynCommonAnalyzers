@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -37,46 +39,6 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     /// <summary>The contextual keyword naming a property's compiler-synthesized backing field.</summary>
     private const string BackingFieldKeyword = "field";
 
-    /// <summary>The metadata names of member attributes that require the member to stay an instance method.</summary>
-    private static readonly string[] InstanceRequiringMemberAttributeNames =
-    [
-        "Xunit.FactAttribute",
-        "Xunit.TheoryAttribute",
-        "NUnit.Framework.TestAttribute",
-        "NUnit.Framework.TestCaseAttribute",
-        "NUnit.Framework.TestCaseSourceAttribute",
-        "NUnit.Framework.TheoryAttribute",
-        "NUnit.Framework.SetUpAttribute",
-        "NUnit.Framework.TearDownAttribute",
-        "NUnit.Framework.OneTimeSetUpAttribute",
-        "NUnit.Framework.OneTimeTearDownAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestInitializeAttribute",
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestCleanupAttribute",
-        "TUnit.Core.TestAttribute",
-        "TUnit.Core.BeforeAttribute",
-        "TUnit.Core.AfterAttribute",
-        "BenchmarkDotNet.Attributes.BenchmarkAttribute",
-        "BenchmarkDotNet.Attributes.GlobalSetupAttribute",
-        "BenchmarkDotNet.Attributes.GlobalCleanupAttribute",
-        "BenchmarkDotNet.Attributes.IterationSetupAttribute",
-        "BenchmarkDotNet.Attributes.IterationCleanupAttribute",
-        "System.Runtime.Serialization.OnSerializingAttribute",
-        "System.Runtime.Serialization.OnSerializedAttribute",
-        "System.Runtime.Serialization.OnDeserializingAttribute",
-        "System.Runtime.Serialization.OnDeserializedAttribute",
-    ];
-
-    /// <summary>The metadata names of type attributes whose members a framework reaches by reflection on an instance.</summary>
-    private static readonly string[] FixtureTypeAttributeNames =
-    [
-        "Microsoft.VisualStudio.TestTools.UnitTesting.TestClassAttribute",
-        "NUnit.Framework.TestFixtureAttribute",
-        "BenchmarkDotNet.Attributes.MemoryDiagnoserAttribute",
-        "BenchmarkDotNet.Attributes.SimpleJobAttribute",
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.MarkMembersStatic);
 
@@ -91,10 +53,9 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var memberMarkers = ResolveMarkers(start.Compilation, InstanceRequiringMemberAttributeNames);
-            var fixtureMarkers = ResolveMarkers(start.Compilation, FixtureTypeAttributeNames);
+            var markers = new Markers(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeMember(nodeContext, memberMarkers, fixtureMarkers),
+                nodeContext => AnalyzeMember(nodeContext, markers),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.PropertyDeclaration);
         });
@@ -135,21 +96,21 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1414 for a private or internal instance member that never reads <c>this</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="memberMarkers">The resolved attributes that pin a member to instance dispatch.</param>
-    /// <param name="fixtureMarkers">The resolved attributes that mark a type's members as reflection targets.</param>
-    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] memberMarkers, INamedTypeSymbol[] fixtureMarkers)
+    /// <param name="markers">The compilation's lazily resolved framework markers.</param>
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var member = (MemberDeclarationSyntax)context.Node;
         if (!IsEligibleDeclaration(member)
             || TryGetExecutableBody(member) is not { } body
+            || ReadsBackingField(member, body)
             || context.SemanticModel.GetDeclaredSymbol(member, context.CancellationToken) is not { } symbol
-            || HasAttributeFrom(symbol.GetAttributes(), memberMarkers)
-            || HasAttributeFrom(symbol.ContainingType.GetAttributes(), fixtureMarkers))
+            || HasAttributeFrom(symbol.GetAttributes(), markers.GetMemberMarkers())
+            || HasAttributeFrom(symbol.ContainingType.GetAttributes(), markers.GetFixtureMarkers()))
         {
             return;
         }
 
-        if (UsesInstanceState(context, body, symbol) || ReadsBackingField(member, body))
+        if (UsesInstanceState(context, body, symbol))
         {
             return;
         }
@@ -158,35 +119,6 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.MarkMembersStatic,
             GetIdentifier(member).GetLocation(),
             symbol.Name));
-    }
-
-    /// <summary>Resolves the non-null named-type symbols for a set of metadata names, right-sized.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <param name="metadataNames">The metadata names to resolve.</param>
-    /// <returns>The resolved markers, an array no longer than <paramref name="metadataNames"/> (empty when none resolve).</returns>
-    private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation, string[] metadataNames)
-    {
-        var buffer = new INamedTypeSymbol[metadataNames.Length];
-        var count = 0;
-        for (var i = 0; i < metadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
-            {
-                continue;
-            }
-
-            buffer[count] = marker;
-            count++;
-        }
-
-        if (count == buffer.Length)
-        {
-            return buffer;
-        }
-
-        var result = new INamedTypeSymbol[count];
-        Array.Copy(buffer, result, count);
-        return result;
     }
 
     /// <summary>Returns whether any of a member's or type's attributes binds to a resolved marker.</summary>
@@ -426,5 +358,97 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Gets or sets a value indicating whether the body reads instance state.</summary>
         public bool UsesInstance { get; set; }
+    }
+
+    /// <summary>Resolves framework markers only after a member passes the syntax checks.</summary>
+    /// <param name="compilation">The compilation whose markers are cached.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata names of member attributes that require the member to stay an instance method.</summary>
+        private static readonly string[] InstanceRequiringMemberAttributeNames =
+        [
+            "Xunit.FactAttribute",
+            "Xunit.TheoryAttribute",
+            "NUnit.Framework.TestAttribute",
+            "NUnit.Framework.TestCaseAttribute",
+            "NUnit.Framework.TestCaseSourceAttribute",
+            "NUnit.Framework.TheoryAttribute",
+            "NUnit.Framework.SetUpAttribute",
+            "NUnit.Framework.TearDownAttribute",
+            "NUnit.Framework.OneTimeSetUpAttribute",
+            "NUnit.Framework.OneTimeTearDownAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestMethodAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.DataTestMethodAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestInitializeAttribute",
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestCleanupAttribute",
+            "TUnit.Core.TestAttribute",
+            "TUnit.Core.BeforeAttribute",
+            "TUnit.Core.AfterAttribute",
+            "BenchmarkDotNet.Attributes.BenchmarkAttribute",
+            "BenchmarkDotNet.Attributes.GlobalSetupAttribute",
+            "BenchmarkDotNet.Attributes.GlobalCleanupAttribute",
+            "BenchmarkDotNet.Attributes.IterationSetupAttribute",
+            "BenchmarkDotNet.Attributes.IterationCleanupAttribute",
+            "System.Runtime.Serialization.OnSerializingAttribute",
+            "System.Runtime.Serialization.OnSerializedAttribute",
+            "System.Runtime.Serialization.OnDeserializingAttribute",
+            "System.Runtime.Serialization.OnDeserializedAttribute",
+        ];
+
+        /// <summary>The metadata names of type attributes whose members a framework reaches by reflection on an instance.</summary>
+        private static readonly string[] FixtureTypeAttributeNames =
+        [
+            "Microsoft.VisualStudio.TestTools.UnitTesting.TestClassAttribute",
+            "NUnit.Framework.TestFixtureAttribute",
+            "BenchmarkDotNet.Attributes.MemoryDiagnoserAttribute",
+            "BenchmarkDotNet.Attributes.SimpleJobAttribute",
+        ];
+
+        /// <summary>The resolved member markers, including an empty result when none exist.</summary>
+        private INamedTypeSymbol[]? _memberMarkers;
+
+        /// <summary>The resolved fixture markers, including an empty result when none exist.</summary>
+        private INamedTypeSymbol[]? _fixtureMarkers;
+
+        /// <summary>Gets the member markers, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The resolved member markers, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] GetMemberMarkers() =>
+            _memberMarkers ??= ResolveMarkers(compilation, InstanceRequiringMemberAttributeNames);
+
+        /// <summary>Gets the fixture markers, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The resolved fixture markers, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] GetFixtureMarkers() =>
+            _fixtureMarkers ??= ResolveMarkers(compilation, FixtureTypeAttributeNames);
+
+        /// <summary>Resolves the non-null named-type symbols for a set of metadata names, right-sized.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <param name="metadataNames">The metadata names to resolve.</param>
+        /// <returns>The resolved markers, an array no longer than <paramref name="metadataNames"/> (empty when none resolve).</returns>
+        private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation, string[] metadataNames)
+        {
+            var buffer = new INamedTypeSymbol[metadataNames.Length];
+            var count = 0;
+            for (var i = 0; i < metadataNames.Length; i++)
+            {
+                if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
+                {
+                    continue;
+                }
+
+                buffer[count] = marker;
+                count++;
+            }
+
+            if (count == buffer.Length)
+            {
+                return buffer;
+            }
+
+            var result = new INamedTypeSymbol[count];
+            Array.Copy(buffer, result, count);
+            return result;
+        }
     }
 }

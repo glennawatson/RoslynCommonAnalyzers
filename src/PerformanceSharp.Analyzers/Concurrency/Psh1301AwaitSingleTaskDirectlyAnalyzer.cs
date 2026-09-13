@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,12 +24,6 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the blocking task combinator.</summary>
     internal const string WaitAllMethodName = "WaitAll";
 
-    /// <summary>The metadata name of the non-generic task type.</summary>
-    private const string TaskMetadataName = "System.Threading.Tasks.Task";
-
-    /// <summary>The metadata name of the generic task type.</summary>
-    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.AwaitSingleTaskDirectly);
 
@@ -40,16 +36,10 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null)
-            {
-                return;
-            }
-
-            var taskOfTType = start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, taskType, taskOfTType), SyntaxKind.InvocationExpression);
+            var types = new TaskTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -78,12 +68,17 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1301 for a WhenAll/WaitAll invocation wrapping a single task.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The non-generic task type.</param>
-    /// <param name="taskOfTType">The generic task type, when it exists.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType, INamedTypeSymbol? taskOfTType)
+    /// <param name="types">The compilation's deferred task types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, TaskTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsSingleArgumentCombinatorShape(invocation, out var isWaitAll)
+        if (!IsSingleArgumentCombinatorShape(invocation, out var isWaitAll))
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } taskType
             || !BindsToTaskCombinator(context.SemanticModel, invocation, taskType, context.CancellationToken))
         {
             return;
@@ -91,7 +86,7 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
 
         var argument = invocation.ArgumentList.Arguments[0].Expression;
         var argumentType = context.SemanticModel.GetTypeInfo(argument, context.CancellationToken).Type;
-        if (!TryClassifyArgumentTask(argumentType, taskType, taskOfTType, out var isGenericTask))
+        if (!TryClassifyArgumentTask(argumentType, taskType, resolved[1], out var isGenericTask))
         {
             return;
         }
@@ -150,4 +145,27 @@ public sealed class Psh1301AwaitSingleTaskDirectlyAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for the <c>await Task.WhenAll(t);</c> statement shape.</returns>
     private static bool IsDirectlyAwaitedStatement(InvocationExpressionSyntax invocation) =>
         invocation.Parent is AwaitExpressionSyntax { Parent: ExpressionStatementSyntax };
+
+    /// <summary>Resolves task types only after a single-argument combinator is found.</summary>
+    /// <param name="compilation">The compilation whose task types are resolved.</param>
+    private sealed class TaskTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the non-generic task type.</summary>
+        private const string TaskMetadataName = "System.Threading.Tasks.Task";
+
+        /// <summary>The metadata name of the generic task type.</summary>
+        private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
+
+        /// <summary>The cached task types, including null entries for absent types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the non-generic and generic task types, resolving them on first demand.</summary>
+        /// <returns>The two task types, with null entries for absent types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(TaskMetadataName),
+            compilation.GetTypeByMetadataName(TaskOfTMetadataName),
+        ];
+    }
 }

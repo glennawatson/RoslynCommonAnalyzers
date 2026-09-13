@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -12,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// (<c>new TokenValidationParameters { ValidateIssuerSigningKey = false }</c>) -- when the assigned member's containing
 /// type is <c>TokenValidationParameters</c>. Either flag, once false, lets a forged or unsigned token pass validation,
 /// the most dangerous JWT misconfiguration. The issuer, audience, and lifetime flags are deliberately out of scope. The
-/// options type is probed once per compilation; a project without <c>Microsoft.IdentityModel</c> registers nothing and
-/// never receives a diagnostic it cannot act on.
+/// options type is resolved only after an assignment passes the syntax checks; a project without
+/// <c>Microsoft.IdentityModel</c> never receives a diagnostic it cannot act on.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAnalyzer
@@ -23,9 +25,6 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
 
     /// <summary>The property that, when true, verifies the token's signing key against the accepted keys.</summary>
     private const string ValidateIssuerSigningKeyPropertyName = "ValidateIssuerSigningKey";
-
-    /// <summary>The metadata name of the token-validation options type whose signature flags are guarded.</summary>
-    private const string TokenValidationParametersMetadataName = "Microsoft.IdentityModel.Tokens.TokenValidationParameters";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.JwtSignatureValidationDisabled);
@@ -39,22 +38,17 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var parametersType = start.Compilation.GetTypeByMetadataName(TokenValidationParametersMetadataName);
-            if (parametersType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, parametersType), SyntaxKind.SimpleAssignmentExpression);
+            var parameterTypes = new TokenValidationTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, parameterTypes), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1503 for a signature flag set to <c>false</c> on the gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="parametersType">The gated <c>TokenValidationParameters</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol parametersType)
+    /// <param name="parameterTypes">The token-validation type cache for this compilation.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, TokenValidationTypes parameterTypes)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -66,7 +60,8 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
+        if (parameterTypes.Get() is not { } parametersType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
             || !IsSignatureFlag(property.Name)
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, parametersType))
         {
@@ -100,4 +95,20 @@ public sealed class Ses1503JwtSignatureValidationDisabledAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> for <c>RequireSignedTokens</c> or <c>ValidateIssuerSigningKey</c>.</returns>
     private static bool IsSignatureFlag(string name) =>
         name is RequireSignedTokensPropertyName or ValidateIssuerSigningKeyPropertyName;
+
+    /// <summary>Resolves the token-validation options type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class TokenValidationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the token-validation options type whose signature flags are guarded.</summary>
+        private const string TokenValidationParametersMetadataName = "Microsoft.IdentityModel.Tokens.TokenValidationParameters";
+
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the token-validation options type, resolving it on first demand.</summary>
+        /// <returns>The options type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(TokenValidationParametersMetadataName)])[0];
+    }
 }

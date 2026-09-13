@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator</c> (reached through
 /// <c>OpenIdConnectOptions.ProtocolValidator</c>; disables the state or nonce check). Each protection defends the login
 /// against cross-site request forgery or token replay, so turning one off is a downgrade. The options type is probed
-/// once per compilation and gates the whole rule; the validator flags additionally require the validator type to
-/// resolve, so a project without OpenID Connect authentication registers nothing and never receives a diagnostic it
+/// only for a candidate assignment and gates the whole rule; the validator flags additionally require the validator
+/// type to resolve, so a project without OpenID Connect authentication never receives a diagnostic it
 /// cannot act on. The issuer/audience/lifetime and signature flags on <c>TokenValidationParameters</c> are a separate
 /// concern and are not reported here.
 /// </summary>
@@ -33,12 +35,6 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <summary>The flag that, when true, requires and validates the id-token nonce that defeats replay.</summary>
     private const string RequireNoncePropertyName = "RequireNonce";
 
-    /// <summary>The metadata name of the options type that carries <c>UsePkce</c> and the validator.</summary>
-    private const string OpenIdConnectOptionsMetadataName = "Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions";
-
-    /// <summary>The metadata name of the validator type that carries the state and nonce flags.</summary>
-    private const string OpenIdConnectProtocolValidatorMetadataName = "Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.OidcProtocolProtectionDisabled);
 
@@ -51,28 +47,17 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var optionsType = start.Compilation.GetTypeByMetadataName(OpenIdConnectOptionsMetadataName);
-            if (optionsType is null)
-            {
-                return;
-            }
-
-            // The state and nonce flags belong to the protocol validator, which an application reaches through the
-            // options' ProtocolValidator member and which ships in its own assembly. When that validator type is
-            // absent the state and nonce flags simply never match, while the PKCE flag stays guarded.
-            var validatorType = start.Compilation.GetTypeByMetadataName(OpenIdConnectProtocolValidatorMetadataName);
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, optionsType, validatorType), SyntaxKind.SimpleAssignmentExpression);
+            var types = new OidcTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1514 for a protocol-protection flag set to <c>false</c> on a gated type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>OpenIdConnectOptions</c> type resolved for the compilation.</param>
-    /// <param name="validatorType">The gated <c>OpenIdConnectProtocolValidator</c> type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType, INamedTypeSymbol? validatorType)
+    /// <param name="types">The compilation-scoped OpenID Connect type cache.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, OidcTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -84,13 +69,21 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
             return;
         }
 
+        var optionsType = types.GetOptions();
+        if (optionsType is null)
+        {
+            return;
+        }
+
         if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property)
         {
             return;
         }
 
         // UsePkce lives on the options type; the three Require* flags live on the validator type.
-        var expectedType = property.Name == UsePkcePropertyName ? optionsType : validatorType;
+        var expectedType = property.Name == UsePkcePropertyName
+            ? optionsType
+            : types.GetValidator();
         if (!SymbolEqualityComparer.Default.Equals(property.ContainingType, expectedType))
         {
             return;
@@ -124,4 +117,31 @@ public sealed class Ses1514OidcProtocolProtectionDisabledAnalyzer : DiagnosticAn
     /// <returns><see langword="true"/> for <c>UsePkce</c>, <c>RequireState</c>, <c>RequireStateValidation</c>, or <c>RequireNonce</c>.</returns>
     private static bool IsProtectionFlag(string name) =>
         name is UsePkcePropertyName or RequireStatePropertyName or RequireStateValidationPropertyName or RequireNoncePropertyName;
+
+    /// <summary>Resolves each OpenID Connect type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose OpenID Connect types are resolved.</param>
+    private sealed class OidcTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the options type that carries <c>UsePkce</c> and the validator.</summary>
+        private const string OpenIdConnectOptionsMetadataName = "Microsoft.AspNetCore.Authentication.OpenIdConnect.OpenIdConnectOptions";
+
+        /// <summary>The metadata name of the validator type that carries the state and nonce flags.</summary>
+        private const string OpenIdConnectProtocolValidatorMetadataName = "Microsoft.IdentityModel.Protocols.OpenIdConnect.OpenIdConnectProtocolValidator";
+
+        /// <summary>The cached options type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _options;
+
+        /// <summary>The cached validator type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _validator;
+
+        /// <summary>Resolves the options type on first demand and caches its absence too.</summary>
+        /// <returns>The options type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetOptions() => (_options ??= [compilation.GetTypeByMetadataName(OpenIdConnectOptionsMetadataName)])[0];
+
+        /// <summary>Resolves the validator type on first demand and caches its absence too.</summary>
+        /// <returns>The validator type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetValidator() => (_validator ??= [compilation.GetTypeByMetadataName(OpenIdConnectProtocolValidatorMetadataName)])[0];
+    }
 }

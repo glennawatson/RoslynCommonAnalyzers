@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -16,8 +18,7 @@ namespace SecuritySharp.Analyzers;
 /// (<c>new ForwardedHeadersOptions { ForwardLimit = null }</c>), which removes the cap on how many forwarded
 /// hops are honoured. In both shapes the accessed member is bound to its symbol and its containing type is
 /// confirmed to be <c>ForwardedHeadersOptions</c>, so a same-named member on any other type is ignored. The
-/// options type is probed once per compilation; a project without ASP.NET Core registers nothing and pays no
-/// analysis cost.
+/// options type is resolved only after a matching call or assignment survives the syntactic prefilter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : DiagnosticAnalyzer
@@ -43,9 +44,6 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
     /// <summary>The message argument used when the hop-limit is removed.</summary>
     private const string ForwardLimitNullDisplay = "ForwardLimit = null";
 
-    /// <summary>The metadata name of the forwarded-headers options type the rule gates on.</summary>
-    private const string OptionsMetadataName = "Microsoft.AspNetCore.Builder.ForwardedHeadersOptions";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.ForwardedHeadersTrustBoundaryRemoval);
 
@@ -58,22 +56,18 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(OptionsMetadataName) is not { } optionsType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeClearInvocation(nodeContext, optionsType), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeForwardLimitAssignment(nodeContext, optionsType), SyntaxKind.SimpleAssignmentExpression);
+            var types = new ForwardedHeadersTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeClearInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeForwardLimitAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1511 for a <c>.Clear()</c> call on a gated trusted-proxy/network list member.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeClearInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    /// <param name="types">The compilation-scoped forwarded-headers type cache.</param>
+    private static void AnalyzeClearInvocation(in SyntaxNodeAnalysisContext context, ForwardedHeadersTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -86,7 +80,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(listAccess, context.CancellationToken).Symbol is not IPropertySymbol property
+        if (types.Get() is not { } optionsType
+            || context.SemanticModel.GetSymbolInfo(listAccess, context.CancellationToken).Symbol is not IPropertySymbol property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, optionsType))
         {
             return;
@@ -101,8 +96,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
 
     /// <summary>Reports SES1511 for a <c>ForwardLimit = null</c> assignment on a gated options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="optionsType">The gated <c>ForwardedHeadersOptions</c> type.</param>
-    private static void AnalyzeForwardLimitAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol optionsType)
+    /// <param name="types">The compilation-scoped forwarded-headers type cache.</param>
+    private static void AnalyzeForwardLimitAssignment(in SyntaxNodeAnalysisContext context, ForwardedHeadersTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -113,7 +108,8 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: ForwardLimitPropertyName } property
+        if (types.Get() is not { } optionsType
+            || context.SemanticModel.GetSymbolInfo(memberExpression, context.CancellationToken).Symbol is not IPropertySymbol { Name: ForwardLimitPropertyName } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, optionsType))
         {
             return;
@@ -143,4 +139,20 @@ public sealed class Ses1511ForwardedHeadersTrustBoundaryRemovalAnalyzer : Diagno
 
             _ => null,
         };
+
+    /// <summary>Resolves the forwarded-headers options type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose options type is resolved.</param>
+    private sealed class ForwardedHeadersTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the forwarded-headers options type the rule gates on.</summary>
+        private const string OptionsMetadataName = "Microsoft.AspNetCore.Builder.ForwardedHeadersOptions";
+
+        /// <summary>The cached options type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the options type on first demand and caches its absence too.</summary>
+        /// <returns>The options type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(OptionsMetadataName)])[0];
+    }
 }

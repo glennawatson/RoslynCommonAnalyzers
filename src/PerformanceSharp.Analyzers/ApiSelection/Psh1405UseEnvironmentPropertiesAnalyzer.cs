@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -9,9 +11,9 @@ namespace PerformanceSharp.Analyzers;
 /// (PSH1405): <c>Process.GetCurrentProcess().Id</c>, <c>Process.GetCurrentProcess().MainModule.FileName</c>,
 /// and <c>Thread.CurrentThread.ManagedThreadId</c> allocate or indirect where
 /// <c>Environment.ProcessId</c>, <c>Environment.ProcessPath</c>, and
-/// <c>Environment.CurrentManagedThreadId</c> read the runtime state directly. Each chain is gated
-/// independently at compilation start on the matching <c>System.Environment</c> property existing
-/// in the referenced framework, so nothing is suggested where the replacement cannot compile.
+/// <c>Environment.CurrentManagedThreadId</c> read the runtime state directly. After a chain's syntax matches,
+/// the rule checks that its replacement <c>System.Environment</c> property exists in the referenced framework,
+/// so nothing is suggested where the replacement cannot compile.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
@@ -24,15 +26,6 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The Environment property replacing <c>Thread.CurrentThread.ManagedThreadId</c>.</summary>
     internal const string CurrentManagedThreadIdPropertyName = "CurrentManagedThreadId";
-
-    /// <summary>The metadata name of the environment type probed for the replacement properties.</summary>
-    private const string EnvironmentMetadataName = "System.Environment";
-
-    /// <summary>The metadata name of the process type the reported chains start from.</summary>
-    private const string ProcessMetadataName = "System.Diagnostics.Process";
-
-    /// <summary>The metadata name of the thread type the reported chains start from.</summary>
-    private const string ThreadMetadataName = "System.Threading.Thread";
 
     /// <summary>The name of the current-process factory method.</summary>
     private const string GetCurrentProcessMethodName = "GetCurrentProcess";
@@ -73,28 +66,10 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var environmentType = start.Compilation.GetTypeByMetadataName(EnvironmentMetadataName);
-            if (environmentType is null)
-            {
-                return;
-            }
-
-            var processType = start.Compilation.GetTypeByMetadataName(ProcessMetadataName);
-            var threadType = start.Compilation.GetTypeByMetadataName(ThreadMetadataName);
-            var gate = new EnvironmentGate(
-                processType,
-                threadType,
-                processType is not null && HasStaticProperty(environmentType, ProcessIdPropertyName),
-                processType is not null && HasStaticProperty(environmentType, ProcessPathPropertyName),
-                threadType is not null && HasStaticProperty(environmentType, CurrentManagedThreadIdPropertyName));
-            if (!gate.ReportProcessId && !gate.ReportProcessPath && !gate.ReportCurrentManagedThreadId)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, gate), SyntaxKind.SimpleMemberAccessExpression);
+            var markers = new Markers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, markers), SyntaxKind.SimpleMemberAccessExpression);
         });
     }
 
@@ -135,14 +110,16 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1405 for a chain whose replacement Environment property exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The per-compilation gate state.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, EnvironmentGate gate)
+    /// <param name="markers">The compilation's deferred framework gate.</param>
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!TryGetReplacementPropertyName(access, out var propertyName))
         {
             return;
         }
+
+        var gate = markers.Get();
 
         var (enabled, messageArg) = propertyName switch
         {
@@ -195,25 +172,7 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
             && invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: GetCurrentProcessMethodName }
                 or IdentifierNameSyntax { Identifier.ValueText: GetCurrentProcessMethodName };
 
-    /// <summary>Returns whether a type exposes a static property with the given name.</summary>
-    /// <param name="type">The type to probe.</param>
-    /// <param name="name">The property name to look for.</param>
-    /// <returns><see langword="true"/> when the probed property exists.</returns>
-    private static bool HasStaticProperty(INamedTypeSymbol type, string name)
-    {
-        var members = type.GetMembers(name);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IPropertySymbol { IsStatic: true })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Captures the per-compilation gate state resolved once at compilation start.</summary>
+    /// <summary>Captures the framework gate state resolved after a chain passes the syntax filter.</summary>
     /// <param name="ProcessType">The process type the reported chains start from, when it exists.</param>
     /// <param name="ThreadType">The thread type the reported chains start from, when it exists.</param>
     /// <param name="ReportProcessId">Whether <c>Environment.ProcessId</c> exists, enabling the process-id chain.</param>
@@ -225,4 +184,64 @@ public sealed class Psh1405UseEnvironmentPropertiesAnalyzer : DiagnosticAnalyzer
         bool ReportProcessId,
         bool ReportProcessPath,
         bool ReportCurrentManagedThreadId);
+
+    /// <summary>Resolves the framework gate once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose replacement properties are probed.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the environment type probed for the replacement properties.</summary>
+        private const string EnvironmentMetadataName = "System.Environment";
+
+        /// <summary>The metadata name of the process type the reported chains start from.</summary>
+        private const string ProcessMetadataName = "System.Diagnostics.Process";
+
+        /// <summary>The metadata name of the thread type the reported chains start from.</summary>
+        private const string ThreadMetadataName = "System.Threading.Thread";
+
+        /// <summary>The single cached gate, including a disabled gate when the environment type is absent.</summary>
+        private EnvironmentGate[]? _resolved;
+
+        /// <summary>Gets the framework gate after a chain passes the syntax filter.</summary>
+        /// <returns>The cached framework gate.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public EnvironmentGate Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the types and replacement properties required by the reported chains.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The available replacements, or a disabled gate when the environment type is absent.</returns>
+        private static EnvironmentGate Resolve(Compilation compilation)
+        {
+            if (compilation.GetTypeByMetadataName(EnvironmentMetadataName) is not { } environmentType)
+            {
+                return default;
+            }
+
+            var processType = compilation.GetTypeByMetadataName(ProcessMetadataName);
+            var threadType = compilation.GetTypeByMetadataName(ThreadMetadataName);
+            return new(
+                processType,
+                threadType,
+                processType is not null && HasStaticProperty(environmentType, ProcessIdPropertyName),
+                processType is not null && HasStaticProperty(environmentType, ProcessPathPropertyName),
+                threadType is not null && HasStaticProperty(environmentType, CurrentManagedThreadIdPropertyName));
+        }
+
+        /// <summary>Returns whether a type exposes a static property with the given name.</summary>
+        /// <param name="type">The type to probe.</param>
+        /// <param name="name">The property name to look for.</param>
+        /// <returns><see langword="true"/> when the probed property exists.</returns>
+        private static bool HasStaticProperty(INamedTypeSymbol type, string name)
+        {
+            var members = type.GetMembers(name);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IPropertySymbol { IsStatic: true })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

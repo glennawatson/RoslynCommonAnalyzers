@@ -12,17 +12,13 @@ namespace SecuritySharp.Analyzers;
 /// reports the flag assigned <c>true</c> -- written directly (<c>options.SerializeAllClaims = true</c>) or as an
 /// object-initializer member -- matched by symbol and containing type via <see cref="BlazorFlagAssignment"/>. The
 /// <c>Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions</c> type is probed
-/// once per compilation and gates the rule, so a project without WebAssembly auth-state serialization pays nothing.
+/// only after an assignment passes the name-and-literal screen.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The name of the flag whose <c>true</c> value serializes every claim into the client-readable state.</summary>
     private const string SerializeAllClaimsPropertyName = "SerializeAllClaims";
-
-    /// <summary>The metadata name of the options type that carries <c>SerializeAllClaims</c>.</summary>
-    private const string AuthenticationStateSerializationOptionsMetadataName =
-        "Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.SerializeAllClaimsEnabled);
@@ -36,25 +32,29 @@ public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(AuthenticationStateSerializationOptionsMetadataName) is not { } serializationOptions)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, serializationOptions), SyntaxKind.SimpleAssignmentExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, frameworkType), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1709 for <c>SerializeAllClaims = true</c> on the gated serialization-options type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="serializationOptions">The gated <c>AuthenticationStateSerializationOptions</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol serializationOptions)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
-        if (!BlazorFlagAssignment.AssignsFlag(
+        if (!assignment.Right.IsKind(SyntaxKind.TrueLiteralExpression)
+            || assignment.Left is not (MemberAccessExpressionSyntax { Name.Identifier.ValueText: SerializeAllClaimsPropertyName }
+                or IdentifierNameSyntax { Identifier.ValueText: SerializeAllClaimsPropertyName }))
+        {
+            return;
+        }
+
+        if (frameworkType.Get() is not { } serializationOptions
+            || !BlazorFlagAssignment.AssignsFlag(
                 assignment,
                 SyntaxKind.TrueLiteralExpression,
                 SerializeAllClaimsPropertyName,
@@ -69,5 +69,25 @@ public sealed class Ses1709SerializeAllClaimsAnalyzer : DiagnosticAnalyzer
             SecurityRules.SerializeAllClaimsEnabled,
             assignment.SyntaxTree,
             assignment.Span));
+    }
+
+    /// <summary>Resolves the serialization options type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the options type that carries <c>SerializeAllClaims</c>.</summary>
+        private const string AuthenticationStateSerializationOptionsMetadataName =
+            "Microsoft.AspNetCore.Components.WebAssembly.Server.AuthenticationStateSerializationOptions";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the serialization options type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(AuthenticationStateSerializationOptionsMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

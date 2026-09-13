@@ -59,11 +59,13 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
         var target = SyntaxFactory.ParseExpression($"{comparerSpelling}<{comparison.TypeParameter.Name}>.Default.Equals");
 
         var replacement = SyntaxFactory.InvocationExpression(
-                target,
-                SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(ImmutableArrays.Of(
+            target.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(ImmutableArrays.Of(
                     SyntaxFactory.Argument(comparison.Left.WithoutTrivia()),
-                    SyntaxFactory.Argument(comparison.Right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))))
-            .WithTriviaFrom(invocation);
+                    SyntaxFactory.Argument(null, default, comparison.Right.WithoutTrivia().WithLeadingTrivia(SyntaxFactory.Space)))),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         return new NodeReplacement(invocation, replacement);
     }

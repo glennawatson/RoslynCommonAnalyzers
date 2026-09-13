@@ -77,7 +77,11 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
     {
         var charLiteral = SyntaxFactory.LiteralExpression(
             SyntaxKind.CharacterLiteralExpression,
-            SyntaxFactory.Literal(literal.Token.ValueText[0])).WithTriviaFrom(literal);
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(literal.Token.ValueText[0], quote: true),
+                literal.Token.ValueText[0],
+                literal.GetTrailingTrivia()));
 
         var firstArgument = arguments.Arguments[0].WithExpression(charLiteral);
         return arguments.WithArguments(SyntaxFactory.SingletonSeparatedList(firstArgument));

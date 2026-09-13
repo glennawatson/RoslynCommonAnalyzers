@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,10 +14,10 @@ namespace StyleSharp.Analyzers;
 /// use-after-free window.
 /// </summary>
 /// <remarks>
-/// The prepass is ordered so a normal type exits early: the type must implement <c>IDisposable</c>, it
-/// must have an instance field of a pointer-ish type, and it must have no finalizer. Only a type that
-/// passes all three has its disposal path examined for the field being handed to a call — the proof
-/// that the handle is an owned resource rather than an opaque cookie. The rule stays silent unless
+/// The prepass is ordered so a normal type exits before metadata resolution: it must have no finalizer
+/// and must have an instance field of a pointer-ish type passed to a call on the disposal path — the
+/// proof that the handle is an owned resource rather than an opaque cookie. Only then are the disposal
+/// types resolved to check that the type implements <c>IDisposable</c>. The rule stays silent unless
 /// <c>System.Runtime.InteropServices.SafeHandle</c> resolves, so the suggestion always compiles.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -35,24 +37,18 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (DisposableTypes.Create(start.Compilation) is not { } types
-                || start.Compilation.GetTypeByMetadataName("System.Runtime.InteropServices.SafeHandle") is null)
-            {
-                return;
-            }
-
+            var types = new NativeResourceTypes(start.Compilation);
             start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, types), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Analyzes one named type for an owned native handle with no finalizer.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SymbolAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The disposal and safe-handle types resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, NativeResourceTypes types)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
-            || !types.ImplementsSyncDisposable(type)
             || HasFinalizer(type))
         {
             return;
@@ -62,7 +58,9 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
         var field = FindOwnedNativeField(members);
         if (field is null
             || !IsReleasedOnDisposalPath(members, field.Name, context.CancellationToken)
-            || field.Locations is not [var location, ..])
+            || field.Locations is not [var location, ..]
+            || types.Get() is not { } resolved
+            || !resolved.ImplementsSyncDisposable(type))
         {
             return;
         }
@@ -176,5 +174,29 @@ public sealed class Sst2317NativeResourceWithoutSafeHandleAnalyzer : DiagnosticA
     {
         /// <summary>Gets or sets a value indicating whether the field was found as a call argument.</summary>
         public bool Found { get; set; }
+    }
+
+    /// <summary>Resolves framework types once per compilation, only for an owned native field.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class NativeResourceTypes(Compilation compilation)
+    {
+        /// <summary>The cached disposal types, including an unavailable framework or safe handle.</summary>
+        private DisposableTypes?[]? _resolved;
+
+        /// <summary>Gets the disposal types when the framework also provides a safe handle.</summary>
+        /// <returns>The disposal types, or <see langword="null"/> when the required types are unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DisposableTypes? Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the disposal types and verifies safe-handle support.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>The disposal types, or <see langword="null"/> when the required types are unavailable.</returns>
+        private static DisposableTypes? Resolve(Compilation compilation)
+        {
+            var types = DisposableTypes.Create(compilation);
+            return types is not null && compilation.GetTypeByMetadataName("System.Runtime.InteropServices.SafeHandle") is not null
+                ? types
+                : null;
+        }
     }
 }

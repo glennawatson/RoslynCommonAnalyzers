@@ -154,10 +154,18 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
 
         var existing = SyntaxFactory.ExpressionStatement(expressionBody.Expression);
         var block = SyntaxFactory.Block(existing, suppress).WithAdditionalAnnotations(Formatter.Annotation);
-        return method
-            .WithExpressionBody(null)
-            .WithSemicolonToken(default)
-            .WithBody(block);
+        return method.Update(
+            method.AttributeLists,
+            method.Modifiers,
+            method.ReturnType,
+            method.ExplicitInterfaceSpecifier,
+            method.Identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            block,
+            expressionBody: null,
+            semicolonToken: default);
     }
 
     /// <summary>Builds the <c>GC.SuppressFinalize(this);</c> statement.</summary>

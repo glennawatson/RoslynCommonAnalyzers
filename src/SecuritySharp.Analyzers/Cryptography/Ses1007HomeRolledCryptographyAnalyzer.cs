@@ -14,9 +14,7 @@ namespace SecuritySharp.Analyzers;
 /// <c>HMACSHA256</c>, or <c>RSA</c>) to configure it is not reported: the walk stops at the first
 /// already-compiled algorithm in the chain, so only a chain that reaches a primitive base through source-only
 /// intermediates is flagged. The syntactic prefilter is a class with a base list; the semantic model is
-/// touched only once that shape matches. The rule resolves the primitive bases once per compilation and
-/// registers nothing when none are present, so a project without <c>System.Security.Cryptography</c> pays
-/// nothing.
+/// touched and the primitive bases resolved only once that shape matches.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1007HomeRolledCryptographyAnalyzer : DiagnosticAnalyzer
@@ -44,18 +42,7 @@ public sealed class Ses1007HomeRolledCryptographyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // Resolve the primitive bases once. Without System.Security.Cryptography none resolve, so nothing
-            // is registered and the clean path costs nothing.
-            var primitiveBases = ResolvePrimitiveBases(start.Compilation);
-            if (primitiveBases is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeClass(nodeContext, primitiveBases), SyntaxKind.ClassDeclaration);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeClass(nodeContext), SyntaxKind.ClassDeclaration);
     }
 
     /// <summary>Resolves the abstract primitive base symbols present in the compilation, or <see langword="null"/> when none are.</summary>
@@ -93,13 +80,18 @@ public sealed class Ses1007HomeRolledCryptographyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1007 for a class whose base chain reaches an abstract primitive base through source-only intermediates.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="primitiveBases">The resolved abstract primitive base symbols to match against.</param>
-    private static void AnalyzeClass(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] primitiveBases)
+    private static void AnalyzeClass(in SyntaxNodeAnalysisContext context)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
 
         // Syntactic prefilter: only a class with a base list can derive from a primitive base.
         if (classDeclaration.BaseList is not { Types.Count: > 0 })
+        {
+            return;
+        }
+
+        var primitiveBases = ResolvePrimitiveBases(context.Compilation);
+        if (primitiveBases is null)
         {
             return;
         }

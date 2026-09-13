@@ -176,18 +176,8 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <summary>Gets the line ending a declaration is already written with.</summary>
     /// <param name="node">The declaration to read.</param>
     /// <returns>The first line ending found, or a bare line feed when there is none.</returns>
-    private static string NewLineOf(SyntaxNode node)
-    {
-        foreach (var trivia in node.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia.ToFullString();
-            }
-        }
-
-        return "\n";
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static string NewLineOf(SyntaxNode node) => LineEndingHelper.GetLineBreak(node).ToFullString();
 
     /// <summary>Gets a method's leading trivia without its documentation comment.</summary>
     /// <param name="method">The classic extension method being moved.</param>
@@ -198,8 +188,9 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// </remarks>
     private static SyntaxTriviaList LayoutTriviaOf(MethodDeclarationSyntax method)
     {
-        var kept = new List<SyntaxTrivia>();
-        foreach (var trivia in method.GetLeadingTrivia())
+        var leadingTrivia = method.GetLeadingTrivia();
+        var kept = new List<SyntaxTrivia>(leadingTrivia.Count);
+        foreach (var trivia in leadingTrivia)
         {
             if (!trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
                 && !trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
@@ -216,8 +207,9 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The documentation trivia, or an empty list when the declaration has none.</returns>
     private static SyntaxTriviaList DocumentationOf(SyntaxNode node)
     {
-        var kept = new List<SyntaxTrivia>();
-        foreach (var trivia in node.GetLeadingTrivia())
+        var leadingTrivia = node.GetLeadingTrivia();
+        var kept = new List<SyntaxTrivia>(leadingTrivia.Count);
+        foreach (var trivia in leadingTrivia)
         {
             if (trivia.IsKind(SyntaxKind.SingleLineDocumentationCommentTrivia)
                 || trivia.IsKind(SyntaxKind.MultiLineDocumentationCommentTrivia))
@@ -447,7 +439,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return string.Empty;
         }
 
-        var rendered = new StringBuilder("<");
+        var rendered = new StringBuilder("<", parameters.Span.Length + parameters.Parameters.Count);
         for (var index = 0; index < parameters.Parameters.Count; index++)
         {
             if (index > 0)
@@ -471,7 +463,13 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return string.Empty;
         }
 
-        var rendered = new StringBuilder();
+        var capacity = clauses.Count;
+        for (var index = 0; index < clauses.Count; index++)
+        {
+            capacity += clauses[index].Span.Length;
+        }
+
+        var rendered = new StringBuilder(capacity);
         for (var index = 0; index < clauses.Count; index++)
         {
             _ = rendered.Append('\n').Append(clauses[index].NormalizeWhitespace().ToString());
@@ -543,7 +541,7 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// </remarks>
     private static string ReceiverModifierText(in SyntaxTokenList modifiers)
     {
-        var rendered = new StringBuilder();
+        var rendered = new StringBuilder(modifiers.Span.Length);
         for (var i = 0; i < modifiers.Count; i++)
         {
             if (modifiers[i].IsKind(SyntaxKind.ThisKeyword))
@@ -638,11 +636,18 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
 
         // The trivia goes on last: replacing the modifiers restores the tokens' own leading trivia,
         // which still carries the documentation this strips.
-        return method
-            .WithModifiers(WithoutStatic(method.Modifiers))
-            .WithTypeParameterList(split.MemberTypeParameters)
-            .WithConstraintClauses(split.MemberConstraints)
-            .WithParameterList(parameterList)
+        return method.Update(
+                method.AttributeLists,
+                WithoutStatic(method.Modifiers),
+                method.ReturnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                split.MemberTypeParameters,
+                parameterList,
+                split.MemberConstraints,
+                method.Body,
+                method.ExpressionBody,
+                method.SemicolonToken)
             .WithLeadingTrivia(WithoutMovedDocumentation(method.GetLeadingTrivia(), receiverName, split));
     }
 

@@ -71,9 +71,13 @@ public sealed class Psh1419PreferBuiltInTimeZoneCodeFixProvider : CodeFixProvide
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.IdentifierName(SystemNamespaceName),
+                    SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                        invocation.GetLeadingTrivia(),
+                        SystemNamespaceName,
+                        SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
                     SyntaxFactory.IdentifierName(TimeZoneInfoTypeName)),
+                SyntaxFactory.Token(SyntaxKind.DotToken),
                 SyntaxFactory.IdentifierName(FindSystemTimeZoneByIdMethodName)),
-            invocation.ArgumentList.WithoutTrivia())
-            .WithTriviaFrom(invocation);
+            invocation.ArgumentList.WithoutLeadingTrivia());
 }

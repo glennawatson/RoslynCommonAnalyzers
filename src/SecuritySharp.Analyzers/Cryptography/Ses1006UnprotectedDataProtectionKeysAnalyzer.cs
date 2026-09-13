@@ -21,8 +21,7 @@ namespace SecuritySharp.Analyzers;
 /// parameter is the gated builder), so a same-named method on an unrelated type is never matched. The scan
 /// is a purely local ancestor/descendant walk: no data flow, and a persistence and protection call split
 /// across separate non-chained statements are deliberately left alone. <c>IDataProtectionBuilder</c> is
-/// probed once per compilation; a project without ASP.NET Core Data Protection registers nothing and pays
-/// nothing.
+/// probed once per compilation, only after a persistence call with an enclosing scope is found.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAnalyzer
@@ -61,37 +60,34 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var builderType = start.Compilation.GetTypeByMetadataName(DataProtectionBuilderMetadataName);
-            if (builderType is null)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var builderType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(DataProtectionBuilderMetadataName));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1006 for a <c>PersistKeysTo*</c> call whose scope holds no <c>ProtectKeysWith*</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The gated <c>IDataProtectionBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="builderType">The <c>IDataProtectionBuilder</c> type resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> builderType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a member-access persistence call. The builder receiver is required, so
         // an unqualified identifier can never reach the extension method and is ignored.
         if (GetCalleeName(invocation.Expression) is not { } persistName
-            || !NameMatches(persistName.Identifier.ValueText, PersistMethodNames))
+            || !NameMatches(persistName.Identifier.ValueText, PersistMethodNames)
+            || GetChainScope(invocation) is not { } scope)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsBuilderExtension(method, builderType)
-            || GetChainScope(invocation) is not { } scope
-            || ScopeProtectsKeys(scope, context.SemanticModel, builderType, context.CancellationToken))
+        if (builderType.Value is not { } resolvedBuilderType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+            || !IsBuilderExtension(method, resolvedBuilderType)
+            || ScopeProtectsKeys(scope, context.SemanticModel, resolvedBuilderType, context.CancellationToken))
         {
             return;
         }

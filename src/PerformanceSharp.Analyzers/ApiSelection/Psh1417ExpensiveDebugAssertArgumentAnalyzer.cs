@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -41,9 +43,6 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
     /// <summary>The nested handler type whose presence means an interpolated message is deferred.</summary>
     private const string AssertHandlerTypeName = "AssertInterpolatedStringHandler";
 
-    /// <summary>The metadata name of the debug type that hosts Assert.</summary>
-    private const string DebugMetadataName = "System.Diagnostics.Debug";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.ExpensiveDebugAssertArgument);
 
@@ -56,14 +55,10 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(DebugMetadataName) is not { } debugType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, debugType), SyntaxKind.InvocationExpression);
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkTypes), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -105,11 +100,19 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
 
     /// <summary>Reports PSH1417 for each expensive argument of a <c>Debug.Assert</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="debugType">The <c>System.Diagnostics.Debug</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol debugType)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsDebugAssertShape(invocation)
+        if (!IsDebugAssertShape(invocation))
+        {
+            return;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        var firstCandidate = GetFirstMessageCandidate(arguments);
+        if (firstCandidate < 0
+            || frameworkTypes.Get() is not [var debugType]
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol
                 is not IMethodSymbol { IsStatic: true, Name: AssertMethodName } assert
             || !SymbolEqualityComparer.Default.Equals(assert.ContainingType, debugType))
@@ -120,8 +123,7 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
         // The condition is skipped. In a release build the whole call, arguments included, is compiled
         // away; in a debug build the condition has to run for the assertion to mean anything. Only a
         // message argument can be work that is done and then thrown away.
-        var arguments = invocation.ArgumentList.Arguments;
-        for (var i = 1; i < arguments.Count; i++)
+        for (var i = firstCandidate; i < arguments.Count; i++)
         {
             var argument = arguments[i].Expression;
             if (!IsExpensive(context.SemanticModel, argument, DefersInterpolation(debugType), context.CancellationToken))
@@ -134,6 +136,24 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
                 argument.GetLocation(),
                 argument.ToString()));
         }
+    }
+
+    /// <summary>Finds the first message whose syntax could require work to produce.</summary>
+    /// <param name="arguments">The assertion arguments, with the condition in the first position.</param>
+    /// <returns>The first candidate message index, or -1 when every message is syntactically cheap.</returns>
+    private static int GetFirstMessageCandidate(SeparatedSyntaxList<ArgumentSyntax> arguments)
+    {
+        for (var i = 1; i < arguments.Count; i++)
+        {
+            var argument = arguments[i].Expression;
+            if (argument is InterpolatedStringExpressionSyntax { Contents.Count: > 0 }
+                || ContainsCall(argument))
+            {
+                return i;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>Returns whether the assertion's message is built even on the calls that pass.</summary>
@@ -194,5 +214,27 @@ public sealed class Psh1417ExpensiveDebugAssertArgumentAnalyzer : DiagnosticAnal
     {
         /// <summary>Gets or sets a value indicating whether a call or object creation was found.</summary>
         public bool Found { get; set; }
+    }
+
+    /// <summary>Resolves the Debug type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the debug type that hosts Assert.</summary>
+        private const string DebugMetadataName = "System.Diagnostics.Debug";
+
+        /// <summary>The cached type, empty when unavailable and null before resolution.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the Debug type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the Debug type from the compilation's references.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(DebugMetadataName) is { } type ? [type] : [];
     }
 }

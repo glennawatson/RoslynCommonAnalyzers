@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,26 +14,15 @@ namespace StyleSharp.Analyzers;
 /// multithreaded apartment.
 /// </summary>
 /// <remarks>
-/// The rule is gated at compilation start on <c>System.Windows.Forms.Application</c> and
-/// <c>System.STAThreadAttribute</c> resolving, so a non-Windows-Forms project registers nothing, and the
-/// suggested attribute is never offered against a target framework that lacks it. The entry point is resolved
-/// once through <see cref="Compilation.GetEntryPoint(CancellationToken)"/>; when it already
-/// declares an apartment attribute no syntax callback is registered at all. Otherwise a single
-/// <c>MethodDeclaration</c> action fires, pre-filtered on the <c>Main</c> name before it binds, and reports the
-/// one declaration whose symbol is the entry point.
+/// A <c>MethodDeclaration</c> action filters on the <c>Main</c> name before resolving
+/// <c>System.Windows.Forms.Application</c> and <c>System.STAThreadAttribute</c>. The suggested attribute is
+/// never offered against a target framework that lacks it. The entry point is resolved through
+/// <see cref="Compilation.GetEntryPoint(CancellationToken)"/>, and only its declaration is reported when
+/// it carries neither apartment attribute.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2706StaThreadEntryPointAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the Windows Forms application type the rule gates on.</summary>
-    private const string ApplicationMetadataName = "System.Windows.Forms.Application";
-
-    /// <summary>The metadata name of the single-threaded apartment attribute the fix would add.</summary>
-    private const string StaThreadMetadataName = "System.STAThreadAttribute";
-
-    /// <summary>The metadata name of the multithreaded apartment attribute that also states an apartment.</summary>
-    private const string MtaThreadMetadataName = "System.MTAThreadAttribute";
-
     /// <summary>The name a program entry point method always carries.</summary>
     private const string EntryPointName = "Main";
 
@@ -46,44 +37,39 @@ public sealed class Sst2706StaThreadEntryPointAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var markers = new ApartmentMarkers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, markers), SyntaxKind.MethodDeclaration);
+        });
     }
 
-    /// <summary>Registers the rule only for a Windows Forms compilation whose entry point states no apartment.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
+    /// <summary>Reports the entry-point declaration that lacks an apartment attribute.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="markers">The compilation's lazily resolved apartment types.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ApartmentMarkers markers)
     {
-        var compilation = context.Compilation;
-        if (compilation.GetTypeByMetadataName(ApplicationMetadataName) is null
-            || compilation.GetTypeByMetadataName(StaThreadMetadataName) is not { } staThreadType)
+        var method = (MethodDeclarationSyntax)context.Node;
+
+        // Cheap name prefilter: only a declaration named 'Main' can be reported.
+        if (!string.Equals(method.Identifier.ValueText, EntryPointName, StringComparison.Ordinal))
         {
             return;
         }
 
-        var entryPoint = compilation.GetEntryPoint(context.CancellationToken);
+        if (markers.GetStaThread() is not { } staThreadType)
+        {
+            return;
+        }
+
+        var entryPoint = context.Compilation.GetEntryPoint(context.CancellationToken);
         if (entryPoint is null)
         {
             return;
         }
 
-        var mtaThreadType = compilation.GetTypeByMetadataName(MtaThreadMetadataName);
+        var mtaThreadType = markers.GetMtaThread();
         if (DeclaresApartment(entryPoint, staThreadType, mtaThreadType))
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, entryPoint), SyntaxKind.MethodDeclaration);
-    }
-
-    /// <summary>Reports the entry-point declaration that lacks an apartment attribute.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="entryPoint">The resolved entry-point symbol the rule reports.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, IMethodSymbol entryPoint)
-    {
-        var method = (MethodDeclarationSyntax)context.Node;
-
-        // Cheap name prefilter: only the entry point can be named 'Main', so nothing else is bound.
-        if (!string.Equals(method.Identifier.ValueText, EntryPointName, StringComparison.Ordinal))
         {
             return;
         }
@@ -124,5 +110,44 @@ public sealed class Sst2706StaThreadEntryPointAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves apartment types on demand and caches missing framework types too.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class ApartmentMarkers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the Windows Forms application type the rule gates on.</summary>
+        private const string ApplicationMetadataName = "System.Windows.Forms.Application";
+
+        /// <summary>The metadata name of the single-threaded apartment attribute the fix would add.</summary>
+        private const string StaThreadMetadataName = "System.STAThreadAttribute";
+
+        /// <summary>The metadata name of the multithreaded apartment attribute that also states an apartment.</summary>
+        private const string MtaThreadMetadataName = "System.MTAThreadAttribute";
+
+        /// <summary>The gated STA result, or null before the first Main declaration.</summary>
+        private INamedTypeSymbol?[]? _staThread;
+
+        /// <summary>The MTA result, or null before an entry point needs its attributes checked.</summary>
+        private INamedTypeSymbol?[]? _mtaThread;
+
+        /// <summary>Gets the STA attribute only when the Windows Forms application type exists.</summary>
+        /// <returns>The STA attribute type, or null when either required type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetStaThread() => (_staThread ??= [ResolveStaThread(compilation)])[0];
+
+        /// <summary>Gets the MTA attribute, resolving it on first demand.</summary>
+        /// <returns>The MTA attribute type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetMtaThread() => (_mtaThread ??= [compilation.GetTypeByMetadataName(MtaThreadMetadataName)])[0];
+
+        /// <summary>Resolves the STA attribute after checking for Windows Forms.</summary>
+        /// <param name="compilation">The compilation whose types are resolved.</param>
+        /// <returns>The STA attribute type, or null when either required type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static INamedTypeSymbol? ResolveStaThread(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(ApplicationMetadataName) is null
+                ? null
+                : compilation.GetTypeByMetadataName(StaThreadMetadataName);
     }
 }

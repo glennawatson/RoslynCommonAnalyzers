@@ -108,8 +108,10 @@ public sealed class Psh1112SeedCollectionFromSourceCodeFixProvider : CodeFixProv
             var spread = SyntaxFactory.SpreadElement(
                 SyntaxFactory.Token(default, SyntaxKind.DotDotToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 source);
-            return SyntaxFactory.CollectionExpression(SyntaxFactory.SingletonSeparatedList<CollectionElementSyntax>(spread))
-                .WithTriviaFrom(shape.Creation);
+            return SyntaxFactory.CollectionExpression(
+                SyntaxFactory.Token(shape.Creation.GetLeadingTrivia(), SyntaxKind.OpenBracketToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.SingletonSeparatedList<CollectionElementSyntax>(spread),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, shape.Creation.GetTrailingTrivia()));
         }
 
         return shape.Creation.WithArgumentList(

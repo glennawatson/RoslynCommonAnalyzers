@@ -114,10 +114,9 @@ public sealed class ModernSyntaxStyleCodeFixProvider : CodeFixProvider, IBatchFi
         }
 
         return SyntaxFactory.ImplicitObjectCreationExpression(
-                objectCreation.NewKeyword.WithTrailingTrivia(),
-                argumentList,
-                objectCreation.Initializer)
-            .WithTriviaFrom(objectCreation);
+            objectCreation.NewKeyword.WithTrailingTrivia(),
+            argumentList,
+            objectCreation.Initializer);
     }
 
     /// <summary>Creates a from-end index replacement.</summary>
@@ -139,7 +138,12 @@ public sealed class ModernSyntaxStyleCodeFixProvider : CodeFixProvider, IBatchFi
             binary.Right.WithoutTrivia());
 
         oldNode = argument;
-        return argument.WithExpression(hatExpression).WithTriviaFrom(argument);
+        return argument.Update(
+            argument.NameColon,
+            argument.RefKindKeyword,
+            argument.NameColon is null && argument.RefKindKeyword.RawKind == 0
+                ? hatExpression.WithTriviaFrom(argument)
+                : hatExpression.WithTrailingTrivia(argument.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a string range replacement for a <c>Substring</c> invocation.</summary>

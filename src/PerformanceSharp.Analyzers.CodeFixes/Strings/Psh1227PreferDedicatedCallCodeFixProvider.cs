@@ -72,8 +72,10 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
         string replacementName,
         int dropIndex)
     {
+        const int partsPerArgument = 2;
         var arguments = invocation.ArgumentList.Arguments;
-        var parts = new List<SyntaxNodeOrToken>();
+        var parts = new SyntaxNodeOrToken[((arguments.Count - 1) * partsPerArgument) - 1];
+        var write = 0;
         for (var i = 0; i < arguments.Count; i++)
         {
             if (i == dropIndex)
@@ -81,18 +83,20 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
                 continue;
             }
 
-            if (parts.Count > 0)
+            if (write > 0)
             {
-                parts.Add(CommaWithTrailingSpace());
+                parts[write] = CommaWithTrailingSpace();
+                write++;
             }
 
-            parts.Add(arguments[i].WithoutTrivia());
+            parts[write] = arguments[i].WithoutTrivia();
+            write++;
         }
 
         var renamedAccess = access.WithName(SyntaxFactory.IdentifierName(replacementName));
-        return invocation
-            .WithExpression(renamedAccess)
-            .WithArgumentList(invocation.ArgumentList.WithArguments(SyntaxFactory.SeparatedList<ArgumentSyntax>(parts)))
+        return invocation.Update(
+            renamedAccess,
+            invocation.ArgumentList.WithArguments(SyntaxFactory.SeparatedList<ArgumentSyntax>(parts)))
             .WithTriviaFrom(invocation);
     }
 

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -29,9 +31,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the debugger-display attribute the rule and its fix depend on.</summary>
-    private const string DebuggerDisplayMetadataName = "System.Diagnostics.DebuggerDisplayAttribute";
-
     /// <summary>The name of the method whose override makes a <c>ToString</c>-based display string meaningful.</summary>
     private const string ToStringName = "ToString";
 
@@ -50,19 +49,15 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(DebuggerDisplayMetadataName) is not { } attribute)
-            {
-                return;
-            }
-
+            var attribute = new DebuggerDisplayType(start.Compilation);
             start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, attribute), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports a publicly visible type with no debugger-display attribute.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="attributeType">The resolved debugger-display attribute type.</param>
-    private static void Analyze(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="attribute">The debugger-display attribute resolved on first demand.</param>
+    private static void Analyze(in SymbolAnalysisContext context, DebuggerDisplayType attribute)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
@@ -70,8 +65,9 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
             || !SymbolVisibility.IsExternallyVisible(type)
             || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource
-            || HasDebuggerDisplay(type, attributeType)
-            || !HasDisplayableState(type))
+            || !HasDisplayableState(type)
+            || attribute.Get() is not { } attributeType
+            || HasDebuggerDisplay(type, attributeType))
         {
             return;
         }
@@ -135,5 +131,21 @@ public sealed class Sst2334MissingDebuggerDisplayAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the attribute only for a visible type with displayable state.</summary>
+    /// <param name="compilation">The compilation whose attribute is cached.</param>
+    private sealed class DebuggerDisplayType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the debugger-display attribute.</summary>
+        private const string DebuggerDisplayMetadataName = "System.Diagnostics.DebuggerDisplayAttribute";
+
+        /// <summary>The published attribute result, including an absent attribute.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the attribute type, resolving it on first demand.</summary>
+        /// <returns>The attribute type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(DebuggerDisplayMetadataName)])[0];
     }
 }

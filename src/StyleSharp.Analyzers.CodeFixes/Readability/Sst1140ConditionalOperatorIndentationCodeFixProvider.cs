@@ -66,14 +66,29 @@ public sealed class Sst1140ConditionalOperatorIndentationCodeFixProvider : CodeF
     /// <returns>The updated document.</returns>
     internal static Document Apply(Document document, SourceText text, SyntaxNode root, Diagnostic diagnostic)
     {
-        var changes = new List<TextChange>();
         if (!TryFindConditional(root, diagnostic, out var conditional))
         {
             return document;
         }
 
-        AppendChanges(text, conditional, changes);
-        return changes.Count == 0 ? document : document.WithText(text.WithChanges(changes));
+        var conditionLast = conditional.Condition.GetLastToken();
+        var whenTrueFirst = conditional.WhenTrue.GetFirstToken();
+        var whenTrueLast = conditional.WhenTrue.GetLastToken();
+        var whenFalseFirst = conditional.WhenFalse.GetFirstToken();
+        if (!CanReplaceOperatorGap(text, conditionLast, conditional.QuestionToken, whenTrueFirst)
+            || !CanReplaceOperatorGap(text, whenTrueLast, conditional.ColonToken, whenFalseFirst))
+        {
+            return document;
+        }
+
+        var newLine = LayoutFixHelpers.DetectNewLine(text);
+        var indent = LayoutFixHelpers.IndentOfLine(text, conditional.GetFirstToken().SpanStart) + LayoutFixHelpers.IndentStep;
+        var changes = new TextChange[]
+        {
+            new(TextSpan.FromBounds(conditionLast.Span.End, whenTrueFirst.SpanStart), $"{newLine}{indent}? "),
+            new(TextSpan.FromBounds(whenTrueLast.Span.End, whenFalseFirst.SpanStart), $"{newLine}{indent}: "),
+        };
+        return document.WithText(text.WithChanges(changes));
     }
 
     /// <summary>Returns whether the diagnostic can be fixed without touching non-whitespace trivia.</summary>

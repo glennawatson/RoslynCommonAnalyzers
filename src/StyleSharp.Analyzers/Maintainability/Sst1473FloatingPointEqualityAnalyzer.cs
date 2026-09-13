@@ -109,11 +109,12 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
         _ => false,
     };
 
-    /// <summary>Registers the per-compilation state, then analyzes every equality and relational comparison.</summary>
+    /// <summary>Defers the settings cache until needed, then analyzes every equality and relational comparison.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>();
+        var optionsByTree = new Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>>(
+            static () => new(concurrencyLevel: 1, capacity: 4));
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree),
             SyntaxKind.EqualsExpression,
@@ -136,7 +137,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <c>Equals</c> never reaches the semantic model. A NaN or infinity operand is left alone: unlike the
     /// operator, <c>Equals</c> answers true for both, so the call is a working test rather than a defect.
     /// </remarks>
-    private static void AnalyzeEqualsCall(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
+    private static void AnalyzeEqualsCall(in SyntaxNodeAnalysisContext context, Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsEqualsCallShaped(invocation, out var receiver))
@@ -196,7 +197,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         ExpressionSyntax argument,
         ExpressionSyntax? receiver,
-        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
+        Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree) =>
         IsZeroLiteral(argument)
             && (receiver is null || !IsZeroLiteral(receiver))
             && GetOptions(context, optionsByTree).AllowZeroComparison;
@@ -236,7 +237,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one comparison that cannot answer the question it appears to ask.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         var isEquality = binary.RawKind is (int)SyntaxKind.EqualsExpression or (int)SyntaxKind.NotEqualsExpression;
@@ -342,8 +343,8 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     private static bool IsAllowedEqualityMemberComparison(
         in SyntaxNodeAnalysisContext context,
         SyntaxNode comparison,
-        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
-        GetOptions(context, optionsByTree).AllowEqualityMemberComparison && IsInsideEqualityMember(comparison);
+        Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree) =>
+        IsInsideEqualityMember(comparison) && GetOptions(context, optionsByTree).AllowEqualityMemberComparison;
 
     /// <summary>Returns whether a node sits inside a member that implements equality, hashing, or ordering.</summary>
     /// <param name="comparison">The comparison being judged.</param>
@@ -501,7 +502,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     private static bool IsAllowedZeroComparison(
         in SyntaxNodeAnalysisContext context,
         BinaryExpressionSyntax binary,
-        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree) =>
+        Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree) =>
         (IsZeroLiteral(binary.Left) || IsZeroLiteral(binary.Right))
             && GetOptions(context, optionsByTree).AllowZeroComparison;
 
@@ -511,16 +512,17 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     /// <returns>The resolved settings.</returns>
     private static FloatingPointComparisonOptions GetOptions(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions> optionsByTree)
+        Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree)
     {
+        var cache = optionsByTree.Value;
         var tree = context.Node.SyntaxTree;
-        if (optionsByTree.TryGetValue(tree, out var options))
+        if (cache.TryGetValue(tree, out var options))
         {
             return options;
         }
 
         options = FloatingPointComparisonOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
-        _ = optionsByTree.TryAdd(tree, options);
+        _ = cache.TryAdd(tree, options);
         return options;
     }
 

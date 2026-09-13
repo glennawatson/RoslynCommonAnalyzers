@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,9 +16,9 @@ namespace PerformanceSharp.Analyzers;
 /// PSH1600, which owns the delegate case.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on
-/// <c>Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder</c> resolving; a project that does not
-/// reference Blazor registers no syntax action. On the clean path a candidate invocation fails fast on
+/// The render-tree builder and query types are resolved once per compilation, after a candidate passes
+/// the syntax checks. A project that does not reference Blazor reports nothing.
+/// On the clean path a candidate invocation fails fast on
 /// syntax — its invoked member must be named <c>AddComponentParameter</c> with at least three arguments,
 /// its value argument must be an allocation syntax, and its nearest enclosing statement (reached without
 /// crossing a lambda or local function) must be a <c>for</c>/<c>foreach</c> — before any binding. The
@@ -28,12 +30,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the render-tree builder whose presence proves a Blazor project.</summary>
-    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
-
-    /// <summary>The metadata name of the query type whose materializing calls allocate a fresh collection.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The name of the builder method that sets a child component's parameter.</summary>
     private const string AddComponentParameterMethodName = "AddComponentParameter";
 
@@ -56,21 +52,15 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var renderTreeBuilder = start.Compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName);
-            if (renderTreeBuilder is null)
-            {
-                return;
-            }
-
-            var gate = new AllocationGate(renderTreeBuilder, start.Compilation.GetTypeByMetadataName(EnumerableMetadataName));
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
+            var types = new AllocationTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1603 when a component-parameter value inside a render loop is a non-delegate allocation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The resolved render-tree builder and query types gating the rule.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AllocationGate gate)
+    /// <param name="types">The render-tree builder and query types resolved only after a syntax match.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AllocationTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
@@ -91,19 +81,7 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
             return;
         }
 
-        var loop = FindEnclosingRenderLoop(invocation);
-        if (loop is null || !IsInsideRenderTreeMethod(loop, context.SemanticModel, gate.RenderTreeBuilder, context.CancellationToken))
-        {
-            return;
-        }
-
-        var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, gate.RenderTreeBuilder))
-        {
-            return;
-        }
-
-        if (!IsNonDelegateAllocation(value, context.SemanticModel, gate.Enumerable, context.CancellationToken))
+        if (!IsRenderLoopAllocation(context, access, value, types))
         {
             return;
         }
@@ -112,6 +90,36 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
             BlazorRules.RenderLoopParameterAllocation,
             value.SyntaxTree,
             value.Span));
+    }
+
+    /// <summary>Checks the enclosing render shape before resolving types and confirming a non-delegate allocation.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="access">The component-parameter member access.</param>
+    /// <param name="value">The syntactically matched allocation value.</param>
+    /// <param name="types">The render types resolved only after the enclosing syntax matches.</param>
+    /// <returns>Whether the value is a non-delegate allocation passed to a builder in a render loop.</returns>
+    private static bool IsRenderLoopAllocation(in SyntaxNodeAnalysisContext context, MemberAccessExpressionSyntax access, ExpressionSyntax value, AllocationTypes types)
+    {
+        var loop = FindEnclosingRenderLoop(access);
+        if (loop is null
+            || FindContainingMethod(loop) is not { } method
+            || method.Identifier.ValueText != BuildRenderTreeMethodName
+            || method.ParameterList.Parameters.Count != 1)
+        {
+            return false;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } renderTreeBuilder
+            || !IsRenderTreeMethod(method, context.SemanticModel, renderTreeBuilder, context.CancellationToken))
+        {
+            return false;
+        }
+
+        var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
+        return receiverType is not null
+            && SymbolEqualityComparer.Default.Equals(receiverType, renderTreeBuilder)
+            && IsNonDelegateAllocation(value, context.SemanticModel, resolved[1], context.CancellationToken);
     }
 
     /// <summary>Returns whether an expression is syntactically an allocation worth binding.</summary>
@@ -182,25 +190,16 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
         return null;
     }
 
-    /// <summary>Returns whether a loop's containing method is a component <c>BuildRenderTree</c> override.</summary>
-    /// <param name="loop">The enclosing loop.</param>
+    /// <summary>Confirms that a syntactically matched render method takes the render-tree builder type.</summary>
+    /// <param name="method">The method whose name and parameter count matched.</param>
     /// <param name="semanticModel">The semantic model.</param>
     /// <param name="renderTreeBuilder">The resolved render-tree builder type.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
-    /// <returns><see langword="true"/> when the loop runs inside a <c>BuildRenderTree(RenderTreeBuilder)</c> method.</returns>
-    private static bool IsInsideRenderTreeMethod(SyntaxNode loop, SemanticModel semanticModel, INamedTypeSymbol renderTreeBuilder, CancellationToken cancellationToken)
-    {
-        var method = FindContainingMethod(loop);
-        if (method is null
-            || method.Identifier.ValueText != BuildRenderTreeMethodName
-            || method.ParameterList.Parameters.Count != 1)
-        {
-            return false;
-        }
-
-        return semanticModel.GetDeclaredSymbol(method, cancellationToken) is IMethodSymbol { Parameters.Length: 1 } symbol
+    /// <returns><see langword="true"/> when the parameter binds to the render-tree builder.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsRenderTreeMethod(MethodDeclarationSyntax method, SemanticModel semanticModel, INamedTypeSymbol renderTreeBuilder, CancellationToken cancellationToken) =>
+        semanticModel.GetDeclaredSymbol(method, cancellationToken) is IMethodSymbol { Parameters.Length: 1 } symbol
             && SymbolEqualityComparer.Default.Equals(symbol.Parameters[0].Type, renderTreeBuilder);
-    }
 
     /// <summary>Returns the nearest enclosing method declaration, walking through any nested functions.</summary>
     /// <param name="node">The node to search up from.</param>
@@ -236,8 +235,26 @@ public sealed class Psh1603RenderLoopParameterAllocationAnalyzer : DiagnosticAna
         return current;
     }
 
-    /// <summary>The render-tree builder and query types resolved once per compilation.</summary>
-    /// <param name="RenderTreeBuilder">The render-tree builder type; always present while the rule is registered.</param>
-    /// <param name="Enumerable">The query type whose materializers allocate, when the framework exposes one.</param>
-    private readonly record struct AllocationGate(INamedTypeSymbol RenderTreeBuilder, INamedTypeSymbol? Enumerable);
+    /// <summary>Resolves render allocation types on demand and caches missing references too.</summary>
+    /// <param name="compilation">The compilation whose symbols are cached.</param>
+    private sealed class AllocationTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the render-tree builder whose presence proves a Blazor project.</summary>
+        private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
+
+        /// <summary>The metadata name of the query type whose materializing calls allocate a fresh collection.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The published result; null until a candidate needs the types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the types, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The render-tree builder and query types, each null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName),
+            compilation.GetTypeByMetadataName(EnumerableMetadataName),
+        ];
+    }
 }

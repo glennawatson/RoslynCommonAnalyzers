@@ -37,9 +37,9 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var typeSymbol = start.Compilation.GetTypeByMetadataName("System.Type");
+            var typeSymbol = new ReflectionTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLock(nodeContext, typeSymbol), SyntaxKind.LockStatement);
         });
     }
@@ -54,8 +54,8 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SST1901/SST1902/SST1903/SST1904 for a questionable lock target.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
-    private static void AnalyzeLock(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? typeSymbol)
+    /// <param name="typeSymbol">The <c>System.Type</c> symbol, resolved on first demand.</param>
+    private static void AnalyzeLock(in SyntaxNodeAnalysisContext context, ReflectionTypes typeSymbol)
     {
         var expression = UnwrapLockTarget(((LockStatementSyntax)context.Node).Expression);
 
@@ -263,14 +263,14 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The lock target expression.</param>
     /// <param name="symbol">The bound symbol for the lock target, if any.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="typeSymbol">The resolved <c>System.Type</c> symbol, if any.</param>
+    /// <param name="typeSymbol">The <c>System.Type</c> symbol, resolved on first demand.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when the target has weak identity.</returns>
     private static bool IsWeakIdentity(
         ExpressionSyntax expression,
         ISymbol? symbol,
         SemanticModel model,
-        INamedTypeSymbol? typeSymbol,
+        ReflectionTypes typeSymbol,
         CancellationToken cancellationToken)
     {
         if (expression is ThisExpressionSyntax or TypeOfExpressionSyntax)
@@ -287,7 +287,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
         return type is not null
                && (type.SpecialType == SpecialType.System_String
-                   || (typeSymbol is not null && IsOrDerivesFrom(type, typeSymbol)));
+                   || (typeSymbol.Get() is { } resolved && IsOrDerivesFrom(type, resolved)));
     }
 
     /// <summary>Returns whether a type is, or derives from, the target type.</summary>
@@ -384,5 +384,18 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
             SymbolEqualityComparer.Default.Equals(
                 Model.GetSymbolInfo(reference, CancellationToken).Symbol,
                 Local);
+    }
+
+    /// <summary>Resolves the reflection type only when a lock target needs a semantic identity check.</summary>
+    /// <param name="compilation">The compilation whose reflection type is resolved.</param>
+    private sealed class ReflectionTypes(Compilation compilation)
+    {
+        /// <summary>The resolved type slot, including null when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the reflection type, caching its absence too.</summary>
+        /// <returns>The reflection type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.Type")])[0];
     }
 }

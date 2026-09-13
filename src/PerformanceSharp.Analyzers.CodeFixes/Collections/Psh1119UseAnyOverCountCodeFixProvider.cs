@@ -66,9 +66,12 @@ public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider, IBa
         }
 
         var memberAccess = (MemberAccessExpressionSyntax)shape.Invocation.Expression;
-        ExpressionSyntax result = shape.Invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName(Psh1119UseAnyOverCountAnalyzer.AnyMethodName)))
-            .WithoutTrivia();
+        ExpressionSyntax result = shape.Invocation.Update(
+            memberAccess.Update(
+                memberAccess.Expression.WithoutLeadingTrivia(),
+                memberAccess.OperatorToken,
+                SyntaxFactory.IdentifierName(Psh1119UseAnyOverCountAnalyzer.AnyMethodName)),
+            shape.Invocation.ArgumentList.WithoutTrailingTrivia());
         if (!shape.HasElements)
         {
             result = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, result);

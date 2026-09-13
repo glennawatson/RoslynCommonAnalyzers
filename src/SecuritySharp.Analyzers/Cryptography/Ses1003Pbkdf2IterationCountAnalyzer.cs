@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace SecuritySharp.Analyzers;
 
@@ -32,9 +33,6 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
     /// <summary>The zero-based position of the <c>iterations</c> parameter on every <c>Pbkdf2</c> overload.</summary>
     private const int IterationsPosition = 2;
 
-    /// <summary>The metadata name of the type that declares the <c>Pbkdf2</c> one-shot.</summary>
-    private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
-
     /// <summary>The rule-specific floor key.</summary>
     private const string IterationsRuleKey = "securitysharp.SES1003.iterations";
 
@@ -56,22 +54,17 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var rfc2898Type = start.Compilation.GetTypeByMetadataName(Rfc2898MetadataName);
-            if (rfc2898Type is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, rfc2898Type), SyntaxKind.InvocationExpression);
+            var types = new Pbkdf2Types(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1003 for a <c>Pbkdf2</c> call whose constant iteration count is below the floor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="rfc2898Type">The gated <c>Rfc2898DeriveBytes</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol rfc2898Type)
+    /// <param name="types">The compilation's lazily resolved key-derivation type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Pbkdf2Types types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -83,7 +76,8 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: Pbkdf2MethodName, IsStatic: true } method
+        if (types.Get() is not { } rfc2898Type
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: Pbkdf2MethodName, IsStatic: true } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, rfc2898Type))
         {
             return;
@@ -151,5 +145,21 @@ public sealed class Ses1003Pbkdf2IterationCountAnalyzer : DiagnosticAnalyzer
             && parsed >= SmallestFloor
             ? parsed
             : DefaultIterationFloor;
+    }
+
+    /// <summary>Resolves the key-derivation type only after a candidate call is found.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class Pbkdf2Types(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type that declares the <c>Pbkdf2</c> one-shot.</summary>
+        private const string Rfc2898MetadataName = "System.Security.Cryptography.Rfc2898DeriveBytes";
+
+        /// <summary>Caches the resolved type, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the key-derivation type on first demand.</summary>
+        /// <returns>The resolved type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(Rfc2898MetadataName)])[0];
     }
 }

@@ -94,7 +94,7 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
     /// <returns>The indentation to put in front of the operator.</returns>
     private static SyntaxTriviaList WhitespaceOf(SyntaxToken token)
     {
-        var kept = new List<SyntaxTrivia>();
+        var kept = new List<SyntaxTrivia>(token.LeadingTrivia.Count);
         foreach (var trivia in token.LeadingTrivia)
         {
             if (trivia.IsKind(SyntaxKind.WhitespaceTrivia))

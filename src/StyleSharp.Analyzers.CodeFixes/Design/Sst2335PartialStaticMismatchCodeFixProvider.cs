@@ -74,9 +74,19 @@ public sealed class Sst2335PartialStaticMismatchCodeFixProvider : CodeFixProvide
         if (modifiers.Count == 0)
         {
             var lone = SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.StaticKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-            return declaration
-                .WithKeyword(declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
-                .WithModifiers(SyntaxFactory.TokenList(lone));
+            return declaration.Update(
+                declaration.AttributeLists,
+                SyntaxFactory.TokenList(lone),
+                declaration.Keyword.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken);
         }
 
         var partialIndex = modifiers.IndexOf(SyntaxKind.PartialKeyword);

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,18 +16,12 @@ namespace SecuritySharp.Analyzers;
 /// function reference is safe, so they are reported only in the string-body case. The invoked method is bound
 /// and its receiver confirmed to be (or implement) <c>IJSRuntime</c>/<c>IJSObjectReference</c>, so a
 /// same-named method on an unrelated type is ignored, and a non-constant identifier is never judged here. The
-/// whole rule is gated on <c>Microsoft.JSInterop.IJSRuntime</c> resolving, so a non-Blazor project registers
-/// nothing and pays nothing.
+/// whole rule is gated on <c>Microsoft.JSInterop.IJSRuntime</c> resolving, with the lookup deferred until
+/// a candidate call names an eval-class primitive.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the JS runtime interface the rule gates on.</summary>
-    private const string JsRuntimeMetadataName = "Microsoft.JSInterop.IJSRuntime";
-
-    /// <summary>The metadata name of the JS object-reference interface that shares the interop surface.</summary>
-    private const string JsObjectReferenceMetadataName = "Microsoft.JSInterop.IJSObjectReference";
-
     /// <summary>The generic interop method that returns a value.</summary>
     private const string InvokeAsyncMethodName = "InvokeAsync";
 
@@ -76,24 +72,17 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var jsRuntime = start.Compilation.GetTypeByMetadataName(JsRuntimeMetadataName);
-            if (jsRuntime is null)
-            {
-                return;
-            }
-
-            var jsObjectReference = start.Compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, jsRuntime, jsObjectReference), SyntaxKind.InvocationExpression);
+            var interopTypes = new InteropTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, interopTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1702 for an interop call whose constant identifier is an eval-class primitive.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="jsRuntime">The gated <c>IJSRuntime</c> type resolved for the compilation.</param>
-    /// <param name="jsObjectReference">The optional <c>IJSObjectReference</c> type; <see langword="null"/> when absent.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol jsRuntime, INamedTypeSymbol? jsObjectReference)
+    /// <param name="interopTypes">The interop interfaces resolved on demand for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, InteropTypes interopTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -107,7 +96,12 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
 
         var identifierArgument = invocation.ArgumentList.Arguments[0].Expression;
         if (!IsReportableEvalIdentifier(context, invocation.ArgumentList, identifierArgument, out var identifier)
-            || !ResolvesToInteropInvoke(context, invocation, jsRuntime, jsObjectReference))
+            || interopTypes.Get() is not [{ } jsRuntime, var jsObjectReference])
+        {
+            return;
+        }
+
+        if (!ResolvesToInteropInvoke(context, invocation, jsRuntime, jsObjectReference))
         {
             return;
         }
@@ -230,5 +224,32 @@ public sealed class Ses1702JsInteropScriptEvaluationAnalyzer : DiagnosticAnalyze
         }
 
         return false;
+    }
+
+    /// <summary>Resolves interop interfaces on first demand and caches unavailable interfaces too.</summary>
+    /// <param name="compilation">The compilation whose interop interfaces are resolved.</param>
+    private sealed class InteropTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the JS runtime interface the rule gates on.</summary>
+        private const string JsRuntimeMetadataName = "Microsoft.JSInterop.IJSRuntime";
+
+        /// <summary>The metadata name of the JS object-reference interface that shares the interop surface.</summary>
+        private const string JsObjectReferenceMetadataName = "Microsoft.JSInterop.IJSObjectReference";
+
+        /// <summary>The cached interfaces, empty when the runtime interface is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the runtime and optional object-reference interfaces on first demand.</summary>
+        /// <returns>The interop interfaces, or an empty array when the runtime interface is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the object-reference interface only when the runtime interface exists.</summary>
+        /// <param name="compilation">The compilation whose interop interfaces are resolved.</param>
+        /// <returns>The interop interfaces, or an empty array when the runtime interface is unavailable.</returns>
+        private static INamedTypeSymbol?[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(JsRuntimeMetadataName) is { } jsRuntime
+                ? [jsRuntime, compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName)]
+                : [];
     }
 }

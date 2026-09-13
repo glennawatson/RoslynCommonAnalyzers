@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -59,12 +61,8 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName("System.StringComparison") is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeComparison, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+            var comparisonType = new ComparisonType(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeComparison(nodeContext, comparisonType), SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
         });
     }
 
@@ -92,11 +90,13 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1216 for an equality test of a string ordering call against zero.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeComparison(SyntaxNodeAnalysisContext context)
+    /// <param name="comparisonType">The comparison enum resolved on first demand.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, ComparisonType comparisonType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!TryGetOrderingCall(binary, out var invocation, out var methodName)
-            || !BindsToStringOrderingMethod(context.SemanticModel, invocation!, methodName!, context.CancellationToken))
+            || !BindsToStringOrderingMethod(context.SemanticModel, invocation!, methodName!, context.CancellationToken)
+            || comparisonType.Get() is null)
         {
             return;
         }
@@ -270,5 +270,18 @@ public sealed class Psh1216UseEqualsOverCompareAnalyzer : DiagnosticAnalyzer
                 return CompareToName;
             }
         }
+    }
+
+    /// <summary>Resolves the comparison enum only after an ordering call matches.</summary>
+    /// <param name="compilation">The compilation whose enum is cached.</param>
+    private sealed class ComparisonType(Compilation compilation)
+    {
+        /// <summary>The published enum result, including an absent enum.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the comparison enum, resolving it on first demand.</summary>
+        /// <returns>The enum type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.StringComparison")])[0];
     }
 }

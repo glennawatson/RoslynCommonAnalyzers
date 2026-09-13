@@ -144,13 +144,20 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
         var declaration = statement.Declaration.WithoutLeadingTrivia();
 
         var updated = needsAwait
-            ? statement
-                .WithAwaitKeyword(SyntaxFactory.Token(SyntaxKind.AwaitKeyword).WithLeadingTrivia(leading).WithTrailingTrivia(SyntaxFactory.Space))
-                .WithUsingKeyword(usingKeyword)
-                .WithDeclaration(declaration)
-            : statement
-                .WithUsingKeyword(usingKeyword.WithLeadingTrivia(leading))
-                .WithDeclaration(declaration);
+            ? statement.Update(
+                statement.AttributeLists,
+                SyntaxFactory.Token(leading, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+                usingKeyword,
+                statement.Modifiers,
+                declaration,
+                statement.SemicolonToken)
+            : statement.Update(
+                statement.AttributeLists,
+                statement.AwaitKeyword,
+                usingKeyword.WithLeadingTrivia(leading),
+                statement.Modifiers,
+                declaration,
+                statement.SemicolonToken);
 
         return updated.WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }

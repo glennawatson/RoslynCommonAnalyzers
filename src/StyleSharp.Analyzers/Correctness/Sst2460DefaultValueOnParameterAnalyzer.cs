@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -15,7 +17,7 @@ namespace StyleSharp.Analyzers;
 /// The clean path is a syntax check: a parameter with no attribute lists returns before the semantic model is
 /// touched, and only an attribute whose simple name is <c>DefaultValue</c>/<c>DefaultValueAttribute</c> and
 /// that lands on the parameter itself (no target, or <c>[param:]</c>) is bound. <c>DefaultValueAttribute</c>
-/// is resolved once per compilation and the whole rule is gated on it. An attribute retargeted to the record's
+/// is resolved on first demand per compilation after the name and target checks pass. An attribute retargeted to the record's
 /// generated property or field with <c>[property:]</c>/<c>[field:]</c> reaches a home that really does read it
 /// and is left alone.
 /// </remarks>
@@ -52,22 +54,18 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Registers the parameter walk only when the designer attribute resolves.</summary>
+    /// <summary>Registers the parameter walk with deferred designer-attribute resolution.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        if (context.Compilation.GetTypeByMetadataName(DefaultValueMetadataName) is not { } defaultValueAttribute)
-        {
-            return;
-        }
-
+        var defaultValueAttribute = new DefaultValueType(context.Compilation);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, defaultValueAttribute), SyntaxKind.Parameter);
     }
 
     /// <summary>Reports the designer attribute on a parameter that no call site reads.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="defaultValueAttribute">The resolved designer attribute symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol defaultValueAttribute)
+    /// <param name="defaultValueAttribute">The designer attribute resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, DefaultValueType defaultValueAttribute)
     {
         var parameter = (ParameterSyntax)context.Node;
         var attributeLists = parameter.AttributeLists;
@@ -93,8 +91,9 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-                    || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, defaultValueAttribute))
+                if (defaultValueAttribute.Get() is not { } attributeType
+                    || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+                    || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType))
                 {
                     continue;
                 }
@@ -123,4 +122,17 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
         _ => null,
     };
+
+    /// <summary>Resolves the designer attribute only when a parameter attribute is a candidate.</summary>
+    /// <param name="compilation">The compilation whose designer attribute is resolved.</param>
+    private sealed class DefaultValueType(Compilation compilation)
+    {
+        /// <summary>The cached attribute type, including a null slot when it is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the designer attribute on first demand, caching its absence too.</summary>
+        /// <returns>The designer attribute type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(DefaultValueMetadataName)])[0];
+    }
 }

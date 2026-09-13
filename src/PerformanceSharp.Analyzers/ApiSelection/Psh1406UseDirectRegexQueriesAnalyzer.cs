@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -10,8 +12,8 @@ namespace PerformanceSharp.Analyzers;
 /// <c>IsMatch</c> answers directly, and <c>regex.Matches(input).Count</c> allocates a
 /// <c>MatchCollection</c> to produce an int that the <c>Count</c> method (.NET 7+) answers
 /// directly. Both the instance and static <c>Regex</c> forms are reported, but only direct
-/// chains — a match stored in a local first is not. The <c>Count</c> shape is gated at
-/// compilation start on <c>Regex</c> actually exposing a <c>Count</c> method.
+/// chains — a match stored in a local first is not. After the syntax matches, the <c>Count</c>
+/// shape is gated on <c>Regex</c> actually exposing a <c>Count</c> method.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
@@ -31,9 +33,6 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
     /// <summary>The trailing property of the boolean chain.</summary>
     private const string SuccessPropertyName = "Success";
 
-    /// <summary>The metadata name of the regex type.</summary>
-    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseDirectRegexQueries);
 
@@ -46,16 +45,10 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var regexType = start.Compilation.GetTypeByMetadataName(RegexMetadataName);
-            if (regexType is null)
-            {
-                return;
-            }
-
-            var hasCountMethod = HasCountMethod(regexType);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, regexType, hasCountMethod), SyntaxKind.SimpleMemberAccessExpression);
+            var regexType = new RegexType(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, regexType), SyntaxKind.SimpleMemberAccessExpression);
         });
     }
 
@@ -92,13 +85,13 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1406 for a chain whose materializing call binds to the regex type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The regex type.</param>
-    /// <param name="hasCountMethod">Whether the regex type exposes the direct <c>Count</c> method.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType, bool hasCountMethod)
+    /// <param name="types">The compilation's deferred regex type.</param>
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, RegexType types)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!TryGetQueryShape(access, out var materializingInvocation, out var replacementName)
-            || (replacementName == CountMethodName && !hasCountMethod))
+            || types.Get() is not { } regexType
+            || (replacementName == CountMethodName && !HasCountMethod(regexType)))
         {
             return;
         }
@@ -142,5 +135,21 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the regex type once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class RegexType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the regex type.</summary>
+        private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
+
+        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the regex type, caching an absent type too.</summary>
+        /// <returns>The regex type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(RegexMetadataName)])[0];
     }
 }

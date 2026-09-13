@@ -89,10 +89,17 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
         }
 
         var dispose = SyntaxFactory.MethodDeclaration(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
-                "Dispose")
-            .WithModifiers(SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)))
-            .WithBody(SyntaxFactory.Block(statements));
+            attributeLists: default,
+            SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.PublicKeyword)),
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.VoidKeyword)),
+            explicitInterfaceSpecifier: null,
+            SyntaxFactory.Identifier("Dispose"),
+            typeParameterList: null,
+            SyntaxFactory.ParameterList(),
+            constraintClauses: default,
+            SyntaxFactory.Block(statements),
+            expressionBody: null,
+            semicolonToken: default);
 
         var baseType = SyntaxFactory.SimpleBaseType(SyntaxFactory.ParseTypeName("global::System.IDisposable"))
             .WithAdditionalAnnotations(Simplifier.Annotation);

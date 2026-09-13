@@ -46,15 +46,18 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var encodingType = start.Compilation.GetTypeByMetadataName(EncodingMetadataName);
-            if (encodingType is null
-                || start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensionsType
-                || extensionsType.GetMembers(SequenceEqualMethodName).IsEmpty)
+            var compilation = start.Compilation;
+            var encodingType = new Lazy<INamedTypeSymbol?>(() =>
             {
-                return;
-            }
+                var type = compilation.GetTypeByMetadataName(EncodingMetadataName);
+                return type is not null
+                    && compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensionsType
+                    && !extensionsType.GetMembers(SequenceEqualMethodName).IsEmpty
+                    ? type
+                    : null;
+            });
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeComparison(nodeContext, encodingType),
@@ -110,12 +113,17 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1210 for a decode-then-compare against a representable constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="encodingType">The encoding type.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, INamedTypeSymbol encodingType)
+    /// <param name="encodingType">The lazily resolved encoding type, absent when SequenceEqual is unavailable.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> encodingType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonParts(binary) is not { } parts
             || binary.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 })
+        {
+            return;
+        }
+
+        if (encodingType.Value is not { } resolvedEncodingType)
         {
             return;
         }
@@ -125,7 +133,7 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
             || !CanCompareAsUtf8Literal(value)
             || context.SemanticModel.GetSymbolInfo(encodingName, context.CancellationToken).Symbol is not IPropertySymbol property
             || property.Name != Utf8PropertyName
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, encodingType))
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, resolvedEncodingType))
         {
             return;
         }

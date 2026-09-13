@@ -43,7 +43,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static context =>
         {
-            var usages = new ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage>(SymbolEqualityComparer.Default);
+            // Only partial types share state across semantic-model callbacks.
+            var usages = new ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage>(concurrencyLevel: 1, capacity: 4, SymbolEqualityComparer.Default);
             context.RegisterSemanticModelAction(modelContext => AnalyzeSemanticModel(modelContext, usages));
             context.RegisterCompilationEndAction(context => ReportCandidates(context, usages));
         });
@@ -57,29 +58,34 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> usages)
     {
         var root = context.SemanticModel.SyntaxTree.GetRoot(context.CancellationToken);
-        foreach (var node in root.DescendantNodes())
-        {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            if (node is not TypeDeclarationSyntax typeDeclaration)
+        var state = (Context: context, Usages: usages);
+        _ = DescendantTraversalHelper.VisitDescendants<SyntaxNode, (SemanticModelAnalysisContext Context, ConcurrentDictionary<INamedTypeSymbol, PrivateTypeUsage> Usages)>(
+            root,
+            ref state,
+            static (node, ref current) =>
             {
-                continue;
-            }
+                current.Context.CancellationToken.ThrowIfCancellationRequested();
+                if (node is not TypeDeclarationSyntax typeDeclaration)
+                {
+                    return true;
+                }
 
-            if (context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is not INamedTypeSymbol typeSymbol)
-            {
-                continue;
-            }
+                if (current.Context.SemanticModel.GetDeclaredSymbol(typeDeclaration, current.Context.CancellationToken) is not INamedTypeSymbol typeSymbol)
+                {
+                    return true;
+                }
 
-            if (typeSymbol.DeclaringSyntaxReferences.Length == 1)
-            {
-                AnalyzeSinglePartType(context, typeDeclaration);
-                continue;
-            }
+                if (typeSymbol.DeclaringSyntaxReferences.Length == 1)
+                {
+                    AnalyzeSinglePartType(current.Context, typeDeclaration);
+                    return true;
+                }
 
-            var usage = usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
-            CollectCandidates(typeDeclaration, context.SemanticModel, usage, context.CancellationToken);
-            CollectReferences(typeDeclaration, usage, context.SemanticModel, context.CancellationToken);
-        }
+                var usage = current.Usages.GetOrAdd(typeSymbol, static _ => new PrivateTypeUsage());
+                CollectCandidates(typeDeclaration, current.Context.SemanticModel, usage, current.Context.CancellationToken);
+                CollectReferences(typeDeclaration, usage, current.Context.SemanticModel, current.Context.CancellationToken);
+                return true;
+            });
     }
 
     /// <summary>Analyzes one type declaration whose full body is available in the current semantic model.</summary>
@@ -277,21 +283,32 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         SemanticModel model,
         CancellationToken cancellationToken)
     {
-        foreach (var node in typeDeclaration.DescendantNodes())
+        if (model.GetDeclaredSymbol(typeDeclaration, cancellationToken) is not { } type)
         {
-            if (node is not SimpleNameSyntax simpleName)
-            {
-                continue;
-            }
-
-            var symbol = model.GetSymbolInfo(simpleName, cancellationToken).Symbol;
-            if (symbol is null)
-            {
-                continue;
-            }
-
-            usage.AddMemberReference(new(symbol, simpleName));
+            return;
         }
+
+        // The declaration symbol includes members from every partial declaration, even those not scanned yet.
+        var memberNames = new HashSet<string>(type.MemberNames, StringComparer.Ordinal);
+        var state = (Usage: usage, Model: model, MemberNames: memberNames, CancellationToken: cancellationToken);
+        _ = DescendantTraversalHelper.VisitDescendants<SimpleNameSyntax, (PrivateTypeUsage Usage, SemanticModel Model, HashSet<string> MemberNames, CancellationToken CancellationToken)>(
+            typeDeclaration,
+            ref state,
+            static (simpleName, ref current) =>
+            {
+                if (!current.MemberNames.Contains(simpleName.Identifier.ValueText))
+                {
+                    return true;
+                }
+
+                var symbol = current.Model.GetSymbolInfo(simpleName, current.CancellationToken).Symbol;
+                if (symbol is not null)
+                {
+                    current.Usage.AddMemberReference(new(symbol, simpleName));
+                }
+
+                return true;
+            });
     }
 
     /// <summary>Returns whether a reference symbol matches a candidate declaration symbol.</summary>

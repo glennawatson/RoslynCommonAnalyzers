@@ -130,18 +130,27 @@ public sealed class Sst1493MethodReturnsConstantCodeFixProvider : CodeFixProvide
                 SyntaxFactory.Token(default, SyntaxKind.EqualsGreaterThanToken, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
                 value!.WithoutTrivia());
 
+        var modifiers = method.Modifiers;
+        var returnType = method.ReturnType;
+        if (modifiers.Count == 0)
+        {
+            returnType = returnType.WithLeadingTrivia(method.GetLeadingTrivia());
+        }
+        else
+        {
+            modifiers = modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(method.GetLeadingTrivia()));
+        }
+
         return SyntaxFactory.PropertyDeclaration(
                 default,
-                method.Modifiers,
-                method.ReturnType,
+                modifiers,
+                returnType,
                 explicitInterfaceSpecifier: null,
                 method.Identifier.WithTrailingTrivia(SyntaxFactory.Space),
                 accessorList: null,
                 body,
                 initializer: null,
-                SyntaxFactory.Token(SyntaxKind.SemicolonToken))
-            .WithLeadingTrivia(method.GetLeadingTrivia())
-            .WithTrailingTrivia(method.GetTrailingTrivia())
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, method.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 

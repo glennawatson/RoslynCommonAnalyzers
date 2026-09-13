@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Reports an event whose delegate is not one of the framework's handler delegates (SST2304).</summary>
@@ -45,9 +47,6 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     /// <summary>The unqualified name of the base every event payload derives from.</summary>
     private const string EventArgsName = "EventArgs";
 
-    /// <summary>The metadata name of the generic handler delegate the rule suggests.</summary>
-    private const string EventHandlerMetadataName = "System.EventHandler`1";
-
     /// <summary>The replacement named when the delegate's shape differs and the arguments type is still to be designed.</summary>
     private const string PlaceholderReplacement = "EventHandler<TEventArgs>";
 
@@ -65,12 +64,17 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSymbolAction(AnalyzeEvent, SymbolKind.Event);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var types = new HandlerTypes(start.Compilation);
+            start.RegisterSymbolAction(symbolContext => AnalyzeEvent(symbolContext, types), SymbolKind.Event);
+        });
     }
 
     /// <summary>Reports an event whose delegate is bespoke where a framework handler would do.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    private static void AnalyzeEvent(SymbolAnalysisContext context)
+    /// <param name="types">The framework handler type resolved on demand for this compilation.</param>
+    private static void AnalyzeEvent(in SymbolAnalysisContext context, HandlerTypes types)
     {
         var @event = (IEventSymbol)context.Symbol;
         if (@event.IsOverride || !@event.ExplicitInterfaceImplementations.IsEmpty || ImplementsInterfaceEvent(@event))
@@ -90,7 +94,7 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
 
         // The delegate the rule asks for is only asked for once the compilation is known to have it. The
         // lookup sits behind every other test, so it runs only for an event that would otherwise report.
-        if (context.Compilation.GetTypeByMetadataName(EventHandlerMetadataName) is null)
+        if (types.Get() is null)
         {
             return;
         }
@@ -205,4 +209,20 @@ public sealed class Sst2304EventHandlerSignatureAnalyzer : DiagnosticAnalyzer
     private static bool IsSystemEventArgs(ITypeSymbol type) =>
         string.Equals(type.Name, EventArgsName, StringComparison.Ordinal)
             && type.ContainingNamespace is { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true };
+
+    /// <summary>Resolves the framework handler type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose handler type is resolved.</param>
+    private sealed class HandlerTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic handler delegate the rule suggests.</summary>
+        private const string EventHandlerMetadataName = "System.EventHandler`1";
+
+        /// <summary>The resolved type slot, containing null when the framework handler is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the framework handler type, caching its absence too.</summary>
+        /// <returns>The framework handler type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(EventHandlerMetadataName)])[0];
+    }
 }

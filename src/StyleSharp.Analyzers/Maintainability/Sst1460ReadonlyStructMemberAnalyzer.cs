@@ -135,20 +135,23 @@ public sealed class Sst1460ReadonlyStructMemberAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the member is not cheap to prove readonly-safe.</returns>
     private static bool HasRiskyOperation(SyntaxNode node)
     {
-        foreach (var descendant in node.DescendantNodes())
-        {
-            if (IsRiskyKind(descendant.Kind()))
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            node,
+            ref found,
+            static (SyntaxNode descendant, ref bool state) =>
             {
-                return true;
-            }
+                if (!IsRiskyKind(descendant.Kind())
+                    && descendant is not ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 })
+                {
+                    return true;
+                }
 
-            if (descendant is ArgumentSyntax { RefOrOutKeyword.RawKind: not 0 })
-            {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether a syntax kind can mutate state or call code that mutates state.</summary>

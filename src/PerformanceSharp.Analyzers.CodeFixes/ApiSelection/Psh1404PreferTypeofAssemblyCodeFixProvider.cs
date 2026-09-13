@@ -95,7 +95,15 @@ public sealed class Psh1404PreferTypeofAssemblyCodeFixProvider : CodeFixProvider
         var typeName = Psh1404PreferTypeofAssemblyAnalyzer.GetEnclosingTypeDisplayName(typeDeclaration);
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            SyntaxFactory.TypeOfExpression(SyntaxFactory.ParseTypeName(typeName)),
-            SyntaxFactory.IdentifierName(AssemblyPropertyName)).WithTriviaFrom(invocation);
+            SyntaxFactory.TypeOfExpression(
+                SyntaxFactory.Token(invocation.GetLeadingTrivia(), SyntaxKind.TypeOfKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.ParseTypeName(typeName),
+                SyntaxFactory.Token(SyntaxKind.CloseParenToken)),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                AssemblyPropertyName,
+                invocation.GetTrailingTrivia())));
     }
 }

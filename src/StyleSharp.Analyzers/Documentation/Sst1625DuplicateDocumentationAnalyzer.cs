@@ -65,7 +65,7 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            builder ??= new StringBuilder();
+            builder ??= new StringBuilder(element.Span.Length);
             _ = builder.Clear();
             XmlDocumentationHelper.AppendDuplicateComparisonKey(element, builder);
             if (builder.Length == 0)

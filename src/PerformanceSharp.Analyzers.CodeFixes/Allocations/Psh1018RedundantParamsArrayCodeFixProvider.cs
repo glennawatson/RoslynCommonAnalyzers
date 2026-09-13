@@ -77,7 +77,6 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
 
         return invocation
             .WithArgumentList(Psh1018RedundantParamsArrayAnalyzer.BuildUnwrappedArgumentList(invocation.ArgumentList, elements))
-            .WithTriviaFrom(invocation)
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 }

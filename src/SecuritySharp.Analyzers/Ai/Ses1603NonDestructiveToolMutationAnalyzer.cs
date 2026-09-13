@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -18,17 +20,15 @@ namespace SecuritySharp.Analyzers;
 /// <c>ExecuteSqlRaw</c>/<c>ExecuteSqlInterpolated</c>/<c>ExecuteDelete</c>/<c>ExecuteUpdate</c>, or a
 /// <c>DbContext.SaveChanges</c> (with their async twins). The whole rule is gated on the tool attribute
 /// resolving, and each destructive sink is matched only against the types actually present in the
-/// compilation, so a project without the model-tool SDK or without a given sink registers nothing and
-/// pays nothing. The Semantic Kernel <c>[KernelFunction]</c> attribute is not covered: it carries no
+/// compilation. The attribute is resolved only after a method with a body has an explicit safety hint;
+/// sink types are resolved only when that tool body contains a bound invocation. The Semantic Kernel
+/// <c>[KernelFunction]</c> attribute is not covered: it carries no
 /// read-only or destructive member, so a tool declared with it makes no safety promise this rule could
 /// contradict.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the tool attribute whose read-only/destructive hints are honoured.</summary>
-    private const string McpServerToolMetadataName = "ModelContextProtocol.Server.McpServerToolAttribute";
-
     /// <summary>The named-argument that promises the tool does not modify its environment.</summary>
     private const string ReadOnlyArgumentName = "ReadOnly";
 
@@ -49,36 +49,29 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var toolAttribute = start.Compilation.GetTypeByMetadataName(McpServerToolMetadataName);
-            if (toolAttribute is null)
-            {
-                return;
-            }
-
-            var sinks = DestructiveSinks.Resolve(start.Compilation);
+            var symbols = new ToolSymbols(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeMethod(nodeContext, toolAttribute, sinks),
+                nodeContext => AnalyzeMethod(nodeContext, symbols),
                 SyntaxKind.MethodDeclaration);
         });
     }
 
     /// <summary>Reports SES1603 for a read-only/non-destructive tool method whose body calls a destructive API.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="toolAttribute">The resolved model-tool attribute type.</param>
-    /// <param name="sinks">The destructive sink types resolved for the compilation.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, INamedTypeSymbol toolAttribute, DestructiveSinks sinks)
+    /// <param name="symbols">The compilation's tool and sink types, resolved on first demand.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, ToolSymbols symbols)
     {
         var method = (MethodDeclarationSyntax)context.Node;
 
         // Syntactic prefilter: a tool method must carry the attribute, and must have a body to scan.
         if (method.AttributeLists.Count == 0
             || (method.Body is null && method.ExpressionBody is null)
-            || !DeclaresSafeTool(context, method.AttributeLists, toolAttribute))
+            || !DeclaresSafeTool(context, method.AttributeLists, symbols))
         {
             return;
         }
 
-        var scan = FindDestructiveCall(context, method, sinks);
+        var scan = FindDestructiveCall(context, method, symbols);
         if (scan.Found is not { } destructiveCall || scan.Callee is not { } callee)
         {
             return;
@@ -94,12 +87,12 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <summary>Returns whether a declaration carries a tool attribute that explicitly promises read-only or non-destructive behaviour.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="attributeLists">The method's attribute lists.</param>
-    /// <param name="toolAttribute">The resolved model-tool attribute type.</param>
+    /// <param name="symbols">The tool marker resolved on demand for the compilation.</param>
     /// <returns><see langword="true"/> when a tool attribute sets <c>ReadOnly = true</c> or <c>Destructive = false</c>.</returns>
     private static bool DeclaresSafeTool(
         in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
-        INamedTypeSymbol toolAttribute)
+        ToolSymbols symbols)
     {
         for (var i = 0; i < attributeLists.Count; i++)
         {
@@ -107,16 +100,54 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attribute = attributes[j];
-                if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: { } attributeType }
-                    || !IsOrDerivesFrom(attributeType, toolAttribute))
+                if (!HasSafetyHint(attribute))
                 {
                     continue;
                 }
 
-                if (PromisesSafety(context, attribute))
+                if (symbols.GetToolAttribute() is not { } toolAttribute)
+                {
+                    return false;
+                }
+
+                if (IsSafeToolAttribute(context, attribute, toolAttribute))
                 {
                     return true;
                 }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks that a safety hint belongs to the tool marker or a derived attribute.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="attribute">The candidate attribute carrying a safety hint.</param>
+    /// <param name="toolAttribute">The resolved tool marker.</param>
+    /// <returns>Whether the bound tool attribute promises safe behaviour.</returns>
+    private static bool IsSafeToolAttribute(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute, INamedTypeSymbol toolAttribute) =>
+        context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol { ContainingType: { } attributeType }
+        && IsOrDerivesFrom(attributeType, toolAttribute)
+        && PromisesSafety(context, attribute);
+
+    /// <summary>Finds a safety-hint argument without excluding aliased or derived tool attributes.</summary>
+    /// <param name="attribute">The attribute syntax to inspect.</param>
+    /// <returns>True when a named argument could declare a safety promise.</returns>
+    private static bool HasSafetyHint(AttributeSyntax attribute)
+    {
+        if (attribute.ArgumentList is not { } argumentList)
+        {
+            return false;
+        }
+
+        var arguments = argumentList.Arguments;
+        for (var i = 0; i < arguments.Count; i++)
+        {
+            if (arguments[i] is
+                { NameEquals.Name.Identifier.ValueText: ReadOnlyArgumentName, Expression.RawKind: not (int)SyntaxKind.FalseLiteralExpression }
+                or { NameEquals.Name.Identifier.ValueText: DestructiveArgumentName, Expression.RawKind: not (int)SyntaxKind.TrueLiteralExpression })
+            {
+                return true;
             }
         }
 
@@ -156,11 +187,11 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <summary>Scans a tool method body for the first destructive call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="method">The tool method declaration.</param>
-    /// <param name="sinks">The destructive sink types resolved for the compilation.</param>
+    /// <param name="symbols">The destructive sink types resolved on demand for the compilation.</param>
     /// <returns>The scan state, whose <see cref="DestructiveScan.Found"/> holds the first destructive call when present.</returns>
-    private static DestructiveScan FindDestructiveCall(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, DestructiveSinks sinks)
+    private static DestructiveScan FindDestructiveCall(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method, ToolSymbols symbols)
     {
-        var scan = new DestructiveScan(context.SemanticModel, sinks, context.CancellationToken);
+        var scan = new DestructiveScan(context.SemanticModel, symbols, context.CancellationToken);
         SyntaxNode body = method.Body is { } block ? block : method.ExpressionBody!;
         _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, DestructiveScan>(body, ref scan, VisitInvocation);
         return scan;
@@ -173,7 +204,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     private static bool VisitInvocation(InvocationExpressionSyntax invocation, ref DestructiveScan scan)
     {
         if (scan.Model.GetSymbolInfo(invocation, scan.CancellationToken).Symbol is not IMethodSymbol method
-            || !scan.Sinks.IsDestructive(method))
+            || !scan.Symbols.GetSinks().IsDestructive(method))
         {
             return true;
         }
@@ -200,17 +231,44 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
         return false;
     }
 
+    /// <summary>Resolves immutable tool and sink symbols on demand within one compilation.</summary>
+    /// <param name="compilation">The compilation to probe only after a candidate survives.</param>
+    private sealed class ToolSymbols(Compilation compilation)
+    {
+        /// <summary>The metadata name of the tool attribute whose read-only/destructive hints are honoured.</summary>
+        private const string McpServerToolMetadataName = "ModelContextProtocol.Server.McpServerToolAttribute";
+
+        /// <summary>The cached tool marker, including a null slot when the marker is absent.</summary>
+        private INamedTypeSymbol?[]? _toolAttribute;
+
+        /// <summary>The sink types resolved for the first bound invocation in a candidate tool.</summary>
+        private DestructiveSinks? _sinks;
+
+        /// <summary>Resolves the tool marker on first use and caches missing markers too.</summary>
+        /// <returns>The tool marker, or null when it is unavailable.</returns>
+        public INamedTypeSymbol? GetToolAttribute()
+        {
+            var resolved = _toolAttribute ??= [compilation.GetTypeByMetadataName(McpServerToolMetadataName)];
+            return resolved[0];
+        }
+
+        /// <summary>Resolves sink types on first use; concurrent resolutions produce equivalent results.</summary>
+        /// <returns>The immutable sink types for this compilation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DestructiveSinks GetSinks() => _sinks ??= DestructiveSinks.Resolve(compilation);
+    }
+
     /// <summary>The mutable state threaded through a method-body scan for a destructive call.</summary>
     private sealed class DestructiveScan
     {
         /// <summary>Initializes a new instance of the <see cref="DestructiveScan"/> class.</summary>
         /// <param name="model">The semantic model for the analysed tree.</param>
-        /// <param name="sinks">The destructive sink types resolved for the compilation.</param>
+        /// <param name="symbols">The destructive sink types resolved on demand for the compilation.</param>
         /// <param name="cancellationToken">A token that cancels the walk.</param>
-        public DestructiveScan(SemanticModel model, DestructiveSinks sinks, CancellationToken cancellationToken)
+        public DestructiveScan(SemanticModel model, ToolSymbols symbols, CancellationToken cancellationToken)
         {
             Model = model;
-            Sinks = sinks;
+            Symbols = symbols;
             CancellationToken = cancellationToken;
             Found = null;
             Callee = null;
@@ -219,8 +277,8 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
         /// <summary>Gets the semantic model for the analysed tree.</summary>
         public SemanticModel Model { get; }
 
-        /// <summary>Gets the destructive sink types resolved for the compilation.</summary>
-        public DestructiveSinks Sinks { get; }
+        /// <summary>Gets the compilation's sink types without resolving them until requested.</summary>
+        public ToolSymbols Symbols { get; }
 
         /// <summary>Gets the token that cancels the walk.</summary>
         public CancellationToken CancellationToken { get; }

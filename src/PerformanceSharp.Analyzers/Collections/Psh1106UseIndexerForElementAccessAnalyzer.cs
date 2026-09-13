@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -12,18 +14,15 @@ namespace PerformanceSharp.Analyzers;
 /// receiver's static type is indexable: a rank-1 array, <see cref="string"/>, or a type
 /// that is or implements <c>IList&lt;T&gt;</c>/<c>IReadOnlyList&lt;T&gt;</c>.
 /// <c>Last()</c> is additionally gated on the static type exposing a constant-time
-/// <c>Count</c>/<c>Length</c>, because its rewrite reads the count. The rule is resolved
-/// once per compilation by probing for <c>System.Linq.Enumerable</c>, so it costs
-/// nothing when LINQ is absent.
+/// <c>Count</c>/<c>Length</c>, because its rewrite reads the count. The
+/// <c>System.Linq.Enumerable</c> type is resolved only after a candidate passes the
+/// syntax and receiver checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The diagnostic property key carrying the count property name used by the <c>Last()</c> code fix.</summary>
     internal const string CountSourceKey = "CountSource";
-
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The unreduced parameter count of Enumerable extensions taking only the source.</summary>
     private const int SourceOnlyParameterCount = 1;
@@ -51,21 +50,17 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1106 for an Enumerable element-access call on an indexable receiver.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -90,7 +85,8 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (!IsEnumerableExtension(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
+        if (frameworkTypes.Get() is not [var enumerableType]
+            || !IsEnumerableExtension(context.SemanticModel, invocation, enumerableType, parameterCount, context.CancellationToken))
         {
             return;
         }
@@ -160,4 +156,26 @@ public sealed class Psh1106UseIndexerForElementAccessAnalyzer : DiagnosticAnalyz
         model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol { ReducedFrom: { } reduced }
             && reduced.Parameters.Length == parameterCount
             && SymbolEqualityComparer.Default.Equals(reduced.ContainingType, enumerableType);
+
+    /// <summary>Resolves the Enumerable type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The cached type, empty when unavailable and null before resolution.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the Enumerable type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the Enumerable type from the compilation's references.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(EnumerableMetadataName) is { } type ? [type] : [];
+    }
 }

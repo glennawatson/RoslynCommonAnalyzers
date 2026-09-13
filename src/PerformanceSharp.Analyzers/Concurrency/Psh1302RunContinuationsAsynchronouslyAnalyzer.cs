@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -21,15 +23,6 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
     /// <summary>The numeric value of <c>TaskCreationOptions.RunContinuationsAsynchronously</c>.</summary>
     internal const int RunContinuationsAsynchronouslyValue = 0x40;
 
-    /// <summary>The metadata name of the non-generic completion-source type (.NET 5+).</summary>
-    private const string NonGenericMetadataName = "System.Threading.Tasks.TaskCompletionSource";
-
-    /// <summary>The metadata name of the generic completion-source type.</summary>
-    private const string GenericMetadataName = "System.Threading.Tasks.TaskCompletionSource`1";
-
-    /// <summary>The metadata name of the task creation options enum.</summary>
-    private const string OptionsMetadataName = "System.Threading.Tasks.TaskCreationOptions";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.RunContinuationsAsynchronously);
 
@@ -42,18 +35,11 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var genericType = start.Compilation.GetTypeByMetadataName(GenericMetadataName);
-            var optionsType = start.Compilation.GetTypeByMetadataName(OptionsMetadataName);
-            if (genericType is null || optionsType is null)
-            {
-                return;
-            }
-
-            var nonGenericType = start.Compilation.GetTypeByMetadataName(NonGenericMetadataName);
+            var types = new CompletionSourceTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, genericType, nonGenericType, optionsType),
+                nodeContext => AnalyzeCreation(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -98,19 +84,23 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
 
     /// <summary>Reports PSH1302 for a completion-source creation with provably missing continuation options.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="genericType">The generic completion-source type.</param>
-    /// <param name="nonGenericType">The non-generic completion-source type, when it exists.</param>
-    /// <param name="optionsType">The task creation options enum type.</param>
+    /// <param name="types">The compilation's lazily resolved completion-source and options types.</param>
     private static void AnalyzeCreation(
         in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol genericType,
-        INamedTypeSymbol? nonGenericType,
-        INamedTypeSymbol optionsType)
+        CompletionSourceTypes types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!MatchesTypeNameGate(creation)
             || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
-            || !IsCompletionSourceType(constructor.ContainingType, genericType, nonGenericType))
+            || constructor.ContainingType.Name != TypeName)
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } genericType
+            || resolved[2] is not { } optionsType
+            || !IsCompletionSourceType(constructor.ContainingType, genericType, resolved[1]))
         {
             return;
         }
@@ -213,5 +203,32 @@ public sealed class Psh1302RunContinuationsAsynchronouslyAnalyzer : DiagnosticAn
         }
 
         return null;
+    }
+
+    /// <summary>Resolves completion-source metadata only after a candidate creation is found.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class CompletionSourceTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the non-generic completion-source type (.NET 5+).</summary>
+        private const string NonGenericMetadataName = "System.Threading.Tasks.TaskCompletionSource";
+
+        /// <summary>The metadata name of the generic completion-source type.</summary>
+        private const string GenericMetadataName = "System.Threading.Tasks.TaskCompletionSource`1";
+
+        /// <summary>The metadata name of the task creation options enum.</summary>
+        private const string OptionsMetadataName = "System.Threading.Tasks.TaskCreationOptions";
+
+        /// <summary>Caches the resolved types, including missing results, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the completion-source and options types on first demand.</summary>
+        /// <returns>The generic completion-source, non-generic completion-source, and options types, in that order.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(GenericMetadataName),
+            compilation.GetTypeByMetadataName(NonGenericMetadataName),
+            compilation.GetTypeByMetadataName(OptionsMetadataName),
+        ];
     }
 }

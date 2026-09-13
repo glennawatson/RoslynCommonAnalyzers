@@ -17,8 +17,8 @@ namespace SecuritySharp.Analyzers;
 /// The clean path is syntactic: a creation is ignored unless its type name is <c>DirectoryEntry</c> (or, for a
 /// target-typed <c>new(...)</c>, unless a candidate anonymous/empty-credential shape appears), and the type is
 /// bound and the <c>Anonymous</c> field confirmed only after that screen passes. The rule is gated on
-/// <c>DirectoryEntry</c> and <c>AuthenticationTypes</c> resolving in the compilation; a project without
-/// <c>System.DirectoryServices</c> registers nothing and pays nothing.
+/// <c>DirectoryEntry</c> and <c>AuthenticationTypes</c> resolving in the compilation; those lookups are
+/// cached on first candidate, including when <c>System.DirectoryServices</c> is unavailable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
@@ -59,12 +59,6 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     /// <summary>The message detail describing an empty-credential bind.</summary>
     private const string EmptyCredentialDetail = "its username and password are both empty";
 
-    /// <summary>The metadata name of the guarded directory-bind sink.</summary>
-    private const string DirectoryEntryMetadataName = "System.DirectoryServices.DirectoryEntry";
-
-    /// <summary>The metadata name of the authentication-type enum.</summary>
-    private const string AuthenticationTypesMetadataName = "System.DirectoryServices.AuthenticationTypes";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.AnonymousLdapBind);
 
@@ -77,16 +71,9 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var directoryEntry = start.Compilation.GetTypeByMetadataName(DirectoryEntryMetadataName);
-            var authenticationTypes = start.Compilation.GetTypeByMetadataName(AuthenticationTypesMetadataName);
-            if (directoryEntry is null || authenticationTypes is null)
-            {
-                return;
-            }
-
-            var types = new DirectoryBindTypes(directoryEntry, authenticationTypes);
+            var types = new DirectoryBindMarkers(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeObjectCreation(nodeContext, types),
                 SyntaxKind.ObjectCreationExpression,
@@ -96,8 +83,8 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1310 for a <c>DirectoryEntry</c> construction that binds anonymously.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The gated directory types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, DirectoryBindTypes types)
+    /// <param name="markers">The directory types resolved on first candidate.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, DirectoryBindMarkers markers)
     {
         var (argumentList, initializer) = Decompose(context.Node, out var explicitTypeName);
 
@@ -117,9 +104,13 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
             return;
         }
 
+        if (markers.Get() is not [var types])
+        {
+            return;
+        }
+
         // Semantic confirmation: the created type is the gated 'DirectoryEntry'.
-        if (context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is not INamedTypeSymbol createdType
-            || !SymbolEqualityComparer.Default.Equals(createdType, types.DirectoryEntry))
+        if (!CreatesDirectoryEntry(context, types))
         {
             return;
         }
@@ -138,6 +129,14 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
 
         Report(context, EmptyCredentialDetail);
     }
+
+    /// <summary>Confirms the candidate creates the directory-entry type resolved for this compilation.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="types">The resolved directory types.</param>
+    /// <returns>Whether the constructed type is the framework's directory entry.</returns>
+    private static bool CreatesDirectoryEntry(in SyntaxNodeAnalysisContext context, DirectoryBindTypes types) =>
+        context.SemanticModel.GetTypeInfo(context.Node, context.CancellationToken).Type is INamedTypeSymbol createdType
+        && SymbolEqualityComparer.Default.Equals(createdType, types.DirectoryEntry);
 
     /// <summary>Reports SES1310 on the object-creation node with the given message detail.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -359,4 +358,27 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
     private readonly record struct DirectoryBindTypes(
         INamedTypeSymbol DirectoryEntry,
         INamedTypeSymbol AuthenticationTypes);
+
+    /// <summary>Caches directory marker resolution after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose directory types are cached.</param>
+    private sealed class DirectoryBindMarkers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the guarded directory-bind sink.</summary>
+        private const string DirectoryEntryMetadataName = "System.DirectoryServices.DirectoryEntry";
+
+        /// <summary>The metadata name of the authentication-type enum.</summary>
+        private const string AuthenticationTypesMetadataName = "System.DirectoryServices.AuthenticationTypes";
+
+        /// <summary>The resolved type pair, or an empty array when either type is unavailable.</summary>
+        private DirectoryBindTypes[]? _resolved;
+
+        /// <summary>Resolves the directory types only when a candidate needs them.</summary>
+        /// <returns>A single type pair, or an empty array when the rule is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DirectoryBindTypes[] Get() => _resolved ??=
+            compilation.GetTypeByMetadataName(DirectoryEntryMetadataName) is { } directoryEntry
+                && compilation.GetTypeByMetadataName(AuthenticationTypesMetadataName) is { } authenticationTypes
+                ? [new DirectoryBindTypes(directoryEntry, authenticationTypes)]
+                : [];
+    }
 }

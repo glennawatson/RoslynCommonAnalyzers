@@ -54,7 +54,10 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
         }
 
         var spanSpelling = ResolvesReadOnlySpan(model, field.SpanStart) ? ReadOnlySpanTypeName : QualifiedReadOnlySpanName;
-        var text = new StringBuilder();
+        var capacity = spanSpelling.Length + "<byte> ".Length + field.Declaration.Variables[0].Identifier.Span.Length
+            + " => ".Length + literal.Span.Length + 1 + GetModifierTextLength(field.Modifiers);
+
+        var text = new StringBuilder(capacity);
         foreach (var modifier in field.Modifiers)
         {
             if (!modifier.IsKind(SyntaxKind.ReadOnlyKeyword))
@@ -69,6 +72,23 @@ public sealed class Psh1013Utf8SpanPropertyCodeFixProvider : CodeFixProvider, IB
 
         var property = SyntaxFactory.ParseMemberDeclaration(text.ToString());
         return property is null ? null : new NodeReplacement(field, property.WithTriviaFrom(field));
+    }
+
+    /// <summary>Counts the text and trailing spaces of modifiers retained on the property.</summary>
+    /// <param name="modifiers">The field modifiers, including any readonly keyword to omit.</param>
+    /// <returns>The character count needed for the retained modifiers.</returns>
+    private static int GetModifierTextLength(in SyntaxTokenList modifiers)
+    {
+        var length = 0;
+        foreach (var modifier in modifiers)
+        {
+            if (!modifier.IsKind(SyntaxKind.ReadOnlyKeyword))
+            {
+                length += modifier.Span.Length + 1;
+            }
+        }
+
+        return length;
     }
 
     /// <summary>Returns whether the span type resolves by simple name at a position.</summary>

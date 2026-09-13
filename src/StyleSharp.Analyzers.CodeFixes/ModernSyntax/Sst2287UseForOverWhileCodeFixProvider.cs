@@ -88,15 +88,16 @@ public sealed class Sst2287UseForOverWhileCodeFixProvider : CodeFixProvider
         var spaced = SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         return SyntaxFactory.ForStatement(
-                declaration: parts.Declaration.Declaration.WithoutTrivia(),
-                initializers: default,
-                condition: loop.Condition.WithoutTrivia(),
-                incrementors: SyntaxFactory.SingletonSeparatedList(parts.Incrementor.Expression.WithoutTrivia()),
-                statement: body.WithStatements(remaining))
-            .WithForKeyword(SyntaxFactory.Token(default, SyntaxKind.ForKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)))
-            .WithFirstSemicolonToken(spaced)
-            .WithSecondSemicolonToken(spaced)
-            .WithLeadingTrivia(parts.Declaration.GetLeadingTrivia())
-            .WithTrailingTrivia(loop.GetTrailingTrivia());
+            attributeLists: default,
+            forKeyword: SyntaxFactory.Token(parts.Declaration.GetLeadingTrivia(), SyntaxKind.ForKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            openParenToken: SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            declaration: parts.Declaration.Declaration.WithoutTrivia(),
+            initializers: default,
+            firstSemicolonToken: spaced,
+            condition: loop.Condition.WithoutTrivia(),
+            secondSemicolonToken: spaced,
+            incrementors: SyntaxFactory.SingletonSeparatedList(parts.Incrementor.Expression.WithoutTrivia()),
+            closeParenToken: SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+            statement: body.WithStatements(remaining));
     }
 }

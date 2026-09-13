@@ -213,7 +213,10 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         var body = whileStatement.Statement;
         if (accesses.Count > 0)
         {
-            body = body.ReplaceNodes(accesses, static (original, _) => SyntaxFactory.IdentifierName(FallbackItemName).WithTriviaFrom(original));
+            body = body.ReplaceNodes(accesses, static (original, _) => SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                original.GetLeadingTrivia(),
+                FallbackItemName,
+                original.GetTrailingTrivia())));
         }
 
         return CreateForeach(SyntaxFactory.IdentifierName("var"), SyntaxFactory.Identifier(FallbackItemName), source, body, declaration);
@@ -234,11 +237,16 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
         StatementSyntax body,
         LocalDeclarationStatementSyntax declaration) =>
         SyntaxFactory.ForEachStatement(
+                attributeLists: default,
+                awaitKeyword: default,
+                SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.ForEachKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
                 type.WithoutTrivia(),
                 identifier.WithLeadingTrivia(default(SyntaxTriviaList)).WithTrailingTrivia(default(SyntaxTriviaList)),
+                SyntaxFactory.Token(SyntaxKind.InKeyword),
                 source.WithoutTrivia(),
+                SyntaxFactory.Token(SyntaxKind.CloseParenToken),
                 body)
-            .WithLeadingTrivia(declaration.GetLeadingTrivia())
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 
     /// <summary>Replaces the declaration and while statement with the foreach in their shared statement list.</summary>

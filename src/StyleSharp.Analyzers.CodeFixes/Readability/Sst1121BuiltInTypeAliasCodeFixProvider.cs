@@ -31,6 +31,18 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
         foreach (var diagnostic in context.Diagnostics)
         {
             var node = root.FindNode(diagnostic.Location.SourceSpan);
+            var qualifiedName = node switch
+            {
+                QualifiedNameSyntax qualified => qualified.Right,
+                AliasQualifiedNameSyntax alias => alias.Name,
+                MemberAccessExpressionSyntax member => member.Name,
+                _ => null,
+            };
+            if (qualifiedName is not null && !BuiltInTypeAliases.IsAliasedName(qualifiedName.Identifier.ValueText))
+            {
+                continue;
+            }
+
             if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
                 || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
             {
@@ -62,7 +74,7 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
-        editor.ReplaceNode(node, SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node));
+        editor.ReplaceNode(node, SyntaxFactory.PredefinedType(SyntaxFactory.Token(node.GetLeadingTrivia(), BuiltInTypeAliases.TokenKind(keyword), node.GetTrailingTrivia())));
     }
 
     /// <summary>Replaces the type node with a predefined-type keyword.</summary>
@@ -73,7 +85,7 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
     /// <returns>The updated document.</returns>
     internal static Document Replace(Document document, SyntaxNode root, SyntaxNode node, string keyword)
     {
-        var predefined = SyntaxFactory.PredefinedType(SyntaxFactory.Token(BuiltInTypeAliases.TokenKind(keyword))).WithTriviaFrom(node);
+        var predefined = SyntaxFactory.PredefinedType(SyntaxFactory.Token(node.GetLeadingTrivia(), BuiltInTypeAliases.TokenKind(keyword), node.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(node, predefined));
     }
 }

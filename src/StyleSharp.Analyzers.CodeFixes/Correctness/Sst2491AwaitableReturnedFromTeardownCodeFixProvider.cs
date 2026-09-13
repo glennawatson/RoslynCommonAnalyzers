@@ -60,7 +60,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
             return null;
         }
 
-        var returns = new List<ReturnStatementSyntax>();
+        var returns = new List<ReturnStatementSyntax>(capacity: 4);
         CollectOwnedReturns(body, returns);
         if (returns.Count == 0)
         {
@@ -178,7 +178,10 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
         var awaitStatement = SyntaxFactory.ExpressionStatement(awaited);
         var bareReturn = SyntaxFactory.ReturnStatement();
-        return SyntaxFactory.Block(awaitStatement, bareReturn).WithLeadingTrivia(returnStatement.GetLeadingTrivia());
+        return SyntaxFactory.Block(
+            SyntaxFactory.Token(returnStatement.GetLeadingTrivia(), SyntaxKind.OpenBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.List<StatementSyntax>([awaitStatement, bareReturn]),
+            SyntaxFactory.Token(SyntaxKind.CloseBraceToken));
     }
 
     /// <summary>Rebuilds a function node with the <c>async</c> modifier and a rewritten body.</summary>
@@ -190,12 +193,33 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         if (function is MethodDeclarationSyntax method)
         {
             var (modifiers, returnType) = WithAsyncModifier(method.Modifiers, method.ReturnType);
-            return method.WithModifiers(modifiers).WithReturnType(returnType).WithBody(body);
+            return method.Update(
+                method.AttributeLists,
+                modifiers,
+                returnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                method.TypeParameterList,
+                method.ParameterList,
+                method.ConstraintClauses,
+                body,
+                method.ExpressionBody,
+                method.SemicolonToken);
         }
 
         var localFunction = (LocalFunctionStatementSyntax)function;
         var (localModifiers, localReturnType) = WithAsyncModifier(localFunction.Modifiers, localFunction.ReturnType);
-        return localFunction.WithModifiers(localModifiers).WithReturnType(localReturnType).WithBody(body);
+        return localFunction.Update(
+            localFunction.AttributeLists,
+            localModifiers,
+            localReturnType,
+            localFunction.Identifier,
+            localFunction.TypeParameterList,
+            localFunction.ParameterList,
+            localFunction.ConstraintClauses,
+            body,
+            localFunction.ExpressionBody,
+            localFunction.SemicolonToken);
     }
 
     /// <summary>Adds the <c>async</c> modifier immediately before the return type, carrying trivia across.</summary>
@@ -204,15 +228,14 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
     /// <returns>The modifiers with async, and the return type adjusted when it led the declaration.</returns>
     private static (SyntaxTokenList Modifiers, TypeSyntax ReturnType) WithAsyncModifier(in SyntaxTokenList modifiers, TypeSyntax returnType)
     {
-        var asyncToken = SyntaxFactory.Token(SyntaxKind.AsyncKeyword);
         if (modifiers.Count == 0)
         {
-            var leading = asyncToken.WithLeadingTrivia(returnType.GetLeadingTrivia()).WithTrailingTrivia(SyntaxFactory.Space);
+            var leading = SyntaxFactory.Token(returnType.GetLeadingTrivia(), SyntaxKind.AsyncKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
             return (SyntaxFactory.TokenList(leading), returnType.WithLeadingTrivia());
         }
 
         var last = modifiers[modifiers.Count - 1];
-        var placed = asyncToken.WithLeadingTrivia(SyntaxFactory.Space).WithTrailingTrivia(last.TrailingTrivia);
+        var placed = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.AsyncKeyword, last.TrailingTrivia);
         return (modifiers.Replace(last, last.WithTrailingTrivia()).Add(placed), returnType);
     }
 }

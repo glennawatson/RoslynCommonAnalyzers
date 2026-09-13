@@ -37,9 +37,12 @@ public sealed class Psh1007PassLargeReadonlyStructByInCodeFixProvider : CodeFixP
     {
         var type = parameter.Type!;
         var modifier = SyntaxFactory.Token(type.GetLeadingTrivia(), SyntaxKind.InKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        return parameter
-            .WithType(type.WithLeadingTrivia())
-            .WithModifiers(SyntaxFactory.TokenList(modifier));
+        return parameter.Update(
+            parameter.AttributeLists,
+            SyntaxFactory.TokenList(modifier),
+            type.WithLeadingTrivia(),
+            parameter.Identifier,
+            parameter.Default);
     }
 
     /// <summary>Resolves the reported parameter and builds it with the modifier added.</summary>

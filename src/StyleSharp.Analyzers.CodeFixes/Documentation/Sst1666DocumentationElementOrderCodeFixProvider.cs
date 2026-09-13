@@ -62,7 +62,7 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
     {
         var content = documentation.Content;
         var isSlot = new bool[content.Count];
-        var ranked = new List<(int Rank, int Position, XmlNodeSyntax Node)>();
+        var ranked = new List<(int Rank, int Position, XmlNodeSyntax Node)>(content.Count);
 
         for (var i = 0; i < content.Count; i++)
         {

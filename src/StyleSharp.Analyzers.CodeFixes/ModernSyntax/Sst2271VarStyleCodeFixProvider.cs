@@ -45,7 +45,9 @@ public sealed class Sst2271VarStyleCodeFixProvider : CodeFixProvider, IBatchFixa
 
         if (!typeSyntax.IsVar)
         {
-            return new NodeReplacement(typeSyntax, SyntaxFactory.IdentifierName("var").WithTriviaFrom(typeSyntax));
+            return new NodeReplacement(
+                typeSyntax,
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(typeSyntax.GetLeadingTrivia(), "var", typeSyntax.GetTrailingTrivia())));
         }
 
         if (Sst2271VarStyleAnalyzer.ResolveVariableType(model, typeSyntax) is not { } resolvedType

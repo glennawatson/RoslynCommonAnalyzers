@@ -108,7 +108,13 @@ internal static class FieldReferenceAnalysis
         var found = false;
         for (var i = 0; i < references.Count; i++)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var identifier = references[i];
+            if (found && allowedSpan.Contains(identifier.Span))
+            {
+                continue;
+            }
+
             if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
             {
                 continue;

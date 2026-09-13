@@ -26,9 +26,6 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
     /// <summary>The keys-view property name.</summary>
     private const string KeysPropertyName = "Keys";
 
-    /// <summary>The metadata name of the generic dictionary interface used as the compilation gate.</summary>
-    private const string IDictionaryMetadataName = "System.Collections.Generic.IDictionary`2";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseContainsKeyOverKeysContains);
 
@@ -41,14 +38,10 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(IDictionaryMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            var dictionaryType = new DictionaryTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, dictionaryType), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -72,10 +65,16 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
 
     /// <summary>Reports PSH1407 for a Keys.Contains chain on a receiver that exposes ContainsKey.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="typeCache">The compilation's deferred dictionary interface lookup.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, DictionaryTypeCache typeCache)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsKeysContainsShape(invocation, out var keysAccess))
+        {
+            return;
+        }
+
+        if (typeCache.Get() is null)
         {
             return;
         }
@@ -150,5 +149,32 @@ public sealed class Psh1407UseContainsKeyOverKeysContainsAnalyzer : DiagnosticAn
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the dictionary interface on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class DictionaryTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic dictionary interface used as the compilation gate.</summary>
+        private const string IDictionaryMetadataName = "System.Collections.Generic.IDictionary`2";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the dictionary interface, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no dictionary interface.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(IDictionaryMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -16,24 +18,12 @@ namespace SecuritySharp.Analyzers;
 /// exempt, as are any type names listed in <c>securitysharp.SES1703.exempt_types</c> /
 /// <c>securitysharp.exempt_types</c>. The whole rule is gated on
 /// <c>Microsoft.AspNetCore.Authorization.AuthorizeAttribute</c> and
-/// <c>Microsoft.AspNetCore.Components.ComponentBase</c> resolving; a project without Blazor components pays
-/// nothing.
+/// <c>Microsoft.AspNetCore.Components.ComponentBase</c> resolving. Marker resolution waits until a class
+/// declaration has attributes and is not explicitly abstract.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the marker whose presence on a non-routable component is reported.</summary>
-    private const string AuthorizeMetadataName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
-
-    /// <summary>The metadata name of the component base type the rule is scoped to.</summary>
-    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
-
-    /// <summary>The metadata name of the routing marker (the <c>@page</c> directive) that makes a component routable.</summary>
-    private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Components.RouteAttribute";
-
-    /// <summary>The metadata name of the layout base type whose descendants are exempt.</summary>
-    private const string LayoutComponentBaseMetadataName = "Microsoft.AspNetCore.Components.LayoutComponentBase";
-
     /// <summary>The rule-specific exempt-types key.</summary>
     private const string ExemptTypesRuleKey = "securitysharp.SES1703.exempt_types";
 
@@ -54,41 +44,25 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var authorize = start.Compilation.GetTypeByMetadataName(AuthorizeMetadataName);
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            var route = start.Compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
-            var layout = start.Compilation.GetTypeByMetadataName(LayoutComponentBaseMetadataName);
-
-            // The routing and layout markers ship in the same assembly as ComponentBase, so a project with
-            // Blazor components resolves all four; a project without them registers nothing and pays nothing.
-            if (authorize is null || componentBase is null || route is null || layout is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeType(nodeContext, authorize, componentBase, route, layout),
-                SyntaxKind.ClassDeclaration);
+            var markers = new Markers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeType(nodeContext, markers), SyntaxKind.ClassDeclaration);
         });
     }
 
     /// <summary>Reports SES1703 when a non-routable component carries <c>[Authorize]</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="authorize">The resolved <c>AuthorizeAttribute</c> type.</param>
-    /// <param name="componentBase">The resolved <c>ComponentBase</c> type.</param>
-    /// <param name="route">The resolved <c>RouteAttribute</c> type.</param>
-    /// <param name="layout">The resolved <c>LayoutComponentBase</c> type.</param>
-    private static void AnalyzeType(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol authorize,
-        INamedTypeSymbol componentBase,
-        INamedTypeSymbol route,
-        INamedTypeSymbol layout)
+    /// <param name="markers">The compilation's deferred framework markers.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, Markers markers)
     {
         var declaration = (TypeDeclarationSyntax)context.Node;
 
         // Syntactic prefilter: no attributes means no '[Authorize]' can be present.
-        if (declaration.AttributeLists.Count == 0)
+        if (declaration.AttributeLists.Count == 0 || declaration.Modifiers.Any(SyntaxKind.AbstractKeyword))
+        {
+            return;
+        }
+
+        if (markers.Get() is not [var authorize, var componentBase, var route, var layout])
         {
             return;
         }
@@ -195,5 +169,44 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the framework markers once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose framework markers are resolved.</param>
+    private sealed class Markers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the marker whose presence on a non-routable component is reported.</summary>
+        private const string AuthorizeMetadataName = "Microsoft.AspNetCore.Authorization.AuthorizeAttribute";
+
+        /// <summary>The metadata name of the component base type the rule is scoped to.</summary>
+        private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
+
+        /// <summary>The metadata name of the routing marker (the <c>@page</c> directive) that makes a component routable.</summary>
+        private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Components.RouteAttribute";
+
+        /// <summary>The metadata name of the layout base type whose descendants are exempt.</summary>
+        private const string LayoutComponentBaseMetadataName = "Microsoft.AspNetCore.Components.LayoutComponentBase";
+
+        /// <summary>The resolved markers, or an empty array when a required marker is absent.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the markers, caching missing markers as an empty result.</summary>
+        /// <returns>The four required markers, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the markers required to identify a non-routable component.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The four required markers, or an empty array when any is absent.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation)
+        {
+            var authorize = compilation.GetTypeByMetadataName(AuthorizeMetadataName);
+            var componentBase = compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
+            var route = compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
+            var layout = compilation.GetTypeByMetadataName(LayoutComponentBaseMetadataName);
+            return authorize is not null && componentBase is not null && route is not null && layout is not null
+                ? [authorize, componentBase, route, layout]
+                : [];
+        }
     }
 }

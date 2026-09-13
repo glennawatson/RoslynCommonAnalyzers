@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -12,8 +14,8 @@ namespace PerformanceSharp.Analyzers;
 /// <c>UseOutputCache()</c> / <c>CacheOutput()</c>.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the output-caching API resolving, so a project that
-/// cannot adopt the suggestion — or is not a web app at all — registers no syntax action and pays nothing.
+/// The output-caching API is resolved once per compilation, only after a matching invocation is found,
+/// so a project without a candidate does not pay for metadata resolution.
 /// The clean path is a method-name token comparison; only a name-matched invocation is bound, and its
 /// containing type must be the response-caching extension class, so a same-named method of your own is
 /// never confused with it.
@@ -33,18 +35,6 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
     /// <summary>The output-caching middleware replacement named in the message.</summary>
     private const string UseOutputCacheSuggestion = "UseOutputCache";
 
-    /// <summary>The metadata name of the extensions that declare <c>AddResponseCaching</c>.</summary>
-    private const string ResponseCachingServicesExtensionsMetadataName = "Microsoft.Extensions.DependencyInjection.ResponseCachingServicesExtensions";
-
-    /// <summary>The metadata name of the extensions that declare <c>UseResponseCaching</c>.</summary>
-    private const string ResponseCachingBuilderExtensionsMetadataName = "Microsoft.AspNetCore.Builder.ResponseCachingExtensions";
-
-    /// <summary>The metadata name of the output-caching service extensions, one of the marker types.</summary>
-    private const string OutputCacheServiceExtensionsMetadataName = "Microsoft.Extensions.DependencyInjection.OutputCacheServiceCollectionExtensions";
-
-    /// <summary>The metadata name of the output-caching options type, the alternate marker.</summary>
-    private const string OutputCacheOptionsMetadataName = "Microsoft.AspNetCore.OutputCaching.OutputCacheOptions";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.PreferOutputCaching);
 
@@ -59,21 +49,9 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(OutputCacheServiceExtensionsMetadataName) is null
-                && start.Compilation.GetTypeByMetadataName(OutputCacheOptionsMetadataName) is null)
-            {
-                return;
-            }
-
-            var servicesExtensions = start.Compilation.GetTypeByMetadataName(ResponseCachingServicesExtensionsMetadataName);
-            var builderExtensions = start.Compilation.GetTypeByMetadataName(ResponseCachingBuilderExtensionsMetadataName);
-            if (servicesExtensions is null && builderExtensions is null)
-            {
-                return;
-            }
-
+            var markers = new CachingTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, servicesExtensions, builderExtensions),
+                nodeContext => AnalyzeInvocation(nodeContext, markers),
                 SyntaxKind.InvocationExpression);
         });
     }
@@ -91,9 +69,8 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1503 for a call that registers the legacy response-caching middleware.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="servicesExtensions">The response-caching service extensions, when referenced.</param>
-    /// <param name="builderExtensions">The response-caching application-builder extensions, when referenced.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? servicesExtensions, INamedTypeSymbol? builderExtensions)
+    /// <param name="markers">The caching types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CachingTypes markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var methodName = GetInvokedMethodName(invocation.Expression);
@@ -102,7 +79,8 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (markers.Get() is not [var servicesExtensions, var builderExtensions]
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || (!SymbolEqualityComparer.Default.Equals(method.ContainingType, servicesExtensions)
                 && !SymbolEqualityComparer.Default.Equals(method.ContainingType, builderExtensions)))
         {
@@ -116,5 +94,48 @@ public sealed class Psh1503PreferOutputCachingAnalyzer : DiagnosticAnalyzer
             invocation.Span,
             methodName,
             replacement));
+    }
+
+    /// <summary>Resolves caching types only after an invocation passes the syntax filter.</summary>
+    /// <param name="compilation">The compilation whose caching types are resolved.</param>
+    private sealed class CachingTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the extensions that declare <c>AddResponseCaching</c>.</summary>
+        private const string ResponseCachingServicesExtensionsMetadataName = "Microsoft.Extensions.DependencyInjection.ResponseCachingServicesExtensions";
+
+        /// <summary>The metadata name of the extensions that declare <c>UseResponseCaching</c>.</summary>
+        private const string ResponseCachingBuilderExtensionsMetadataName = "Microsoft.AspNetCore.Builder.ResponseCachingExtensions";
+
+        /// <summary>The metadata name of the output-caching service extensions, one of the marker types.</summary>
+        private const string OutputCacheServiceExtensionsMetadataName = "Microsoft.Extensions.DependencyInjection.OutputCacheServiceCollectionExtensions";
+
+        /// <summary>The metadata name of the output-caching options type, the alternate marker.</summary>
+        private const string OutputCacheOptionsMetadataName = "Microsoft.AspNetCore.OutputCaching.OutputCacheOptions";
+
+        /// <summary>The resolved extension types, or an empty array when the rule cannot apply.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the cached extension types, including an unavailable result.</summary>
+        /// <returns>The extension types, or an empty array when output caching is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves response-caching extensions when the replacement API is available.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The extension types, or an empty array when output caching is unavailable.</returns>
+        private static INamedTypeSymbol?[] Resolve(Compilation compilation)
+        {
+            if (compilation.GetTypeByMetadataName(OutputCacheServiceExtensionsMetadataName) is null
+                && compilation.GetTypeByMetadataName(OutputCacheOptionsMetadataName) is null)
+            {
+                return [];
+            }
+
+            var servicesExtensions = compilation.GetTypeByMetadataName(ResponseCachingServicesExtensionsMetadataName);
+            var builderExtensions = compilation.GetTypeByMetadataName(ResponseCachingBuilderExtensionsMetadataName);
+            return servicesExtensions is null && builderExtensions is null
+                ? []
+                : [servicesExtensions, builderExtensions];
+        }
     }
 }

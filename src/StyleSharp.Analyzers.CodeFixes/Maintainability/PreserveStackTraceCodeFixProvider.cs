@@ -38,7 +38,9 @@ public sealed class PreserveStackTraceCodeFixProvider : CodeFixProvider, IBatchF
     /// <returns>The rewritten bare throw statement.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ThrowStatementSyntax BuildBareThrow(ThrowStatementSyntax throwStatement) =>
-        throwStatement
-            .WithExpression(null)
-            .WithThrowKeyword(throwStatement.ThrowKeyword.WithTrailingTrivia(SyntaxFactory.TriviaList()));
+        throwStatement.Update(
+            throwStatement.AttributeLists,
+            throwStatement.ThrowKeyword.WithTrailingTrivia(SyntaxFactory.TriviaList()),
+            expression: null,
+            throwStatement.SemicolonToken);
 }

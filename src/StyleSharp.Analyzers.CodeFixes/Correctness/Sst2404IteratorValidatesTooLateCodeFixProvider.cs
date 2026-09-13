@@ -108,9 +108,10 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         // The blank lines have to be real line breaks, in the file's own form. An elastic one is the
         // formatter's to remove, and it removes it — gluing the return to the guards above it and the local
         // function to the return.
-        rewritten[guards] = SyntaxFactory.ReturnStatement(SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name)))
-            .WithLeadingTrivia(lineBreak)
-            .WithTrailingTrivia(lineBreak, lineBreak);
+        rewritten[guards] = SyntaxFactory.ReturnStatement(
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(lineBreak), SyntaxKind.ReturnKeyword, default),
+            SyntaxFactory.InvocationExpression(SyntaxFactory.IdentifierName(name)),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, SyntaxFactory.TriviaList(lineBreak, lineBreak)));
         rewritten[guards + 1] = CreateIterator(method, statements, guards, name);
 
         return method
@@ -142,9 +143,17 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         // the formatter, which would close it.
         kept[0] = kept[0].WithLeadingTrivia(SyntaxFactory.ElasticMarker);
         var returnType = method.ReturnType.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.ElasticSpace);
-        return SyntaxFactory.LocalFunctionStatement(returnType, SyntaxFactory.Identifier(name))
-            .WithParameterList(SyntaxFactory.ParameterList())
-            .WithBody(SyntaxFactory.Block(SyntaxFactory.List(kept)));
+        return SyntaxFactory.LocalFunctionStatement(
+            attributeLists: default,
+            modifiers: default,
+            returnType,
+            SyntaxFactory.Identifier(name),
+            typeParameterList: null,
+            SyntaxFactory.ParameterList(),
+            constraintClauses: default,
+            SyntaxFactory.Block(SyntaxFactory.List(kept)),
+            expressionBody: null,
+            semicolonToken: default);
     }
 
     /// <summary>Picks a name for the iterator that nothing in the method already uses.</summary>

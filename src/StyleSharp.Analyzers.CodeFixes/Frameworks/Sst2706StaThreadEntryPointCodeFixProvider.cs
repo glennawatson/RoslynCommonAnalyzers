@@ -67,10 +67,11 @@ public sealed class Sst2706StaThreadEntryPointCodeFixProvider : CodeFixProvider
         var newLine = LineEndingHelper.GetLineBreak(method);
 
         var attributeList = SyntaxFactory.AttributeList(
-                SyntaxFactory.SingletonSeparatedList(
-                    SyntaxFactory.Attribute(SyntaxFactory.ParseName(StaThreadAttributeName))))
-            .WithLeadingTrivia(leading)
-            .WithTrailingTrivia(newLine);
+            SyntaxFactory.Token(leading, SyntaxKind.OpenBracketToken, default),
+            target: null,
+            SyntaxFactory.SingletonSeparatedList(
+                SyntaxFactory.Attribute(SyntaxFactory.ParseName(StaThreadAttributeName))),
+            SyntaxFactory.Token(default, SyntaxKind.CloseBracketToken, SyntaxFactory.TriviaList(newLine)));
 
         var relocated = method.WithLeadingTrivia(indent);
         var updated = relocated.WithAttributeLists(relocated.AttributeLists.Insert(0, attributeList));

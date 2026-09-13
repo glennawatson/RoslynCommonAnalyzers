@@ -66,7 +66,7 @@ public sealed class Sst2251InferableTypeArgumentsCodeFixProvider : CodeFixProvid
     /// <returns>The identifier name without the type-argument list.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IdentifierNameSyntax CreateReplacement(GenericNameSyntax genericName) =>
-        SyntaxFactory.IdentifierName(genericName.Identifier).WithTriviaFrom(genericName);
+        SyntaxFactory.IdentifierName(genericName.Identifier.WithTrailingTrivia(genericName.GetTrailingTrivia()));
 
     /// <summary>Finds the generic name whose type-argument list the diagnostic marks.</summary>
     /// <param name="root">The syntax root.</param>

@@ -154,7 +154,9 @@ public sealed class Sst2320AmbiguousInheritedInterfaceMemberAnalyzer : Diagnosti
     /// <returns>The signature key.</returns>
     private static string BuildSignatureKey(ISymbol member)
     {
-        var builder = new StringBuilder();
+        // Most signatures add a short type name or a few parameters to the member name.
+        const int InitialSignatureSuffixCapacity = 32;
+        var builder = new StringBuilder(member.Name.Length + InitialSignatureSuffixCapacity);
         switch (member)
         {
             case IMethodSymbol method:

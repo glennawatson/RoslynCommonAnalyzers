@@ -232,7 +232,7 @@ internal static class XmlDocumentationHelper
             return string.Empty;
         }
 
-        var state = new NormalizeState(new System.Text.StringBuilder());
+        var state = new NormalizeState(new System.Text.StringBuilder(element.Span.Length));
         _ = DescendantTraversalHelper.VisitDescendantTokens(element, ref state, AppendNormalizedToken);
         return state.Builder.ToString();
     }

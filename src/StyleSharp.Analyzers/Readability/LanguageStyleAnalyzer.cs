@@ -498,15 +498,17 @@ public sealed class LanguageStyleAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        foreach (var node in expression.DescendantNodes(static node => node is not ConditionalExpressionSyntax))
-        {
-            if (node is ConditionalExpressionSyntax)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants(
+            expression,
+            ref found,
+            static (ConditionalExpressionSyntax node, ref bool state) =>
             {
-                return true;
-            }
-        }
+                state = true;
+                return false;
+            });
 
-        return false;
+        return found;
     }
 
     /// <summary>Returns whether an if statement can become a conditional assignment.</summary>

@@ -10,9 +10,8 @@ namespace PerformanceSharp.Analyzers;
 /// is consumed once by the loop and discarded, so the source can be enumerated directly. Before
 /// reporting, the loop body is scanned for the receiver's root identifier: a body that mentions
 /// the source again may be materializing on purpose to survive mutation during enumeration, so
-/// those loops stay clean. <c>await foreach</c> is skipped, and the rule is resolved once per
-/// compilation by probing for <c>System.Linq.Enumerable</c>, so it costs nothing when LINQ is
-/// absent.
+/// those loops stay clean. <c>await foreach</c> is skipped, and <c>System.Linq.Enumerable</c>
+/// is resolved only after the loop passes these syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnalyzer
@@ -22,9 +21,6 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
 
     /// <summary>The array materialization method name.</summary>
     internal const string ToArrayMethodName = "ToArray";
-
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.DoNotMaterializeToEnumerate);
@@ -38,14 +34,10 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeForEach(nodeContext, enumerableType), SyntaxKind.ForEachStatement);
+            var enumerableType = new EnumerableTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeForEach(nodeContext, enumerableType), SyntaxKind.ForEachStatement);
         });
     }
 
@@ -60,8 +52,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
 
     /// <summary>Reports PSH1120 for a foreach that enumerates a ToList/ToArray copy it then discards.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
-    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, EnumerableTypeCache typeCache)
     {
         var forEach = (ForEachStatementSyntax)context.Node;
         if (forEach.AwaitKeyword.IsKind(SyntaxKind.AwaitKeyword)
@@ -77,7 +69,8 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (!IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
+        if (typeCache.Get() is not { } enumerableType
+            || !IsSourceOnlyEnumerableExtension(context.SemanticModel, invocation, enumerableType, context.CancellationToken))
         {
             return;
         }
@@ -184,5 +177,32 @@ public sealed class Psh1120DoNotMaterializeToEnumerateAnalyzer : DiagnosticAnaly
     {
         /// <summary>Gets or sets a value indicating whether the identifier was found in the body.</summary>
         public bool Found { get; set; }
+    }
+
+    /// <summary>Resolves the LINQ extension type on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EnumerableTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the LINQ extension type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no LINQ extension type.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
     }
 }

@@ -65,7 +65,12 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
     private static LiteralExpressionSyntax WithLeadingSpace(LiteralExpressionSyntax literal)
     {
         var token = literal.Token;
-        var spaced = SyntaxFactory.Literal($" {token.ValueText}").WithTriviaFrom(token);
+        var value = $" {token.ValueText}";
+        var spaced = SyntaxFactory.Literal(
+            token.LeadingTrivia,
+            Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(value, quote: true),
+            value,
+            token.TrailingTrivia);
         return literal.WithToken(spaced);
     }
 }

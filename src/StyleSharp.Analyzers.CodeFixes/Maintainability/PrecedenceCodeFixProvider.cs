@@ -51,7 +51,10 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
             return;
         }
 
-        editor.ReplaceNode(expression, static (current, _) => SyntaxFactory.ParenthesizedExpression(((ExpressionSyntax)current).WithoutTrivia()).WithTriviaFrom(current));
+        editor.ReplaceNode(expression, static (current, _) => SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.Token(current.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            ((ExpressionSyntax)current).WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, current.GetTrailingTrivia())));
     }
 
     /// <summary>Replaces the expression with a parenthesized copy that keeps its surrounding trivia.</summary>
@@ -62,7 +65,10 @@ public sealed class PrecedenceCodeFixProvider : CodeFixProvider, IBatchFixableCo
     /// <remarks>The rewrite is a pure syntax edit over a root the caller already has, so there is nothing to cancel.</remarks>
     internal static Task<Document> AddParenthesesAsync(Document document, SyntaxNode root, ExpressionSyntax expression)
     {
-        var parenthesized = SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(expression);
+        var parenthesized = SyntaxFactory.ParenthesizedExpression(
+            SyntaxFactory.Token(expression.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            expression.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, expression.GetTrailingTrivia()));
         return Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(expression, parenthesized)));
     }
 

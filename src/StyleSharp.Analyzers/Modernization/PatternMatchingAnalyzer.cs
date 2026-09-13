@@ -104,16 +104,16 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        // 'x is T' is only equivalent for reference types; 'x as int?' would need a different pattern.
-        var targetType = context.SemanticModel.GetTypeInfo(asExpression.Right, context.CancellationToken).Type;
-        if (targetType?.IsReferenceType != true)
+        // The '== null' branch is fixed to 'x is not T' (needs C# 9); the '!= null' branch becomes a plain 'x is T' (C# 1).
+        var isEqualNull = comparison.IsKind(SyntaxKind.EqualsExpression);
+        if (isEqualNull && context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
         {
             return;
         }
 
-        // The '== null' branch is fixed to 'x is not T' (needs C# 9); the '!= null' branch becomes a plain 'x is T' (C# 1).
-        var isEqualNull = comparison.IsKind(SyntaxKind.EqualsExpression);
-        if (isEqualNull && context.Node.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp9 })
+        // 'x is T' is only equivalent for reference types; 'x as int?' would need a different pattern.
+        var targetType = context.SemanticModel.GetTypeInfo(asExpression.Right, context.CancellationToken).Type;
+        if (targetType?.IsReferenceType != true)
         {
             return;
         }

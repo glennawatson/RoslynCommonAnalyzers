@@ -49,7 +49,7 @@ public sealed class RedundantAnonymousTypeMemberNameCodeFixProvider : CodeFixPro
         }
 
         var expression = declarator.Expression.WithTriviaFrom(declarator);
-        editor.ReplaceNode(declarator, declarator.WithNameEquals(null).WithExpression(expression));
+        editor.ReplaceNode(declarator, declarator.Update(null, expression));
     }
 
     /// <summary>Removes the explicit name from the anonymous-type member declarator.</summary>
@@ -60,7 +60,7 @@ public sealed class RedundantAnonymousTypeMemberNameCodeFixProvider : CodeFixPro
     internal static Document Apply(Document document, SyntaxNode root, AnonymousObjectMemberDeclaratorSyntax declarator)
     {
         var expression = declarator.Expression.WithTriviaFrom(declarator);
-        var replacement = declarator.WithNameEquals(null).WithExpression(expression);
+        var replacement = declarator.Update(null, expression);
         return document.WithSyntaxRoot(root.ReplaceNode(declarator, replacement));
     }
 }

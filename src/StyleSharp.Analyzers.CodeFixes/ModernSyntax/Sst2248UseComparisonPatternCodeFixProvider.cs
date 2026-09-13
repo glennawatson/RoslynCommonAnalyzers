@@ -59,13 +59,12 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
             merge.IsConjunction ? SyntaxKind.AndPattern : SyntaxKind.OrPattern,
             BuildPattern(merge.LeftOperator, merge.LeftConstant),
             Keyword(merge.IsConjunction ? SyntaxKind.AndKeyword : SyntaxKind.OrKeyword),
-            BuildPattern(merge.RightOperator, merge.RightConstant));
+            BuildPattern(merge.RightOperator, merge.RightConstant).WithTrailingTrivia(original.GetTrailingTrivia()));
 
         return SyntaxFactory.IsPatternExpression(
-                merge.Subject.WithoutTrivia(),
-                Keyword(SyntaxKind.IsKeyword),
-                pattern)
-            .WithTriviaFrom(original);
+            merge.Subject.WithoutTrivia().WithLeadingTrivia(original.GetLeadingTrivia()),
+            Keyword(SyntaxKind.IsKeyword),
+            pattern);
     }
 
     /// <summary>Builds one comparison's pattern: a constant pattern for equality, else a relational pattern.</summary>

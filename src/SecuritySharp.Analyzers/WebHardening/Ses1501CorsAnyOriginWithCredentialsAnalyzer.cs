@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Text;
 
 namespace SecuritySharp.Analyzers;
@@ -14,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// or, for a bare fluent chain, the single enclosing statement -- for an <c>AllowAnyOrigin()</c> call on
 /// <c>CorsPolicyBuilder</c>. Both member symbols are bound so a same-named method on an unrelated type is never
 /// matched. The scan is a purely local ancestor/descendant walk: no data flow, and cross-statement uses outside a
-/// policy lambda are deliberately left alone. <c>CorsPolicyBuilder</c> is probed once per compilation; a project
-/// without ASP.NET Core CORS registers nothing and pays nothing.
+/// policy lambda are deliberately left alone. <c>CorsPolicyBuilder</c> is resolved only after an
+/// <c>AllowCredentials</c> call with an enclosing policy scope passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnalyzer
@@ -25,9 +26,6 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
 
     /// <summary>The name of the any-origin fluent method whose presence completes the violation.</summary>
     private const string AllowAnyOriginMethodName = "AllowAnyOrigin";
-
-    /// <summary>The metadata name of the CORS policy builder that gates the rule.</summary>
-    private const string CorsPolicyBuilderMetadataName = "Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.CorsAnyOriginWithCredentials);
@@ -41,35 +39,31 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var builderType = start.Compilation.GetTypeByMetadataName(CorsPolicyBuilderMetadataName);
-            if (builderType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
+            var builderTypes = new CorsBuilderTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1501 for an <c>AllowCredentials()</c> call whose policy scope also allows any origin.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The gated <c>CorsPolicyBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="builderTypes">The CORS builder type cache for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CorsBuilderTypes builderTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a member-access '.AllowCredentials()' call. The receiver is required, so an
         // unqualified identifier can never reach the instance method and is ignored.
-        if (GetCalleeName(invocation.Expression) is not { Identifier.ValueText: AllowCredentialsMethodName } credentialsName)
+        if (GetCalleeName(invocation.Expression) is not { Identifier.ValueText: AllowCredentialsMethodName } credentialsName
+            || GetPolicyScope(invocation) is not { } scope)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AllowCredentialsMethodName } method
+        if (builderTypes.Get() is not { } builderType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: AllowCredentialsMethodName } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, builderType)
-            || GetPolicyScope(invocation) is not { } scope
             || !ScopeAllowsAnyOrigin(scope, context.SemanticModel, builderType, context.CancellationToken))
         {
             return;
@@ -172,4 +166,20 @@ public sealed class Ses1501CorsAnyOriginWithCredentialsAnalyzer : DiagnosticAnal
     /// <param name="Found">Whether a matching <c>AllowAnyOrigin()</c> call has been found.</param>
     /// <param name="CancellationToken">A token that cancels the binding.</param>
     private record struct AllowAnyOriginScan(SemanticModel Model, INamedTypeSymbol Builder, bool Found, CancellationToken CancellationToken);
+
+    /// <summary>Resolves the CORS builder type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class CorsBuilderTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the CORS policy builder that gates the rule.</summary>
+        private const string CorsPolicyBuilderMetadataName = "Microsoft.AspNetCore.Cors.Infrastructure.CorsPolicyBuilder";
+
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the CORS builder type, resolving it on first demand.</summary>
+        /// <returns>The builder type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(CorsPolicyBuilderMetadataName)])[0];
+    }
 }

@@ -14,12 +14,11 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on at least one recognised <c>Assert</c> type resolving, so a
-/// project that references no test framework registers nothing. The clean path is a syntactic prepass: the invoked
-/// name must be <c>Equal</c> or <c>AreEqual</c>, the call must have exactly two arguments, and one of them must be a
-/// <c>true</c>/<c>false</c> literal. Only then does the rule bind — confirming the call resolves to a framework
-/// <c>Assert</c> type, that the other operand is itself a boolean value, and that the target boolean assertion
-/// exists — so a suggestion is never made toward a method that is not there.
+/// The clean path is a syntactic prepass: the invoked name must be <c>Equal</c> or <c>AreEqual</c>, the call must
+/// have exactly two arguments, and one of them must be a <c>true</c>/<c>false</c> literal. Only then does the rule
+/// resolve the recognised <c>Assert</c> types and bind — confirming the call resolves to a framework <c>Assert</c>
+/// type, that the other operand is itself a boolean value, and that the target boolean assertion exists — so a
+/// suggestion is never made toward a method that is not there.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -75,15 +74,7 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            if (!ReferencesAnyAssertType(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
-        });
+        context.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
     }
 
     /// <summary>Returns the invoked member's simple name for the supported call shapes.</summary>
@@ -171,6 +162,11 @@ public sealed class Sst2503BooleanLiteralAssertionAnalyzer : DiagnosticAnalyzer
 
         var literalIndex = GetBooleanLiteralArgumentIndex(arguments);
         if (literalIndex < 0)
+        {
+            return;
+        }
+
+        if (!ReferencesAnyAssertType(context.Compilation))
         {
             return;
         }

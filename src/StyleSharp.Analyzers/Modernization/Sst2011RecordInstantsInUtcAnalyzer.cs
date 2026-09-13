@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -47,11 +49,7 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var clockTypes = ClockPropertyAccess.ClockTypes.Resolve(start.Compilation);
-            if (!clockTypes.Any)
-            {
-                return;
-            }
+            var clockTypes = new ClockTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, clockTypes),
@@ -76,8 +74,8 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one local-clock read that is being recorded.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="clockTypes">The clock types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in ClockPropertyAccess.ClockTypes clockTypes)
+    /// <param name="clockTypes">The clock types resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ClockTypes clockTypes)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
         var shape = ClockPropertyAccess.MatchLocalInstantSpelling(access);
@@ -91,7 +89,9 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!ClockPropertyAccess.BindsToLocalInstant(context.SemanticModel, access, shape, clockTypes, context.CancellationToken))
+        var resolved = clockTypes.Get();
+        if (!resolved.Any
+            || !ClockPropertyAccess.BindsToLocalInstant(context.SemanticModel, access, shape, resolved, context.CancellationToken))
         {
             return;
         }
@@ -131,5 +131,18 @@ public sealed class Sst2011RecordInstantsInUtcAnalyzer : DiagnosticAnalyzer
         }
 
         return model.GetSymbolInfo(assignment.Left, cancellationToken).Symbol is IFieldSymbol or IPropertySymbol;
+    }
+
+    /// <summary>Resolves the clock types only when a recorded local-clock read needs them.</summary>
+    /// <param name="compilation">The compilation whose clock types are resolved.</param>
+    private sealed class ClockTypes(Compilation compilation)
+    {
+        /// <summary>The published result, including a result with no clock types.</summary>
+        private ClockPropertyAccess.ClockTypes[]? _resolved;
+
+        /// <summary>Gets the clock types, caching an absent result too.</summary>
+        /// <returns>The clock types for this compilation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ClockPropertyAccess.ClockTypes Get() => (_resolved ??= [ClockPropertyAccess.ClockTypes.Resolve(compilation)])[0];
     }
 }

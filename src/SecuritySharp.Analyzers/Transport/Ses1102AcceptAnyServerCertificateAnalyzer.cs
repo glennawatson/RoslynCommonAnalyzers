@@ -11,16 +11,12 @@ namespace SecuritySharp.Analyzers;
 /// server authentication and opens the connection to man-in-the-middle attacks. Reading the member has no
 /// other purpose, so every member-access reference to it is reported — the rule does not try to follow where
 /// the value is later assigned. The member is bound (never matched on identifier text alone), and the rule is
-/// resolved once per compilation by probing <c>System.Net.Http.HttpClientHandler</c> and confirming the member
-/// exists on it; on a target framework without either (netstandard2.0, .NET Framework) nothing is registered,
-/// so a project that cannot reference the member pays nothing.
+/// gated on <c>System.Net.Http.HttpClientHandler</c> exposing the member. The type and member are resolved
+/// only after a member access passes the name check.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the handler type that owns the accept-any validator.</summary>
-    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
-
     /// <summary>The name of the accept-any server-certificate validator member.</summary>
     private const string ValidatorMemberName = "DangerousAcceptAnyServerCertificateValidator";
 
@@ -36,22 +32,17 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(ValidatorMemberName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, handlerType), SyntaxKind.SimpleMemberAccessExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, frameworkType), SyntaxKind.SimpleMemberAccessExpression);
         });
     }
 
     /// <summary>Reports SES1102 for a member access that reads the accept-any server-certificate validator.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -63,7 +54,9 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
 
         // Bind the member: report only when it truly resolves to the member on HttpClientHandler, so a
         // same-named member on an unrelated type is never flagged.
-        if (context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not { Name: ValidatorMemberName } member
+        if (frameworkType.Get() is not { } handlerType
+            || handlerType.GetMembers(ValidatorMemberName).IsEmpty
+            || context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not { Name: ValidatorMemberName } member
             || !SymbolEqualityComparer.Default.Equals(member.ContainingType, handlerType))
         {
             return;
@@ -73,5 +66,24 @@ public sealed class Ses1102AcceptAnyServerCertificateAnalyzer : DiagnosticAnalyz
             SecurityRules.AcceptAnyServerCertificate,
             memberAccess.SyntaxTree,
             memberAccess.Span));
+    }
+
+    /// <summary>Resolves the HTTP handler type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the handler type that owns the accept-any validator.</summary>
+        private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the HTTP handler type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

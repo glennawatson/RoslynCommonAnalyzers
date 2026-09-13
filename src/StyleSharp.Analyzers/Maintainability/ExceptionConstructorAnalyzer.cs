@@ -73,7 +73,9 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeNamedType(in SymbolAnalysisContext context, ExceptionTypeState state)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Class || type.IsStatic || !state.IsException(type))
+        if (type.TypeKind != TypeKind.Class || type.IsStatic
+            || !HasBaseList(type, context.CancellationToken)
+            || !state.IsException(type))
         {
             return;
         }
@@ -85,6 +87,24 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
 
         ReportMissingConstructors(context, type, tree);
         ReportSerializationMembers(context, type, state);
+    }
+
+    /// <summary>Rejects types whose declarations cannot specify an exception base.</summary>
+    /// <param name="type">The type, including all of its partial declarations.</param>
+    /// <param name="cancellationToken">A token that cancels analysis.</param>
+    /// <returns>Whether any declaration has an explicit base list.</returns>
+    private static bool HasBaseList(INamedTypeSymbol type, CancellationToken cancellationToken)
+    {
+        var declarations = type.DeclaringSyntaxReferences;
+        for (var i = 0; i < declarations.Length; i++)
+        {
+            if (declarations[i].GetSyntax(cancellationToken) is TypeDeclarationSyntax { BaseList: not null })
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Reports SST1488 when the type does not declare all the constructors callers expect.</summary>
@@ -292,7 +312,13 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
             return parts[0];
         }
 
-        var builder = new System.Text.StringBuilder(parts[0]);
+        var capacity = parts[0].Length;
+        for (var i = 1; i < parts.Count; i++)
+        {
+            capacity += (i == parts.Count - 1 ? " and ".Length : ", ".Length) + parts[i].Length;
+        }
+
+        var builder = new System.Text.StringBuilder(parts[0], capacity);
         for (var i = 1; i < parts.Count; i++)
         {
             _ = builder.Append(i == parts.Count - 1 ? " and " : ", ").Append(parts[i]);
@@ -384,14 +410,14 @@ public sealed class ExceptionConstructorAnalyzer : DiagnosticAnalyzer
         /// <returns><see langword="true"/> when the type is an exception.</returns>
         public bool IsException(INamedTypeSymbol type)
         {
-            Resolve();
-            if (_exception is null)
-            {
-                return false;
-            }
-
             for (var current = type.BaseType; current is not null; current = current.BaseType)
             {
+                if (!IsExceptionType(current))
+                {
+                    continue;
+                }
+
+                Resolve();
                 if (SymbolEqualityComparer.Default.Equals(current, _exception))
                 {
                     return true;

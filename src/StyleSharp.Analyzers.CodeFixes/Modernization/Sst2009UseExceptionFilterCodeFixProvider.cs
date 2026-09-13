@@ -94,32 +94,39 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
             newStatements = RemainingStatements(statements);
         }
 
-        return WithFilter(catchClause, condition)
-            .WithBlock(catchClause.Block.WithStatements(newStatements))
+        return WithFilter(catchClause, condition, catchClause.Block.WithStatements(newStatements))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 
     /// <summary>Attaches a <c>when</c> filter to the catch clause, keeping the line break before the block.</summary>
     /// <param name="catchClause">The catch clause to extend.</param>
     /// <param name="condition">The trivia-free filter condition.</param>
+    /// <param name="block">The rewritten catch body.</param>
     /// <returns>The catch clause with the filter attached.</returns>
-    private static CatchClauseSyntax WithFilter(CatchClauseSyntax catchClause, ExpressionSyntax condition)
+    private static CatchClauseSyntax WithFilter(CatchClauseSyntax catchClause, ExpressionSyntax condition, BlockSyntax block)
     {
-        var filter = SyntaxFactory.CatchFilterClause(condition)
-            .WithWhenKeyword(SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.WhenKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
+        var filter = SyntaxFactory.CatchFilterClause(
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.WhenKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            condition,
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken));
 
         if (catchClause.Declaration is { } declaration)
         {
             var closeParen = declaration.CloseParenToken;
-            return catchClause
-                .WithDeclaration(declaration.WithCloseParenToken(closeParen.WithTrailingTrivia()))
-                .WithFilter(filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(closeParen.TrailingTrivia)));
+            return catchClause.Update(
+                catchClause.CatchKeyword,
+                declaration.WithCloseParenToken(closeParen.WithTrailingTrivia()),
+                filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(closeParen.TrailingTrivia)),
+                block);
         }
 
         var catchKeyword = catchClause.CatchKeyword;
-        return catchClause
-            .WithCatchKeyword(catchKeyword.WithTrailingTrivia())
-            .WithFilter(filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(catchKeyword.TrailingTrivia)));
+        return catchClause.Update(
+            catchKeyword.WithTrailingTrivia(),
+            catchClause.Declaration,
+            filter.WithCloseParenToken(filter.CloseParenToken.WithTrailingTrivia(catchKeyword.TrailingTrivia)),
+            block);
     }
 
     /// <summary>Returns the statements a surviving branch contributes to the new catch body.</summary>
@@ -207,7 +214,7 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
         if (unwrapped is BinaryExpressionSyntax binary && TryInvertComparison(binary.Kind(), out var invertedKind, out var invertedToken))
         {
             var operatorToken = SyntaxFactory.Token(binary.OperatorToken.LeadingTrivia, invertedToken, binary.OperatorToken.TrailingTrivia);
-            return SyntaxFactory.BinaryExpression(invertedKind, binary.Left, operatorToken, binary.Right).WithoutTrivia();
+            return SyntaxFactory.BinaryExpression(invertedKind, binary.Left.WithoutLeadingTrivia(), operatorToken, binary.Right.WithoutTrailingTrivia());
         }
 
         return SyntaxFactory.PrefixUnaryExpression(

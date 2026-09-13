@@ -25,9 +25,6 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>The property carrying the enclosing type's name for the code fix.</summary>
     internal const string EnclosingTypeKey = "EnclosingType";
 
-    /// <summary>The metadata name of the generic logger type.</summary>
-    private const string GenericLoggerMetadataName = "Microsoft.Extensions.Logging.ILogger`1";
-
     /// <summary>The identifier a typed-logger type is written with.</summary>
     private const string LoggerIdentifier = "ILogger";
 
@@ -47,11 +44,7 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var genericLogger = start.Compilation.GetTypeByMetadataName(GenericLoggerMetadataName);
-            if (genericLogger is null)
-            {
-                return;
-            }
+            var genericLogger = new LoggerType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeType(nodeContext, GetFieldType(nodeContext.Node), genericLogger), SyntaxKind.FieldDeclaration);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeType(nodeContext, ((PropertyDeclarationSyntax)nodeContext.Node).Type, genericLogger), SyntaxKind.PropertyDeclaration);
@@ -63,8 +56,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes a written <c>ILogger&lt;T&gt;</c> type for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="type">The declared type syntax, when present.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, TypeSyntax? type, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeType(in SyntaxNodeAnalysisContext context, TypeSyntax? type, LoggerType genericLogger)
     {
         if (type is not GenericNameSyntax { Identifier.ValueText: LoggerIdentifier } generic
             || generic.TypeArgumentList.Arguments.Count != 1)
@@ -72,8 +65,9 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(generic, context.CancellationToken).Symbol is not INamedTypeSymbol { TypeArguments: [{ } category] } constructed
-            || !SymbolEqualityComparer.Default.Equals(constructed.OriginalDefinition, genericLogger))
+        if (genericLogger.Get() is not { } loggerType
+            || context.SemanticModel.GetSymbolInfo(generic, context.CancellationToken).Symbol is not INamedTypeSymbol { TypeArguments: [{ } category] } constructed
+            || !SymbolEqualityComparer.Default.Equals(constructed.OriginalDefinition, loggerType))
         {
             return;
         }
@@ -83,8 +77,8 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes a <c>CreateLogger&lt;T&gt;()</c> or <c>CreateLogger(typeof(T))</c> call for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeCreateLogger(in SyntaxNodeAnalysisContext context, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeCreateLogger(in SyntaxNodeAnalysisContext context, LoggerType genericLogger)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax { Identifier.ValueText: CreateLoggerIdentifier } name })
@@ -94,7 +88,11 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
 
         if (name is GenericNameSyntax { TypeArgumentList.Arguments: [{ } typeArgument] })
         {
-            AnalyzeGenericCreateLogger(context, invocation, typeArgument, genericLogger);
+            if (genericLogger.Get() is { } loggerType)
+            {
+                AnalyzeGenericCreateLogger(context, invocation, typeArgument, loggerType);
+            }
+
             return;
         }
 
@@ -120,12 +118,13 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
     /// <summary>Analyzes a <c>CreateLogger(typeof(T))</c> call for a mismatched category.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="invocation">The factory call.</param>
-    /// <param name="genericLogger">The generic logger type.</param>
-    private static void AnalyzeTypeofCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, INamedTypeSymbol genericLogger)
+    /// <param name="genericLogger">The lazily resolved generic logger type.</param>
+    private static void AnalyzeTypeofCreateLogger(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, LoggerType genericLogger)
     {
         if (invocation.ArgumentList.Arguments is not [{ Expression: TypeOfExpressionSyntax typeOf }]
+            || genericLogger.Get() is not { } loggerType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol createLogger
-            || !ReturnsLogger(createLogger.ReturnType, genericLogger)
+            || !ReturnsLogger(createLogger.ReturnType, loggerType)
             || context.SemanticModel.GetTypeInfo(typeOf.Type, context.CancellationToken).Type is not INamedTypeSymbol namedCategory)
         {
             return;
@@ -289,5 +288,21 @@ public sealed class Sst2443LoggerCategoryAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
+    }
+
+    /// <summary>Resolves the generic logger type only after a logger-shaped candidate is found.</summary>
+    /// <param name="compilation">The compilation whose logger type is cached.</param>
+    private sealed class LoggerType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic logger type.</summary>
+        private const string GenericLoggerMetadataName = "Microsoft.Extensions.Logging.ILogger`1";
+
+        /// <summary>The cached lookup result, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the generic logger type, resolving it on first use.</summary>
+        /// <returns>The generic logger type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(GenericLoggerMetadataName)])[0];
     }
 }

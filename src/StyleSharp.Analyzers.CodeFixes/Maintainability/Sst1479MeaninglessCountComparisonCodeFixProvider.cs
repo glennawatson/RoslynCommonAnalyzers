@@ -88,6 +88,7 @@ public sealed class Sst1479MeaninglessCountComparisonCodeFixProvider : CodeFixPr
     /// <returns>The <c>true</c> or <c>false</c> literal.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static LiteralExpressionSyntax BuildLiteral(SyntaxNode node, bool result) =>
-        SyntaxFactory.LiteralExpression(result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression)
-            .WithTriviaFrom(node);
+        SyntaxFactory.LiteralExpression(
+            result ? SyntaxKind.TrueLiteralExpression : SyntaxKind.FalseLiteralExpression,
+            SyntaxFactory.Token(node.GetLeadingTrivia(), result ? SyntaxKind.TrueKeyword : SyntaxKind.FalseKeyword, node.GetTrailingTrivia()));
 }

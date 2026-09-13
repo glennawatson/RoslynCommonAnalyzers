@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Suggests <c>[]</c> for empty standard collection creations (SST2100).</summary>
@@ -20,9 +22,9 @@ public sealed class Sst2100EmptyCollectionExpressionAnalyzer : DiagnosticAnalyze
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var targets = CollectionExpressionHelper.ResolveTargets(start.Compilation);
+            var targets = new CollectionTargets(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, targets),
                 SyntaxKind.InvocationExpression,
@@ -33,18 +35,51 @@ public sealed class Sst2100EmptyCollectionExpressionAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports an accepted empty collection creation.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
+    /// <param name="targets">The accepted target definitions resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionTargets targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
             || !IsEmptyCandidate(expression)
-            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets))
+            || !HasAcceptedTarget(context, expression, targets))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(CollectionExpressionRules.UseEmptyCollectionExpression, expression.GetLocation()));
+    }
+
+    /// <summary>Checks the target context before resolving any named collection definitions.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="expression">The empty collection candidate.</param>
+    /// <param name="targets">The collection definitions resolved on first demand.</param>
+    /// <returns>Whether the candidate has an accepted explicit target type.</returns>
+    private static bool HasAcceptedTarget(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, CollectionTargets targets)
+    {
+        if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, expression, out var converted))
+        {
+            return false;
+        }
+
+        if (converted is IArrayTypeSymbol { Rank: 1 })
+        {
+            return true;
+        }
+
+        if (converted is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        foreach (var target in targets.Get())
+        {
+            if (SymbolEqualityComparer.Default.Equals(target, named.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether an expression is syntactically an empty collection creation.</summary>
@@ -80,4 +115,17 @@ public sealed class Sst2100EmptyCollectionExpressionAnalyzer : DiagnosticAnalyze
         array.Initializer is { Expressions.Count: 0 }
             || (array.Type.RankSpecifiers is [{ Rank: 1, Sizes: [LiteralExpressionSyntax literal] }]
               && literal.Token.ValueText.AsSpan().SequenceEqual("0".AsSpan()));
+
+    /// <summary>Resolves collection target definitions only after an empty candidate is found.</summary>
+    /// <param name="compilation">The compilation whose collection targets are resolved.</param>
+    private sealed class CollectionTargets(Compilation compilation)
+    {
+        /// <summary>The cached target definitions, including an empty result when none resolve.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the collection target definitions on first demand.</summary>
+        /// <returns>The accepted target definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= CollectionExpressionHelper.ResolveTargets(compilation);
+    }
 }

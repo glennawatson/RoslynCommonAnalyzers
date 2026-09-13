@@ -65,9 +65,10 @@ public sealed class Sst2417TransposedCompoundAssignmentCodeFixProvider : CodeFix
         PrefixUnaryExpressionSyntax prefix,
         Diagnostic diagnostic)
     {
-        var rewritten = assignment
-            .WithOperatorToken(assignment.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space))
-            .WithRight(prefix.WithOperatorToken(prefix.OperatorToken.WithTrailingTrivia()));
+        var rewritten = assignment.Update(
+            assignment.Left,
+            assignment.OperatorToken.WithTrailingTrivia(SyntaxFactory.Space),
+            prefix.WithOperatorToken(prefix.OperatorToken.WithTrailingTrivia()));
         context.RegisterCodeFix(
             CodeAction.Create(
                 $"Assign the unary value ('= {prefix.OperatorToken.Text}')",

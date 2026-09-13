@@ -111,14 +111,19 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         }
 
         var root = tree.GetRoot(context.CancellationToken);
-        foreach (var node in root.DescendantNodes())
-        {
-            context.CancellationToken.ThrowIfCancellationRequested();
-            if (node is IdentifierNameSyntax identifier)
+        _ = DescendantTraversalHelper.VisitDescendants(
+            root,
+            ref context,
+            static (SyntaxNode node, ref SemanticModelAnalysisContext state) =>
             {
-                AnalyzeBareMemberAccess(context, identifier);
-            }
-        }
+                state.CancellationToken.ThrowIfCancellationRequested();
+                if (node is IdentifierNameSyntax identifier)
+                {
+                    AnalyzeBareMemberAccess(state, identifier);
+                }
+
+                return true;
+            });
     }
 
     /// <summary>Reports one bare instance-member access that should be qualified.</summary>

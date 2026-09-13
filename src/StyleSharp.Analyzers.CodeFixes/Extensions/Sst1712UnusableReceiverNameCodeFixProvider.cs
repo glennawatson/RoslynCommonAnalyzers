@@ -54,9 +54,12 @@ public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var updated = parameter
-            .WithType(receiverType.WithoutTrailingTrivia())
-            .WithIdentifier(default);
+        var updated = parameter.Update(
+            parameter.AttributeLists,
+            parameter.Modifiers,
+            receiverType.WithoutTrailingTrivia(),
+            identifier: default,
+            parameter.Default);
         return new NodeReplacement(parameter, updated);
     }
 }

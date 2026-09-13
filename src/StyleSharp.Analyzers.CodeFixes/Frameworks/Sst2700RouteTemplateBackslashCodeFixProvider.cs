@@ -49,9 +49,13 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
         }
 
         var corrected = literal.Token.ValueText.Replace('\\', '/');
-        var replacement = SyntaxFactory
-            .LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(corrected))
-            .WithTriviaFrom(literal);
+        var replacement = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(corrected, quote: true),
+                corrected,
+                literal.GetTrailingTrivia()));
 
         return new NodeReplacement(literal, replacement);
     }

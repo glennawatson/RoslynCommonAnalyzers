@@ -17,18 +17,12 @@ namespace SecuritySharp.Analyzers;
 /// developer-authored markup and is not reported. A value wrapped in a call to a method whose name is listed
 /// in <c>securitysharp.SES1701.sanitizers</c> (or the project-wide <c>securitysharp.sanitizers</c>) is
 /// treated as already-encoded and stays silent. The sink is confirmed by binding, so a same-named type or
-/// method on an unrelated type is ignored. The whole rule is gated on <c>MarkupString</c> resolving, so a
-/// non-Blazor project registers nothing and pays nothing.
+/// method on an unrelated type is ignored. The whole rule is gated on <c>MarkupString</c> resolving,
+/// with framework types resolved only after a candidate passes the syntax filter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the raw-markup wrapper the rule gates on.</summary>
-    private const string MarkupStringMetadataName = "Microsoft.AspNetCore.Components.MarkupString";
-
-    /// <summary>The metadata name of the render-tree builder that owns the raw-markup append helper.</summary>
-    private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
-
     /// <summary>The simple type name of the raw-markup wrapper, used for the syntactic prefilter.</summary>
     private const string MarkupStringSimpleName = "MarkupString";
 
@@ -58,33 +52,25 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var markupString = start.Compilation.GetTypeByMetadataName(MarkupStringMetadataName);
-            if (markupString is null)
-            {
-                return;
-            }
+            var markupTypes = new MarkupTypes(start.Compilation);
 
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, markupString), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeCast(nodeContext, markupString), SyntaxKind.CastExpression);
-
-            var renderTreeBuilder = start.Compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName);
-            if (renderTreeBuilder is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, renderTreeBuilder), SyntaxKind.InvocationExpression);
-            }
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, markupTypes), SyntaxKind.ObjectCreationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeCast(nodeContext, markupTypes), SyntaxKind.CastExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, markupTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1701 for <c>new MarkupString(x)</c> whose value argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, MarkupTypes markupTypes)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: 'new MarkupString(<single argument>)'.
         if (creation.ArgumentList is not { Arguments.Count: 1 } argumentList
-            || !string.Equals(GetRightmostIdentifier(creation.Type), MarkupStringSimpleName, StringComparison.Ordinal))
+            || !string.Equals(GetRightmostIdentifier(creation.Type), MarkupStringSimpleName, StringComparison.Ordinal)
+            || markupTypes.GetMarkupString() is not { } markupString)
         {
             return;
         }
@@ -101,13 +87,14 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1701 for <c>(MarkupString)x</c> whose cast operand is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="markupString">The gated <c>MarkupString</c> type resolved for the compilation.</param>
-    private static void AnalyzeCast(in SyntaxNodeAnalysisContext context, INamedTypeSymbol markupString)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeCast(in SyntaxNodeAnalysisContext context, MarkupTypes markupTypes)
     {
         var cast = (CastExpressionSyntax)context.Node;
 
         // Syntactic prefilter: '(MarkupString)<operand>'.
-        if (!string.Equals(GetRightmostIdentifier(cast.Type), MarkupStringSimpleName, StringComparison.Ordinal))
+        if (!string.Equals(GetRightmostIdentifier(cast.Type), MarkupStringSimpleName, StringComparison.Ordinal)
+            || markupTypes.GetMarkupString() is not { } markupString)
         {
             return;
         }
@@ -123,14 +110,15 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1701 for <c>AddMarkupContent(seq, x)</c> whose markup argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="renderTreeBuilder">The gated <c>RenderTreeBuilder</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol renderTreeBuilder)
+    /// <param name="markupTypes">The lazily resolved raw-markup types for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, MarkupTypes markupTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a member '.AddMarkupContent(sequence, markup)' call.
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: AddMarkupContentMethodName }
-            || invocation.ArgumentList.Arguments.Count <= AddMarkupContentMarkupPosition)
+            || invocation.ArgumentList.Arguments.Count <= AddMarkupContentMarkupPosition
+            || markupTypes.GetRenderTreeBuilder() is not { } renderTreeBuilder)
         {
             return;
         }
@@ -219,4 +207,32 @@ public sealed class Ses1701RawHtmlFromNonConstantAnalyzer : DiagnosticAnalyzer
             QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
             _ => null,
         };
+
+    /// <summary>Resolves each raw-markup type only when a matching sink needs it.</summary>
+    /// <param name="compilation">The compilation that owns the cached symbols.</param>
+    private sealed class MarkupTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the raw-markup wrapper the rule gates on.</summary>
+        private const string MarkupStringMetadataName = "Microsoft.AspNetCore.Components.MarkupString";
+
+        /// <summary>The metadata name of the render-tree builder that owns the raw-markup append helper.</summary>
+        private const string RenderTreeBuilderMetadataName = "Microsoft.AspNetCore.Components.Rendering.RenderTreeBuilder";
+
+        /// <summary>The cached markup-string lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _markupString;
+
+        /// <summary>The cached render-tree-builder lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _renderTreeBuilder;
+
+        /// <summary>Resolves the raw-markup wrapper on first demand.</summary>
+        /// <returns>The framework wrapper type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetMarkupString() => (_markupString ??= [compilation.GetTypeByMetadataName(MarkupStringMetadataName)])[0];
+
+        /// <summary>Resolves the builder only when the compilation also supports the raw-markup wrapper.</summary>
+        /// <returns>The framework builder type, or null when either required type is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetRenderTreeBuilder() =>
+            GetMarkupString() is null ? null : (_renderTreeBuilder ??= [compilation.GetTypeByMetadataName(RenderTreeBuilderMetadataName)])[0];
+    }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,16 +16,13 @@ namespace SecuritySharp.Analyzers;
 /// backtracking, capture rewriting — so the untrusted text controls the matching grammar rather than
 /// only the text being searched. Only the pattern argument is inspected; a regex run over non-constant
 /// input with a constant pattern is a separate matching-timeout concern and is not reported here. The
-/// <c>Regex</c> type is probed once per compilation and, when absent, nothing is registered. There is no
+/// <c>Regex</c> type is resolved only after a constructor or call passes the syntax checks. There is no
 /// code fix: wrapping the data in <c>Regex.Escape</c> changes matching semantics, so the rewrite is left
 /// to the author.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the regular-expression type whose pattern argument is guarded.</summary>
-    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
-
     /// <summary>The simple type name used to prefilter object-creation nodes syntactically.</summary>
     private const string RegexTypeName = "Regex";
 
@@ -45,23 +44,18 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var regexType = start.Compilation.GetTypeByMetadataName(RegexMetadataName);
-            if (regexType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, regexType), SyntaxKind.ObjectCreationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, regexType), SyntaxKind.InvocationExpression);
+            var regexTypes = new RegexTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, regexTypes), SyntaxKind.ObjectCreationExpression);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, regexTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1303 for a <c>new Regex(pattern, ...)</c> whose pattern argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
+    /// <param name="regexTypes">The regex type resolved on demand for this compilation.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, RegexTypes regexTypes)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -72,7 +66,8 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(objectCreation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+        if (regexTypes.Get() is not { } regexType
+            || context.SemanticModel.GetSymbolInfo(objectCreation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, regexType))
         {
             return;
@@ -83,8 +78,8 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1303 for a static <c>Regex</c> call whose pattern argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The gated <c>Regex</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regexType)
+    /// <param name="regexTypes">The regex type resolved on demand for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, RegexTypes regexTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -97,7 +92,8 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
+        if (regexTypes.Get() is not { } regexType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
             || !IsGuardedStaticMethodName(method.Name)
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, regexType))
         {
@@ -176,4 +172,20 @@ public sealed class Ses1303RegexInjectionAnalyzer : DiagnosticAnalyzer
             "IsMatch" or "Match" or "Matches" or "Replace" or "Split" => true,
             _ => false,
         };
+
+    /// <summary>Resolves the regex type on first demand and caches its absence too.</summary>
+    /// <param name="compilation">The compilation whose regex type is resolved.</param>
+    private sealed class RegexTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the regular-expression type whose pattern argument is guarded.</summary>
+        private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
+
+        /// <summary>The cached type result, with a null entry when the type is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the regex type once it is first needed by a candidate node.</summary>
+        /// <returns>The regex type, or null when the framework does not provide it.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(RegexMetadataName)])[0];
+    }
 }

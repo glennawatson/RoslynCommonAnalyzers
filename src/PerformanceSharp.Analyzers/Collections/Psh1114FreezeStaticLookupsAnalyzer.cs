@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -23,15 +25,6 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
     /// <summary>The hash set simple type name the syntax gate accepts.</summary>
     internal const string HashSetTypeName = "HashSet";
 
-    /// <summary>The metadata name of the frozen dictionary factory class the rule is gated on.</summary>
-    private const string FrozenDictionaryMetadataName = "System.Collections.Frozen.FrozenDictionary";
-
-    /// <summary>The metadata name of the dictionary type.</summary>
-    private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
-
-    /// <summary>The metadata name of the hash set type.</summary>
-    private const string HashSetMetadataName = "System.Collections.Generic.HashSet`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.FreezeStaticLookups);
 
@@ -44,21 +37,10 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(FrozenDictionaryMetadataName) is null)
-            {
-                return;
-            }
-
-            var dictionaryType = start.Compilation.GetTypeByMetadataName(DictionaryMetadataName);
-            var hashSetType = start.Compilation.GetTypeByMetadataName(HashSetMetadataName);
-            if (dictionaryType is null || hashSetType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeField(nodeContext, dictionaryType, hashSetType), SyntaxKind.FieldDeclaration);
+            var types = new LookupTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeField(nodeContext, types), SyntaxKind.FieldDeclaration);
         });
     }
 
@@ -94,9 +76,8 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1114 for a private static readonly lookup field that is only ever read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The dictionary type definition.</param>
-    /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType, INamedTypeSymbol hashSetType)
+    /// <param name="types">The lookup definitions resolved only after a syntax match.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, LookupTypes types)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!HasCandidateShape(field)
@@ -117,11 +98,8 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var declaredType = context.SemanticModel.GetTypeInfo(field.Declaration.Type, context.CancellationToken).Type;
         var isDictionary = typeName.Identifier.ValueText == DictionaryTypeName;
-        var expectedType = isDictionary ? dictionaryType : hashSetType;
-        if (declaredType is not INamedTypeSymbol namedType
-            || !SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, expectedType))
+        if (!MatchesLookupType(context, field.Declaration.Type, isDictionary, types))
         {
             return;
         }
@@ -131,6 +109,25 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
             variable.Identifier.GetLocation(),
             isDictionary ? "Dictionary" : "Set",
             variable.Identifier.ValueText));
+    }
+
+    /// <summary>Checks framework availability and binds the lookup after its syntax-only usage scan succeeds.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="type">The declared field type.</param>
+    /// <param name="isDictionary">Whether the syntax names a dictionary rather than a hash set.</param>
+    /// <param name="types">The cached framework lookup definitions.</param>
+    /// <returns>Whether the field binds to the expected lookup and frozen collections are available.</returns>
+    private static bool MatchesLookupType(in SyntaxNodeAnalysisContext context, TypeSyntax type, bool isDictionary, LookupTypes types)
+    {
+        var resolved = types.Get();
+        if (resolved[0] is null || resolved[1] is not { } dictionaryType || resolved[2] is not { } hashSetType)
+        {
+            return false;
+        }
+
+        var expectedType = isDictionary ? dictionaryType : hashSetType;
+        return context.SemanticModel.GetTypeInfo(type, context.CancellationToken).Type is INamedTypeSymbol namedType
+            && SymbolEqualityComparer.Default.Equals(namedType.OriginalDefinition, expectedType);
     }
 
     /// <summary>Returns whether a field is a private static readonly single variable with an initializer.</summary>
@@ -162,6 +159,33 @@ public sealed class Psh1114FreezeStaticLookupsAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    /// <summary>Resolves lookup definitions on demand and caches missing references too.</summary>
+    /// <param name="compilation">The compilation whose symbols are cached.</param>
+    private sealed class LookupTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the frozen dictionary factory class the rule is gated on.</summary>
+        private const string FrozenDictionaryMetadataName = "System.Collections.Frozen.FrozenDictionary";
+
+        /// <summary>The metadata name of the dictionary type.</summary>
+        private const string DictionaryMetadataName = "System.Collections.Generic.Dictionary`2";
+
+        /// <summary>The metadata name of the hash set type.</summary>
+        private const string HashSetMetadataName = "System.Collections.Generic.HashSet`1";
+
+        /// <summary>The published result; null until a candidate needs the types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the definitions, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The frozen dictionary factory, dictionary, and hash set types, each null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(FrozenDictionaryMetadataName),
+            compilation.GetTypeByMetadataName(DictionaryMetadataName),
+            compilation.GetTypeByMetadataName(HashSetMetadataName),
+        ];
     }
 
     /// <summary>Token-visitor state that whitelists read-only usages of one field name.</summary>

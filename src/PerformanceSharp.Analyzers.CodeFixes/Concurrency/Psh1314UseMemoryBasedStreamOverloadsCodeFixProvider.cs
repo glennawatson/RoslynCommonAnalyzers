@@ -94,9 +94,12 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsCodeFixProvider : CodeFi
             ? new[] { SyntaxFactory.Argument(asMemory), arguments[TokenArgumentIndex].WithoutTrivia() }
             : [SyntaxFactory.Argument(asMemory)];
 
-        var candidate = invocation
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(replacementArguments)))
-            .WithTriviaFrom(invocation);
+        var candidate = invocation.Update(
+            invocation.Expression,
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(replacementArguments),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         if (!BindsToMemoryOverload(model, invocation.SpanStart, candidate))
         {

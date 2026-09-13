@@ -21,9 +21,9 @@ namespace StyleSharp.Analyzers;
 /// not carry two rules arguing about it.
 /// </para>
 /// <para>
-/// <c>DateOnly</c> and <c>TimeOnly</c> arrived in .NET 6 and are resolved independently once per compilation:
-/// a framework with neither gets no registration at all, and a framework with only one of them is only told
-/// about the half it can act on.
+/// <c>DateOnly</c> and <c>TimeOnly</c> arrived in .NET 6 and are resolved once per compilation after a property
+/// read passes the syntax gate. A framework with neither gets no diagnostic, and a framework with only one
+/// of them is only told about the half it can act on.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -55,11 +55,8 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var suggestions = SplitTypes.Resolve(start.Compilation);
-            if (!suggestions.Any)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var suggestions = new Lazy<SplitTypes>(() => SplitTypes.Resolve(compilation));
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, suggestions),
@@ -69,17 +66,19 @@ public sealed class Sst2017UseDateOnlyOrTimeOnlyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one <c>.Date</c> or <c>.TimeOfDay</c> read on a <c>DateTime</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="suggestions">The split types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in SplitTypes suggestions)
+    /// <param name="suggestions">The split types resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<SplitTypes> suggestions)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
-        var suggested = SuggestedTypeFor(access, suggestions);
-        if (suggested is null || IsClockRead(access.Expression))
+        if (access.Name.Identifier.ValueText is not (DateMemberName or TimeOfDayMemberName) || IsClockRead(access.Expression))
         {
             return;
         }
 
-        if (!ReadsDateTimeProperty(context.SemanticModel, access, suggestions.DateTime, context.CancellationToken))
+        var resolved = suggestions.Value;
+        if (!resolved.Any
+            || SuggestedTypeFor(access, resolved) is not { } suggested
+            || !ReadsDateTimeProperty(context.SemanticModel, access, resolved.DateTime, context.CancellationToken))
         {
             return;
         }

@@ -85,9 +85,46 @@ public sealed class AccessorOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
         var rebuilt = new AccessorDeclarationSyntax[ordered.Length];
         for (var index = 0; index < ordered.Length; index++)
         {
-            rebuilt[index] = ordered[index]
-                .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia());
+            var accessor = ordered[index];
+            var attributeLists = accessor.AttributeLists;
+            var modifiers = accessor.Modifiers;
+            var keyword = accessor.Keyword;
+            var leadingTrivia = original[index].GetLeadingTrivia();
+            if (attributeLists.Count > 0)
+            {
+                attributeLists = attributeLists.Replace(attributeLists[0], attributeLists[0].WithLeadingTrivia(leadingTrivia));
+            }
+            else if (modifiers.Count > 0)
+            {
+                modifiers = modifiers.Replace(modifiers[0], modifiers[0].WithLeadingTrivia(leadingTrivia));
+            }
+            else
+            {
+                keyword = keyword.WithLeadingTrivia(leadingTrivia);
+            }
+
+            var body = accessor.Body;
+            var expressionBody = accessor.ExpressionBody;
+            var semicolonToken = accessor.SemicolonToken;
+            var trailingTrivia = original[index].GetTrailingTrivia();
+            if (semicolonToken.RawKind != 0)
+            {
+                semicolonToken = semicolonToken.WithTrailingTrivia(trailingTrivia);
+            }
+            else if (expressionBody is not null)
+            {
+                expressionBody = expressionBody.WithTrailingTrivia(trailingTrivia);
+            }
+            else if (body is not null)
+            {
+                body = body.WithTrailingTrivia(trailingTrivia);
+            }
+            else
+            {
+                keyword = keyword.WithTrailingTrivia(trailingTrivia);
+            }
+
+            rebuilt[index] = accessor.Update(attributeLists, modifiers, keyword, body, expressionBody, semicolonToken);
         }
 
         return list.WithAccessors(SyntaxFactory.List(rebuilt));

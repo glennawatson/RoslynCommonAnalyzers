@@ -53,10 +53,9 @@ public sealed class Sst2284UseIncrementOperatorCodeFixProvider : CodeFixProvider
         }
 
         var replacement = SyntaxFactory.PostfixUnaryExpression(
-                increment ? SyntaxKind.PostIncrementExpression : SyntaxKind.PostDecrementExpression,
-                assignment.Left.WithoutTrivia(),
-                SyntaxFactory.Token(increment ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken))
-            .WithTriviaFrom(assignment);
+            increment ? SyntaxKind.PostIncrementExpression : SyntaxKind.PostDecrementExpression,
+            assignment.Left.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(default, increment ? SyntaxKind.PlusPlusToken : SyntaxKind.MinusMinusToken, assignment.GetTrailingTrivia()));
 
         return new NodeReplacement(assignment, replacement);
     }

@@ -55,11 +55,10 @@ public sealed class Sst2254ExplicitObjectCreationTypeCodeFixProvider : CodeFixPr
 
         var typeName = type!.ToMinimalDisplayString(model, creation.SpanStart);
         var replacement = SyntaxFactory.ObjectCreationExpression(
-                creation.NewKeyword.WithTrailingTrivia(SyntaxFactory.Space),
-                SyntaxFactory.ParseTypeName(typeName),
-                creation.ArgumentList,
-                creation.Initializer)
-            .WithTriviaFrom(creation);
+            creation.NewKeyword.WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.ParseTypeName(typeName),
+            creation.ArgumentList,
+            creation.Initializer);
 
         return new NodeReplacement(creation, replacement);
     }

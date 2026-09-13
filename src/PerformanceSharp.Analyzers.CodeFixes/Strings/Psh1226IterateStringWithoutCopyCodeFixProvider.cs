@@ -59,9 +59,9 @@ public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProv
         var newDeclarator = declarator.WithInitializer(declarator.Initializer!.WithValue(newValue));
 
         var declaration = (VariableDeclarationSyntax)declarator.Parent!;
-        var newDeclaration = declaration
-            .WithType(RetypeToString(declaration.Type))
-            .WithVariables(SyntaxFactory.SingletonSeparatedList(newDeclarator));
+        var newDeclaration = declaration.Update(
+            RetypeToString(declaration.Type),
+            SyntaxFactory.SingletonSeparatedList(newDeclarator));
 
         return localDeclaration.WithDeclaration(newDeclaration);
     }
@@ -72,5 +72,5 @@ public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProv
     private static TypeSyntax RetypeToString(TypeSyntax type) =>
         type is IdentifierNameSyntax { Identifier.ValueText: VarKeyword }
             ? type
-            : SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)).WithTriviaFrom(type);
+            : SyntaxFactory.PredefinedType(SyntaxFactory.Token(type.GetLeadingTrivia(), SyntaxKind.StringKeyword, type.GetTrailingTrivia()));
 }

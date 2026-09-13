@@ -96,7 +96,14 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
         var indent = text.ToString(TextSpan.FromBounds(text.Lines[firstInnerLine - 1].Start, IndentEnd(text, firstInnerLine - 1)));
         var newLine = NewLine(text, startLine.End, startLine.EndIncludingLineBreak);
 
-        var builder = new StringBuilder();
+        const string ParagraphEnd = "/// </para>";
+        const int LinesPerSeparatedParagraph = 2;
+        var replaceStart = startLine.Start;
+        var replaceEnd = text.Lines[lastInnerLine + 1].Start;
+        var paragraphWrapperLength = indent.Length + "/// <para>".Length + newLine.Length
+            + indent.Length + ParagraphEnd.Length + newLine.Length;
+        var maximumParagraphs = ((lastInnerLine - firstInnerLine) / LinesPerSeparatedParagraph) + 1;
+        var builder = new StringBuilder(replaceEnd - replaceStart + (maximumParagraphs * paragraphWrapperLength));
         var inParagraph = false;
         for (var lineNumber = firstInnerLine; lineNumber <= lastInnerLine; lineNumber++)
         {
@@ -113,18 +120,16 @@ public sealed class Sst1664SummaryParagraphCodeFixProvider : CodeFixProvider, IT
             }
             else if (inParagraph)
             {
-                _ = builder.Append(indent).Append("/// </para>").Append(newLine);
+                _ = builder.Append(indent).Append(ParagraphEnd).Append(newLine);
                 inParagraph = false;
             }
         }
 
         if (inParagraph)
         {
-            _ = builder.Append(indent).Append("/// </para>").Append(newLine);
+            _ = builder.Append(indent).Append(ParagraphEnd).Append(newLine);
         }
 
-        var replaceStart = text.Lines[firstInnerLine].Start;
-        var replaceEnd = text.Lines[lastInnerLine + 1].Start;
         change = new(TextSpan.FromBounds(replaceStart, replaceEnd), builder.ToString());
         return true;
     }

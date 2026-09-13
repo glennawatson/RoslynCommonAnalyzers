@@ -23,22 +23,38 @@ internal static class AnalyzerOptionReader
             return [];
         }
 
-        var parts = value.Split(',');
-        var parsed = new string[parts.Length];
-        var count = 0;
-        for (var i = 0; i < parts.Length; i++)
+        var capacity = 1;
+        foreach (var character in value)
         {
-            var trimmed = parts[i].Trim();
-            if (trimmed.Length == 0)
+            if (character == ',')
+            {
+                capacity++;
+            }
+        }
+
+        var parsed = new string[capacity];
+        var count = 0;
+        var start = 0;
+        while (start < value.Length)
+        {
+            var end = value.IndexOf(',', start);
+            if (end < 0)
+            {
+                end = value.Length;
+            }
+
+            var trimmed = TrimSegment(value, start, end);
+            start = end + 1;
+            if (trimmed.IsEmpty)
             {
                 continue;
             }
 
-            parsed[count] = trimmed;
+            parsed[count] = trimmed.Length == value.Length ? value : trimmed.ToString();
             count++;
         }
 
-        if (count == parts.Length)
+        if (count == parsed.Length)
         {
             return parsed;
         }
@@ -55,4 +71,24 @@ internal static class AnalyzerOptionReader
     /// <returns>The configured value, or <see langword="false"/>.</returns>
     internal static bool ReadBool(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
         options.TryGetValue(ruleKey, out var value) && bool.TryParse(value, out var parsed) ? parsed : options.TryGetValue(generalKey, out value) && bool.TryParse(value, out parsed) && parsed;
+
+    /// <summary>Returns a segment without its leading and trailing whitespace.</summary>
+    /// <param name="value">The option text.</param>
+    /// <param name="start">The inclusive segment start.</param>
+    /// <param name="end">The exclusive segment end.</param>
+    /// <returns>The trimmed segment as a view of the option text.</returns>
+    private static ReadOnlySpan<char> TrimSegment(string value, int start, int end)
+    {
+        while (start < end && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        while (end > start && char.IsWhiteSpace(value[end - 1]))
+        {
+            end--;
+        }
+
+        return value.AsSpan(start, end - start);
+    }
 }

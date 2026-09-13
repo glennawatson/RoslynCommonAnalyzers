@@ -66,17 +66,18 @@ public sealed class Psh1113UseNaturalOrderCodeFixProvider : CodeFixProvider, IBa
     {
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
         var isDescending = access.Name.Identifier.ValueText == Psh1113UseNaturalOrderAnalyzer.OrderByDescendingMethodName;
-        var newName = SyntaxFactory.IdentifierName(
-                isDescending ? Psh1113UseNaturalOrderAnalyzer.OrderDescendingMethodName : Psh1113UseNaturalOrderAnalyzer.OrderMethodName)
-            .WithTriviaFrom(access.Name);
+        var newName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            access.Name.GetLeadingTrivia(),
+            isDescending ? Psh1113UseNaturalOrderAnalyzer.OrderDescendingMethodName : Psh1113UseNaturalOrderAnalyzer.OrderMethodName,
+            access.Name.GetTrailingTrivia()));
 
         var arguments = invocation.ArgumentList.Arguments;
         var newArguments = arguments.Count == 2
             ? SyntaxFactory.SingletonSeparatedList(arguments[1].WithoutTrivia())
             : default;
 
-        return invocation
-            .WithExpression(access.WithName(newName))
-            .WithArgumentList(invocation.ArgumentList.WithArguments(newArguments));
+        return invocation.Update(
+            access.WithName(newName),
+            invocation.ArgumentList.WithArguments(newArguments));
     }
 }

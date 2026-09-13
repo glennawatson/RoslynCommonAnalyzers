@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -10,23 +12,14 @@ namespace StyleSharp.Analyzers;
 /// compiler injects the real call site, and supplying a value defeats that and usually reports
 /// the wrong caller. Forwarding your own caller-info parameter onward is the intended pattern and
 /// is never reported. The rule binds only invocations and creations that pass at least one
-/// argument to a method with optional parameters, and the whole analyzer is gated on the
-/// attributes existing in the compilation.
+/// argument to a method with optional parameters, and resolves the attribute symbols only
+/// when an explicit argument targets an optional parameter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The message description for a caller-member-name parameter.</summary>
     private const string MemberNameDescription = "member name";
-
-    /// <summary>The metadata name of the caller-member-name attribute.</summary>
-    private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
-
-    /// <summary>The metadata name of the caller-file-path attribute.</summary>
-    private const string CallerFilePathMetadataName = "System.Runtime.CompilerServices.CallerFilePathAttribute";
-
-    /// <summary>The metadata name of the caller-line-number attribute.</summary>
-    private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
 
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.CallerInfoArgument);
@@ -42,19 +35,10 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var memberName = start.Compilation.GetTypeByMetadataName(CallerMemberNameMetadataName);
-            if (memberName is null)
-            {
-                return;
-            }
-
-            var attributes = new CallerInfoAttributes(
-                memberName,
-                start.Compilation.GetTypeByMetadataName(CallerFilePathMetadataName),
-                start.Compilation.GetTypeByMetadataName(CallerLineNumberMetadataName));
+            var attributeTypes = new CallerInfoTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeArguments(nodeContext, attributes),
+                nodeContext => AnalyzeArguments(nodeContext, attributeTypes),
                 SyntaxKind.InvocationExpression,
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
@@ -63,8 +47,8 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports explicit arguments bound to caller-info parameters.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
-    private static void AnalyzeArguments(in SyntaxNodeAnalysisContext context, CallerInfoAttributes attributes)
+    /// <param name="attributeTypes">The caller-info attribute type cache for this compilation.</param>
+    private static void AnalyzeArguments(in SyntaxNodeAnalysisContext context, CallerInfoTypes attributeTypes)
     {
         var argumentList = ArgumentBinding.GetArgumentList(context.Node);
         if (argumentList is null || argumentList.Arguments.Count == 0)
@@ -89,6 +73,11 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
             if (ArgumentBinding.FindParameter(method, arguments, i) is not { IsOptional: true } parameter)
             {
                 continue;
+            }
+
+            if (attributeTypes.Get() is not { } attributes)
+            {
+                return;
             }
 
             if (attributes.Classify(parameter) is not { } description)
@@ -194,6 +183,40 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         expression is IdentifierNameSyntax
             && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IParameterSymbol forwarded
             && attributes.Classify(forwarded) is not null;
+
+    /// <summary>Resolves caller-info attributes on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class CallerInfoTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the caller-member-name attribute.</summary>
+        private const string CallerMemberNameMetadataName = "System.Runtime.CompilerServices.CallerMemberNameAttribute";
+
+        /// <summary>The metadata name of the caller-file-path attribute.</summary>
+        private const string CallerFilePathMetadataName = "System.Runtime.CompilerServices.CallerFilePathAttribute";
+
+        /// <summary>The metadata name of the caller-line-number attribute.</summary>
+        private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
+
+        /// <summary>Stores the resolved attributes, including a missing result, in an atomically assigned array.</summary>
+        private CallerInfoAttributes?[]? _resolved;
+
+        /// <summary>Gets the caller-info attributes, resolving them on first demand.</summary>
+        /// <returns>The attributes, or null when the required member-name attribute is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public CallerInfoAttributes? Get() => (_resolved ??= [Resolve(compilation)])[0];
+
+        /// <summary>Resolves the optional caller-info attributes only when the required member-name attribute exists.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The attributes, or null when the required member-name attribute is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static CallerInfoAttributes? Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(CallerMemberNameMetadataName) is { } memberName
+                ? new(
+                    memberName,
+                    compilation.GetTypeByMetadataName(CallerFilePathMetadataName),
+                    compilation.GetTypeByMetadataName(CallerLineNumberMetadataName))
+                : null;
+    }
 
     /// <summary>The compilation's caller-info attribute symbols.</summary>
     /// <param name="memberName">The caller-member-name attribute symbol.</param>

@@ -138,8 +138,10 @@ internal static class UniqueLineCodeFixerHelperExtensions
                    inner => getParameterList(inner)?.Parameters,
                    (inner, parameters) => withParameterList(
                        inner,
-                       SyntaxFactory.ParameterList(parameters)
-                           .WithOpenParenToken(getParameterList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.ParameterList(
+                           getParameterList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine),
+                           parameters,
+                           SyntaxFactory.Token(SyntaxKind.CloseParenToken))))
                ?? node;
     }
 
@@ -160,8 +162,10 @@ internal static class UniqueLineCodeFixerHelperExtensions
                    inner => getArgumentList(inner)?.Arguments,
                    (inner, arguments) => withArgumentList(
                        inner,
-                       SyntaxFactory.ArgumentList(arguments)
-                           .WithOpenParenToken(getArgumentList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.ArgumentList(
+                           getArgumentList(inner)!.OpenParenToken.WithTrailingTrivia(endOfLine),
+                           arguments,
+                           SyntaxFactory.Token(SyntaxKind.CloseParenToken))))
                ?? node;
     }
 
@@ -249,7 +253,7 @@ internal static class UniqueLineCodeFixerHelperExtensions
         var separators = new SyntaxToken[entryCount - 1];
         for (var i = 0; i < separators.Length; i++)
         {
-            separators[i] = SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(endOfLine);
+            separators[i] = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CommaToken, SyntaxFactory.TriviaList(endOfLine));
         }
 
         return separators;

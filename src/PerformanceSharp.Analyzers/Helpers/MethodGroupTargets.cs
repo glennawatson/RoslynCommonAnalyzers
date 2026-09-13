@@ -50,20 +50,25 @@ internal sealed class MethodGroupTargets(Compilation compilation)
         foreach (var tree in compilation.SyntaxTrees)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            SemanticModel? model = null;
-            foreach (var node in tree.GetRoot(cancellationToken).DescendantNodes())
-            {
-                if (node is not SimpleNameSyntax name || IsCalledWhereItStands(name) || IsNamingSomethingOtherThanAValue(name))
+            var state = new MethodGroupScanState(compilation, tree, targets, cancellationToken);
+            _ = DescendantTraversalHelper.VisitDescendants(
+                tree.GetRoot(cancellationToken),
+                ref state,
+                static (SimpleNameSyntax name, ref MethodGroupScanState current) =>
                 {
-                    continue;
-                }
+                    if (IsCalledWhereItStands(name) || IsNamingSomethingOtherThanAValue(name) || IsNamingAnExpressionTypeOrArgument(name))
+                    {
+                        return true;
+                    }
 
-                model ??= compilation.GetSemanticModel(tree);
-                if (model.GetSymbolInfo(name, cancellationToken).Symbol is IMethodSymbol referenced)
-                {
-                    _ = targets.Add(referenced.OriginalDefinition);
-                }
-            }
+                    current.Model ??= current.Compilation.GetSemanticModel(current.Tree);
+                    if (current.Model.GetSymbolInfo(name, current.CancellationToken).Symbol is IMethodSymbol referenced)
+                    {
+                        _ = current.Targets.Add(referenced.OriginalDefinition);
+                    }
+
+                    return true;
+                });
         }
 
         return targets;
@@ -99,6 +104,19 @@ internal sealed class MethodGroupTargets(Compilation compilation)
         _ => NamesADeclaredType(name),
     };
 
+    /// <summary>Rejects names used as types or named-argument labels within expressions and constraints.</summary>
+    /// <param name="name">The candidate name.</param>
+    /// <returns>Whether the name's position excludes a method group.</returns>
+    private static bool IsNamingAnExpressionTypeOrArgument(SimpleNameSyntax name) => name.Parent is
+        NameColonSyntax
+        or NameEqualsSyntax
+        or TypeOfExpressionSyntax
+        or SizeOfExpressionSyntax
+        or DefaultExpressionSyntax
+        or DeclarationExpressionSyntax
+        or CatchDeclarationSyntax
+        or TypeConstraintSyntax;
+
     /// <summary>Returns whether a name is the declared type of the member it belongs to.</summary>
     /// <param name="name">The candidate name.</param>
     /// <returns><see langword="true"/> when the name is a declaration's type rather than a value.</returns>
@@ -107,6 +125,28 @@ internal sealed class MethodGroupTargets(Compilation compilation)
         ParameterSyntax parameter => parameter.Type == name,
         VariableDeclarationSyntax declaration => declaration.Type == name,
         MethodDeclarationSyntax method => method.ReturnType == name,
+        LocalFunctionStatementSyntax localFunction => localFunction.ReturnType == name,
+        PropertyDeclarationSyntax property => property.Type == name,
+        IndexerDeclarationSyntax indexer => indexer.Type == name,
+        EventDeclarationSyntax @event => @event.Type == name,
+        OperatorDeclarationSyntax @operator => @operator.ReturnType == name,
+        ConversionOperatorDeclarationSyntax conversion => conversion.Type == name,
+        DelegateDeclarationSyntax @delegate => @delegate.ReturnType == name,
         _ => false,
     };
+
+    /// <summary>Carries the per-tree method-group collection state without capturing a closure.</summary>
+    /// <param name="Compilation">The compilation used to resolve the semantic model on demand.</param>
+    /// <param name="Tree">The syntax tree being visited.</param>
+    /// <param name="Targets">The collected method definitions.</param>
+    /// <param name="CancellationToken">A token that cancels symbol resolution.</param>
+    private record struct MethodGroupScanState(
+        Compilation Compilation,
+        SyntaxTree Tree,
+        HashSet<ISymbol> Targets,
+        CancellationToken CancellationToken)
+    {
+        /// <summary>Gets or sets the semantic model, resolved only for a possible method group.</summary>
+        public SemanticModel? Model { get; set; }
+    }
 }

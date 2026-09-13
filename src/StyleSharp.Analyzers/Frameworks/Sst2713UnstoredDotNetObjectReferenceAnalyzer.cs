@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -19,8 +21,7 @@ namespace StyleSharp.Analyzers;
 /// reported.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on the <c>Microsoft.JSInterop.DotNetObjectReference</c> marker
-/// resolving, so a project that does no JavaScript interop registers nothing. The clean path is a syntactic
+/// The <c>Microsoft.JSInterop.DotNetObjectReference</c> marker is resolved only after a candidate passes a syntactic
 /// shape probe — a <c>Create</c> member access whose receiver is named <c>DotNetObjectReference</c>, in a
 /// not-stored position — before any binding; the semantic model is consulted only once that shape matches, to
 /// confirm the call is the static <c>DotNetObjectReference.Create</c> factory.
@@ -29,9 +30,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the static factory that creates the callback reference.</summary>
-    private const string DotNetObjectReferenceMetadataName = "Microsoft.JSInterop.DotNetObjectReference";
-
     /// <summary>The simple name of the factory type, matched syntactically before binding.</summary>
     private const string DotNetObjectReferenceTypeName = "DotNetObjectReference";
 
@@ -55,20 +53,15 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var reference = start.Compilation.GetTypeByMetadataName(DotNetObjectReferenceMetadataName);
-            if (reference is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, reference), SyntaxKind.InvocationExpression);
+            var types = new ReferenceTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports a not-stored <c>DotNetObjectReference.Create</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="reference">The resolved <c>DotNetObjectReference</c> factory type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol reference)
+    /// <param name="types">The factory type resolved on demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ReferenceTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -80,7 +73,8 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: CreateMethodName, IsStatic: true, ContainingType: { } container }
+        if (types.Get() is not { } reference
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: CreateMethodName, IsStatic: true, ContainingType: { } container }
             || !SymbolEqualityComparer.Default.Equals(container, reference))
         {
             return;
@@ -114,4 +108,20 @@ public sealed class Sst2713UnstoredDotNetObjectReferenceAnalyzer : DiagnosticAna
                     && assignment.Parent is ExpressionStatementSyntax => true,
             _ => false,
         };
+
+    /// <summary>Resolves the reference factory type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose factory type is resolved.</param>
+    private sealed class ReferenceTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the static factory that creates the callback reference.</summary>
+        private const string DotNetObjectReferenceMetadataName = "Microsoft.JSInterop.DotNetObjectReference";
+
+        /// <summary>The resolved type slot, containing null when the factory type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the reference factory type, caching its absence too.</summary>
+        /// <returns>The factory type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(DotNetObjectReferenceMetadataName)])[0];
+    }
 }

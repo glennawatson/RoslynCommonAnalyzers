@@ -16,17 +16,14 @@ namespace SecuritySharp.Analyzers;
 /// 10 MB). With no real cap a single upload can fill the server's memory or disk and take the process down
 /// (CWE-770). The no-argument <c>OpenReadStream()</c> keeps the safe ~500 KB default and is never reported,
 /// and a bounded constant at or below the threshold, or any other non-constant size, is left alone. The
-/// whole rule is gated on <c>IBrowserFile</c> resolving, so a non-Blazor project registers nothing and pays
-/// nothing.
+/// whole rule is gated on <c>IBrowserFile</c> resolving, with the lookup deferred until a call passes the
+/// syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The default byte ceiling (10 MB) a constant <c>maxAllowedSize</c> may reach before it is reported.</summary>
     internal const long DefaultMaxBytes = 10L * 1024 * 1024;
-
-    /// <summary>The metadata name of the uploaded-file abstraction the rule gates on.</summary>
-    private const string BrowserFileMetadataName = "Microsoft.AspNetCore.Components.Forms.IBrowserFile";
 
     /// <summary>The name of the stream-opening method whose size limit is guarded.</summary>
     private const string OpenReadStreamMethodName = "OpenReadStream";
@@ -70,22 +67,17 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var browserFile = start.Compilation.GetTypeByMetadataName(BrowserFileMetadataName);
-            if (browserFile is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, browserFile), SyntaxKind.InvocationExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1706 for an <c>OpenReadStream</c> call whose size limit is unbounded or client-derived.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="browserFile">The resolved <c>IBrowserFile</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol browserFile)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -103,7 +95,8 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: OpenReadStreamMethodName } method
+        if (frameworkType.Get() is not { } browserFile
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: OpenReadStreamMethodName } method
             || !IsOrImplements(method.ContainingType, browserFile))
         {
             return;
@@ -217,5 +210,24 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the browser file type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the uploaded-file abstraction the rule gates on.</summary>
+        private const string BrowserFileMetadataName = "Microsoft.AspNetCore.Components.Forms.IBrowserFile";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the browser file type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(BrowserFileMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
     }
 }

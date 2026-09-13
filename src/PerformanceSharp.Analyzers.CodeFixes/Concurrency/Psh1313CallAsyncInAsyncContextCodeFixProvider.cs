@@ -98,7 +98,7 @@ public sealed class Psh1313CallAsyncInAsyncContextCodeFixProvider : CodeFixProvi
             _ => invocation.Expression,
         };
 
-        var candidate = invocation.WithExpression(callee).WithoutTrivia();
+        var candidate = invocation.Update(callee.WithoutLeadingTrivia(), invocation.ArgumentList.WithoutTrailingTrivia());
         return BindsToSibling(model, invocation.SpanStart, candidate, sibling) ? candidate : null;
     }
 

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -49,12 +51,9 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (AsyncSiblingResolver.TaskTypes.Create(start.Compilation) is not { } tasks)
-            {
-                return;
-            }
+            var taskSymbols = new TaskSymbols(start.Compilation);
 
             // Only a violation ever needs these, and binding an entry point is not free: a clean
             // file must not pay for either.
@@ -63,7 +62,7 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
             var entryPoint = new Lazy<IMethodSymbol?>(() => compilation.GetEntryPoint(CancellationToken.None));
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, tasks, notifyCompletion, entryPoint),
+                nodeContext => Analyze(nodeContext, taskSymbols, notifyCompletion, entryPoint),
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxKind.InvocationExpression);
         });
@@ -71,17 +70,19 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1315 for a blocking wait the code has not proved complete and the author can act on.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="tasks">The task types resolved for the compilation.</param>
+    /// <param name="taskSymbols">The task types resolved on demand for the compilation.</param>
     /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
     /// <param name="entryPoint">The lazily resolved entry point.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        in AsyncSiblingResolver.TaskTypes tasks,
+        TaskSymbols taskSymbols,
         Lazy<INamedTypeSymbol?> notifyCompletion,
         Lazy<IMethodSymbol?> entryPoint)
     {
         var node = context.Node;
-        if (BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
+        if (!IsBlockingWaitShape(node)
+            || taskSymbols.Get() is not { } tasks
+            || BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
             || IsProvablyComplete(node, site)
             || IsUnactionable(context, node, notifyCompletion, entryPoint))
         {
@@ -95,6 +96,22 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
             site.BlockingMember,
             DescribeBlockedOn(node, site)));
     }
+
+    /// <summary>Rejects member names and argument counts that cannot match a blocking wait.</summary>
+    /// <param name="node">The candidate member access or invocation.</param>
+    /// <returns>Whether the syntax can match one of the supported blocking waits.</returns>
+    private static bool IsBlockingWaitShape(SyntaxNode node) => node switch
+    {
+        MemberAccessExpressionSyntax access => access.Name.Identifier.ValueText == BlockingWait.ResultPropertyName,
+        InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation => access.Name.Identifier.ValueText switch
+        {
+            BlockingWait.WaitMethodName or BlockingWait.RunSynchronouslyMethodName => true,
+            BlockingWait.WaitAllMethodName or BlockingWait.WaitAnyMethodName => invocation.ArgumentList.Arguments.Count > 0,
+            BlockingWait.GetResultMethodName => invocation.ArgumentList.Arguments.Count == 0,
+            _ => false,
+        },
+        _ => false,
+    };
 
     /// <summary>Returns whether a completion check already proved the wait cannot block.</summary>
     /// <param name="node">The blocking expression.</param>
@@ -158,4 +175,17 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
         Lazy<IMethodSymbol?> entryPoint) =>
         !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node)
             && BlockingWaitExemption.IsExempt(context, node, notifyCompletion.Value, entryPoint.Value);
+
+    /// <summary>Resolves task types only after a blocking-wait shape is found.</summary>
+    /// <param name="compilation">The compilation whose task types are resolved.</param>
+    private sealed class TaskSymbols(Compilation compilation)
+    {
+        /// <summary>The resolved task types, including a null element when Task is unavailable.</summary>
+        private AsyncSiblingResolver.TaskTypes?[]? _resolved;
+
+        /// <summary>Gets task types, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The resolved task types, or null when Task is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public AsyncSiblingResolver.TaskTypes? Get() => (_resolved ??= [AsyncSiblingResolver.TaskTypes.Create(compilation)])[0];
+    }
 }

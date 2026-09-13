@@ -61,8 +61,12 @@ public sealed class Sst2263HoistLoopConditionCodeFixProvider : CodeFixProvider, 
     /// <returns>The formatter-annotated <c>while</c> loop.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static WhileStatementSyntax BuildWhile(StatementSyntax loop, ExpressionSyntax condition, StatementSyntax body) =>
-        SyntaxFactory.WhileStatement(condition.WithoutTrivia(), body)
-            .WithLeadingTrivia(loop.GetLeadingTrivia())
-            .WithTrailingTrivia(loop.GetTrailingTrivia())
+        SyntaxFactory.WhileStatement(
+                default,
+                SyntaxFactory.Token(loop.GetLeadingTrivia(), SyntaxKind.WhileKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                condition.WithoutTrivia(),
+                SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+                body.WithTrailingTrivia(loop.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Formatter.Annotation);
 }

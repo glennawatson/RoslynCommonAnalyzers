@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -48,10 +49,9 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var mutableTypes = new MutableCollectionTypes(start.Compilation);
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>();
+            var state = new FieldState(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, mutableTypes, optionsByTree),
+                nodeContext => Analyze(nodeContext, state),
                 SyntaxKind.FieldDeclaration);
         });
     }
@@ -66,12 +66,10 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a visible static field whose value or contents can be changed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="mutableTypes">The known mutable collection types.</param>
-    /// <param name="optionsByTree">The per-tree settings cache.</param>
+    /// <param name="state">The compilation's collection types and settings, created on first demand.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        MutableCollectionTypes mutableTypes,
-        ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> optionsByTree)
+        FieldState state)
     {
         var declaration = (FieldDeclarationSyntax)context.Node;
         if (!IsDeclaredVisibleStatic(declaration))
@@ -81,8 +79,9 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         var variables = declaration.Declaration.Variables;
         if (context.SemanticModel.GetDeclaredSymbol(variables[0], context.CancellationToken) is not IFieldSymbol field
-            || !IsVisibleOutsideItsType(field, GetOptions(context, optionsByTree))
-            || !IsMutable(declaration, field.Type, mutableTypes))
+            || !IsVisibleOutsideItsType(field, GetOptions(context, state.GetOptionsByTree()))
+            || (ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
+                && !state.GetMutableTypes().IsMutable(field.Type)))
         {
             return;
         }
@@ -200,5 +199,42 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
         options = MutableStaticFieldOptions.Read(context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree));
         _ = optionsByTree.TryAdd(tree, options);
         return options;
+    }
+
+    /// <summary>Creates compilation-scoped state only after a visible static field is found.</summary>
+    /// <param name="compilation">The compilation whose collection types are resolved.</param>
+    private sealed class FieldState(Compilation compilation)
+    {
+        /// <summary>The collection types, created only for a readonly field.</summary>
+        private MutableCollectionTypes? _mutableTypes;
+
+        /// <summary>The settings cache, created only for a possible visible static field.</summary>
+        private ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>? _optionsByTree;
+
+        /// <summary>Gets the collection types, which resolve their symbols on first demand.</summary>
+        /// <returns>The mutable collection type lookup.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public MutableCollectionTypes GetMutableTypes() => _mutableTypes ??= new MutableCollectionTypes(compilation);
+
+        /// <summary>Gets the per-tree settings cache.</summary>
+        /// <returns>The settings cache for this compilation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions> GetOptionsByTree()
+        {
+            if (_optionsByTree is { } optionsByTree)
+            {
+                return optionsByTree;
+            }
+
+            var treeCount = 0;
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                treeCount++;
+            }
+
+            return _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, MutableStaticFieldOptions>(
+                concurrencyLevel: 1,
+                capacity: treeCount);
+        }
     }
 }

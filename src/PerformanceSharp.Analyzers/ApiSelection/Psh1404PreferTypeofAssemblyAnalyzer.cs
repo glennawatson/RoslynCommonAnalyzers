@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -18,9 +20,6 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the stack-walking factory method this rule replaces.</summary>
     internal const string GetExecutingAssemblyMethodName = "GetExecutingAssembly";
 
-    /// <summary>The metadata name of the reflection assembly type.</summary>
-    private const string AssemblyMetadataName = "System.Reflection.Assembly";
-
     /// <summary>The compiler-synthesized type name used when top-level statements have no declared enclosing type.</summary>
     private const string TopLevelProgramTypeName = "Program";
 
@@ -36,14 +35,9 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var assemblyType = start.Compilation.GetTypeByMetadataName(AssemblyMetadataName);
-            if (assemblyType is null || !HasStaticGetExecutingAssembly(assemblyType))
-            {
-                return;
-            }
-
+            var assemblyType = new AssemblyType(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, assemblyType), SyntaxKind.InvocationExpression);
         });
     }
@@ -84,11 +78,17 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1404 for an invocation bound to <c>Assembly.GetExecutingAssembly()</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="assemblyType">The reflection assembly type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol assemblyType)
+    /// <param name="types">The compilation's deferred reflection assembly type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AssemblyType types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsGetExecutingAssemblyShape(invocation))
+        {
+            return;
+        }
+
+        if (types.Get() is not { } assemblyType
+            || !HasStaticGetExecutingAssembly(assemblyType))
         {
             return;
         }
@@ -141,5 +141,21 @@ public sealed class Psh1404PreferTypeofAssemblyAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the reflection assembly type once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class AssemblyType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the reflection assembly type.</summary>
+        private const string AssemblyMetadataName = "System.Reflection.Assembly";
+
+        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the reflection assembly type, caching an absent type too.</summary>
+        /// <returns>The reflection assembly type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(AssemblyMetadataName)])[0];
     }
 }

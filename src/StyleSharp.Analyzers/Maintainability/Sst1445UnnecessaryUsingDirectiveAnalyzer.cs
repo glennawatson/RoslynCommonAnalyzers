@@ -909,11 +909,16 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
             while (body is not null && _tracker.Remaining > 0)
             {
                 var clauses = body.Clauses;
-                for (var i = 0; i < clauses.Count; i++)
+                for (var i = 0; i < clauses.Count && _tracker.Remaining > 0; i++)
                 {
                     var info = _tracker.Model.GetQueryClauseInfo(clauses[i], _tracker.CancellationToken);
                     _tracker.MarkExtensionMethod(info.CastInfo.Symbol as IMethodSymbol);
                     _tracker.MarkExtensionMethod(info.OperationInfo.Symbol as IMethodSymbol);
+                }
+
+                if (_tracker.Remaining == 0)
+                {
+                    return;
                 }
 
                 _tracker.MarkExtensionMethod(_tracker.Model.GetSymbolInfo(body.SelectOrGroup, _tracker.CancellationToken).Symbol as IMethodSymbol);

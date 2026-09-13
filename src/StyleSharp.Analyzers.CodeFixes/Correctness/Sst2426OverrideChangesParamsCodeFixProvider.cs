@@ -61,14 +61,20 @@ public sealed class Sst2426OverrideChangesParamsCodeFixProvider : CodeFixProvide
             }
 
             var paramsToken = parameter.Modifiers[i];
-            return parameter
-                .WithModifiers(parameter.Modifiers.RemoveAt(i))
-                .WithType(type.WithLeadingTrivia(paramsToken.LeadingTrivia));
+            return parameter.Update(
+                parameter.AttributeLists,
+                parameter.Modifiers.RemoveAt(i),
+                type.WithLeadingTrivia(paramsToken.LeadingTrivia),
+                parameter.Identifier,
+                parameter.Default);
         }
 
         var added = SyntaxFactory.Token(type.GetLeadingTrivia(), SyntaxKind.ParamsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        return parameter
-            .WithType(type.WithLeadingTrivia())
-            .WithModifiers(parameter.Modifiers.Add(added));
+        return parameter.Update(
+            parameter.AttributeLists,
+            parameter.Modifiers.Add(added),
+            type.WithLeadingTrivia(),
+            parameter.Identifier,
+            parameter.Default);
     }
 }

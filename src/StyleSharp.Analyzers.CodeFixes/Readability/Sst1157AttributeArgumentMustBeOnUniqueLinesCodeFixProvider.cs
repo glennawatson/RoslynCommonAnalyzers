@@ -53,8 +53,10 @@ public sealed class Sst1157AttributeArgumentMustBeOnUniqueLinesCodeFixProvider :
         return node.ConvertNodeIfAble(
                    static inner => inner.ArgumentList?.Arguments,
                    (inner, arguments) => inner.WithArgumentList(
-                       SyntaxFactory.AttributeArgumentList(arguments)
-                           .WithOpenParenToken(inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.AttributeArgumentList(
+                           inner.ArgumentList!.OpenParenToken.WithTrailingTrivia(endOfLine),
+                           arguments,
+                           SyntaxFactory.Token(SyntaxKind.CloseParenToken))))
                ?? node;
     }
 }

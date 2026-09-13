@@ -2,8 +2,6 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Text;
-
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -154,17 +152,12 @@ public sealed class Sst2319UnreachableOptionalDefaultAnalyzer : DiagnosticAnalyz
             return string.Empty;
         }
 
-        var builder = new StringBuilder();
+        var types = new string[prefixLength];
         for (var i = 0; i < prefixLength; i++)
         {
-            if (i > 0)
-            {
-                _ = builder.Append(", ");
-            }
-
-            _ = builder.Append(parameters[i].Type.ToDisplayString());
+            types[i] = parameters[i].Type.ToDisplayString();
         }
 
-        return builder.ToString();
+        return string.Join(", ", types);
     }
 }

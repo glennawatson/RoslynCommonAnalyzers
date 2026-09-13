@@ -81,14 +81,17 @@ public sealed class Psh1124UseLinkedListEndPropertyCodeFixProvider : CodeFixProv
     private static MemberAccessExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
     {
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        var propertyName = SyntaxFactory.IdentifierName(memberAccess.Name.Identifier).WithTriviaFrom(memberAccess.Name);
+        var propertyName = SyntaxFactory.IdentifierName(memberAccess.Name.Identifier.WithTrailingTrivia(memberAccess.Name.GetTrailingTrivia()));
         var nodeRead = memberAccess.WithName(propertyName);
 
         return SyntaxFactory.MemberAccessExpression(
                 SyntaxKind.SimpleMemberAccessExpression,
                 nodeRead,
-                SyntaxFactory.IdentifierName(Psh1124UseLinkedListEndPropertyAnalyzer.ValueMemberName))
-            .WithTriviaFrom(invocation)
+                SyntaxFactory.Token(SyntaxKind.DotToken),
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                    Psh1124UseLinkedListEndPropertyAnalyzer.ValueMemberName,
+                    invocation.GetTrailingTrivia())))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 }

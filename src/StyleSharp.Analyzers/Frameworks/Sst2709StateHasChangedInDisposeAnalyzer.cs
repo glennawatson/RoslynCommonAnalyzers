@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -11,8 +13,8 @@ namespace StyleSharp.Analyzers;
 /// the component is disposed.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>ComponentBase</c> resolving, so a non-component
-/// project registers nothing. The clean path is a syntactic shape probe first — the callee names
+/// The component model is resolved on the first syntactic candidate and cached for the compilation.
+/// The clean path is a syntactic shape probe first — the callee names
 /// <c>StateHasChanged</c> on <c>this</c>/<c>base</c>, and the nearest enclosing member (not crossing a
 /// lambda or local function, which could run later) is a <c>Dispose</c>/<c>DisposeAsync</c> method — and
 /// the semantic model is consulted only once that shape matches, to confirm the enclosing type is a
@@ -41,19 +43,15 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (BlazorComponentModel.Create(start.Compilation) is not { } model)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, model), SyntaxKind.InvocationExpression);
+            var models = new ComponentModels(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, models), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports a render requested from a disposal method.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    /// <param name="models">The deferred component-model lookup for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ComponentModels models)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!BlazorComponentModel.IsSelfStateHasChangedSyntax(invocation.Expression)
@@ -63,6 +61,7 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
         }
 
         if (invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>() is not { } typeDeclaration
+            || models.Get() is not { } model
             || context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken) is not { } type
             || !model.DerivesFromComponentBase(type))
         {
@@ -103,4 +102,17 @@ public sealed class Sst2709StateHasChangedInDisposeAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for <c>Dispose</c> or <c>DisposeAsync</c>.</returns>
     private static bool IsDisposeMethodName(string name) =>
         string.Equals(name, DisposeName, StringComparison.Ordinal) || string.Equals(name, DisposeAsyncName, StringComparison.Ordinal);
+
+    /// <summary>Resolves the component model only when a disposal-time render request needs it.</summary>
+    /// <param name="compilation">The compilation whose component model is cached.</param>
+    private sealed class ComponentModels(Compilation compilation)
+    {
+        /// <summary>The published model lookup result, including a missing component type.</summary>
+        private BlazorComponentModel?[]? _resolved;
+
+        /// <summary>Gets the cached component model, resolving it on first use.</summary>
+        /// <returns>The component model, or <see langword="null"/> when the component type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public BlazorComponentModel? Get() => (_resolved ??= [BlazorComponentModel.Create(compilation)])[0];
+    }
 }

@@ -106,8 +106,14 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
     /// <returns>The updated document.</returns>
     private static Document QuoteLiteral(Document document, SyntaxNode root, LiteralExpressionSyntax literal, string value)
     {
-        var quoted = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(DateFormatText.QuoteSeparators(value)))
-            .WithTriviaFrom(literal);
+        var quotedValue = DateFormatText.QuoteSeparators(value);
+        var quoted = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                Microsoft.CodeAnalysis.CSharp.SymbolDisplay.FormatLiteral(quotedValue, quote: true),
+                quotedValue,
+                literal.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(literal, quoted));
     }
 

@@ -26,13 +26,10 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var provider = start.Options.AnalyzerConfigOptionsProvider;
-            var thresholdByTree = new ConditionalWeakTable<SyntaxTree, ComplexityThresholds>();
-            ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback factory =
-                tree => ComplexityThresholds.Read(provider.GetOptions(tree));
+            var thresholds = new ThresholdCache(start.Options.AnalyzerConfigOptionsProvider);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeDeclaration(nodeContext, thresholdByTree, factory),
+                nodeContext => AnalyzeDeclaration(nodeContext, thresholds),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.ConstructorDeclaration,
                 SyntaxKind.DestructorDeclaration,
@@ -50,12 +47,10 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes a function-like declaration for complexity.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="thresholdByTree">The per-tree threshold cache.</param>
-    /// <param name="factory">The threshold cache-miss factory.</param>
+    /// <param name="thresholdCache">The lazily created per-tree threshold cache.</param>
     private static void AnalyzeDeclaration(
         in SyntaxNodeAnalysisContext context,
-        ConditionalWeakTable<SyntaxTree, ComplexityThresholds> thresholdByTree,
-        ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback factory)
+        ThresholdCache thresholdCache)
     {
         if (!TryGetDeclarationInfo(context.Node, out var nodeToAnalyze, out var declarationType, out var isPropertyLike))
         {
@@ -65,7 +60,7 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
         ComplexityCounter.Count(nodeToAnalyze, context.Node, out var branching, out var nestedFlow);
 
         var location = context.Node.GetLocation();
-        var thresholds = thresholdByTree.GetValue(context.Node.SyntaxTree, factory);
+        var thresholds = thresholdCache.Get(context.Node.SyntaxTree);
         ReportCyclomatic(context, location, declarationType, thresholds.CyclomaticMaximum, branching);
         var cognitiveMaximum = isPropertyLike ? thresholds.PropertyCognitiveMaximum : thresholds.CognitiveMaximum;
         ReportCognitive(context, location, declarationType, cognitiveMaximum, nestedFlow);
@@ -187,6 +182,33 @@ public sealed class FunctionComplexityAnalyzer : DiagnosticAnalyzer
             {
                 return false;
             }
+        }
+    }
+
+    /// <summary>Creates the threshold cache only after a declaration has an executable body.</summary>
+    /// <param name="provider">The options provider for this compilation.</param>
+    private sealed class ThresholdCache(AnalyzerConfigOptionsProvider provider)
+    {
+        /// <summary>The factory shared by cache misses in this compilation.</summary>
+        private readonly ConditionalWeakTable<SyntaxTree, ComplexityThresholds>.CreateValueCallback _factory =
+            tree => ComplexityThresholds.Read(provider.GetOptions(tree));
+
+        /// <summary>The per-tree cache, allocated on first demand.</summary>
+        private ConditionalWeakTable<SyntaxTree, ComplexityThresholds>? _thresholdByTree;
+
+        /// <summary>Reads and caches thresholds for a tree with a candidate declaration.</summary>
+        /// <param name="tree">The candidate's syntax tree.</param>
+        /// <returns>The configured thresholds for the tree.</returns>
+        public ComplexityThresholds Get(SyntaxTree tree)
+        {
+            var cache = Volatile.Read(ref _thresholdByTree);
+            if (cache is null)
+            {
+                cache = new();
+                cache = Interlocked.CompareExchange(ref _thresholdByTree, cache, null) ?? cache;
+            }
+
+            return cache.GetValue(tree, _factory);
         }
     }
 

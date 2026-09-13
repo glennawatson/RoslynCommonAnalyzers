@@ -128,7 +128,7 @@ public sealed class Sst1149PreferIsNullPatternCodeFixProvider : CodeFixProvider
                 return document;
             }
 
-            var rewrites = new Dictionary<SyntaxNode, SyntaxNode>();
+            var rewrites = new Dictionary<SyntaxNode, SyntaxNode>(diagnostics.Length);
             foreach (var diagnostic in diagnostics)
             {
                 if (root.FindNode(diagnostic.Location.SourceSpan) is BinaryExpressionSyntax binary && !rewrites.ContainsKey(binary))

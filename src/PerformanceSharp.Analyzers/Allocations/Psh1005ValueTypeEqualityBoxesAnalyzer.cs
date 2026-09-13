@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -16,9 +18,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the generic equatable interface.</summary>
-    private const string EquatableMetadataName = "System.IEquatable`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.ValueTypeEqualityBoxes);
 
@@ -31,31 +30,22 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var equatableDefinition = start.Compilation.GetTypeByMetadataName(EquatableMetadataName);
-            if (equatableDefinition is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, equatableDefinition), SymbolKind.NamedType);
+            var equatableType = new EquatableType(start.Compilation);
+            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, equatableType), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports PSH1005 for a boxing-prone struct that defines no equality members.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="equatableDefinition">The resolved <c>IEquatable`1</c> definition.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol equatableDefinition)
+    /// <param name="equatableType">The deferred <c>IEquatable`1</c> definition.</param>
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, EquatableType equatableType)
     {
         var type = (INamedTypeSymbol)context.Symbol;
-        if (type.TypeKind != TypeKind.Struct
-            || type.IsRefLikeType
-            || type.IsRecord
-            || type.IsImplicitlyDeclared
-            || (type.DeclaredAccessibility != Accessibility.Public && type.DeclaredAccessibility != Accessibility.Internal)
-            || type.Locations.IsEmpty
+        if (!IsCandidateStruct(type)
             || OverridesObjectEquals(type)
+            || equatableType.Get() is not { } equatableDefinition
             || ImplementsSelfEquatable(type, equatableDefinition))
         {
             return;
@@ -66,6 +56,17 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
             type.Locations[0],
             type.Name));
     }
+
+    /// <summary>Returns whether the type has the shape and visibility of a reportable struct.</summary>
+    /// <param name="type">The type to inspect.</param>
+    /// <returns>Whether the type needs its equality members checked.</returns>
+    private static bool IsCandidateStruct(INamedTypeSymbol type) =>
+        type.TypeKind == TypeKind.Struct
+            && !type.IsRefLikeType
+            && !type.IsRecord
+            && !type.IsImplicitlyDeclared
+            && type.DeclaredAccessibility is Accessibility.Public or Accessibility.Internal
+            && !type.Locations.IsEmpty;
 
     /// <summary>Returns whether a struct overrides <c>Equals(object)</c>.</summary>
     /// <param name="type">The struct to inspect.</param>
@@ -100,5 +101,21 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the equatable definition only when a candidate struct needs it.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class EquatableType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic equatable interface.</summary>
+        private const string EquatableMetadataName = "System.IEquatable`1";
+
+        /// <summary>The cached definition, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the definition, resolving it on first demand.</summary>
+        /// <returns>The equatable definition, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(EquatableMetadataName)])[0];
     }
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,9 +22,6 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
     /// <summary>The values property name.</summary>
     internal const string ValuesPropertyName = "Values";
 
-    /// <summary>The metadata name of the concurrent dictionary type.</summary>
-    private const string ConcurrentDictionaryMetadataName = "System.Collections.Concurrent.ConcurrentDictionary`2";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.NoConcurrentSnapshotEnumeration);
 
@@ -35,16 +34,11 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var dictionaryType = start.Compilation.GetTypeByMetadataName(ConcurrentDictionaryMetadataName);
-            if (dictionaryType is null)
-            {
-                return;
-            }
-
+            var dictionaryTypes = new DictionaryTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeForEach(nodeContext, dictionaryType),
+                nodeContext => AnalyzeForEach(nodeContext, dictionaryTypes),
                 SyntaxKind.ForEachStatement,
                 SyntaxKind.ForEachVariableStatement);
         });
@@ -61,11 +55,12 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
 
     /// <summary>Reports PSH1305 for a foreach over a concurrent dictionary's Keys or Values snapshot.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="dictionaryType">The concurrent dictionary type definition.</param>
-    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, INamedTypeSymbol dictionaryType)
+    /// <param name="dictionaryTypes">The deferred concurrent dictionary type definition.</param>
+    private static void AnalyzeForEach(in SyntaxNodeAnalysisContext context, DictionaryTypes dictionaryTypes)
     {
         var statement = (CommonForEachStatementSyntax)context.Node;
-        if (TryGetSnapshotAccess(statement) is not { } access)
+        if (TryGetSnapshotAccess(statement) is not { } access
+            || dictionaryTypes.Get() is not { } dictionaryType)
         {
             return;
         }
@@ -82,5 +77,21 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationAnalyzer : DiagnosticA
             access.SyntaxTree,
             access.Span,
             access.Name.Identifier.ValueText));
+    }
+
+    /// <summary>Resolves the dictionary definition only when a snapshot candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    private sealed class DictionaryTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the concurrent dictionary type.</summary>
+        private const string ConcurrentDictionaryMetadataName = "System.Collections.Concurrent.ConcurrentDictionary`2";
+
+        /// <summary>The cached definition, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the definition, resolving it on first demand.</summary>
+        /// <returns>The dictionary definition, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ConcurrentDictionaryMetadataName)])[0];
     }
 }

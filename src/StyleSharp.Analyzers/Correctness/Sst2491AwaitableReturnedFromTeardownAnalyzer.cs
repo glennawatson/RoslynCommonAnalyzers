@@ -19,8 +19,8 @@ namespace StyleSharp.Analyzers;
 /// bound once, to confirm the function is a non-async method returning a task type.
 /// </para>
 /// <para>
-/// The task types are resolved once per compilation, so a project without <c>System.Threading.Tasks</c>
-/// pays nothing. A completed task has nothing pending, so those shapes are not the bug and are skipped.
+/// The task types are resolved once per compilation, only after a return passes the syntactic checks.
+/// A completed task has nothing pending, so those shapes are not the bug and are skipped.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -39,22 +39,18 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var taskTypes = TeardownTaskTypes.Resolve(start.Compilation);
-            if (!taskTypes.Any)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var taskTypes = new Lazy<TeardownTaskTypes>(() => TeardownTaskTypes.Resolve(compilation));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeReturn(nodeContext, taskTypes), SyntaxKind.ReturnStatement);
         });
     }
 
     /// <summary>Reports one return that hands a pending task out of a teardown scope in a non-async task method.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="taskTypes">The resolved task types for this compilation.</param>
-    private static void AnalyzeReturn(in SyntaxNodeAnalysisContext context, in TeardownTaskTypes taskTypes)
+    /// <param name="taskTypes">The lazily resolved task types for this compilation.</param>
+    private static void AnalyzeReturn(in SyntaxNodeAnalysisContext context, Lazy<TeardownTaskTypes> taskTypes)
     {
         var returnStatement = (ReturnStatementSyntax)context.Node;
         if (returnStatement.Expression is not { } expression
@@ -75,9 +71,9 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
     /// <summary>Returns whether a function is a non-async method or local function returning a task type.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="functionNode">The enclosing function-like node.</param>
-    /// <param name="taskTypes">The resolved task types for this compilation.</param>
+    /// <param name="taskTypes">The lazily resolved task types for this compilation.</param>
     /// <returns><see langword="true"/> when awaiting the returned task would fix the teardown race.</returns>
-    private static bool IsNonAsyncTaskMethod(in SyntaxNodeAnalysisContext context, SyntaxNode functionNode, in TeardownTaskTypes taskTypes)
+    private static bool IsNonAsyncTaskMethod(in SyntaxNodeAnalysisContext context, SyntaxNode functionNode, Lazy<TeardownTaskTypes> taskTypes)
     {
         var modifiers = functionNode switch
         {
@@ -86,11 +82,17 @@ public sealed class Sst2491AwaitableReturnedFromTeardownAnalyzer : DiagnosticAna
             _ => default,
         };
 
-        return functionNode is MethodDeclarationSyntax or LocalFunctionStatementSyntax
-            && !modifiers.Any(SyntaxKind.AsyncKeyword)
+        if (functionNode is not (MethodDeclarationSyntax or LocalFunctionStatementSyntax)
+            || modifiers.Any(SyntaxKind.AsyncKeyword))
+        {
+            return false;
+        }
+
+        var resolved = taskTypes.Value;
+        return resolved.Any
             && context.SemanticModel.GetDeclaredSymbol(functionNode, context.CancellationToken) is IMethodSymbol method2
             && !method2.IsAsync
-            && taskTypes.IsTaskType(method2.ReturnType);
+            && resolved.IsTaskType(method2.ReturnType);
     }
 
     /// <summary>Walks up from a return to its function, recording the innermost teardown scope on the way.</summary>

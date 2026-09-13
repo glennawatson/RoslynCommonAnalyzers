@@ -66,7 +66,18 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     {
         var returnType = method.ReturnType;
         var modifiers = RemoveAsyncModifier(method.Modifiers, ref returnType);
-        var updated = method.WithModifiers(modifiers).WithReturnType(returnType);
+        var updated = method.Update(
+            method.AttributeLists,
+            modifiers,
+            returnType,
+            method.ExplicitInterfaceSpecifier,
+            method.Identifier,
+            method.TypeParameterList,
+            method.ParameterList,
+            method.ConstraintClauses,
+            method.Body,
+            method.ExpressionBody,
+            method.SemicolonToken);
         updated = updated.ExpressionBody is { } arrow
             ? updated.WithExpressionBody(RewriteArrow(arrow))
             : updated.WithBody(RewriteBlock(updated.Body!));
@@ -80,7 +91,17 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     {
         var returnType = localFunction.ReturnType;
         var modifiers = RemoveAsyncModifier(localFunction.Modifiers, ref returnType);
-        var updated = localFunction.WithModifiers(modifiers).WithReturnType(returnType);
+        var updated = localFunction.Update(
+            localFunction.AttributeLists,
+            modifiers,
+            returnType,
+            localFunction.Identifier,
+            localFunction.TypeParameterList,
+            localFunction.ParameterList,
+            localFunction.ConstraintClauses,
+            localFunction.Body,
+            localFunction.ExpressionBody,
+            localFunction.SemicolonToken);
         updated = updated.ExpressionBody is { } arrow
             ? updated.WithExpressionBody(RewriteArrow(arrow))
             : updated.WithBody(RewriteBlock(updated.Body!));
@@ -130,10 +151,9 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
         var statement = (ExpressionStatementSyntax)body.Statements[0];
         var awaited = (AwaitExpressionSyntax)statement.Expression;
         var replacement = SyntaxFactory.ReturnStatement(
-                SyntaxFactory.Token(default, SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                UnwrapForwardedTask(awaited).WithLeadingTrivia(),
-                statement.SemicolonToken)
-            .WithLeadingTrivia(statement.GetLeadingTrivia());
+            SyntaxFactory.Token(statement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            UnwrapForwardedTask(awaited).WithLeadingTrivia(),
+            statement.SemicolonToken);
         return body.ReplaceNode(statement, replacement);
     }
 

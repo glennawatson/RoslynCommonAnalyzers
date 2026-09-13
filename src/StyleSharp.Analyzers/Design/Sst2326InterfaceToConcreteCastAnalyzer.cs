@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -56,9 +58,9 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var currentAssembly = start.Compilation.Assembly;
+            var types = new AllowedTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, currentAssembly),
+                nodeContext => Analyze(nodeContext, types),
                 SyntaxKind.CastExpression,
                 SyntaxKind.AsExpression,
                 SyntaxKind.IsExpression,
@@ -68,8 +70,8 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one narrowing of an interface reference to a concrete implementation type.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="currentAssembly">The assembly being compiled, whose own concrete types are not coupling.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, IAssemblySymbol currentAssembly)
+    /// <param name="types">The allow-list types resolved on demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, AllowedTypes types)
     {
         if (!TryGetOperandAndTarget(context.Node, out var operand, out var targetType))
         {
@@ -102,14 +104,14 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
 
         // A concrete type declared in this same assembly is one the author owns: narrowing to it is a closed,
         // in-house choice among your own implementations, not coupling to someone else's. Leave it alone.
-        if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, currentAssembly))
+        if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, semanticModel.Compilation.Assembly))
         {
             return;
         }
 
         // A specifically allow-listed external type is a sanctioned narrowing — a documented fast path over a
         // concrete implementation the project deliberately depends on.
-        if (IsAllowedType(context, concreteType))
+        if (IsAllowedType(context, concreteType, types))
         {
             return;
         }
@@ -124,14 +126,16 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a concrete type is named in the <c>allowed_types</c> editorconfig list for the file.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="concreteType">The confirmed cross-assembly concrete target type.</param>
+    /// <param name="types">The cache shared by all file-specific allow-lists in this compilation.</param>
     /// <returns><see langword="true"/> when the type's original definition matches an allow-list entry.</returns>
     /// <remarks>
     /// Each list entry is resolved through <see cref="Compilation.GetTypeByMetadataName(string)"/>, which parses the
     /// arity-encoded metadata name (<c>List`1</c>) exactly, and compared by symbol — so the option is robust to how
     /// the type is spelt at the use site. This runs only for a cross-assembly candidate that has already passed every
-    /// other check, so the parse and lookups stay off the clean path.
+    /// other check, so the parse and lookups stay off the clean path. Resolutions, including missing types, are
+    /// cached by metadata name across all file-specific lists in the compilation.
     /// </remarks>
-    private static bool IsAllowedType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType)
+    private static bool IsAllowedType(in SyntaxNodeAnalysisContext context, INamedTypeSymbol concreteType, AllowedTypes types)
     {
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         if (!options.TryGetValue(AllowedTypesOptionKey, out var value) || value.Length == 0)
@@ -139,16 +143,15 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var compilation = context.SemanticModel.Compilation;
         var definition = concreteType.OriginalDefinition;
         var start = 0;
         while (start <= value.Length)
         {
             var comma = value.IndexOf(',', start);
             var end = comma < 0 ? value.Length : comma;
-            var entry = value.Substring(start, end - start).Trim();
+            var entry = TrimEntry(value, start, end);
             if (entry.Length > 0
-                && compilation.GetTypeByMetadataName(entry) is { } allowed
+                && types.Get(entry) is { } allowed
                 && SymbolEqualityComparer.Default.Equals(allowed, definition))
             {
                 return true;
@@ -158,6 +161,26 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Trims an allow-list entry before creating the string required by metadata-name resolution.</summary>
+    /// <param name="value">The comma-separated allow-list.</param>
+    /// <param name="start">The entry's first character.</param>
+    /// <param name="end">The offset just past the entry.</param>
+    /// <returns>The trimmed metadata-name lookup key.</returns>
+    private static string TrimEntry(string value, int start, int end)
+    {
+        while (start < end && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        while (end > start && char.IsWhiteSpace(value[end - 1]))
+        {
+            end--;
+        }
+
+        return value.Substring(start, end - start);
     }
 
     /// <summary>Splits a narrowing node into the operand being narrowed and the target type syntax, on syntax alone.</summary>
@@ -221,5 +244,20 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves allow-list entries on demand and shares them across files in one compilation.</summary>
+    /// <param name="compilation">The compilation whose allow-list types are resolved.</param>
+    private sealed class AllowedTypes(Compilation compilation)
+    {
+        /// <summary>The resolved entries, including null for metadata names that do not resolve.</summary>
+        private ImmutableDictionary<string, INamedTypeSymbol?> _resolved = ImmutableDictionary<string, INamedTypeSymbol?>.Empty.WithComparers(StringComparer.Ordinal);
+
+        /// <summary>Gets an allow-list type, resolving each metadata name on first demand.</summary>
+        /// <param name="metadataName">The metadata name from the current file's allow-list.</param>
+        /// <returns>The allowed type, or null when the name does not resolve.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get(string metadataName) =>
+            ImmutableInterlocked.GetOrAdd(ref _resolved, metadataName, static (name, sourceCompilation) => sourceCompilation.GetTypeByMetadataName(name), compilation);
     }
 }

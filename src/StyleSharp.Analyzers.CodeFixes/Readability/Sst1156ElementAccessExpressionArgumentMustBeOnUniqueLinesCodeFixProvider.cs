@@ -53,8 +53,10 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
         return node.ConvertNodeIfAble(
                    static inner => inner.ArgumentList?.Arguments,
                    (inner, arguments) => inner.WithArgumentList(
-                       SyntaxFactory.BracketedArgumentList(arguments)
-                           .WithOpenBracketToken(inner.ArgumentList.OpenBracketToken.WithTrailingTrivia(endOfLine))))
+                       SyntaxFactory.BracketedArgumentList(
+                           inner.ArgumentList.OpenBracketToken.WithTrailingTrivia(endOfLine),
+                           arguments,
+                           SyntaxFactory.Token(SyntaxKind.CloseBracketToken))))
                ?? node;
     }
 }

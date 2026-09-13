@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -29,12 +31,6 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <summary>The member name the code fix moves emptiness checks to.</summary>
     internal const string AnyAsyncMethodName = "AnyAsync";
 
-    /// <summary>The metadata name of the generic task type a counting call must return.</summary>
-    private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
-
-    /// <summary>The metadata name of the generic value-task type a counting call may return.</summary>
-    private const string ValueTaskOfTMetadataName = "System.Threading.Tasks.ValueTask`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseAnyAsyncOverCountAsync);
 
@@ -47,16 +43,11 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(TaskOfTMetadataName) is not { } taskOfT)
-            {
-                return;
-            }
-
-            var awaitables = new AwaitableTypes(taskOfT, start.Compilation.GetTypeByMetadataName(ValueTaskOfTMetadataName));
+            var types = new DeferredAwaitableTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeComparison(nodeContext, awaitables),
+                nodeContext => AnalyzeComparison(nodeContext, types),
                 SyntaxKind.EqualsExpression,
                 SyntaxKind.NotEqualsExpression,
                 SyntaxKind.GreaterThanExpression,
@@ -106,8 +97,8 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1126 for an emptiness comparison of an awaited CountAsync() result.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="awaitables">The awaitable types resolved for the compilation.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, AwaitableTypes awaitables)
+    /// <param name="types">The deferred awaitable types for the compilation.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, DeferredAwaitableTypes types)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonShape(binary) is not { } shape)
@@ -115,6 +106,13 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
             return;
         }
 
+        var resolved = types.Get();
+        if (resolved[0] is not { } taskOfT)
+        {
+            return;
+        }
+
+        var awaitables = new AwaitableTypes(taskOfT, resolved[1]);
         if (context.SemanticModel.GetSymbolInfo(shape.Invocation, context.CancellationToken).Symbol
                 is not IMethodSymbol { IsExtensionMethod: true, Name: CountAsyncMethodName } countAsync
             || TryResolveAnySibling(countAsync, awaitables) is null)
@@ -192,4 +190,27 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncAnalyzer : DiagnosticAnalyze
     /// <param name="TaskOfT">The generic task type.</param>
     /// <param name="ValueTaskOfT">The generic value-task type, when the framework has one.</param>
     internal readonly record struct AwaitableTypes(INamedTypeSymbol TaskOfT, INamedTypeSymbol? ValueTaskOfT);
+
+    /// <summary>Resolves awaitable types only after an emptiness comparison passes the syntax filter.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class DeferredAwaitableTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic task type a counting call must return.</summary>
+        private const string TaskOfTMetadataName = "System.Threading.Tasks.Task`1";
+
+        /// <summary>The metadata name of the generic value-task type a counting call may return.</summary>
+        private const string ValueTaskOfTMetadataName = "System.Threading.Tasks.ValueTask`1";
+
+        /// <summary>The cached task and value-task types, including missing results.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the awaitable types for this compilation.</summary>
+        /// <returns>The task and value-task definitions, with null entries for unavailable types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(TaskOfTMetadataName),
+            compilation.GetTypeByMetadataName(ValueTaskOfTMetadataName),
+        ];
+    }
 }

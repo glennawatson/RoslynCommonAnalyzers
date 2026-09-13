@@ -163,6 +163,48 @@ public class HardcodedCredentialArgumentAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies the Azure.Core spelling is resolved after the Azure spelling does not match.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task LiteralAzureCoreKeyCredentialReportedAsync() =>
+        VerifyNet90Async(
+            """
+            namespace Azure.Core
+            {
+                public sealed class AzureKeyCredential
+                {
+                    public AzureKeyCredential(string key) { }
+                }
+            }
+
+            public class C
+            {
+                public Azure.Core.AzureKeyCredential M() => new Azure.Core.AzureKeyCredential({|SES1202:"literal-azure-key-value"|});
+            }
+            """);
+
+    /// <summary>Verifies a matching simple type name in another namespace does not qualify as a credential type.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SameNamedCredentialTypeInAnotherNamespaceIsCleanAsync() =>
+        VerifyNet90Async(
+            """
+            namespace Unrelated
+            {
+                public sealed class AzureKeyCredential
+                {
+                    public AzureKeyCredential(string key) { }
+                }
+            }
+
+            public class C
+            {
+                public Unrelated.AzureKeyCredential M() => new Unrelated.AzureKeyCredential("ordinary-key-value");
+            }
+            """);
+
     /// <summary>Verifies a string literal to the <c>ApiKeyCredential.key</c> position is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

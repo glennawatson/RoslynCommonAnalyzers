@@ -161,29 +161,28 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var name = local.Name;
-        var iterated = false;
-        foreach (var node in scope.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier || identifier.Identifier.ValueText != name)
+        var state = new IterationScanState(model, local, local.Name, cancellationToken);
+        return DescendantTraversalHelper.VisitDescendants(
+            scope,
+            ref state,
+            static (IdentifierNameSyntax identifier, ref IterationScanState current) =>
             {
-                continue;
-            }
+                if (identifier.Identifier.ValueText != current.Name
+                    || (identifier.Parent is MemberAccessExpressionSyntax access && access.Name == identifier)
+                    || identifier.Parent is MemberBindingExpressionSyntax or QualifiedNameSyntax or AliasQualifiedNameSyntax or NameColonSyntax or NameEqualsSyntax
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local))
+                {
+                    return true;
+                }
 
-            if (!SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, local))
-            {
-                continue;
-            }
+                if (!IsIterationUse(identifier))
+                {
+                    return false;
+                }
 
-            if (!IsIterationUse(identifier))
-            {
-                return false;
-            }
-
-            iterated = true;
-        }
-
-        return iterated;
+                current.Iterated = true;
+                return true;
+            }) && state.Iterated;
     }
 
     /// <summary>Returns whether a reference to the local reads it as a sequence a string would satisfy.</summary>
@@ -215,4 +214,19 @@ public sealed class Psh1226IterateStringWithoutCopyAnalyzer : DiagnosticAnalyzer
         ArgumentSyntax argument => argument.RefOrOutKeyword.RawKind != (int)SyntaxKind.None,
         _ => false,
     };
+
+    /// <summary>Tracks the local's iteration uses while retaining semantic identity checks.</summary>
+    /// <param name="Model">The semantic model used to bind matching names.</param>
+    /// <param name="Local">The local whose references are checked.</param>
+    /// <param name="Name">The local name used by the syntax filter.</param>
+    /// <param name="CancellationToken">A token that cancels symbol resolution.</param>
+    private record struct IterationScanState(
+        SemanticModel Model,
+        ILocalSymbol Local,
+        string Name,
+        CancellationToken CancellationToken)
+    {
+        /// <summary>Gets or sets whether an iteration use has been found.</summary>
+        public bool Iterated { get; set; }
+    }
 }

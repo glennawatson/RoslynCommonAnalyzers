@@ -85,7 +85,10 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
         var sort = (InvocationExpressionSyntax)terminal.Expression;
         var sortAccess = (MemberAccessExpressionSyntax)sort.Expression;
         var replacementName = Psh1118TakeExtremeWithoutSortingAnalyzer.GetReplacementName(invocation);
-        var newName = SyntaxFactory.IdentifierName(replacementName).WithTriviaFrom(sortAccess.Name);
+        var newName = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            sortAccess.Name.GetLeadingTrivia(),
+            replacementName,
+            sortAccess.Name.GetTrailingTrivia()));
 
         var rewritten = sort.WithExpression(sortAccess.WithName(newName));
         if (replacementName is Psh1118TakeExtremeWithoutSortingAnalyzer.MinMethodName or Psh1118TakeExtremeWithoutSortingAnalyzer.MaxMethodName)

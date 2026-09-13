@@ -51,10 +51,10 @@ public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider, IBat
         }
 
         var replacement = SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                SyntaxFactory.IdentifierName("Empty"))
-            .WithTriviaFrom(literal);
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(literal.GetLeadingTrivia(), SyntaxKind.StringKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), "Empty", literal.GetTrailingTrivia())));
 
         editor.ReplaceNode(literal, replacement);
     }
@@ -67,10 +67,10 @@ public sealed class Sst1122UseStringEmptyCodeFixProvider : CodeFixProvider, IBat
     internal static Document Replace(Document document, SyntaxNode root, LiteralExpressionSyntax literal)
     {
         var replacement = SyntaxFactory.MemberAccessExpression(
-                SyntaxKind.SimpleMemberAccessExpression,
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(SyntaxKind.StringKeyword)),
-                SyntaxFactory.IdentifierName("Empty"))
-            .WithTriviaFrom(literal);
+            SyntaxKind.SimpleMemberAccessExpression,
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(literal.GetLeadingTrivia(), SyntaxKind.StringKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), "Empty", literal.GetTrailingTrivia())));
 
         return document.WithSyntaxRoot(root.ReplaceNode(literal, replacement));
     }

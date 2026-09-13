@@ -46,5 +46,8 @@ public sealed class Psh1309UnsafeRegisterCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The renamed identifier carrying the original trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static IdentifierNameSyntax Rewrite(SimpleNameSyntax name) =>
-        SyntaxFactory.IdentifierName(Psh1309UnsafeRegisterAnalyzer.UnsafeRegisterMethodName).WithTriviaFrom(name);
+        SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            name.GetLeadingTrivia(),
+            Psh1309UnsafeRegisterAnalyzer.UnsafeRegisterMethodName,
+            name.GetTrailingTrivia()));
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -23,7 +25,7 @@ namespace StyleSharp.Analyzers;
 /// a read loop and no fix is offered rather than one that will not compile.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>System.IO.Stream</c> resolving. The clean path is a
+/// The stream type and replacement advice are resolved on first demand and cached per compilation. The clean path is a
 /// syntactic prepass: the await must be an expression statement (its result discarded), and after unwrapping a
 /// configured awaiter the read must be a <c>ReadAsync</c> call reached through that awaiter or a local. Nothing
 /// binds until that holds.
@@ -41,15 +43,6 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
     /// <summary>The configured-awaiter method that hides the discarded read.</summary>
     private const string ConfigureAwaitName = "ConfigureAwait";
 
-    /// <summary>The metadata name of the stream type.</summary>
-    private const string StreamMetadataName = "System.IO.Stream";
-
-    /// <summary>The suggestion appended when the read-exactly API is available.</summary>
-    private const string ReadExactlySuggestion = "read the buffer fully with 'ReadExactlyAsync', or act on the returned count";
-
-    /// <summary>The suggestion appended when the read-exactly API is not available.</summary>
-    private const string LoopSuggestion = "loop until the buffer is filled, or act on the returned count";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DiscardedStreamRead);
 
@@ -64,13 +57,8 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(StreamMetadataName) is not { } streamType)
-            {
-                return;
-            }
-
-            var suggestion = HasReadExactly(streamType) ? ReadExactlySuggestion : LoopSuggestion;
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAwait(nodeContext, streamType, suggestion), SyntaxKind.AwaitExpression);
+            var types = new StreamTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAwait(nodeContext, types), SyntaxKind.AwaitExpression);
         });
     }
 
@@ -115,11 +103,11 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes one await for a discarded stream read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="streamType">The compilation's stream type.</param>
-    /// <param name="suggestion">The compilation-specific replacement advice.</param>
-    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, INamedTypeSymbol streamType, string suggestion)
+    /// <param name="types">The compilation's lazily resolved stream type and replacement advice.</param>
+    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, StreamTypes types)
     {
-        if (TryGetDiscardedRead(context.SemanticModel, (AwaitExpressionSyntax)context.Node, context.CancellationToken) is not { } readInvocation)
+        if (TryGetDiscardedRead(context.SemanticModel, (AwaitExpressionSyntax)context.Node, context.CancellationToken) is not { } readInvocation
+            || types.Get() is not { } streamType)
         {
             return;
         }
@@ -133,7 +121,7 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
         context.ReportDiagnostic(DiagnosticHelper.Create(
             CorrectnessRules.DiscardedStreamRead,
             GetReadLocation(readInvocation),
-            suggestion));
+            types.GetSuggestion(streamType)));
     }
 
     /// <summary>Returns the location of the invoked read method's name.</summary>
@@ -212,20 +200,51 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether the stream type exposes the read-exactly API (.NET 7 and later).</summary>
-    /// <param name="streamType">The compilation's stream type.</param>
-    /// <returns><see langword="true"/> when the read-exactly method exists.</returns>
-    private static bool HasReadExactly(INamedTypeSymbol streamType)
+    /// <summary>Resolves stream metadata only after a discarded-read candidate is found.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class StreamTypes(Compilation compilation)
     {
-        var members = streamType.GetMembers(ReadExactlyAsyncName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol)
-            {
-                return true;
-            }
-        }
+        /// <summary>The metadata name of the stream type.</summary>
+        private const string StreamMetadataName = "System.IO.Stream";
 
-        return false;
+        /// <summary>The suggestion appended when the read-exactly API is available.</summary>
+        private const string ReadExactlySuggestion = "read the buffer fully with 'ReadExactlyAsync', or act on the returned count";
+
+        /// <summary>The suggestion appended when the read-exactly API is not available.</summary>
+        private const string LoopSuggestion = "loop until the buffer is filled, or act on the returned count";
+
+        /// <summary>Caches the resolved type, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Caches the replacement advice after the first reportable read.</summary>
+        private string? _suggestion;
+
+        /// <summary>Gets the stream type on first demand.</summary>
+        /// <returns>The resolved type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(StreamMetadataName)])[0];
+
+        /// <summary>Gets the advice appropriate to the compilation's stream API.</summary>
+        /// <param name="streamType">The resolved stream type.</param>
+        /// <returns>The cached replacement advice.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public string GetSuggestion(INamedTypeSymbol streamType) => _suggestion ??= HasReadExactly(streamType) ? ReadExactlySuggestion : LoopSuggestion;
+
+        /// <summary>Returns whether the stream type exposes the read-exactly API (.NET 7 and later).</summary>
+        /// <param name="streamType">The compilation's stream type.</param>
+        /// <returns><see langword="true"/> when the read-exactly method exists.</returns>
+        private static bool HasReadExactly(INamedTypeSymbol streamType)
+        {
+            var members = streamType.GetMembers(ReadExactlyAsyncName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IMethodSymbol)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

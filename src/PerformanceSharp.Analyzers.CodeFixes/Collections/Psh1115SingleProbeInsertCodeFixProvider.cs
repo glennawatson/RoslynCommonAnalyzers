@@ -55,8 +55,11 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
                 SyntaxFactory.IdentifierName(Psh1115SingleProbeInsertAnalyzer.TryAddMethodName)),
             SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(ImmutableArrays.Of(
                 SyntaxFactory.Argument(guard.Key.WithoutTrivia()),
-                SyntaxFactory.Argument(value.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space)))));
+                SyntaxFactory.Argument(null, default, value.WithoutTrivia().WithLeadingTrivia(SyntaxFactory.Space))))));
 
-        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(tryAdd).WithTriviaFrom(ifStatement));
+        return new NodeReplacement(ifStatement, SyntaxFactory.ExpressionStatement(
+            default,
+            tryAdd.WithLeadingTrivia(ifStatement.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, ifStatement.GetTrailingTrivia())));
     }
 }

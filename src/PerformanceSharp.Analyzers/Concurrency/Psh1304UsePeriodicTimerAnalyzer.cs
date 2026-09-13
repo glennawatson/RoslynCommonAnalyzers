@@ -2,13 +2,15 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
 /// Flags <c>await Task.Delay(...)</c> statements that pace a <c>while</c>/<c>do</c> loop
 /// (PSH1304), suggesting <c>PeriodicTimer</c>. The whole rule is gated on
-/// <c>System.Threading.PeriodicTimer</c> existing in the compilation, so it costs nothing on
-/// frameworks without it. Only unconditional pacing is reported — the delay statement must be a
+/// <c>System.Threading.PeriodicTimer</c> existing in the compilation; framework types are resolved
+/// only after the syntax checks pass. Only unconditional pacing is reported — the delay statement must be a
 /// direct child of the loop body — and loops that adjust the delay between iterations (retry
 /// backoff) stay clean: any identifier used in the delay argument that is written inside the
 /// loop suppresses the report. <c>for</c>/<c>foreach</c> loops are skipped because a bounded
@@ -25,12 +27,6 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     /// <summary>The receiver type name the syntax gate requires.</summary>
     private const string TaskTypeName = "Task";
 
-    /// <summary>The metadata name of the periodic timer type the rule is gated on.</summary>
-    private const string PeriodicTimerMetadataName = "System.Threading.PeriodicTimer";
-
-    /// <summary>The metadata name of the task type that provides Delay.</summary>
-    private const string TaskMetadataName = "System.Threading.Tasks.Task";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.UsePeriodicTimer);
 
@@ -43,22 +39,17 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var taskType = start.Compilation.GetTypeByMetadataName(TaskMetadataName);
-            if (taskType is null || start.Compilation.GetTypeByMetadataName(PeriodicTimerMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAwait(nodeContext, taskType), SyntaxKind.AwaitExpression);
+            var markers = new TimerMarkers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAwait(nodeContext, markers), SyntaxKind.AwaitExpression);
         });
     }
 
     /// <summary>Reports PSH1304 for an awaited delay that unconditionally paces a while/do loop.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="taskType">The task type providing Delay.</param>
-    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, INamedTypeSymbol taskType)
+    /// <param name="markers">The compilation's lazily resolved task and timer types.</param>
+    private static void AnalyzeAwait(in SyntaxNodeAnalysisContext context, TimerMarkers markers)
     {
         var awaitExpression = (AwaitExpressionSyntax)context.Node;
         if (awaitExpression.Expression is not InvocationExpressionSyntax invocation
@@ -70,7 +61,8 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
+        if (markers.GetTask() is not { } taskType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, taskType))
         {
             return;
@@ -272,5 +264,35 @@ public sealed class Psh1304UsePeriodicTimerAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Gets or sets a value indicating whether the delay amount changes between iterations.</summary>
         public bool Found { get; set; }
+    }
+
+    /// <summary>Resolves the task and timer types on first demand and caches missing types too.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class TimerMarkers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the periodic timer type the rule is gated on.</summary>
+        private const string PeriodicTimerMetadataName = "System.Threading.PeriodicTimer";
+
+        /// <summary>The metadata name of the task type that provides Delay.</summary>
+        private const string TaskMetadataName = "System.Threading.Tasks.Task";
+
+        /// <summary>The gated task type, or null before the first candidate delay.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the task type only when the periodic timer type also exists.</summary>
+        /// <returns>The task type, or null when either required type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetTask() => (_resolved ??= [ResolveTask(compilation)])[0];
+
+        /// <summary>Resolves the task type and checks for the periodic timer replacement.</summary>
+        /// <param name="compilation">The compilation whose types are resolved.</param>
+        /// <returns>The task type, or null when either required type is absent.</returns>
+        private static INamedTypeSymbol? ResolveTask(Compilation compilation)
+        {
+            var taskType = compilation.GetTypeByMetadataName(TaskMetadataName);
+            return taskType is not null && compilation.GetTypeByMetadataName(PeriodicTimerMetadataName) is not null
+                ? taskType
+                : null;
+        }
     }
 }

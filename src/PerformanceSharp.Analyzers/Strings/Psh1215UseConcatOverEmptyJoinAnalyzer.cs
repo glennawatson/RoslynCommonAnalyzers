@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -37,14 +39,9 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var overloads = ConcatOverloads.Resolve(start.Compilation);
-            if (!overloads.HasAny)
-            {
-                return;
-            }
-
+            var overloads = new ConcatOverloadResolver(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, overloads), SyntaxKind.InvocationExpression);
         });
     }
@@ -92,11 +89,17 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1215 for an empty-separator Join call whose values have a Concat overload.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The Concat overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ConcatOverloads overloads)
+    /// <param name="resolver">The compilation's lazily resolved Concat overloads.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ConcatOverloadResolver resolver)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsCandidate(invocation, out var separator, out var separatorIsLiteral))
+        {
+            return;
+        }
+
+        var overloads = resolver.Get();
+        if (!overloads.HasAny)
         {
             return;
         }
@@ -325,5 +328,18 @@ public sealed class Psh1215UseConcatOverEmptyJoinAnalyzer : DiagnosticAnalyzer
                 spanOfObject |= elementType == SpecialType.System_Object;
             }
         }
+    }
+
+    /// <summary>Resolves Concat overloads only after an empty-separator Join candidate is found.</summary>
+    /// <param name="compilation">The compilation whose string members are searched.</param>
+    private sealed class ConcatOverloadResolver(Compilation compilation)
+    {
+        /// <summary>Caches the overload flags, including an empty result, in an atomically assigned array.</summary>
+        private ConcatOverloads[]? _resolved;
+
+        /// <summary>Gets the available Concat overloads on first demand.</summary>
+        /// <returns>The resolved overload flags.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public ConcatOverloads Get() => (_resolved ??= [ConcatOverloads.Resolve(compilation)])[0];
     }
 }

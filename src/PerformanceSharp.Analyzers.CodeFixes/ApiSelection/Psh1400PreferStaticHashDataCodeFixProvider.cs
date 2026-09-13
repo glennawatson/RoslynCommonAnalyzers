@@ -75,6 +75,6 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
             createAccess.Expression,
             SyntaxFactory.IdentifierName(HashDataMethodName));
 
-        return SyntaxFactory.InvocationExpression(hashDataAccess, invocation.ArgumentList).WithTriviaFrom(invocation);
+        return SyntaxFactory.InvocationExpression(hashDataAccess, invocation.ArgumentList);
     }
 }

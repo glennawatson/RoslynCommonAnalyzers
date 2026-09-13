@@ -20,9 +20,9 @@ namespace StyleSharp.Analyzers;
 /// type is the <c>Nullable&lt;&gt;</c> form of the constrained type matches, since <c>{id:int?}</c> and an
 /// <c>int?</c> parameter agree.
 /// <para>
-/// The whole rule is gated at compilation start on both the <c>Microsoft.AspNetCore.Components.RouteAttribute</c>
-/// and <c>Microsoft.AspNetCore.Components.ParameterAttribute</c> markers resolving; a project that references
-/// neither registers nothing and pays nothing. The clean path scans each type's attributes for a route marker and
+/// The binding model is resolved only for a candidate route attribute and requires both the
+/// <c>Microsoft.AspNetCore.Components.RouteAttribute</c> and <c>Microsoft.AspNetCore.Components.ParameterAttribute</c>
+/// markers. The clean path scans each type's attributes for a route marker and
 /// parses a template only for a type that carries one, so a non-routable type costs a single attribute scan.
 /// </para>
 /// </remarks>
@@ -46,20 +46,15 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var model = RouteBindingModel.Resolve(start.Compilation);
-            if (model is null)
-            {
-                return;
-            }
-
-            start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, model), SymbolKind.NamedType);
+            var models = new RouteBindingModels(start.Compilation);
+            start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, models), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Parses each route template on a type and reports every typed segment whose parameter type disagrees.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="model">The resolved markers and constraint-to-type map.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, RouteBindingModel model)
+    /// <param name="models">The markers and constraint-to-type map resolved on demand.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, RouteBindingModels models)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class)
@@ -71,7 +66,18 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         HashSet<ISymbol>? reported = null;
         for (var i = 0; i < attributes.Length; i++)
         {
-            if (!model.IsRoute(attributes[i].AttributeClass) || !TryGetTemplate(attributes[i], out var template))
+            if (attributes[i].AttributeClass?.Name != "RouteAttribute" || !TryGetTemplate(attributes[i], out var template))
+            {
+                continue;
+            }
+
+            var model = models.Get();
+            if (model is null)
+            {
+                return;
+            }
+
+            if (!model.IsRoute(attributes[i].AttributeClass))
             {
                 continue;
             }
@@ -130,7 +136,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
                     return;
                 }
 
-                InspectSegment(context, model, type, template.Substring(index + 1, close - index - 1), reported);
+                InspectSegment(context, model, type, template.AsSpan(index + 1, close - index - 1), reported);
                 index = close + 1;
                 continue;
             }
@@ -146,7 +152,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="type">The routable component type.</param>
     /// <param name="segment">The template segment content, without its enclosing braces.</param>
     /// <param name="reported">The set of already-reported parameters.</param>
-    private static void InspectSegment(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, string segment, HashSet<ISymbol> reported)
+    private static void InspectSegment(in SymbolAnalysisContext context, RouteBindingModel model, INamedTypeSymbol type, ReadOnlySpan<char> segment, HashSet<ISymbol> reported)
     {
         var colon = segment.IndexOf(':');
         if (colon < 0)
@@ -194,7 +200,7 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
     /// <param name="segment">The segment content.</param>
     /// <param name="colon">The index of the first colon.</param>
     /// <returns>The parameter name.</returns>
-    private static string NormalizeName(string segment, int colon)
+    private static string NormalizeName(ReadOnlySpan<char> segment, int colon)
     {
         var start = 0;
         while (start < colon && segment[start] == '*')
@@ -214,14 +220,14 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             break;
         }
 
-        return segment.Substring(start, end - start);
+        return segment.Slice(start, end - start).ToString();
     }
 
     /// <summary>Reads the first constraint token, dropping any additional constraints, arguments, or optional marker.</summary>
     /// <param name="segment">The segment content.</param>
     /// <param name="start">The index just after the first colon.</param>
     /// <returns>The lowercased constraint token.</returns>
-    private static string NormalizeConstraint(string segment, int start)
+    private static string NormalizeConstraint(ReadOnlySpan<char> segment, int start)
     {
         var end = segment.Length;
         for (var i = start; i < segment.Length; i++)
@@ -235,7 +241,12 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             break;
         }
 
-        var token = segment.Substring(start, end - start).TrimEnd('?');
+        while (end > start && segment[end - 1] == '?')
+        {
+            end--;
+        }
+
+        var token = segment.Slice(start, end - start).ToString();
         return token.ToLowerInvariant();
     }
 
@@ -270,6 +281,19 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } named
             ? named.TypeArguments[0]
             : type;
+
+    /// <summary>Resolves the route-binding model on demand and caches missing markers.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class RouteBindingModels(Compilation compilation)
+    {
+        /// <summary>The resolved model slot, or null before the first candidate.</summary>
+        private RouteBindingModel?[]? _resolved;
+
+        /// <summary>Gets the route-binding model, resolving it on first use.</summary>
+        /// <returns>The model, or null when a required marker is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public RouteBindingModel? Get() => (_resolved ??= [RouteBindingModel.Resolve(compilation)])[0];
+    }
 
     /// <summary>
     /// The route and parameter marker attributes and the constraint-to-CLR-type map, resolved once per compilation

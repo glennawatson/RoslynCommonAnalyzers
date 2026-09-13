@@ -24,28 +24,15 @@ namespace StyleSharp.Analyzers;
 /// <c>Id</c> on an ordinary class is never reported.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on the framework being referenced: it registers nothing unless
-/// the <c>KeyAttribute</c> resolves (for the explicit path) or Entity Framework's <c>DbContext</c>/<c>DbSet</c>
-/// resolves (for the convention path). A project that references neither pays nothing. The entity set is walked
-/// once per compilation over the source assembly's own types; the per-property callback then does a cheap type
-/// check and returns before any allocation for every non-temporal property.
+/// The framework types and entity set are resolved on demand within each compilation, after a property passes
+/// the temporal-type and possible-key checks. The entity set covers the source assembly's own types. Concurrent
+/// first candidates may compute equivalent facts independently; the completed facts are cached for later properties,
+/// including when neither the key attribute nor Entity Framework is referenced.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the explicit key attribute.</summary>
-    private const string KeyAttributeMetadataName = "System.ComponentModel.DataAnnotations.KeyAttribute";
-
-    /// <summary>The metadata name of the Entity Framework context base type.</summary>
-    private const string DbContextMetadataName = "Microsoft.EntityFrameworkCore.DbContext";
-
-    /// <summary>The metadata name of the Entity Framework entity-set type.</summary>
-    private const string DbSetMetadataName = "Microsoft.EntityFrameworkCore.DbSet`1";
-
-    /// <summary>The metadata name of the offset-bearing temporal type.</summary>
-    private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
-
     /// <summary>The conventional bare key name, and the suffix of the <c>&lt;TypeName&gt;Id</c> form.</summary>
     private const string ConventionKeyName = "Id";
 
@@ -64,36 +51,27 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
-    /// <summary>Registers the per-property check only when the key or the framework is referenced.</summary>
+    /// <summary>Registers the per-property check with facts that resolve only for a possible temporal key.</summary>
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var compilation = context.Compilation;
-        var keyAttribute = compilation.GetTypeByMetadataName(KeyAttributeMetadataName);
-        var dbContext = compilation.GetTypeByMetadataName(DbContextMetadataName);
-        var dbSet = compilation.GetTypeByMetadataName(DbSetMetadataName);
-        var frameworkReferenced = dbContext is not null || dbSet is not null;
-
-        if (keyAttribute is null && !frameworkReferenced)
-        {
-            return;
-        }
-
-        var dateTimeOffset = compilation.GetTypeByMetadataName(DateTimeOffsetMetadataName);
-        var entityTypes = dbContext is not null && dbSet is not null
-            ? CollectEntityTypes(compilation, dbContext, dbSet)
-            : null;
-
-        var facts = new TemporalKeyFacts(keyAttribute, dateTimeOffset, entityTypes);
-        context.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, facts), SymbolKind.Property);
+        var state = new TemporalKeyState(context.Compilation);
+        context.RegisterSymbolAction(symbolContext => AnalyzeProperty(symbolContext, state), SymbolKind.Property);
     }
 
     /// <summary>Reports a temporal primary key found by the explicit attribute or the entity convention.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="facts">The resolved key attribute, offset type, and entity set.</param>
-    private static void AnalyzeProperty(in SymbolAnalysisContext context, TemporalKeyFacts facts)
+    /// <param name="state">The compilation's deferred key attribute, offset type, and entity set.</param>
+    private static void AnalyzeProperty(in SymbolAnalysisContext context, TemporalKeyState state)
     {
         var property = (IPropertySymbol)context.Symbol;
+        if (!CouldBeTemporalType(property.Type)
+            || (!IsConventionKey(property) && property.GetAttributes().IsEmpty))
+        {
+            return;
+        }
+
+        var facts = state.Get();
         if (!TryGetTemporalTypeName(property.Type, facts.DateTimeOffset, out var temporalName))
         {
             return;
@@ -126,6 +104,20 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
             property.Locations[0],
             property.Name,
             temporalName));
+
+    /// <summary>Rejects non-temporal property types before resolving framework symbols, preserving type aliases.</summary>
+    /// <param name="type">The property's type.</param>
+    /// <returns>True for DateTime or a possible DateTimeOffset, including nullable forms.</returns>
+    private static bool CouldBeTemporalType(ITypeSymbol type)
+    {
+        var underlying = type;
+        if (type is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T, TypeArguments: { Length: 1 } arguments })
+        {
+            underlying = arguments[0];
+        }
+
+        return underlying.SpecialType == SpecialType.System_DateTime || underlying.Name == nameof(DateTimeOffset);
+    }
 
     /// <summary>Returns whether a property's type is a temporal type, unwrapping <see cref="Nullable{T}"/>.</summary>
     /// <param name="type">The property's type.</param>
@@ -194,101 +186,148 @@ public sealed class Sst2475TemporalPrimaryKeyAnalyzer : DiagnosticAnalyzer
             && name.EndsWith(ConventionKeyName, StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Collects the source types used as entities through a <c>DbSet&lt;T&gt;</c> on a context.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <param name="dbContext">The resolved context base type.</param>
-    /// <param name="dbSet">The resolved entity-set type.</param>
-    /// <returns>The set of entity types, compared by symbol identity.</returns>
-    private static HashSet<INamedTypeSymbol> CollectEntityTypes(Compilation compilation, INamedTypeSymbol dbContext, INamedTypeSymbol dbSet)
+    /// <summary>Resolves and caches completed facts on first demand, including missing framework types.</summary>
+    /// <param name="compilation">The compilation that owns the cached symbols.</param>
+    private sealed class TemporalKeyState(Compilation compilation)
     {
-        var entities = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
-        var namespaces = new Stack<INamespaceSymbol>();
-        namespaces.Push(compilation.Assembly.GlobalNamespace);
+        /// <summary>The metadata name of the explicit key attribute.</summary>
+        private const string KeyAttributeMetadataName = "System.ComponentModel.DataAnnotations.KeyAttribute";
 
-        while (namespaces.Count > 0)
+        /// <summary>The metadata name of the Entity Framework context base type.</summary>
+        private const string DbContextMetadataName = "Microsoft.EntityFrameworkCore.DbContext";
+
+        /// <summary>The metadata name of the Entity Framework entity-set type.</summary>
+        private const string DbSetMetadataName = "Microsoft.EntityFrameworkCore.DbSet`1";
+
+        /// <summary>The metadata name of the offset-bearing temporal type.</summary>
+        private const string DateTimeOffsetMetadataName = "System.DateTimeOffset";
+
+        /// <summary>The completed facts, or null before the first candidate requests them.</summary>
+        private TemporalKeyFacts? _facts;
+
+        /// <summary>Returns the cached facts; concurrent first calls may resolve equivalent results.</summary>
+        /// <returns>The compilation's resolved facts.</returns>
+        public TemporalKeyFacts Get() => _facts ??= ResolveFacts(compilation);
+
+        /// <summary>Resolves the framework types and entity set after a possible temporal key is found.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <returns>The resolved facts, including an empty result when no key framework is referenced.</returns>
+        private static TemporalKeyFacts ResolveFacts(Compilation compilation)
         {
-            foreach (var member in namespaces.Pop().GetMembers())
+            var keyAttribute = compilation.GetTypeByMetadataName(KeyAttributeMetadataName);
+            var dbContext = compilation.GetTypeByMetadataName(DbContextMetadataName);
+            var dbSet = compilation.GetTypeByMetadataName(DbSetMetadataName);
+            var frameworkReferenced = dbContext is not null || dbSet is not null;
+
+            if (keyAttribute is null && !frameworkReferenced)
             {
-                if (member is INamespaceSymbol childNamespace)
+                return new(null, null, null);
+            }
+
+            var dateTimeOffset = compilation.GetTypeByMetadataName(DateTimeOffsetMetadataName);
+            var entityTypes = dbContext is not null && dbSet is not null
+                ? CollectEntityTypes(compilation, dbContext, dbSet)
+                : null;
+
+            return new(keyAttribute, dateTimeOffset, entityTypes);
+        }
+
+        /// <summary>Collects the source types used as entities through a <c>DbSet&lt;T&gt;</c> on a context.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <param name="dbContext">The resolved context base type.</param>
+        /// <param name="dbSet">The resolved entity-set type.</param>
+        /// <returns>The set of entity types, compared by symbol identity.</returns>
+        private static HashSet<INamedTypeSymbol> CollectEntityTypes(Compilation compilation, INamedTypeSymbol dbContext, INamedTypeSymbol dbSet)
+        {
+            var entities = new HashSet<INamedTypeSymbol>(SymbolEqualityComparer.Default);
+            var namespaces = new Stack<INamespaceSymbol>(capacity: 4);
+            namespaces.Push(compilation.Assembly.GlobalNamespace);
+
+            while (namespaces.Count > 0)
+            {
+                foreach (var member in namespaces.Pop().GetMembers())
                 {
-                    namespaces.Push(childNamespace);
+                    if (member is INamespaceSymbol childNamespace)
+                    {
+                        namespaces.Push(childNamespace);
+                    }
+                    else if (member is INamedTypeSymbol type)
+                    {
+                        CollectFromType(type, dbContext, dbSet, entities);
+                    }
                 }
-                else if (member is INamedTypeSymbol type)
+            }
+
+            return entities;
+        }
+
+        /// <summary>Adds a context type's <c>DbSet&lt;T&gt;</c> entities, then recurses into nested types.</summary>
+        /// <param name="type">The type to inspect.</param>
+        /// <param name="dbContext">The resolved context base type.</param>
+        /// <param name="dbSet">The resolved entity-set type.</param>
+        /// <param name="entities">The accumulating entity set.</param>
+        private static void CollectFromType(INamedTypeSymbol type, INamedTypeSymbol dbContext, INamedTypeSymbol dbSet, HashSet<INamedTypeSymbol> entities)
+        {
+            if (DerivesFrom(type, dbContext))
+            {
+                AddDbSetEntities(type, dbSet, entities);
+            }
+
+            var nested = type.GetTypeMembers();
+            for (var i = 0; i < nested.Length; i++)
+            {
+                CollectFromType(nested[i], dbContext, dbSet, entities);
+            }
+        }
+
+        /// <summary>Adds every <c>DbSet&lt;T&gt;</c> element type declared on a context to the entity set.</summary>
+        /// <param name="contextType">The context type whose members expose the entity sets.</param>
+        /// <param name="dbSet">The resolved entity-set type.</param>
+        /// <param name="entities">The accumulating entity set.</param>
+        private static void AddDbSetEntities(INamedTypeSymbol contextType, INamedTypeSymbol dbSet, HashSet<INamedTypeSymbol> entities)
+        {
+            var members = contextType.GetMembers();
+            for (var i = 0; i < members.Length; i++)
+            {
+                var memberType = members[i] switch
                 {
-                    CollectFromType(type, dbContext, dbSet, entities);
+                    IPropertySymbol property => property.Type,
+                    IFieldSymbol field => field.Type,
+                    _ => null,
+                };
+
+                if (memberType is INamedTypeSymbol { IsGenericType: true, TypeArguments: { Length: 1 } arguments } named
+                    && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, dbSet)
+                    && arguments[0] is INamedTypeSymbol entity)
+                {
+                    _ = entities.Add(entity);
                 }
             }
         }
 
-        return entities;
-    }
-
-    /// <summary>Adds a context type's <c>DbSet&lt;T&gt;</c> entities, then recurses into nested types.</summary>
-    /// <param name="type">The type to inspect.</param>
-    /// <param name="dbContext">The resolved context base type.</param>
-    /// <param name="dbSet">The resolved entity-set type.</param>
-    /// <param name="entities">The accumulating entity set.</param>
-    private static void CollectFromType(INamedTypeSymbol type, INamedTypeSymbol dbContext, INamedTypeSymbol dbSet, HashSet<INamedTypeSymbol> entities)
-    {
-        if (DerivesFrom(type, dbContext))
+        /// <summary>Returns whether a type derives from the given base type.</summary>
+        /// <param name="type">The type to test.</param>
+        /// <param name="baseType">The base type to look for.</param>
+        /// <returns><see langword="true"/> when <paramref name="baseType"/> appears in the base chain.</returns>
+        private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
         {
-            AddDbSetEntities(type, dbSet, entities);
-        }
-
-        var nested = type.GetTypeMembers();
-        for (var i = 0; i < nested.Length; i++)
-        {
-            CollectFromType(nested[i], dbContext, dbSet, entities);
-        }
-    }
-
-    /// <summary>Adds every <c>DbSet&lt;T&gt;</c> element type declared on a context to the entity set.</summary>
-    /// <param name="contextType">The context type whose members expose the entity sets.</param>
-    /// <param name="dbSet">The resolved entity-set type.</param>
-    /// <param name="entities">The accumulating entity set.</param>
-    private static void AddDbSetEntities(INamedTypeSymbol contextType, INamedTypeSymbol dbSet, HashSet<INamedTypeSymbol> entities)
-    {
-        var members = contextType.GetMembers();
-        for (var i = 0; i < members.Length; i++)
-        {
-            var memberType = members[i] switch
+            for (var current = type.BaseType; current is not null; current = current.BaseType)
             {
-                IPropertySymbol property => property.Type,
-                IFieldSymbol field => field.Type,
-                _ => null,
-            };
-
-            if (memberType is INamedTypeSymbol { IsGenericType: true, TypeArguments: { Length: 1 } arguments } named
-                && SymbolEqualityComparer.Default.Equals(named.OriginalDefinition, dbSet)
-                && arguments[0] is INamedTypeSymbol entity)
-            {
-                _ = entities.Add(entity);
+                if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, baseType))
+                {
+                    return true;
+                }
             }
-        }
-    }
 
-    /// <summary>Returns whether a type derives from the given base type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="baseType">The base type to look for.</param>
-    /// <returns><see langword="true"/> when <paramref name="baseType"/> appears in the base chain.</returns>
-    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (var current = type.BaseType; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current.OriginalDefinition, baseType))
-            {
-                return true;
-            }
+            return false;
         }
-
-        return false;
     }
 
     /// <summary>The resolved facts one compilation needs to find a temporal primary key.</summary>
     /// <param name="KeyAttribute">The explicit key attribute, or <see langword="null"/> when it is not referenced.</param>
     /// <param name="DateTimeOffset">The offset type, or <see langword="null"/> when it is not referenced.</param>
     /// <param name="EntityTypes">The convention entity set, or <see langword="null"/> when the framework is absent.</param>
-    private readonly record struct TemporalKeyFacts(
+    private sealed record TemporalKeyFacts(
         INamedTypeSymbol? KeyAttribute,
         INamedTypeSymbol? DateTimeOffset,
         HashSet<INamedTypeSymbol>? EntityTypes);

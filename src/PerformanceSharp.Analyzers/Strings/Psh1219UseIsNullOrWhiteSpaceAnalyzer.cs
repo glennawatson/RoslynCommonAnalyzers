@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -79,12 +81,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (!HasIsNullOrWhiteSpace(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeTrim, SyntaxKind.InvocationExpression);
+            var whiteSpaceSupport = new WhiteSpaceSupport(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeTrim(nodeContext, whiteSpaceSupport), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -122,7 +120,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1219 for a string trimmed only to ask whether it is blank.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeTrim(SyntaxNodeAnalysisContext context)
+    /// <param name="whiteSpaceSupport">The replacement API availability resolved on first demand.</param>
+    private static void AnalyzeTrim(in SyntaxNodeAnalysisContext context, WhiteSpaceSupport whiteSpaceSupport)
     {
         var trim = (InvocationExpressionSyntax)context.Node;
         if (!IsTrimShape(trim) || !TryGetTest(trim, out var reported, out var other, out var kind))
@@ -133,7 +132,8 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         if (!BindsToStringTrim(model, trim, context.CancellationToken)
             || !IsBlankTest(model, reported!, other, kind, context.CancellationToken)
-            || SpanRewriteGuard.IsInsideExpressionTree(reported!, model, context.CancellationToken))
+            || SpanRewriteGuard.IsInsideExpressionTree(reported!, model, context.CancellationToken)
+            || !whiteSpaceSupport.IsAvailable())
         {
             return;
         }
@@ -300,20 +300,33 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether the compilation has the replacement API at all.</summary>
-    /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns><see langword="true"/> when <c>string.IsNullOrWhiteSpace</c> exists.</returns>
-    private static bool HasIsNullOrWhiteSpace(Compilation compilation)
+    /// <summary>Checks the replacement API only after a trim-based blank test matches.</summary>
+    /// <param name="compilation">The compilation whose API availability is cached.</param>
+    private sealed class WhiteSpaceSupport(Compilation compilation)
     {
-        var members = compilation.GetSpecialType(SpecialType.System_String).GetMembers(IsNullOrWhiteSpaceMethodName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 })
-            {
-                return true;
-            }
-        }
+        /// <summary>The published availability result, including an unavailable API.</summary>
+        private bool[]? _resolved;
 
-        return false;
+        /// <summary>Gets whether the replacement API exists, resolving it on first demand.</summary>
+        /// <returns>Whether IsNullOrWhiteSpace is available.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??= [HasIsNullOrWhiteSpace(compilation)])[0];
+
+        /// <summary>Returns whether the compilation has the replacement API at all.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>Whether string.IsNullOrWhiteSpace exists.</returns>
+        private static bool HasIsNullOrWhiteSpace(Compilation compilation)
+        {
+            var members = compilation.GetSpecialType(SpecialType.System_String).GetMembers(IsNullOrWhiteSpaceMethodName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

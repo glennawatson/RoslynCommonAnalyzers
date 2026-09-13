@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -16,7 +18,7 @@ namespace StyleSharp.Analyzers;
 /// <c>null!</c>). Only then does the rule bind, confirm the target is a delegate <c>Invoke</c> of the
 /// <c>(object sender, EventArgs args)</c> shape whose receiver is an event, and check the exemptions: a static
 /// event may take a null sender, and <c>EventArgs.Empty</c> is the fix rather than the bug. <c>System.EventArgs</c>
-/// is resolved once at compilation start.
+/// is resolved only after an invocation passes the syntax checks.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
@@ -42,22 +44,17 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var eventArgsType = start.Compilation.GetTypeByMetadataName("System.EventArgs");
-            if (eventArgsType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, eventArgsType), SyntaxKind.InvocationExpression);
+            var eventTypes = new EventTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, eventTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Analyzes one invocation for a null-sender or null-args event raise.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="eventArgsType">The resolved <c>System.EventArgs</c> symbol.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol eventArgsType)
+    /// <param name="eventTypes">The event-args type cache for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, EventTypes eventTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         var arguments = invocation.ArgumentList.Arguments;
@@ -73,12 +70,29 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!TryGetRaisedEvent(context, invocation, eventArgsType, out var raisedEvent, out var invoke))
+        if (eventTypes.Get() is not { } eventArgsType
+            || !TryGetRaisedEvent(context, invocation, eventArgsType, out var raisedEvent, out var invoke))
         {
             return;
         }
 
-        if (senderIsNull && !raisedEvent.IsStatic)
+        ReportNullArguments(context, arguments, raisedEvent, invoke, eventArgsType);
+    }
+
+    /// <summary>Reports null sender and event-args values after the event has been bound.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="arguments">The two event invocation arguments.</param>
+    /// <param name="raisedEvent">The event being raised.</param>
+    /// <param name="invoke">The bound delegate invocation.</param>
+    /// <param name="eventArgsType">The resolved System.EventArgs type.</param>
+    private static void ReportNullArguments(
+        in SyntaxNodeAnalysisContext context,
+        SeparatedSyntaxList<ArgumentSyntax> arguments,
+        IEventSymbol raisedEvent,
+        IMethodSymbol invoke,
+        INamedTypeSymbol eventArgsType)
+    {
+        if (IsNullLiteral(arguments[0].Expression) && !raisedEvent.IsStatic)
         {
             context.ReportDiagnostic(DiagnosticHelper.Create(
                 CorrectnessRules.NullEventRaise,
@@ -88,7 +102,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
                 "this"));
         }
 
-        if (!argsIsNull)
+        if (!IsNullLiteral(arguments[1].Expression))
         {
             return;
         }
@@ -197,4 +211,17 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
         PostfixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.SuppressNullableWarningExpression } suppressed => IsNullLiteral(suppressed.Operand),
         _ => false,
     };
+
+    /// <summary>Resolves System.EventArgs on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EventTypes(Compilation compilation)
+    {
+        /// <summary>Stores the resolved symbol, including a missing result, in an atomically assigned array.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets System.EventArgs, resolving it on first demand.</summary>
+        /// <returns>The event-args type, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.EventArgs")])[0];
+    }
 }

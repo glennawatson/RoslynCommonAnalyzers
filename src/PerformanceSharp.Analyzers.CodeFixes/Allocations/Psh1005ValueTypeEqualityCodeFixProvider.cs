@@ -240,9 +240,7 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
             SyntaxKind.RecordStructDeclaration,
             declaration.AttributeLists,
             declaration.Modifiers,
-            SyntaxFactory.Token(SyntaxKind.RecordKeyword)
-                .WithLeadingTrivia(structKeyword.LeadingTrivia)
-                .WithTrailingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.Token(structKeyword.LeadingTrivia, SyntaxKind.RecordKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             structKeyword.WithLeadingTrivia(),
             declaration.Identifier,
             declaration.TypeParameterList,
@@ -313,12 +311,21 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
         }
 
         var identifier = declaration.TypeParameterList is null ? declaration.Identifier.WithoutTrivia() : declaration.Identifier;
-        return declaration
-            .WithIdentifier(identifier)
-            .WithTypeParameterList(declaration.TypeParameterList?.WithoutTrailingTrivia())
-            .WithBaseList(SyntaxFactory.BaseList(SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(baseType))
-                .WithLeadingTrivia(SyntaxFactory.Space)
-                .WithTrailingTrivia(GetNameTrailingTrivia(declaration)));
+        return declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.Keyword,
+            identifier,
+            declaration.TypeParameterList?.WithoutTrailingTrivia(),
+            declaration.ParameterList,
+            SyntaxFactory.BaseList(
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                SyntaxFactory.SingletonSeparatedList<BaseTypeSyntax>(baseType.WithTrailingTrivia(GetNameTrailingTrivia(declaration)))),
+            declaration.ConstraintClauses,
+            declaration.OpenBraceToken,
+            declaration.Members,
+            declaration.CloseBraceToken,
+            declaration.SemicolonToken);
     }
 
     /// <summary>Returns the trivia that followed the struct name, to carry after a new base list.</summary>
@@ -351,7 +358,15 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
             return "true";
         }
 
-        var builder = new StringBuilder();
+        const int memberNameOccurrences = 2;
+        var capacity = (members.Length - 1) * " && ".Length;
+        for (var i = 0; i < members.Length; i++)
+        {
+            capacity += comparer.Length + 1 + members[i].Type.Length + ">.Default.Equals(".Length
+                + (members[i].Name.Length * memberNameOccurrences) + ", other.".Length + 1;
+        }
+
+        var builder = new StringBuilder(capacity);
         for (var i = 0; i < members.Length; i++)
         {
             if (i > 0)

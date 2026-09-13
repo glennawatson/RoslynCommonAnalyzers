@@ -209,10 +209,10 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <returns>The parameter list to attach to the type declaration.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ParameterListSyntax CreatePrimaryConstructorParameterList(TypeDeclarationSyntax type, ParameterListSyntax parameterList) =>
-        parameterList
-            .WithoutTrivia()
-            .WithLeadingTrivia(default(SyntaxTriviaList))
-            .WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type));
+        parameterList.Update(
+            parameterList.OpenParenToken.WithLeadingTrivia(default(SyntaxTriviaList)),
+            parameterList.Parameters,
+            parameterList.CloseParenToken.WithTrailingTrivia(GetPrimaryConstructorTrailingTrivia(type)));
 
     /// <summary>Gets the trivia that should follow the inserted primary-constructor parameter list.</summary>
     /// <param name="type">The type declaration.</param>
@@ -540,9 +540,16 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        updated = property
-            .WithInitializer(CreateInitializer(value!))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+        updated = property.Update(
+            property.AttributeLists,
+            property.Modifiers,
+            property.Type,
+            property.ExplicitInterfaceSpecifier,
+            property.Identifier,
+            property.AccessorList,
+            property.ExpressionBody,
+            CreateInitializer(value!),
+            SyntaxFactory.Token(SyntaxKind.SemicolonToken));
         applied[assignmentIndex] = true;
         return true;
     }
@@ -649,7 +656,10 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     private static List<SyntaxTrivia> CollectParameterDocs(TypeDeclarationSyntax type, ConstructorDeclarationSyntax constructor)
     {
         var indentation = GetTypeIndentation(type);
-        var collected = new List<SyntaxTrivia>();
+
+        // A parameter line normally parses as indentation followed by documentation trivia.
+        const int TriviaPerParameter = 2;
+        var collected = new List<SyntaxTrivia>(constructor.ParameterList.Parameters.Count * TriviaPerParameter);
         var text = constructor.GetLeadingTrivia().ToFullString();
         var start = 0;
         while (start < text.Length)

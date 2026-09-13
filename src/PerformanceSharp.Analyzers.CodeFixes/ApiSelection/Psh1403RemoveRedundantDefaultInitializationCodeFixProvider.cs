@@ -40,5 +40,10 @@ public sealed class Psh1403RemoveRedundantDefaultInitializationCodeFixProvider :
     /// <returns>The rewritten declarator.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static VariableDeclaratorSyntax Rewrite(VariableDeclaratorSyntax declarator) =>
-        declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
+        declarator.Update(
+            declarator.ArgumentList is null
+                ? declarator.Identifier.WithTrailingTrivia(declarator.GetTrailingTrivia())
+                : declarator.Identifier,
+            declarator.ArgumentList?.WithTrailingTrivia(declarator.GetTrailingTrivia()),
+            initializer: null);
 }

@@ -96,7 +96,11 @@ public sealed class Sst2201PreferSwitchExpressionCodeFixProvider : CodeFixProvid
         }
 
         var switchExpression = SyntaxFactory.SwitchExpression(switchStatement.Expression.WithoutTrivia(), arms);
-        replacement = SyntaxFactory.ReturnStatement(switchExpression).WithTriviaFrom(switchStatement);
+        replacement = SyntaxFactory.ReturnStatement(
+            default,
+            SyntaxFactory.Token(switchStatement.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            switchExpression,
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, switchStatement.GetTrailingTrivia()));
         return true;
     }
 

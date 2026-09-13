@@ -44,9 +44,13 @@ public sealed class Sst2246ChainedConditionalToSwitchCodeFixProvider : CodeFixPr
             return null;
         }
 
-        var replacement = switchExpression
-            .NormalizeWhitespace(elasticTrivia: true)
-            .WithTriviaFrom(conditional)
+        var normalized = switchExpression.NormalizeWhitespace(elasticTrivia: true);
+        var replacement = normalized.Update(
+                normalized.GoverningExpression.WithLeadingTrivia(conditional.GetLeadingTrivia()),
+                normalized.SwitchKeyword,
+                normalized.OpenBraceToken,
+                normalized.Arms,
+                normalized.CloseBraceToken.WithTrailingTrivia(conditional.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
         return new NodeReplacement(conditional, replacement);
     }

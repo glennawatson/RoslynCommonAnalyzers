@@ -26,14 +26,17 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
     /// <returns>The diagnostics that should register batch edits.</returns>
     internal static IEnumerable<Diagnostic> UniqueDiagnostics(ImmutableArray<Diagnostic> diagnostics)
     {
-        var seen = new HashSet<DiagnosticEditKey>();
+        var seen = new Dictionary<DiagnosticEditKey, bool>(diagnostics.Length);
         foreach (var diagnostic in diagnostics)
         {
             var key = new DiagnosticEditKey(diagnostic.Id, diagnostic.Location.SourceSpan);
-            if (seen.Add(key))
+            if (seen.ContainsKey(key))
             {
-                yield return diagnostic;
+                continue;
             }
+
+            seen.Add(key, true);
+            yield return diagnostic;
         }
     }
 
@@ -44,7 +47,7 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
     /// <returns>The diagnostics that should register batch edits.</returns>
     internal static IEnumerable<Diagnostic> UniqueDiagnostics(SyntaxNode root, IBatchFixableCodeFix fix, ImmutableArray<Diagnostic> diagnostics)
     {
-        var seen = new HashSet<DiagnosticEditKey>();
+        var seen = new Dictionary<DiagnosticEditKey, bool>(diagnostics.Length);
         var keyProvider = fix as IBatchEditKeyProvider;
         foreach (var diagnostic in diagnostics)
         {
@@ -52,10 +55,13 @@ internal sealed class BatchEditFixAllProvider : DocumentBasedFixAllProvider
                 ? editSpan
                 : diagnostic.Location.SourceSpan;
             var key = new DiagnosticEditKey(diagnostic.Id, span);
-            if (seen.Add(key))
+            if (seen.ContainsKey(key))
             {
-                yield return diagnostic;
+                continue;
             }
+
+            seen.Add(key, true);
+            yield return diagnostic;
         }
     }
 

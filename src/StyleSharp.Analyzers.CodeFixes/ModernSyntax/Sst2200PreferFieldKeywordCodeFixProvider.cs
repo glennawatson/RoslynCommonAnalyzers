@@ -155,7 +155,16 @@ public sealed class Sst2200PreferFieldKeywordCodeFixProvider : CodeFixProvider
 
         if (variable.Initializer is { } initializer)
         {
-            updated = updated.WithInitializer(initializer).WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken));
+            updated = updated.Update(
+                updated.AttributeLists,
+                updated.Modifiers,
+                updated.Type,
+                updated.ExplicitInterfaceSpecifier,
+                updated.Identifier,
+                updated.AccessorList,
+                updated.ExpressionBody,
+                initializer,
+                SyntaxFactory.Token(SyntaxKind.SemicolonToken));
         }
 
         var annotation = new SyntaxAnnotation();

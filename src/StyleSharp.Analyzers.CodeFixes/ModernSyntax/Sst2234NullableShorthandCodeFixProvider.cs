@@ -99,6 +99,11 @@ public sealed class Sst2234NullableShorthandCodeFixProvider : CodeFixProvider, I
     /// <param name="argument">The nullable value type argument.</param>
     /// <returns>The shorthand type syntax.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument) =>
-        SyntaxFactory.NullableType(argument.WithoutTrivia()).WithTriviaFrom(spelling);
+    private static NullableTypeSyntax BuildShorthand(TypeSyntax spelling, TypeSyntax argument)
+    {
+        var elementType = argument.WithoutTrivia();
+        return SyntaxFactory.NullableType(
+            elementType.WithLeadingTrivia(spelling.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.QuestionToken, spelling.GetTrailingTrivia()));
+    }
 }

@@ -78,8 +78,11 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
     /// <returns>The rewritten declaration.</returns>
     private static EnumDeclarationSyntax AddNoneMember(EnumDeclarationSyntax declaration)
     {
-        var member = SyntaxFactory.EnumMemberDeclaration(NoneMemberName)
-            .WithEqualsValue(SyntaxFactory.EqualsValueClause(
+        var member = SyntaxFactory.EnumMemberDeclaration(
+            attributeLists: default,
+            modifiers: default,
+            SyntaxFactory.Identifier(NoneMemberName),
+            SyntaxFactory.EqualsValueClause(
                 SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0))));
 
         var members = declaration.Members;
@@ -91,11 +94,22 @@ public sealed class Sst2329FlagsEnumMissingZeroValueCodeFixProvider : CodeFixPro
         // An empty enum body: place the member on its own indented line and push the close brace down after it.
         var newLine = LineEndingHelper.GetLineBreak(declaration);
         var indent = SyntaxFactory.Whitespace($"{GetIndent(declaration)}    ");
-        var placed = member.WithLeadingTrivia(newLine, indent).WithTrailingTrivia(newLine);
+        var placed = member.Update(
+            member.AttributeLists,
+            member.Modifiers,
+            member.Identifier.WithLeadingTrivia(newLine, indent),
+            member.EqualsValue!.WithTrailingTrivia(newLine));
         var closeBrace = declaration.CloseBraceToken.WithLeadingTrivia(SyntaxFactory.Whitespace(GetIndent(declaration)));
-        return declaration
-            .WithMembers(SyntaxFactory.SingletonSeparatedList(placed))
-            .WithCloseBraceToken(closeBrace);
+        return declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.EnumKeyword,
+            declaration.Identifier,
+            declaration.BaseList,
+            declaration.OpenBraceToken,
+            SyntaxFactory.SingletonSeparatedList(placed),
+            closeBrace,
+            declaration.SemicolonToken);
     }
 
     /// <summary>Gets the whitespace that positions a member, without what the author wrote above it.</summary>

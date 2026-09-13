@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,22 +24,6 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <summary>The name of the static factory method on the algorithm types.</summary>
     private const string CreateMethodName = "Create";
 
-    /// <summary>The name of the static one-shot hashing method probed on each algorithm type.</summary>
-    private const string HashDataMethodName = "HashData";
-
-    /// <summary>The metadata names of the algorithm types probed for a static HashData method.</summary>
-    private static readonly string[] AlgorithmMetadataNames =
-    [
-        "System.Security.Cryptography.MD5",
-        "System.Security.Cryptography.SHA1",
-        "System.Security.Cryptography.SHA256",
-        "System.Security.Cryptography.SHA384",
-        "System.Security.Cryptography.SHA512",
-        "System.Security.Cryptography.SHA3_256",
-        "System.Security.Cryptography.SHA3_384",
-        "System.Security.Cryptography.SHA3_512"
-    ];
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.PreferStaticHashData);
 
@@ -50,14 +36,9 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var algorithmTypes = GetHashDataAlgorithmTypes(start.Compilation);
-            if (algorithmTypes is null)
-            {
-                return;
-            }
-
+            var algorithmTypes = new AlgorithmTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, algorithmTypes), SyntaxKind.InvocationExpression);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeLocalDeclaration(nodeContext, algorithmTypes), SyntaxKind.LocalDeclarationStatement);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeUsingStatement(nodeContext, algorithmTypes), SyntaxKind.UsingStatement);
@@ -85,13 +66,14 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1400 for a chained <c>Create().ComputeHash(byte[])</c> invocation.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    /// <param name="algorithmTypes">The compilation's lazily resolved algorithm types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AlgorithmTypes algorithmTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsChainedComputeHashShape(invocation, out var createInvocation)
+            || algorithmTypes.Get() is not { Length: > 0 } resolved
             || !IsSingleByteArrayComputeHash(context.SemanticModel, invocation, context.CancellationToken)
-            || GetGatedCreateAlgorithm(context.SemanticModel, createInvocation!, algorithmTypes, context.CancellationToken) is not { } algorithmType)
+            || GetGatedCreateAlgorithm(context.SemanticModel, createInvocation!, resolved, context.CancellationToken) is not { } algorithmType)
         {
             return;
         }
@@ -105,8 +87,8 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1400 for using-declaration locals used only as ComputeHash receivers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeLocalDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    /// <param name="algorithmTypes">The compilation's lazily resolved algorithm types.</param>
+    private static void AnalyzeLocalDeclaration(in SyntaxNodeAnalysisContext context, AlgorithmTypes algorithmTypes)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (!declaration.UsingKeyword.IsKind(SyntaxKind.UsingKeyword) || declaration.Parent is not { } scope)
@@ -119,8 +101,8 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1400 for using-statement locals used only as ComputeHash receivers.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
-    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] algorithmTypes)
+    /// <param name="algorithmTypes">The compilation's lazily resolved algorithm types.</param>
+    private static void AnalyzeUsingStatement(in SyntaxNodeAnalysisContext context, AlgorithmTypes algorithmTypes)
     {
         var usingStatement = (UsingStatementSyntax)context.Node;
         if (usingStatement.Declaration is not { } declaration)
@@ -135,19 +117,20 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="declaration">The using-scoped variable declaration.</param>
     /// <param name="scope">The scope containing every possible reference to the variables.</param>
-    /// <param name="algorithmTypes">The gated algorithm types exposing a static HashData method.</param>
+    /// <param name="algorithmTypes">The compilation's lazily resolved algorithm types.</param>
     private static void AnalyzeUsingScopedVariables(
         in SyntaxNodeAnalysisContext context,
         VariableDeclarationSyntax declaration,
         SyntaxNode scope,
-        INamedTypeSymbol[] algorithmTypes)
+        AlgorithmTypes algorithmTypes)
     {
         for (var i = 0; i < declaration.Variables.Count; i++)
         {
             var variable = declaration.Variables[i];
             if (variable.Initializer is not { Value: InvocationExpressionSyntax createInvocation }
                 || !IsParameterlessCreateShape(createInvocation)
-                || GetGatedCreateAlgorithm(context.SemanticModel, createInvocation, algorithmTypes, context.CancellationToken) is not { } algorithmType
+                || algorithmTypes.Get() is not { Length: > 0 } resolved
+                || GetGatedCreateAlgorithm(context.SemanticModel, createInvocation, resolved, context.CancellationToken) is not { } algorithmType
                 || context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol local
                 || !IsHashOnlyLocal(context.SemanticModel, scope, variable, local, context.CancellationToken))
             {
@@ -160,59 +143,6 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
                 variable.Identifier.Span,
                 algorithmType.Name));
         }
-    }
-
-    /// <summary>Resolves the algorithm types that expose a static HashData(byte[]) method.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>The gated algorithm types, or <see langword="null"/> when none qualify.</returns>
-    private static INamedTypeSymbol[]? GetHashDataAlgorithmTypes(Compilation compilation)
-    {
-        INamedTypeSymbol[]? types = null;
-        var count = 0;
-        for (var i = 0; i < AlgorithmMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(AlgorithmMetadataNames[i]) is not { } type
-                || !HasStaticByteArrayHashData(type))
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol[AlgorithmMetadataNames.Length];
-            types[count] = type;
-            count++;
-        }
-
-        if (types is null)
-        {
-            return null;
-        }
-
-        if (count == types.Length)
-        {
-            return types;
-        }
-
-        var exact = new INamedTypeSymbol[count];
-        Array.Copy(types, exact, count);
-        return exact;
-    }
-
-    /// <summary>Returns whether a type exposes a static HashData method taking a single byte array.</summary>
-    /// <param name="type">The algorithm type to probe.</param>
-    /// <returns><see langword="true"/> when a static HashData(byte[]) overload exists.</returns>
-    private static bool HasStaticByteArrayHashData(INamedTypeSymbol type)
-    {
-        var members = type.GetMembers(HashDataMethodName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 } method
-                && IsByteArray(method.Parameters[0].Type))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a type is a single-dimensional byte array.</summary>
@@ -337,5 +267,87 @@ public sealed class Psh1400PreferStaticHashDataAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Gets or sets a value indicating whether any other use was found.</summary>
         public bool HasOtherUse { get; set; }
+    }
+
+    /// <summary>Caches algorithm types on the first syntactically eligible hash candidate.</summary>
+    /// <param name="compilation">The compilation whose algorithm types are cached.</param>
+    private sealed class AlgorithmTypes(Compilation compilation)
+    {
+        /// <summary>The name of the static one-shot hashing method probed on each algorithm type.</summary>
+        private const string HashDataMethodName = "HashData";
+
+        /// <summary>The metadata names of the algorithm types probed for a static HashData method.</summary>
+        private static readonly string[] AlgorithmMetadataNames =
+        [
+            "System.Security.Cryptography.MD5",
+            "System.Security.Cryptography.SHA1",
+            "System.Security.Cryptography.SHA256",
+            "System.Security.Cryptography.SHA384",
+            "System.Security.Cryptography.SHA512",
+            "System.Security.Cryptography.SHA3_256",
+            "System.Security.Cryptography.SHA3_384",
+            "System.Security.Cryptography.SHA3_512"
+        ];
+
+        /// <summary>The resolved algorithm types, including an empty result when no API is available.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the algorithm types, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The algorithm types exposing HashData, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= GetHashDataAlgorithmTypes(compilation) ?? [];
+
+        /// <summary>Resolves the algorithm types that expose a static HashData(byte[]) method.</summary>
+        /// <param name="compilation">The compilation to probe.</param>
+        /// <returns>The gated algorithm types, or <see langword="null"/> when none qualify.</returns>
+        private static INamedTypeSymbol[]? GetHashDataAlgorithmTypes(Compilation compilation)
+        {
+            INamedTypeSymbol[]? types = null;
+            var count = 0;
+            for (var i = 0; i < AlgorithmMetadataNames.Length; i++)
+            {
+                if (compilation.GetTypeByMetadataName(AlgorithmMetadataNames[i]) is not { } type
+                    || !HasStaticByteArrayHashData(type))
+                {
+                    continue;
+                }
+
+                types ??= new INamedTypeSymbol[AlgorithmMetadataNames.Length];
+                types[count] = type;
+                count++;
+            }
+
+            if (types is null)
+            {
+                return null;
+            }
+
+            if (count == types.Length)
+            {
+                return types;
+            }
+
+            var exact = new INamedTypeSymbol[count];
+            Array.Copy(types, exact, count);
+            return exact;
+        }
+
+        /// <summary>Returns whether a type exposes a static HashData method taking a single byte array.</summary>
+        /// <param name="type">The algorithm type to probe.</param>
+        /// <returns><see langword="true"/> when a static HashData(byte[]) overload exists.</returns>
+        private static bool HasStaticByteArrayHashData(INamedTypeSymbol type)
+        {
+            var members = type.GetMembers(HashDataMethodName);
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is IMethodSymbol { IsStatic: true, Parameters.Length: 1 } method
+                    && IsByteArray(method.Parameters[0].Type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

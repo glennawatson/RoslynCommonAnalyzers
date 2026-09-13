@@ -37,8 +37,9 @@ public sealed class UseDefaultLiteralCodeFixProvider : CodeFixProvider, IBatchFi
             return null;
         }
 
-        var literal = SyntaxFactory.LiteralExpression(SyntaxKind.DefaultLiteralExpression, SyntaxFactory.Token(SyntaxKind.DefaultKeyword))
-            .WithTriviaFrom(defaultExpression);
+        var literal = SyntaxFactory.LiteralExpression(
+            SyntaxKind.DefaultLiteralExpression,
+            SyntaxFactory.Token(defaultExpression.GetLeadingTrivia(), SyntaxKind.DefaultKeyword, defaultExpression.GetTrailingTrivia()));
 
         return new NodeReplacement(defaultExpression, literal);
     }

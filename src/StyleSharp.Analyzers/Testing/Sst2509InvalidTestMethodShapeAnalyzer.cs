@@ -20,11 +20,10 @@ namespace StyleSharp.Analyzers;
 /// some frameworks run static test methods.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on at least one test-attribute marker resolving, so a project that
-/// references no test framework pays nothing. The clean path is a syntactic prepass: a method must carry an attribute
-/// written with a known test-attribute name and must not already have a runnable shape (public, non-generic, returning
-/// <c>void</c>) before anything binds. Only a method that looks like a test with a suspect shape is bound — to confirm a
-/// real test attribute is present and to classify the exact violation from the method symbol.
+/// The clean path is a syntactic prepass: a method must carry an attribute written with a known test-attribute
+/// name and must not already have a runnable shape (public, non-generic, returning <c>void</c>) before any framework
+/// symbols resolve. Only a method that looks like a test with a suspect shape is bound — to confirm a real test
+/// attribute is present and to classify the exact violation from the method symbol.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -55,25 +54,21 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var symbols = FrameworkSymbols.Resolve(start.Compilation);
-            if (symbols is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols), SyntaxKind.MethodDeclaration);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeMethod(nodeContext), SyntaxKind.MethodDeclaration);
     }
 
     /// <summary>Analyzes one method declaration for a test-method shape the runner cannot execute.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="symbols">The resolved test-framework symbols.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists) || IsSyntacticallyRunnableShape(method))
+        {
+            return;
+        }
+
+        var symbols = FrameworkSymbols.Resolve(context.Compilation);
+        if (symbols is null)
         {
             return;
         }
@@ -83,7 +78,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var (isTest, requiresPublic) = ClassifyTestAttributes(context, method.AttributeLists, symbols);
+        var (isTest, requiresPublic) = ClassifyTestAttributes(context, method.AttributeLists, methodSymbol, symbols);
         if (!isTest)
         {
             return;
@@ -105,21 +100,31 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <summary>Binds the method's attributes to determine whether it is a real test and whether its framework requires a public method.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="attributeLists">The method's attribute lists.</param>
+    /// <param name="methodSymbol">The declared method whose attribute data can exclude unrelated attributes.</param>
     /// <param name="symbols">The resolved test-framework symbols.</param>
     /// <returns>Whether a real test attribute is present and whether the matched framework discovers only public methods.</returns>
     private static (bool IsTest, bool RequiresPublic) ClassifyTestAttributes(
         in SyntaxNodeAnalysisContext context,
         SyntaxList<AttributeListSyntax> attributeLists,
+        IMethodSymbol methodSymbol,
         FrameworkSymbols symbols)
     {
         var isTest = false;
         var requiresPublic = false;
+        var declaredAttributes = methodSymbol.GetAttributes();
         for (var i = 0; i < attributeLists.Count; i++)
         {
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (context.SemanticModel.GetSymbolInfo(attributes[j], context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: { } attributeClass })
+                context.CancellationToken.ThrowIfCancellationRequested();
+                var attribute = attributes[j];
+                if (!CouldBeTestAttribute(attribute, declaredAttributes, symbols))
+                {
+                    continue;
+                }
+
+                if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol { ContainingType: { } attributeClass })
                 {
                     continue;
                 }
@@ -137,6 +142,35 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         }
 
         return (isTest, requiresPublic);
+    }
+
+    /// <summary>Uses the method's attribute data to exclude known unrelated attributes before binding their syntax.</summary>
+    /// <param name="attribute">The attribute syntax being classified.</param>
+    /// <param name="declaredAttributes">The method's resolved attributes, including any from another partial declaration.</param>
+    /// <param name="symbols">The resolved test-framework symbols.</param>
+    /// <returns>Whether the attribute is a possible test marker or still needs binding to determine its type.</returns>
+    private static bool CouldBeTestAttribute(
+        AttributeSyntax attribute,
+        ImmutableArray<AttributeData> declaredAttributes,
+        FrameworkSymbols symbols)
+    {
+        for (var i = 0; i < declaredAttributes.Length; i++)
+        {
+            var declaredAttribute = declaredAttributes[i];
+            if (declaredAttribute.ApplicationSyntaxReference is not { } reference
+                || reference.SyntaxTree != attribute.SyntaxTree
+                || reference.Span != attribute.Span)
+            {
+                continue;
+            }
+
+            return declaredAttribute.AttributeClass is not { } attributeClass
+                || symbols.IsPublicRequiredMarker(attributeClass)
+                || symbols.IsTUnitMarker(attributeClass);
+        }
+
+        // Return attributes and invalid targets may be absent from the method's attribute data.
+        return true;
     }
 
     /// <summary>Describes the first shape violation on a confirmed test method, or <see langword="null"/> when it is runnable.</summary>
@@ -205,7 +239,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         _ => string.Empty,
     };
 
-    /// <summary>The test-framework symbols resolved once per compilation the rule needs to classify attributes and returns.</summary>
+    /// <summary>The test-framework symbols resolved for a candidate method to classify attributes and returns.</summary>
     private sealed class FrameworkSymbols
     {
         /// <summary>The metadata name of the TUnit test marker, which does not universally require a public method.</summary>

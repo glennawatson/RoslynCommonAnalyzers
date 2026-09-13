@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -23,9 +25,9 @@ namespace StyleSharp.Analyzers;
 /// lifecycle subscription has been found.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>ComponentBase</c> resolving, so a non-component
-/// project registers nothing. Every class with a base list is bound to check it derives from
-/// <c>ComponentBase</c>; only a component then has its lifecycle-method bodies scanned.
+/// Only a class with a base list and an external event subscription in a lifecycle override needs
+/// <c>ComponentBase</c> to resolve. The result is cached for the compilation and used to confirm
+/// the subscribing class is a component before reporting.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -51,10 +53,7 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (BlazorComponentModel.Create(start.Compilation) is not { } model)
-            {
-                return;
-            }
+            var model = new ComponentModels(start.Compilation);
 
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, model), SyntaxKind.ClassDeclaration);
         });
@@ -62,18 +61,19 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
 
     /// <summary>Analyzes one class for lifecycle event subscriptions that are never removed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, BlazorComponentModel model)
+    /// <param name="model">The component model resolved on first demand for this compilation.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ComponentModels model)
     {
         var classDeclaration = (ClassDeclarationSyntax)context.Node;
         if (classDeclaration.BaseList is null
-            || context.SemanticModel.GetDeclaredSymbol(classDeclaration, context.CancellationToken) is not { } type
-            || !model.DerivesFromComponentBase(type))
+            || CollectLifecycleSubscriptions(context, classDeclaration) is not { } subscriptions)
         {
             return;
         }
 
-        if (CollectLifecycleSubscriptions(context, classDeclaration) is not { } subscriptions)
+        if (model.Get() is not { } resolved
+            || context.SemanticModel.GetDeclaredSymbol(classDeclaration, context.CancellationToken) is not { } type
+            || !resolved.DerivesFromComponentBase(type))
         {
             return;
         }
@@ -191,5 +191,18 @@ public sealed class Sst2708LifecycleEventSubscriptionAnalyzer : DiagnosticAnalyz
 
         /// <summary>Marks the target event as removed somewhere in the component.</summary>
         public void MarkFound() => Found = true;
+    }
+
+    /// <summary>Resolves the component model only after a lifecycle subscription is found.</summary>
+    /// <param name="compilation">The compilation whose component model is resolved.</param>
+    private sealed class ComponentModels(Compilation compilation)
+    {
+        /// <summary>The resolved model slot, including null when the framework is absent.</summary>
+        private BlazorComponentModel?[]? _resolved;
+
+        /// <summary>Gets the component model, caching its absence too.</summary>
+        /// <returns>The component model, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public BlazorComponentModel? Get() => (_resolved ??= [BlazorComponentModel.Create(compilation)])[0];
     }
 }

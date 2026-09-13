@@ -135,9 +135,12 @@ public sealed class ModernSyntaxPreferenceCodeFixProvider : CodeFixProvider, IBa
     private static AccessorDeclarationSyntax SimplifyAccessor(AccessorDeclarationSyntax accessor, ExpressionSyntax expression)
     {
         var trailingTrivia = accessor.Body?.CloseBraceToken.TrailingTrivia ?? accessor.SemicolonToken.TrailingTrivia;
-        return accessor
-            .WithBody(null)
-            .WithExpressionBody(SyntaxFactory.ArrowExpressionClause(expression.WithoutTrivia()))
-            .WithSemicolonToken(SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(trailingTrivia));
+        return accessor.Update(
+            accessor.AttributeLists,
+            accessor.Modifiers,
+            accessor.Keyword,
+            body: null,
+            SyntaxFactory.ArrowExpressionClause(expression.WithoutTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, trailingTrivia));
     }
 }

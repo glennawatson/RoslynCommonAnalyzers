@@ -63,8 +63,8 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnreadParameterOptions>();
-            var methodGroupNamesByType = new ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>();
+            var optionsByTree = new ConcurrentDictionary<SyntaxTree, UnreadParameterOptions>(concurrencyLevel: 4, capacity: 31);
+            var methodGroupNamesByType = new ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>(concurrencyLevel: 4, capacity: 31);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeMember(nodeContext, optionsByTree, methodGroupNamesByType),
                 SyntaxKind.MethodDeclaration,

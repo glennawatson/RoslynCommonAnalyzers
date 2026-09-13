@@ -22,9 +22,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the type whose presence gates the rule and hosts the suggested fix.</summary>
-    private const string CryptographicOperationsMetadataName = "System.Security.Cryptography.CryptographicOperations";
-
     /// <summary>The name of the instance/static equality method that is inspected.</summary>
     private const string EqualsMethodName = "Equals";
 
@@ -82,17 +79,11 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            // Gate the whole rule on the suggested API: without CryptographicOperations there is no
-            // FixedTimeEquals to recommend, so nothing is registered and the clean path costs nothing.
-            if (start.Compilation.GetTypeByMetadataName(CryptographicOperationsMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeBinary, SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            var cryptographicTypes = new CryptographicTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeBinary(nodeContext, cryptographicTypes), SyntaxKind.EqualsExpression, SyntaxKind.NotEqualsExpression);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, cryptographicTypes), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -150,7 +141,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
 
     /// <summary>Reports SES1005 for a secret compared with <c>==</c> or <c>!=</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeBinary(SyntaxNodeAnalysisContext context)
+    /// <param name="cryptographicTypes">The cryptographic type resolved on demand for this compilation.</param>
+    private static void AnalyzeBinary(in SyntaxNodeAnalysisContext context, CryptographicTypes cryptographicTypes)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
 
@@ -160,7 +152,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
             return;
         }
 
-        if (!IsGuardedComparison(context, binary.Left, binary.Right))
+        if (cryptographicTypes.Get() is null
+            || !IsGuardedComparison(context, binary.Left, binary.Right))
         {
             return;
         }
@@ -170,7 +163,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
 
     /// <summary>Reports SES1005 for a secret compared with <c>.Equals</c>, <c>object.Equals</c>, or <c>SequenceEqual</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="cryptographicTypes">The cryptographic type resolved on demand for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CryptographicTypes cryptographicTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -188,7 +182,8 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
             return;
         }
 
-        if (!TryResolveComparisonOperands(context, invocation, member, out var left, out var right))
+        if (cryptographicTypes.Get() is null
+            || !TryResolveComparisonOperands(context, invocation, member, out var left, out var right))
         {
             return;
         }
@@ -444,4 +439,20 @@ public sealed class Ses1005NonConstantTimeSecretComparisonAnalyzer : DiagnosticA
             node.SyntaxTree,
             node.Span,
             secretName));
+
+    /// <summary>Resolves the constant-time comparison type on first demand, including its absence.</summary>
+    /// <param name="compilation">The compilation whose cryptographic type is resolved.</param>
+    private sealed class CryptographicTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type whose presence gates the rule and hosts the suggested fix.</summary>
+        private const string CryptographicOperationsMetadataName = "System.Security.Cryptography.CryptographicOperations";
+
+        /// <summary>The cached type result, with a null entry when the type is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the constant-time comparison type, caching its absence too.</summary>
+        /// <returns>The cryptographic operations type, or null when the framework does not provide it.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(CryptographicOperationsMetadataName)])[0];
+    }
 }

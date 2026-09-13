@@ -237,8 +237,23 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
         var arms = switchExpression.Arms;
         for (var i = 0; i < arms.Count; i++)
         {
-            if (arms[i].Pattern is ConstantPatternSyntax constantPattern
-                && SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(constantPattern.Expression, cancellationToken).Symbol))
+            if (arms[i].Pattern is not ConstantPatternSyntax constantPattern)
+            {
+                continue;
+            }
+
+            var name = constantPattern.Expression switch
+            {
+                SimpleNameSyntax simple => simple.Identifier.ValueText,
+                MemberAccessExpressionSyntax member => member.Name.Identifier.ValueText,
+                _ => null,
+            };
+            if (name is not null && name != field.Name)
+            {
+                continue;
+            }
+
+            if (SymbolEqualityComparer.Default.Equals(field, model.GetSymbolInfo(constantPattern.Expression, cancellationToken).Symbol))
             {
                 return true;
             }
@@ -254,12 +269,13 @@ public sealed class EnumSwitchCoverageAnalyzer : DiagnosticAnalyzer
     /// <param name="position">The position the label is written at.</param>
     private static void AppendMember(ref System.Text.StringBuilder? builder, IFieldSymbol field, SemanticModel model, int position)
     {
-        builder ??= new System.Text.StringBuilder();
+        var memberName = EnumSwitchCoverage.NameFor(field, model, position);
+        builder ??= new System.Text.StringBuilder(memberName.Length);
         if (builder.Length > 0)
         {
             _ = builder.Append(MissingMembersSeparator);
         }
 
-        _ = builder.Append(EnumSwitchCoverage.NameFor(field, model, position));
+        _ = builder.Append(memberName);
     }
 }

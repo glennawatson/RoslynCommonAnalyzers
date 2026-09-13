@@ -43,9 +43,13 @@ public sealed class Sst2262UseRegularStringLiteralCodeFixProvider : CodeFixProvi
             return null;
         }
 
-        var replacement = SyntaxFactory
-            .LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(literal.Token.ValueText))
-            .WithTriviaFrom(literal);
+        var replacement = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(literal.Token.ValueText, quote: true),
+                literal.Token.ValueText,
+                literal.GetTrailingTrivia()));
 
         return new NodeReplacement(literal, replacement);
     }

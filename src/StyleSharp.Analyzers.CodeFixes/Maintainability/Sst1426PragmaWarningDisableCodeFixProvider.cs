@@ -87,7 +87,9 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         var memberAnnotation = new SyntaxAnnotation();
         root = root.ReplaceNode(member, member.WithAdditionalAnnotations(memberAnnotation));
 
-        var removals = new HashSet<SyntaxTrivia>();
+        // Each directive contributes itself and at most one indentation trivia.
+        const int DirectivePairTriviaCapacity = 4;
+        var removals = new List<SyntaxTrivia>(DirectivePairTriviaCapacity);
         CollectDirectiveLine(root.FindTrivia(disableSpan.Start), removals);
         if (restoreStart is { } start)
         {
@@ -212,10 +214,13 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
 
     /// <summary>Collects a directive's trivia plus its line's leading indentation for removal.</summary>
     /// <param name="directiveTrivia">The directive's trivia (its text already includes the trailing newline).</param>
-    /// <param name="removals">The set of trivia to remove.</param>
-    private static void CollectDirectiveLine(in SyntaxTrivia directiveTrivia, HashSet<SyntaxTrivia> removals)
+    /// <param name="removals">The distinct trivia to remove.</param>
+    private static void CollectDirectiveLine(in SyntaxTrivia directiveTrivia, List<SyntaxTrivia> removals)
     {
-        _ = removals.Add(directiveTrivia);
+        if (!removals.Contains(directiveTrivia))
+        {
+            removals.Add(directiveTrivia);
+        }
 
         var leading = directiveTrivia.Token.LeadingTrivia;
         var index = leading.IndexOf(directiveTrivia);
@@ -224,7 +229,11 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
             return;
         }
 
-        _ = removals.Add(leading[index - 1]);
+        var indentation = leading[index - 1];
+        if (!removals.Contains(indentation))
+        {
+            removals.Add(indentation);
+        }
     }
 
     /// <summary>Prepends a [SuppressMessage] attribute list for each moved code to the member.</summary>
@@ -242,9 +251,11 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         for (var i = 0; i < movedCodes.Count; i++)
         {
             var attribute = BuildAttribute(SuppressionCategoryResolver.Resolve(movedCodes[i]), movedCodes[i]);
-            attributeLists[i] = SyntaxFactory.AttributeList(SyntaxFactory.SingletonSeparatedList(attribute))
-                .WithLeadingTrivia(i == 0 ? leading : indent)
-                .WithTrailingTrivia(endOfLine);
+            attributeLists[i] = SyntaxFactory.AttributeList(
+                SyntaxFactory.Token(i == 0 ? leading : indent, SyntaxKind.OpenBracketToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                target: null,
+                SyntaxFactory.SingletonSeparatedList(attribute),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBracketToken, endOfLine));
         }
 
         var relocated = member.WithLeadingTrivia(indent);
@@ -260,10 +271,17 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
         var arguments = new[]
         {
             SyntaxFactory.AttributeArgument(StringLiteral(category)),
-            SyntaxFactory.AttributeArgument(StringLiteral(code)).WithLeadingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.AttributeArgument(StringLiteral(PendingJustification))
-                .WithNameEquals(SyntaxFactory.NameEquals("Justification"))
-                .WithLeadingTrivia(SyntaxFactory.Space),
+            SyntaxFactory.AttributeArgument(
+                nameEquals: null,
+                nameColon: null,
+                StringLiteral(code).WithLeadingTrivia(SyntaxFactory.Space)),
+            SyntaxFactory.AttributeArgument(
+                SyntaxFactory.NameEquals(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    SyntaxFactory.TriviaList(SyntaxFactory.Space),
+                    "Justification",
+                    SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)))),
+                nameColon: null,
+                StringLiteral(PendingJustification)),
         };
 
         var separators = new[]
@@ -280,18 +298,8 @@ public sealed class Sst1426PragmaWarningDisableCodeFixProvider : CodeFixProvider
     /// <summary>Returns the document's prevailing end-of-line trivia so inserted lines match it.</summary>
     /// <param name="root">The syntax root.</param>
     /// <returns>The first end-of-line trivia found, or a line feed when the document has none.</returns>
-    private static SyntaxTrivia DetermineEndOfLine(SyntaxNode root)
-    {
-        foreach (var trivia in root.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
-            {
-                return trivia;
-            }
-        }
-
-        return SyntaxFactory.EndOfLine("\n");
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static SyntaxTrivia DetermineEndOfLine(SyntaxNode root) => LineEndingHelper.GetLineBreak(root);
 
     /// <summary>Creates a string literal expression.</summary>
     /// <param name="value">The literal value.</param>

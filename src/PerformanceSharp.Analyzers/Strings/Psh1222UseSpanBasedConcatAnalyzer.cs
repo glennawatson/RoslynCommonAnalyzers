@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -23,7 +25,7 @@ namespace PerformanceSharp.Analyzers;
 /// Only the all-<see cref="string"/> overloads of two to four arguments are reported. The
 /// <c>object</c> and <c>params</c> overloads have no span counterpart, and a concatenation written
 /// with <c>+</c> is left to the compiler. The span overloads did not exist before .NET Core 2.1, so
-/// the rule is switched off at compilation start when they are absent and the rewritten call is bound
+/// the rule reports nothing when they are absent and the rewritten call is bound
 /// speculatively before anything is reported.
 /// </para>
 /// </remarks>
@@ -51,9 +53,6 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
     /// <summary>The most arguments a <c>Substring</c> call carries.</summary>
     private const int MaxSubstringArguments = 2;
 
-    /// <summary>The metadata name of the extensions type providing <c>AsSpan</c>.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseSpanBasedConcat);
 
@@ -68,14 +67,8 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (!HasSpanConcat(start.Compilation)
-                || start.Compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is not { } extensions
-                || extensions.GetMembers(AsSpanMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeConcat, SyntaxKind.InvocationExpression);
+            var support = new SpanConcatSupport(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeConcat(nodeContext, support), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -200,24 +193,6 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether <see cref="string"/> declares an all-span <c>Concat</c> overload.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns><see langword="true"/> when the span overloads exist.</returns>
-    private static bool HasSpanConcat(Compilation compilation)
-    {
-        foreach (var member in compilation.GetSpecialType(SpecialType.System_String).GetMembers(ConcatMethodName))
-        {
-            if (member is IMethodSymbol { IsStatic: true, Parameters.Length: MinConcatArguments } method
-                && IsCharSpan(method.Parameters[0].Type)
-                && IsCharSpan(method.Parameters[1].Type))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a type is <c>ReadOnlySpan&lt;char&gt;</c>.</summary>
     /// <param name="type">The type to inspect.</param>
     /// <returns><see langword="true"/> for a read-only char span.</returns>
@@ -232,10 +207,11 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1222 for a concatenation that materializes a slice it did not need.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeConcat(SyntaxNodeAnalysisContext context)
+    /// <param name="support">The framework support resolved on first candidate.</param>
+    private static void AnalyzeConcat(in SyntaxNodeAnalysisContext context, SpanConcatSupport support)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!IsConcatShape(invocation))
+        if (!IsConcatShape(invocation) || !support.IsAvailable())
         {
             return;
         }
@@ -327,5 +303,42 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    /// <summary>Caches span concatenation support after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose framework support is cached.</param>
+    private sealed class SpanConcatSupport(Compilation compilation)
+    {
+        /// <summary>The metadata name of the extensions type providing <c>AsSpan</c>.</summary>
+        private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
+
+        /// <summary>The published result, including unavailable APIs.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Resolves the required concatenation and extension APIs on demand.</summary>
+        /// <returns>Whether both framework APIs needed by the rewrite exist.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??=
+            [HasSpanConcat(compilation)
+                && compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+                && !extensions.GetMembers(AsSpanMethodName).IsEmpty])[0];
+
+        /// <summary>Returns whether <see cref="string"/> declares an all-span <c>Concat</c> overload.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <returns><see langword="true"/> when the span overloads exist.</returns>
+        private static bool HasSpanConcat(Compilation compilation)
+        {
+            foreach (var member in compilation.GetSpecialType(SpecialType.System_String).GetMembers(ConcatMethodName))
+            {
+                if (member is IMethodSymbol { IsStatic: true, Parameters.Length: MinConcatArguments } method
+                    && IsCharSpan(method.Parameters[0].Type)
+                    && IsCharSpan(method.Parameters[1].Type))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

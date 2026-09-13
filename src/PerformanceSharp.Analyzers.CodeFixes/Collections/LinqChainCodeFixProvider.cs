@@ -131,9 +131,11 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
             SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, source.WithoutTrivia(), filterName.WithoutTrivia()),
             filterArguments.WithoutTrivia());
         return SyntaxFactory.InvocationExpression(
-            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, filterInvocation, sortName.WithoutTrivia()),
-            sortArguments.WithoutTrivia())
-            .WithTriviaFrom(invocation);
+            SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, filterInvocation.WithLeadingTrivia(invocation.GetLeadingTrivia()), sortName.WithoutTrivia()),
+            sortArguments.Update(
+                sortArguments.OpenParenToken.WithLeadingTrivia(),
+                sortArguments.Arguments,
+                sortArguments.CloseParenToken.WithTrailingTrivia(invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Creates the <c>ThenBy</c>/<c>ThenByDescending</c> name for a repeated sort call.</summary>
@@ -153,10 +155,10 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         oldNode = name;
         var refiningName = name.Identifier.ValueText == "OrderBy" ? "ThenBy" : "ThenByDescending";
         return name is GenericNameSyntax generic
-            ? SyntaxFactory.GenericName(SyntaxFactory.Identifier(refiningName))
-                .WithTypeArgumentList(generic.TypeArgumentList)
-                .WithTriviaFrom(generic)
-            : SyntaxFactory.IdentifierName(refiningName).WithTriviaFrom(name);
+            ? SyntaxFactory.GenericName(
+                SyntaxFactory.Identifier(generic.GetLeadingTrivia(), refiningName, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                generic.TypeArgumentList)
+            : SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(name.GetLeadingTrivia(), refiningName, name.GetTrailingTrivia()));
     }
 
     /// <summary>Creates one merged <c>Where</c> call from two consecutive <c>Where</c> calls.</summary>
@@ -194,9 +196,12 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         var mergedLambda = firstLambda is SimpleLambdaExpressionSyntax simple
             ? (LambdaExpressionSyntax)simple.WithExpressionBody(merged)
             : ((ParenthesizedLambdaExpressionSyntax)firstLambda).WithExpressionBody(merged);
-        return innerInvocation
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(mergedLambda))))
-            .WithTriviaFrom(invocation);
+        return innerInvocation.Update(
+            innerInvocation.Expression.WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SingletonSeparatedList(SyntaxFactory.Argument(mergedLambda)),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
     }
 
     /// <summary>Renames references to the second lambda's parameter unless the new name risks capture.</summary>
@@ -221,7 +226,7 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
 
         renamed = body.ReplaceNodes(
             targets,
-            (original, _) => SyntaxFactory.IdentifierName(newName).WithTriviaFrom(original));
+            (original, _) => SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(original.GetLeadingTrivia(), newName, original.GetTrailingTrivia())));
         return true;
     }
 

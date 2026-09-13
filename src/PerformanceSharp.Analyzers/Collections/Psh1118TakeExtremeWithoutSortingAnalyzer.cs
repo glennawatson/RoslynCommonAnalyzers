@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -49,9 +51,6 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
     /// <summary>The keyed maximum replacement name.</summary>
     internal const string MaxByMethodName = "MaxBy";
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.TakeExtremeWithoutSorting);
 
@@ -64,15 +63,10 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType)
-            {
-                return;
-            }
-
-            var hasMinBy = !enumerableType.GetMembers(MinByMethodName).IsEmpty;
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType, hasMinBy), SyntaxKind.InvocationExpression);
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkTypes), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -157,9 +151,8 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports PSH1118 for a sort-then-take-one chain that binds to the LINQ extension class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    /// <param name="hasMinBy">Whether the compilation's <c>Enumerable</c> exposes <c>MinBy</c>.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType, bool hasMinBy)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsExtremeChainShape(invocation))
@@ -168,7 +161,8 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
         }
 
         var replacement = GetReplacementName(invocation);
-        if (!hasMinBy && replacement is MinByMethodName or MaxByMethodName)
+        if (frameworkTypes.Get() is not [var enumerableType]
+            || (replacement is MinByMethodName or MaxByMethodName && enumerableType.GetMembers(MinByMethodName).IsEmpty))
         {
             return;
         }
@@ -205,4 +199,26 @@ public sealed class Psh1118TakeExtremeWithoutSortingAnalyzer : DiagnosticAnalyze
             && context.SemanticModel.GetSymbolInfo(sort, context.CancellationToken).Symbol is IMethodSymbol sortMethod
             && SymbolEqualityComparer.Default.Equals(sortMethod.ContainingType, enumerableType)
             && EmptyBehaviorMatches(terminal.Name.Identifier.ValueText, elementType);
+
+    /// <summary>Resolves the Enumerable type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension class.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The cached type, empty when unavailable and null before resolution.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the Enumerable type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the Enumerable type from the compilation's references.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(EnumerableMetadataName) is { } type ? [type] : [];
+    }
 }

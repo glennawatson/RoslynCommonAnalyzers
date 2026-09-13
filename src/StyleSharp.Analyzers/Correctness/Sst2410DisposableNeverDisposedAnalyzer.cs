@@ -56,24 +56,15 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName("System.IDisposable") is not { } disposable)
-            {
-                return;
-            }
-
-            var types = new DisposableTypes(
-                disposable,
-                start.Compilation.GetTypeByMetadataName("System.IAsyncDisposable"),
-                start.Compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"));
-
+            var types = new DisposalTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.LocalDeclarationStatement);
         });
     }
 
     /// <summary>Analyzes one local declaration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The disposal types resolved for this compilation.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, in DisposableTypes types)
+    /// <param name="types">The disposal types resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, DisposalTypes types)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
 
@@ -89,9 +80,10 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < variables.Count; i++)
         {
             var variable = variables[i];
-            if (variable.Initializer?.Value is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax)
+            if (variable.Initializer?.Value is ObjectCreationExpressionSyntax or ImplicitObjectCreationExpressionSyntax
+                && types.Get() is { } resolved)
             {
-                AnalyzeVariable(context, types, variable, scope);
+                AnalyzeVariable(context, resolved, variable, scope);
             }
         }
     }
@@ -244,5 +236,18 @@ public sealed class Sst2410DisposableNeverDisposedAnalyzer : DiagnosticAnalyzer
             SymbolEqualityComparer.Default.Equals(
                 Context.SemanticModel.GetSymbolInfo(reference, Context.CancellationToken).Symbol,
                 Local);
+    }
+
+    /// <summary>Resolves disposal types once per compilation, only for a newly created local.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class DisposalTypes(Compilation compilation)
+    {
+        /// <summary>The cached disposal types, including an unavailable framework.</summary>
+        private DisposableTypes?[]? _resolved;
+
+        /// <summary>Gets the disposal types, resolving them on first use.</summary>
+        /// <returns>The disposal types, or <see langword="null"/> when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public DisposableTypes? Get() => (_resolved ??= [DisposableTypes.Create(compilation)])[0];
     }
 }

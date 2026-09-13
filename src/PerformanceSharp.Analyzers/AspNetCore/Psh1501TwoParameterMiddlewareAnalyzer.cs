@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,9 +24,9 @@ namespace PerformanceSharp.Analyzers;
 /// alone. The modern two-parameter lambda binds to a different overload and is never reported.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Builder.IApplicationBuilder</c>
-/// resolving, so a non-web compilation registers no syntax action. The clean path is a name check, an
-/// argument-count check, and a syntactic lambda-shape probe; the semantic model is consulted only once
+/// The middleware types are resolved on first demand and cached per compilation, including missing types.
+/// The clean path is a name check, an argument-count check, and a syntactic lambda-shape probe; type
+/// resolution and the semantic model are consulted only once
 /// the syntax already matches, to confirm the call binds to the legacy
 /// <c>Func&lt;RequestDelegate, RequestDelegate&gt;</c> overload on a builder that implements
 /// <c>IApplicationBuilder</c>.
@@ -42,12 +44,6 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <summary>The type-argument count of the legacy <c>Func&lt;RequestDelegate, RequestDelegate&gt;</c> parameter.</summary>
     private const int LegacyMiddlewareFuncArity = 2;
 
-    /// <summary>The metadata name of the middleware pipeline builder gating the rule.</summary>
-    private const string ApplicationBuilderMetadataName = "Microsoft.AspNetCore.Builder.IApplicationBuilder";
-
-    /// <summary>The metadata name of the request delegate the legacy overload maps.</summary>
-    private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AspNetCoreRules.PreferTwoParameterMiddleware);
 
@@ -62,14 +58,9 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(ApplicationBuilderMetadataName) is not { } applicationBuilderType
-                || start.Compilation.GetTypeByMetadataName(RequestDelegateMetadataName) is not { } requestDelegateType)
-            {
-                return;
-            }
-
+            var types = new MiddlewareTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, applicationBuilderType, requestDelegateType),
+                nodeContext => AnalyzeInvocation(nodeContext, types),
                 SyntaxKind.InvocationExpression);
         });
     }
@@ -106,17 +97,19 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1501 for a legacy nested-delegate middleware registration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="applicationBuilderType">The gated middleware builder interface.</param>
-    /// <param name="requestDelegateType">The gated request delegate type.</param>
-    private static void AnalyzeInvocation(
-        in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol applicationBuilderType,
-        INamedTypeSymbol requestDelegateType)
+    /// <param name="types">The lazily resolved middleware types for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, MiddlewareTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsUseInvocation(invocation)
             || invocation.ArgumentList.Arguments.Count != 1
             || GetLegacyMiddlewareLambda(invocation.ArgumentList.Arguments[0]) is not { } lambda)
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } applicationBuilderType || resolved[1] is not { } requestDelegateType)
         {
             return;
         }
@@ -210,4 +203,27 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
             && namespaceSymbol.ContainingNamespace is { IsGlobalNamespace: true }
             && SymbolEqualityComparer.Default.Equals(func.TypeArguments[0], requestDelegateType)
             && SymbolEqualityComparer.Default.Equals(func.TypeArguments[1], requestDelegateType);
+
+    /// <summary>Resolves middleware types only for candidate registrations, caching missing types too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class MiddlewareTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the middleware pipeline builder gating the rule.</summary>
+        private const string ApplicationBuilderMetadataName = "Microsoft.AspNetCore.Builder.IApplicationBuilder";
+
+        /// <summary>The metadata name of the request delegate the legacy overload maps.</summary>
+        private const string RequestDelegateMetadataName = "Microsoft.AspNetCore.Http.RequestDelegate";
+
+        /// <summary>The resolved builder and request delegate types, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the middleware types on first demand.</summary>
+        /// <returns>The builder and request delegate types, with null entries for unavailable types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(ApplicationBuilderMetadataName),
+            compilation.GetTypeByMetadataName(RequestDelegateMetadataName)
+        ];
+    }
 }

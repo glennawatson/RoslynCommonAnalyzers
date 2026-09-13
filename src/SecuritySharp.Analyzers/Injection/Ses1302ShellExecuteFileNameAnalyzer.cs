@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -15,17 +17,13 @@ namespace SecuritySharp.Analyzers;
 /// command-injection and unexpected-program risk; the non-constant filename span is reported. Detection
 /// is strictly local to the one object-creation expression -- properties are never tracked across
 /// separate statements -- and the type is proven by binding its <c>UseShellExecute</c> member by symbol
-/// and containing type, never matched on identifier text alone. The rule is resolved once per compilation
-/// by probing
-/// <c>System.Diagnostics.ProcessStartInfo</c>; on a target framework without it nothing is registered,
-/// so a project that cannot use the type pays nothing.
+/// and containing type, never matched on identifier text alone. The rule resolves
+/// <c>System.Diagnostics.ProcessStartInfo</c> on the first syntactic candidate and caches the result for
+/// the compilation, including when the type is unavailable.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the process-start descriptor type this rule guards.</summary>
-    private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
-
     /// <summary>The name of the member whose <c>true</c> value routes launching through the OS shell.</summary>
     private const string UseShellExecuteMemberName = "UseShellExecute";
 
@@ -47,22 +45,17 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var processStartInfoType = start.Compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName);
-            if (processStartInfoType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, processStartInfoType), SyntaxKind.ObjectCreationExpression);
+            var types = new ProcessStartInfoTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, types), SyntaxKind.ObjectCreationExpression);
         });
     }
 
     /// <summary>Reports SES1302 for a shell-executed <c>ProcessStartInfo</c> whose filename is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="processStartInfoType">The gated <c>ProcessStartInfo</c> type resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processStartInfoType)
+    /// <param name="types">The process-start type resolved on first candidate.</param>
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, ProcessStartInfoTypes types)
     {
         var objectCreation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -76,6 +69,16 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
 
         ScanInitializer(initializer, out var useShellExecuteAssignment, out var fileNameAssignment);
         if (useShellExecuteAssignment is null)
+        {
+            return;
+        }
+
+        if (fileNameAssignment is null && objectCreation.ArgumentList is not { Arguments.Count: > 0 })
+        {
+            return;
+        }
+
+        if (types.Get() is not { } processStartInfoType)
         {
             return;
         }
@@ -222,4 +225,20 @@ public sealed class Ses1302ShellExecuteFileNameAnalyzer : DiagnosticAnalyzer
         model.GetSymbolInfo(expression, cancellationToken).Symbol is { } member
             && member.Name == memberName
             && SymbolEqualityComparer.Default.Equals(member.ContainingType, containingType);
+
+    /// <summary>Caches the process-start type after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose type lookup is cached.</param>
+    private sealed class ProcessStartInfoTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the process-start descriptor type this rule guards.</summary>
+        private const string ProcessStartInfoMetadataName = "System.Diagnostics.ProcessStartInfo";
+
+        /// <summary>The cached type lookup, including a missing-type result.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the process-start type only when a candidate needs it.</summary>
+        /// <returns>The process-start type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ProcessStartInfoMetadataName)])[0];
+    }
 }

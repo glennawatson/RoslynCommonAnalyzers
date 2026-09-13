@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -9,8 +11,8 @@ namespace PerformanceSharp.Analyzers;
 /// pattern through the bounded process-wide cache; one instance built outside the loop resolves it once.
 /// </summary>
 /// <remarks>
-/// The rule resolves <c>Regex</c> once per compilation and does nothing at all when the type is absent, so a
-/// project that never references the regular-expression assembly pays only that one lookup. Only a call that
+/// The rule resolves <c>Regex</c> on first demand after the receiver and argument syntax checks pass,
+/// caching the result per compilation even when the type is absent. Only a call that
 /// actually takes a pattern qualifies — found by parameter name, so <c>Escape</c> and <c>Unescape</c>, which
 /// rewrite a literal string and compile nothing, are never reported. Inside a loop the pattern must also be
 /// the same string on every pass: one read from the loop's iteration variable, or from anything the loop
@@ -19,9 +21,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the regular-expression type.</summary>
-    private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
-
     /// <summary>The parameter name every pattern-taking static shares.</summary>
     private const string PatternParameterName = "pattern";
 
@@ -42,12 +41,8 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(RegexMetadataName) is not { } regex)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, regex), SyntaxKind.InvocationExpression);
+            var types = new RegexTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -237,8 +232,8 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one static <c>Regex</c> call whose pattern is resolved again on every call.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="regex">The resolved regular-expression type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol regex)
+    /// <param name="types">The lazily resolved regular-expression type.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, RegexTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax { Name: SimpleNameSyntax name } access
@@ -248,9 +243,7 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, regex)
-            || GetPatternArgument(invocation, method) is not { } pattern)
+        if (GetRegexPattern(context, invocation, types) is not { } pattern)
         {
             return;
         }
@@ -269,6 +262,18 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
             loop is not null ? ApiSelectionRules.RegexCalledPerIteration : ApiSelectionRules.RegexConstantPattern));
     }
 
+    /// <summary>Resolves the pattern argument only for calls bound to the framework's static regex methods.</summary>
+    /// <param name="context">The syntax node context.</param>
+    /// <param name="invocation">The candidate regex invocation.</param>
+    /// <param name="types">The regular-expression type cached for this compilation.</param>
+    /// <returns>The pattern argument, or null when the call does not match.</returns>
+    private static ExpressionSyntax? GetRegexPattern(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax invocation, RegexTypes types) =>
+        types.Get() is { } regex
+        && context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol { IsStatic: true } method
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, regex)
+            ? GetPatternArgument(invocation, method)
+            : null;
+
     /// <summary>Collects the names a loop declares or writes, in one pass over it.</summary>
     /// <param name="Names">The names collected so far.</param>
     private readonly record struct RefreshedNameScanState(HashSet<string> Names);
@@ -279,5 +284,21 @@ public sealed class Psh1421CacheRegexOutsideLoopAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Gets or sets a value indicating whether the pattern changes between iterations.</summary>
         public bool Varies { get; set; }
+    }
+
+    /// <summary>Resolves the regular-expression type only for candidate calls, caching misses too.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class RegexTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the regular-expression type.</summary>
+        private const string RegexMetadataName = "System.Text.RegularExpressions.Regex";
+
+        /// <summary>The resolved type in a published array, or null before the first candidate.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the regular-expression type on first demand.</summary>
+        /// <returns>The resolved type, or null when it is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(RegexMetadataName)])[0];
     }
 }

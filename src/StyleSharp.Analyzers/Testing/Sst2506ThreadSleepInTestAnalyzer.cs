@@ -11,10 +11,10 @@ namespace StyleSharp.Analyzers;
 /// </summary>
 /// <remarks>
 /// <para>
-/// The whole rule is gated at compilation start on two facts: <c>System.Threading.Thread</c> resolving (no type,
+/// The rule is gated on two facts: <c>System.Threading.Thread</c> resolving (no type,
 /// no <c>Thread.Sleep</c> to find) and at least one supported test-framework marker attribute
-/// (xUnit, NUnit, MSTest, or TUnit) resolving. A project that references no test framework registers nothing and
-/// pays nothing.
+/// (xUnit, NUnit, MSTest, or TUnit) resolving. These types are resolved only after a test-shaped method contains
+/// a <c>Sleep</c>-named call.
 /// </para>
 /// <para>
 /// The clean path is syntax only. A method is skipped unless one of its attributes is spelled like a test marker,
@@ -62,26 +62,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(OnCompilationStart);
-    }
-
-    /// <summary>Resolves the Thread type and the test markers once, then analyzes each method.</summary>
-    /// <param name="context">The compilation start context.</param>
-    private static void OnCompilationStart(CompilationStartAnalysisContext context)
-    {
-        var threadType = context.Compilation.GetTypeByMetadataName(ThreadTypeMetadataName);
-        if (threadType is null)
-        {
-            return;
-        }
-
-        var markers = ResolveTestMarkers(context.Compilation);
-        if (markers.Length == 0)
-        {
-            return;
-        }
-
-        context.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, threadType, markers), SyntaxKind.MethodDeclaration);
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeMethod(nodeContext), SyntaxKind.MethodDeclaration);
     }
 
     /// <summary>Resolves the supported test-marker attributes present in the compilation.</summary>
@@ -108,9 +89,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports each <c>Thread.Sleep</c> in one test method's body.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="threadType">The resolved <c>System.Threading.Thread</c> type.</param>
-    /// <param name="markers">The resolved test-marker attribute types.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, INamedTypeSymbol[] markers)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists))
@@ -124,7 +103,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var scan = new SleepScan(context, threadType, method, markers);
+        var scan = new SleepScan(context, method);
         _ = DescendantTraversalHelper.VisitDescendants<InvocationExpressionSyntax, SleepScan>(body, ref scan, VisitInvocation);
     }
 
@@ -141,7 +120,15 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
 
         if (!scan.TestChecked)
         {
-            scan.IsTest = IsTestMethod(scan.Method.AttributeLists, scan.Context.SemanticModel, scan.Markers, scan.Context.CancellationToken);
+            scan.ThreadType = scan.Context.Compilation.GetTypeByMetadataName(ThreadTypeMetadataName);
+            if (scan.ThreadType is null)
+            {
+                return false;
+            }
+
+            var markers = ResolveTestMarkers(scan.Context.Compilation);
+            scan.IsTest = markers.Length > 0
+                && IsTestMethod(scan.Method.AttributeLists, scan.Context.SemanticModel, markers, scan.Context.CancellationToken);
             scan.TestChecked = true;
         }
 
@@ -274,28 +261,21 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     {
         /// <summary>Initializes a new instance of the <see cref="SleepScan"/> struct.</summary>
         /// <param name="context">The syntax node context.</param>
-        /// <param name="threadType">The resolved <c>System.Threading.Thread</c> type.</param>
         /// <param name="method">The method being analyzed.</param>
-        /// <param name="markers">The resolved test-marker attribute types.</param>
-        public SleepScan(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType, MethodDeclarationSyntax method, INamedTypeSymbol[] markers)
+        public SleepScan(in SyntaxNodeAnalysisContext context, MethodDeclarationSyntax method)
         {
             Context = context;
-            ThreadType = threadType;
             Method = method;
-            Markers = markers;
         }
 
         /// <summary>Gets the syntax node context.</summary>
         public SyntaxNodeAnalysisContext Context { get; }
 
-        /// <summary>Gets the resolved <c>System.Threading.Thread</c> type.</summary>
-        public INamedTypeSymbol ThreadType { get; }
+        /// <summary>Gets or sets the Thread type, resolved on the first Sleep-named call.</summary>
+        public INamedTypeSymbol? ThreadType { get; set; }
 
         /// <summary>Gets the method being analyzed.</summary>
         public MethodDeclarationSyntax Method { get; }
-
-        /// <summary>Gets the resolved test-marker attribute types.</summary>
-        public INamedTypeSymbol[] Markers { get; }
 
         /// <summary>Gets or sets a value indicating whether the test-attribute binding has run.</summary>
         public bool TestChecked { get; set; }

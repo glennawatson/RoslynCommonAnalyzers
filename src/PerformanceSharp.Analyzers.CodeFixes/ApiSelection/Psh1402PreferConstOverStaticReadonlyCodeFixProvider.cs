@@ -60,9 +60,7 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
         }
 
         var firstToken = local.GetFirstToken();
-        var constKeyword = SyntaxFactory.Token(SyntaxKind.ConstKeyword)
-            .WithLeadingTrivia(firstToken.LeadingTrivia)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        var constKeyword = SyntaxFactory.Token(firstToken.LeadingTrivia, SyntaxKind.ConstKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         local = local.ReplaceToken(firstToken, firstToken.WithLeadingTrivia());
         return local.WithModifiers(local.Modifiers.Insert(0, constKeyword));
     }
@@ -83,7 +81,7 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
             {
                 if (!constInserted)
                 {
-                    rewritten[write] = SyntaxFactory.Token(SyntaxKind.ConstKeyword).WithTriviaFrom(token);
+                    rewritten[write] = SyntaxFactory.Token(token.LeadingTrivia, SyntaxKind.ConstKeyword, token.TrailingTrivia);
                     write++;
                     constInserted = true;
                 }

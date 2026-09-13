@@ -25,7 +25,7 @@ namespace SecuritySharp.Analyzers;
 /// rule reports those three sinks only for Tar entries, and reports the remaining file-writing sinks
 /// (<c>File.Create</c>, <c>File.WriteAllBytes</c>, <c>File.WriteAllText</c>) for both entry types. The two
 /// archive-entry types are gated independently, so a project that references only one still gets that
-/// surface; a project that references neither registers nothing and pays nothing.
+/// surface. Types are resolved only after a destination passes the syntax checks.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyzer
@@ -101,24 +101,13 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var types = ArchivePathTypes.Resolve(start.Compilation);
-            if (types is null)
-            {
-                return;
-            }
-
-            var resolved = types.Value;
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, resolved), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeObjectCreation(nodeContext, resolved), SyntaxKind.ObjectCreationExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeInvocation(nodeContext), SyntaxKind.InvocationExpression);
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeObjectCreation(nodeContext), SyntaxKind.ObjectCreationExpression);
     }
 
     /// <summary>Reports SES1304 for an extraction/file-writing method whose destination joins an archive entry name.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The archive/path types resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in ArchivePathTypes types)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -134,7 +123,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
         if (sinkKind == SinkKind.None
             || invocation.ArgumentList.Arguments.Count == 0
             || GetDestinationArgument(invocation.ArgumentList) is not { } destination
-            || !TryGetArchiveEntryCombine(destination, out var combined, out var entryAccess))
+            || !TryGetArchiveEntryCombine(destination, out var combined, out var entryAccess)
+            || ArchivePathTypes.Resolve(context.Compilation) is not { } types)
         {
             return;
         }
@@ -152,8 +142,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
 
     /// <summary>Reports SES1304 for a <c>new FileStream(...)</c> whose destination joins an archive entry name.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="types">The archive/path types resolved for the compilation.</param>
-    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context, in ArchivePathTypes types)
+    private static void AnalyzeObjectCreation(in SyntaxNodeAnalysisContext context)
     {
         var creation = (ObjectCreationExpressionSyntax)context.Node;
 
@@ -162,7 +151,8 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
             || argumentList.Arguments.Count == 0
             || !string.Equals(GetSimpleTypeName(creation.Type), FileStreamTypeName, StringComparison.Ordinal)
             || GetDestinationArgument(argumentList) is not { } destination
-            || !TryGetArchiveEntryCombine(destination, out var combined, out var entryAccess))
+            || !TryGetArchiveEntryCombine(destination, out var combined, out var entryAccess)
+            || ArchivePathTypes.Resolve(context.Compilation) is not { } types)
         {
             return;
         }
@@ -354,7 +344,7 @@ public sealed class Ses1304ArchiveEntryPathTraversalAnalyzer : DiagnosticAnalyze
             _ => null,
         };
 
-    /// <summary>The archive/path types resolved once per compilation, gated on at least one archive-entry type.</summary>
+    /// <summary>The archive/path types resolved for a candidate, gated on at least one archive-entry type.</summary>
     /// <param name="ZipArchiveEntry">The zip entry type whose <c>FullName</c> is a tainted source, or <see langword="null"/> when the compilation does not reference it.</param>
     /// <param name="TarEntry">The Tar entry type whose <c>Name</c> is a tainted source, or <see langword="null"/> when the compilation does not reference it.</param>
     /// <param name="File">The <c>System.IO.File</c> owner an invocation sink must bind to, or <see langword="null"/> when it cannot be resolved.</param>

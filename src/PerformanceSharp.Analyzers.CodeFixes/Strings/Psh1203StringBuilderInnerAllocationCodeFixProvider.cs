@@ -153,9 +153,12 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     private static InvocationExpressionSyntax RewriteFormat(InvocationExpressionSyntax invocation, InvocationExpressionSyntax inner)
     {
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
-        return invocation
-            .WithExpression(access.WithName(SyntaxFactory.IdentifierName("AppendFormat").WithTriviaFrom(access.Name)))
-            .WithArgumentList(inner.ArgumentList.WithTriviaFrom(invocation.ArgumentList));
+        return invocation.Update(
+            access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                access.Name.GetLeadingTrivia(),
+                "AppendFormat",
+                access.Name.GetTrailingTrivia()))),
+            inner.ArgumentList.WithTriviaFrom(invocation.ArgumentList));
     }
 
     /// <summary>Rewrites <c>Append(x.ToString())</c> to <c>Append(x)</c>.</summary>
@@ -195,7 +198,10 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
             SyntaxFactory.Argument(count),
         });
 
-        return invocation.WithArgumentList(SyntaxFactory.ArgumentList(arguments).WithTriviaFrom(invocation.ArgumentList));
+        return invocation.WithArgumentList(SyntaxFactory.ArgumentList(
+            SyntaxFactory.Token(invocation.ArgumentList.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            arguments,
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.ArgumentList.GetTrailingTrivia())));
     }
 
     /// <summary>Builds the <c>receiver.Length - start</c> count expression for the single-argument Substring form.</summary>

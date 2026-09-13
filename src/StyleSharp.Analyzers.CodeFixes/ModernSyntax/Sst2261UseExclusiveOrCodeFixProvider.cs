@@ -58,8 +58,10 @@ public sealed class Sst2261UseExclusiveOrCodeFixProvider : CodeFixProvider, IBat
     private static BinaryExpressionSyntax Build(BinaryExpressionSyntax binary, ExpressionSyntax x, ExpressionSyntax y)
     {
         var caret = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.CaretToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
-        return SyntaxFactory
-            .BinaryExpression(SyntaxKind.ExclusiveOrExpression, x.WithoutTrivia(), caret, y.WithoutTrivia())
-            .WithTriviaFrom(binary);
+        return SyntaxFactory.BinaryExpression(
+            SyntaxKind.ExclusiveOrExpression,
+            x.WithoutTrivia().WithLeadingTrivia(binary.GetLeadingTrivia()),
+            caret,
+            y.WithoutTrivia().WithTrailingTrivia(binary.GetTrailingTrivia()));
     }
 }

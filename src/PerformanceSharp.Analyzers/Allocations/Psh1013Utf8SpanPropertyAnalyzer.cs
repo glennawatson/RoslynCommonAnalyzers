@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -17,9 +19,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the span type the property returns.</summary>
-    private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(AllocationRules.UseUtf8SpanProperty);
 
@@ -34,12 +33,8 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeField, SyntaxKind.FieldDeclaration);
+            var spanType = new SpanType(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeField(nodeContext, spanType), SyntaxKind.FieldDeclaration);
         });
     }
 
@@ -104,7 +99,8 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1013 for a u8-built array field whose uses all read like a span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeField(SyntaxNodeAnalysisContext context)
+    /// <param name="spanType">The compilation's deferred span availability check.</param>
+    private static void AnalyzeField(in SyntaxNodeAnalysisContext context, SpanType spanType)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         if (!HasCandidateShape(field)
@@ -118,7 +114,7 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         var variable = field.Declaration.Variables[0];
         var scan = new UsageScan(variable.Identifier.ValueText, variable.Identifier.SpanStart);
         _ = DescendantTraversalHelper.VisitDescendantTokens(containingType, ref scan, static (in SyntaxToken token, ref UsageScan state) => state.Visit(in token));
-        if (!scan.OnlySpanReads || !ArgumentsBindToSpans(context, scan.ArgumentUsages))
+        if (!scan.OnlySpanReads || !spanType.IsAvailable() || !ArgumentsBindToSpans(context, scan.ArgumentUsages))
         {
             return;
         }
@@ -140,10 +136,22 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
+        InvocationExpressionSyntax? previousInvocation = null;
+        IMethodSymbol? method = null;
         foreach (var argument in argumentUsages)
         {
-            if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } argumentList
-                || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method)
+            if (argument.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax invocation } argumentList)
+            {
+                return false;
+            }
+
+            if (invocation != previousInvocation)
+            {
+                method = context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol as IMethodSymbol;
+                previousInvocation = invocation;
+            }
+
+            if (method is null)
             {
                 return false;
             }
@@ -169,6 +177,22 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
             TypeArguments: [{ SpecialType: SpecialType.System_Byte }],
             ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
         };
+
+    /// <summary>Checks span availability only after a field and its uses pass the syntax gates.</summary>
+    /// <param name="compilation">The compilation whose span type is checked.</param>
+    private sealed class SpanType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the span type the property returns.</summary>
+        private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
+
+        /// <summary>The cached availability result, including an absent span type.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Gets whether the compilation exposes the span type.</summary>
+        /// <returns>True when the span type resolves.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??= [compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null])[0];
+    }
 
     /// <summary>Token-visitor state that whitelists span-compatible reads of one field name.</summary>
     private sealed class UsageScan

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -10,20 +12,13 @@ namespace PerformanceSharp.Analyzers;
 /// (PSH1500). <c>Results.X(...)</c> returns <c>IResult</c> and hides the concrete response shape, so
 /// the framework has to infer the endpoint metadata; the matching <c>TypedResults.X(...)</c> returns
 /// <c>Ok&lt;T&gt;</c>/<c>NotFound</c>/etc. and describes itself. Each candidate invocation is bound and
-/// reported only when the invoked method's containing type is exactly <c>Results</c>, and the rule is
-/// resolved once per compilation by probing for <c>TypedResults</c> — so a project without the ASP.NET
-/// Core minimal-API types pays nothing. No automatic code fix, because adopting the typed result can
-/// require declaring the handler's return type.
+/// reported only when the invoked method's containing type is exactly <c>Results</c>. The factory types
+/// are resolved only after the invocation passes the syntax check. No automatic code fix, because
+/// adopting the typed result can require declaring the handler's return type.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the untyped minimal-API result factory.</summary>
-    private const string ResultsMetadataName = "Microsoft.AspNetCore.Http.Results";
-
-    /// <summary>The metadata name of the strongly typed minimal-API result factory.</summary>
-    private const string TypedResultsMetadataName = "Microsoft.AspNetCore.Http.TypedResults";
-
     /// <summary>The simple name of the untyped factory, used as a bind-free prefilter.</summary>
     private const string ResultsTypeName = "Results";
 
@@ -39,26 +34,17 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var resultsType = start.Compilation.GetTypeByMetadataName(ResultsMetadataName);
-            var typedResultsType = start.Compilation.GetTypeByMetadataName(TypedResultsMetadataName);
-            if (resultsType is null || typedResultsType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeInvocation(nodeContext, resultsType, typedResultsType),
-                SyntaxKind.InvocationExpression);
+            var markers = new ResultMarkers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, markers), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1500 for a <c>Results.X(...)</c> call whose typed counterpart exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="resultsType">The resolved <c>Results</c> factory type.</param>
-    /// <param name="typedResultsType">The resolved <c>TypedResults</c> factory type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol resultsType, INamedTypeSymbol typedResultsType)
+    /// <param name="markers">The compilation's lazily resolved result factories.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ResultMarkers markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess
@@ -67,9 +53,11 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resultsType)
-            || !HasMatchingTypedMember(typedResultsType, method.Name))
+        var types = markers.Get();
+        if (types.Length == 0
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { IsStatic: true } method
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, types[0])
+            || !HasMatchingTypedMember(types[1], method.Name))
         {
             return;
         }
@@ -107,5 +95,34 @@ public sealed class Psh1500PreferTypedResultsAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves result factory types on first demand and caches missing factories too.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class ResultMarkers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the untyped minimal-API result factory.</summary>
+        private const string ResultsMetadataName = "Microsoft.AspNetCore.Http.Results";
+
+        /// <summary>The metadata name of the strongly typed minimal-API result factory.</summary>
+        private const string TypedResultsMetadataName = "Microsoft.AspNetCore.Http.TypedResults";
+
+        /// <summary>The result factories, or an empty array when either factory is absent.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the result factory types, resolving them on first demand.</summary>
+        /// <returns>The untyped and typed factories, in that order, or an empty array when either is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the factory types required for a typed result suggestion.</summary>
+        /// <param name="compilation">The compilation whose types are resolved.</param>
+        /// <returns>The untyped and typed factories, or an empty array when either is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(ResultsMetadataName) is { } resultsType
+                && compilation.GetTypeByMetadataName(TypedResultsMetadataName) is { } typedResultsType
+                ? [resultsType, typedResultsType]
+                : [];
     }
 }

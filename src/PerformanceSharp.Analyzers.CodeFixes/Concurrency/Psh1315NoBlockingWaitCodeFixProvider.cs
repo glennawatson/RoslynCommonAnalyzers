@@ -115,7 +115,8 @@ public sealed class Psh1315NoBlockingWaitCodeFixProvider : CodeFixProvider, IBat
         var access = (MemberAccessExpressionSyntax)blocking.Expression;
         var whenName = kind == BlockingWait.Kind.WaitAll ? WhenAllMethodName : WhenAnyMethodName;
         var candidate = blocking.WithExpression(
-            access.WithName(SyntaxFactory.IdentifierName(whenName).WithTriviaFrom(access.Name)));
+            access.WithName(SyntaxFactory.IdentifierName(
+                SyntaxFactory.Identifier(access.Name.GetLeadingTrivia(), whenName, access.Name.GetTrailingTrivia()))));
 
         var speculative = model.GetSpeculativeSymbolInfo(blocking.SpanStart, candidate, SpeculativeBindingOption.BindAsExpression);
         return speculative.Symbol is not IMethodSymbol ? null : AwaitExpressionRewrite.WrapInAwait(candidate, blocking);

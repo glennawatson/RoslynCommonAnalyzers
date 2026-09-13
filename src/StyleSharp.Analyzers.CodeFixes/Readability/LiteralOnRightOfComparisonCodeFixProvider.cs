@@ -50,7 +50,7 @@ public sealed class LiteralOnRightOfComparisonCodeFixProvider : CodeFixProvider,
 
         var newLeft = comparison.Right.WithTriviaFrom(comparison.Left);
         var newRight = comparison.Left.WithTriviaFrom(comparison.Right);
-        editor.ReplaceNode(comparison, comparison.WithLeft(newLeft).WithRight(newRight));
+        editor.ReplaceNode(comparison, comparison.Update(newLeft, comparison.OperatorToken, newRight));
     }
 
     /// <summary>Swaps the operands, keeping the surrounding spacing in place.</summary>
@@ -62,7 +62,7 @@ public sealed class LiteralOnRightOfComparisonCodeFixProvider : CodeFixProvider,
     {
         var newLeft = comparison.Right.WithTriviaFrom(comparison.Left);
         var newRight = comparison.Left.WithTriviaFrom(comparison.Right);
-        var replacement = comparison.WithLeft(newLeft).WithRight(newRight);
+        var replacement = comparison.Update(newLeft, comparison.OperatorToken, newRight);
 
         return document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement));
     }

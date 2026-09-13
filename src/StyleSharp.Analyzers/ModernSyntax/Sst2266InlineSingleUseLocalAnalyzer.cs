@@ -37,7 +37,15 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var optionsByTree = new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>();
+            var treeCount = 0;
+            foreach (var tree in start.Compilation.SyntaxTrees)
+            {
+                treeCount++;
+            }
+
+            var optionsByTree = new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>(
+                concurrencyLevel: 1,
+                capacity: treeCount);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, optionsByTree),
                 SyntaxKind.LocalDeclarationStatement);
@@ -105,34 +113,44 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="block">The block holding the local's scope.</param>
     /// <param name="local">The local symbol.</param>
+    /// <param name="cancellationToken">A token that cancels reference binding.</param>
     /// <returns>The single reference, or <see langword="null"/> when there is not exactly one.</returns>
     /// <remarks>
     /// A block holding an inactive <c>#if</c> region reports no reference at all. The identifiers in that
     /// region are trivia rather than nodes, so they cannot be counted — and a local that reads once here and
     /// several times there would lose its declaration for every other configuration.
     /// </remarks>
-    internal static IdentifierNameSyntax? FindSingleReference(SemanticModel model, BlockSyntax block, ILocalSymbol local)
+    internal static IdentifierNameSyntax? FindSingleReference(SemanticModel model, BlockSyntax block, ILocalSymbol local, CancellationToken cancellationToken = default)
     {
         if (HasInactiveRegion(block))
         {
             return null;
         }
 
-        IdentifierNameSyntax? reference = null;
-        var count = 0;
-        foreach (var descendant in block.DescendantNodes())
-        {
-            if (descendant is not IdentifierNameSyntax identifier || identifier.Identifier.Text != local.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local))
+        var state = (Model: model, Local: local, Reference: (IdentifierNameSyntax?)null, CancellationToken: cancellationToken);
+        var completed = DescendantTraversalHelper.VisitDescendants<
+            IdentifierNameSyntax,
+            (SemanticModel Model, ILocalSymbol Local, IdentifierNameSyntax? Reference, CancellationToken CancellationToken)>(
+            block,
+            ref state,
+            static (identifier, ref current) =>
             {
-                continue;
-            }
+                if (identifier.Identifier.Text != current.Local.Name
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local))
+                {
+                    return true;
+                }
 
-            reference = identifier;
-            count++;
-        }
+                if (current.Reference is not null)
+                {
+                    return false;
+                }
 
-        return count == 1 ? reference : null;
+                current.Reference = identifier;
+                return true;
+            });
+
+        return completed ? state.Reference : null;
     }
 
     /// <summary>Returns whether a reference writes to, or takes an alias of, the local rather than reading it.</summary>
@@ -184,15 +202,10 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     internal static bool HasSideEffectBeforeReference(StatementSyntax statement, SyntaxNode reference)
     {
         var referenceStart = reference.Span.Start;
-        foreach (var node in statement.DescendantNodes())
-        {
-            if (node.Span.End <= referenceStart && IsSideEffecting(node))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return !DescendantTraversalHelper.VisitDescendants<SyntaxNode, int>(
+            statement,
+            ref referenceStart,
+            static (node, ref start) => node.Span.End > start || !IsSideEffecting(node));
     }
 
     /// <summary>Returns whether a loop encloses a reference within the local's scope.</summary>
@@ -321,14 +334,16 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <param name="useStatement">The statement immediately after the declaration.</param>
     /// <param name="symbol">The local symbol.</param>
     /// <param name="value">The initializer that would be inlined.</param>
+    /// <param name="cancellationToken">A token that cancels reference binding.</param>
     /// <returns><see langword="true"/> when inlining preserves behaviour.</returns>
     private static bool IsSafeSingleUse(
         SemanticModel model,
         BlockSyntax block,
         StatementSyntax useStatement,
         ILocalSymbol symbol,
-        ExpressionSyntax value) =>
-        FindSingleReference(model, block, symbol) is { } reference
+        ExpressionSyntax value,
+        CancellationToken cancellationToken) =>
+        FindSingleReference(model, block, symbol, cancellationToken) is { } reference
             && useStatement.Span.Contains(reference.Span)
             && !IsWriteOrAlias(reference)
             && !IsCaptured(reference, block)
@@ -364,7 +379,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         var useStatement = block.Statements[declarationIndex + 1];
         if (context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
             || !PreservesDeclaredMeaning(context.SemanticModel, value, symbol, context.CancellationToken)
-            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value))
+            || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value, context.CancellationToken))
         {
             return;
         }

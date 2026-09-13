@@ -31,7 +31,7 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
 
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (!TryResolve(root, model, diagnostic, out var declaration, out var body))
+            if (!TryResolve(root, model, diagnostic, context.CancellationToken, out var declaration, out var body))
             {
                 continue;
             }
@@ -51,22 +51,29 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
     /// <param name="root">The syntax root.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <param name="declaration">The producing declaration to move.</param>
     /// <param name="body">The loop body to move it into.</param>
     /// <returns><see langword="true"/> when a safe move is available.</returns>
-    private static bool TryResolve(SyntaxNode root, SemanticModel model, Diagnostic diagnostic, out LocalDeclarationStatementSyntax? declaration, out BlockSyntax? body)
+    private static bool TryResolve(
+        SyntaxNode root,
+        SemanticModel model,
+        Diagnostic diagnostic,
+        CancellationToken cancellationToken,
+        out LocalDeclarationStatementSyntax? declaration,
+        out BlockSyntax? body)
     {
         declaration = null;
         body = null;
         if (root.FindNode(diagnostic.Location.SourceSpan) is not IdentifierNameSyntax identifier
-            || model.GetSymbolInfo(identifier).Symbol is not ILocalSymbol local
+            || model.GetSymbolInfo(identifier, cancellationToken).Symbol is not ILocalSymbol local
             || local.DeclaringSyntaxReferences is not [var reference]
-            || reference.GetSyntax() is not VariableDeclaratorSyntax { Initializer: not null, Parent.Parent: LocalDeclarationStatementSyntax statement }
+            || reference.GetSyntax(cancellationToken) is not VariableDeclaratorSyntax { Initializer: not null, Parent.Parent: LocalDeclarationStatementSyntax statement }
             || statement.Declaration.Variables.Count != 1
             || !statement.UsingKeyword.IsKind(SyntaxKind.None)
             || NearestLoopBody(identifier) is not { } loopBody
             || DirectiveBoundaries.Separate(statement, loopBody)
-            || UsedOutside(loopBody, local, model, identifier))
+            || UsedOutside(loopBody, local, model, identifier, cancellationToken))
         {
             return false;
         }
@@ -114,28 +121,31 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
     /// <param name="local">The local.</param>
     /// <param name="model">The semantic model for the document.</param>
     /// <param name="ignore">The reported identifier, always inside the loop.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when moving the declaration would strand a use.</returns>
-    private static bool UsedOutside(BlockSyntax body, ILocalSymbol local, SemanticModel model, IdentifierNameSyntax ignore)
+    private static bool UsedOutside(BlockSyntax body, ILocalSymbol local, SemanticModel model, IdentifierNameSyntax ignore, CancellationToken cancellationToken)
     {
+        var state = (Body: body, Local: local, Model: model, Ignore: ignore, CancellationToken: cancellationToken);
         foreach (var reference in local.DeclaringSyntaxReferences)
         {
-            var scope = reference.GetSyntax().FirstAncestorOrSelf<BlockSyntax>();
+            var scope = reference.GetSyntax(cancellationToken).FirstAncestorOrSelf<BlockSyntax>();
             if (scope is null)
             {
                 return true;
             }
 
-            foreach (var node in scope.DescendantNodes())
+            if (!DescendantTraversalHelper.VisitDescendants<
+                IdentifierNameSyntax,
+                (BlockSyntax Body, ILocalSymbol Local, SemanticModel Model, IdentifierNameSyntax Ignore, CancellationToken CancellationToken)>(
+                scope,
+                ref state,
+                static (identifier, ref current) => identifier == current.Ignore
+                    || identifier.Identifier.ValueText != current.Local.Name
+                    || current.Body.Span.Contains(identifier.Span)
+                    || IsDeclarator(identifier)
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local)))
             {
-                if (node is IdentifierNameSyntax identifier
-                    && identifier != ignore
-                    && identifier.Identifier.ValueText == local.Name
-                    && !body.Span.Contains(identifier.Span)
-                    && !IsDeclarator(identifier)
-                    && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier).Symbol, local))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -156,9 +166,7 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
     private static Document Move(Document document, SyntaxNode root, LocalDeclarationStatementSyntax declaration, BlockSyntax body)
     {
         var indent = body.Statements.Count > 0 ? body.Statements[0].GetLeadingTrivia() : declaration.GetLeadingTrivia();
-        var moved = declaration
-            .WithLeadingTrivia(indent)
-            .WithTrailingTrivia(declaration.GetTrailingTrivia());
+        var moved = declaration.WithLeadingTrivia(indent);
 
         var trackedRoot = root.TrackNodes(declaration, body);
         var currentBody = trackedRoot.GetCurrentNode(body)!;

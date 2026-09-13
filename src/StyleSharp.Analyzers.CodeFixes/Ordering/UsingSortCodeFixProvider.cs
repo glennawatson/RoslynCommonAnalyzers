@@ -99,9 +99,25 @@ public sealed class UsingSortCodeFixProvider : CodeFixProvider
                 continue;
             }
 
-            ordered[index] = directive
-                .WithLeadingTrivia(original[index].GetLeadingTrivia())
-                .WithTrailingTrivia(original[index].GetTrailingTrivia());
+            var globalKeyword = directive.GlobalKeyword;
+            var usingKeyword = directive.UsingKeyword;
+            if (globalKeyword.RawKind != 0)
+            {
+                globalKeyword = globalKeyword.WithLeadingTrivia(original[index].GetLeadingTrivia());
+            }
+            else
+            {
+                usingKeyword = usingKeyword.WithLeadingTrivia(original[index].GetLeadingTrivia());
+            }
+
+            ordered[index] = directive.Update(
+                globalKeyword,
+                usingKeyword,
+                directive.StaticKeyword,
+                directive.UnsafeKeyword,
+                directive.Alias,
+                directive.NamespaceOrType,
+                directive.SemicolonToken.WithTrailingTrivia(original[index].GetTrailingTrivia()));
         }
 
         var newContainer = WithUsings(container, SyntaxFactory.List(ordered));

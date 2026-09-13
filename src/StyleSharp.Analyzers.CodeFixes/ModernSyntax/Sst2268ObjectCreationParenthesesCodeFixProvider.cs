@@ -57,12 +57,17 @@ public sealed class Sst2268ObjectCreationParenthesesCodeFixProvider : CodeFixPro
         if (creation.ArgumentList is { } argumentList)
         {
             var typeWithSpacing = creation.Type.WithTrailingTrivia(argumentList.CloseParenToken.TrailingTrivia);
-            return creation.WithType(typeWithSpacing).WithArgumentList(null);
+            return creation.Update(creation.NewKeyword, typeWithSpacing, argumentList: null, creation.Initializer);
         }
 
         var separator = creation.Type.GetTrailingTrivia();
-        return creation
-            .WithType(creation.Type.WithTrailingTrivia())
-            .WithArgumentList(SyntaxFactory.ArgumentList().WithTrailingTrivia(separator));
+        return creation.Update(
+            creation.NewKeyword,
+            creation.Type.WithTrailingTrivia(),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                default,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, separator)),
+            creation.Initializer);
     }
 }

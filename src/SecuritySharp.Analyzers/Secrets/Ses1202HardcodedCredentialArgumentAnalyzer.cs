@@ -71,24 +71,16 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            // The parameter-name shape needs no gate; the constructor shape only widens 'key' to a secret
-            // for the resolved credential types, so an absent set simply narrows detection to named params.
-            var credentialTypes = GetCredentialTypes(start.Compilation);
-
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCall(nodeContext, credentialTypes),
-                SyntaxKind.InvocationExpression,
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        context.RegisterSyntaxNodeAction(
+            static nodeContext => AnalyzeCall(nodeContext),
+            SyntaxKind.InvocationExpression,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports SES1202 for each string-literal argument bound to a credential position.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="credentialTypes">The resolved credential types whose constructor <c>key</c> position is guarded, or <see langword="null"/> when none resolve.</param>
-    private static void AnalyzeCall(in SyntaxNodeAnalysisContext context, INamedTypeSymbol?[]? credentialTypes)
+    private static void AnalyzeCall(in SyntaxNodeAnalysisContext context)
     {
         // Syntactic prefilter: bind nothing unless the call carries a reportable string-literal argument.
         if (GetArgumentList(context.Node) is not { Arguments: { Count: > 0 } arguments }
@@ -103,10 +95,9 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
             return;
         }
 
-        var isCredentialType = IsGatedCredentialType(containingType, credentialTypes);
         for (var i = 0; i < methodArguments.Length; i++)
         {
-            if (TryGetCredentialLiteral(methodArguments[i], isCredentialType, out var literalSyntax, out var parameterName))
+            if (TryGetCredentialLiteral(methodArguments[i], containingType, context.Compilation, out var literalSyntax, out var parameterName))
             {
                 context.ReportDiagnostic(DiagnosticHelper.Create(
                     SecurityRules.HardcodedCredentialArgument,
@@ -119,13 +110,15 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
 
     /// <summary>Returns whether an argument is a reportable credential string literal, yielding its syntax and parameter name.</summary>
     /// <param name="argument">The bound argument operation.</param>
-    /// <param name="isCredentialType">Whether the containing type is a gated credential type.</param>
+    /// <param name="containingType">The type declaring the called member.</param>
+    /// <param name="compilation">The compilation used to resolve a matching credential type.</param>
     /// <param name="literalSyntax">The reported literal syntax when the argument is reportable.</param>
     /// <param name="parameterName">The bound credential parameter name when the argument is reportable.</param>
     /// <returns><see langword="true"/> when the argument is a hard-coded credential literal.</returns>
     private static bool TryGetCredentialLiteral(
         IArgumentOperation argument,
-        bool isCredentialType,
+        INamedTypeSymbol containingType,
+        Compilation compilation,
         [NotNullWhen(true)] out LiteralExpressionSyntax? literalSyntax,
         [NotNullWhen(true)] out string? parameterName)
     {
@@ -137,7 +130,7 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
             || argument.Value is not ILiteralOperation { ConstantValue.Value: string value }
             || argument.Value.Syntax is not LiteralExpressionSyntax syntax
             || IsPlaceholderOrEmpty(value)
-            || !IsCredentialParameter(parameter.Name, isCredentialType))
+            || !IsCredentialParameter(parameter.Name, containingType, compilation))
         {
             return false;
         }
@@ -195,11 +188,13 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
 
     /// <summary>Returns whether a parameter name marks a credential position.</summary>
     /// <param name="parameterName">The bound parameter name.</param>
-    /// <param name="isCredentialType">Whether the containing type is a gated credential type.</param>
+    /// <param name="containingType">The type declaring the called member.</param>
+    /// <param name="compilation">The compilation used to resolve a matching credential type.</param>
     /// <returns><see langword="true"/> when the parameter is a credential position.</returns>
-    private static bool IsCredentialParameter(string parameterName, bool isCredentialType) =>
+    private static bool IsCredentialParameter(string parameterName, INamedTypeSymbol containingType, Compilation compilation) =>
         CredentialParameterNames.Contains(parameterName)
-            || (isCredentialType && string.Equals(parameterName, GatedSecretParameterName, StringComparison.OrdinalIgnoreCase));
+            || (string.Equals(parameterName, GatedSecretParameterName, StringComparison.OrdinalIgnoreCase)
+                && IsGatedCredentialType(containingType, compilation));
 
     /// <summary>Returns whether a literal value is empty or an obvious placeholder.</summary>
     /// <param name="value">The decoded literal value.</param>
@@ -228,45 +223,30 @@ public sealed class Ses1202HardcodedCredentialArgumentAnalyzer : DiagnosticAnaly
         return true;
     }
 
-    /// <summary>Returns whether a containing type is one of the resolved gated credential types.</summary>
+    /// <summary>Resolves only a matching credential type after a reportable <c>key</c> argument is found.</summary>
     /// <param name="containingType">The bound constructor's containing type.</param>
-    /// <param name="credentialTypes">The resolved credential types, or <see langword="null"/> when none resolve.</param>
+    /// <param name="compilation">The compilation that owns the bound call.</param>
     /// <returns><see langword="true"/> when the type is a gated credential type.</returns>
-    private static bool IsGatedCredentialType(INamedTypeSymbol containingType, INamedTypeSymbol?[]? credentialTypes)
+    private static bool IsGatedCredentialType(INamedTypeSymbol containingType, Compilation compilation)
     {
-        if (credentialTypes is null)
+        var name = containingType.MetadataName;
+        if (name is not ("NetworkCredential" or "AzureKeyCredential" or "ClientSecretCredential" or "ApiKeyCredential"))
         {
             return false;
         }
 
-        for (var i = 0; i < credentialTypes.Length; i++)
+        for (var i = 0; i < CredentialTypeMetadataNames.Length; i++)
         {
-            if (credentialTypes[i] is { } credentialType && SymbolEqualityComparer.Default.Equals(credentialType, containingType))
+            var metadataName = CredentialTypeMetadataNames[i];
+            var nameStart = metadataName.LastIndexOf('.') + 1;
+            if (metadataName.Length - nameStart == name.Length
+                && string.CompareOrdinal(metadataName, nameStart, name, 0, name.Length) == 0
+                && SymbolEqualityComparer.Default.Equals(compilation.GetTypeByMetadataName(metadataName), containingType))
             {
                 return true;
             }
         }
 
         return false;
-    }
-
-    /// <summary>Resolves the credential types present in the compilation.</summary>
-    /// <param name="compilation">The compilation to probe.</param>
-    /// <returns>An array whose slots hold each resolved credential type, or <see langword="null"/> when none resolve.</returns>
-    private static INamedTypeSymbol?[]? GetCredentialTypes(Compilation compilation)
-    {
-        INamedTypeSymbol?[]? types = null;
-        for (var i = 0; i < CredentialTypeMetadataNames.Length; i++)
-        {
-            if (compilation.GetTypeByMetadataName(CredentialTypeMetadataNames[i]) is not { } type)
-            {
-                continue;
-            }
-
-            types ??= new INamedTypeSymbol?[CredentialTypeMetadataNames.Length];
-            types[i] = type;
-        }
-
-        return types;
     }
 }

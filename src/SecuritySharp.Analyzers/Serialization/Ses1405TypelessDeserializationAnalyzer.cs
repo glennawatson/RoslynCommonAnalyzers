@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -14,9 +16,8 @@ namespace SecuritySharp.Analyzers;
 /// (<c>MessagePack.Resolvers.TypelessObjectResolver</c> or
 /// <c>MessagePack.Resolvers.TypelessContractlessStandardResolver</c>) that opens the type set. A
 /// resolver first stored in a field or passed through a variable is out of scope because confirming it
-/// would require data-flow tracking. The rule is resolved once per compilation by probing the typeless
-/// facade and the two resolver types; a project that does not reference MessagePack resolves none of
-/// them and pays nothing.
+/// would require data-flow tracking. The typeless facade and resolver types are resolved only after a
+/// matching call or member-reference shape survives the syntactic prefilter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
@@ -42,15 +43,6 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
     /// <summary>The display name reported for a typeless facade call.</summary>
     private const string TypelessFacadeDisplayName = "MessagePackSerializer.Typeless";
 
-    /// <summary>The metadata name of the nested typeless facade.</summary>
-    private const string TypelessFacadeMetadataName = "MessagePack.MessagePackSerializer+Typeless";
-
-    /// <summary>The metadata name of the resolver that reconstructs arbitrary types by their embedded name.</summary>
-    private const string TypelessObjectResolverMetadataName = "MessagePack.Resolvers.TypelessObjectResolver";
-
-    /// <summary>The metadata name of the contractless resolver that also opens the type set.</summary>
-    private const string TypelessContractlessResolverMetadataName = "MessagePack.Resolvers.TypelessContractlessStandardResolver";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(SecurityRules.TypelessDeserialization);
 
@@ -63,36 +55,18 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var facade = start.Compilation.GetTypeByMetadataName(TypelessFacadeMetadataName);
-            var objectResolver = start.Compilation.GetTypeByMetadataName(TypelessObjectResolverMetadataName);
-            var contractlessResolver = start.Compilation.GetTypeByMetadataName(TypelessContractlessResolverMetadataName);
-
-            // A project that does not reference MessagePack resolves none of these; nothing registers and it pays nothing.
-            if (facade is null && objectResolver is null && contractlessResolver is null)
-            {
-                return;
-            }
-
-            if (facade is not null)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, facade), SyntaxKind.InvocationExpression);
-            }
-
-            if (objectResolver is not null || contractlessResolver is not null)
-            {
-                start.RegisterSyntaxNodeAction(
-                    nodeContext => AnalyzeResolverReference(nodeContext, objectResolver, contractlessResolver),
-                    SyntaxKind.SimpleMemberAccessExpression);
-            }
+            var markers = new TypelessMarkers(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, markers), SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeResolverReference(nodeContext, markers), SyntaxKind.SimpleMemberAccessExpression);
         });
     }
 
     /// <summary>Reports SES1405 for a <c>MessagePackSerializer.Typeless.Deserialize</c>/<c>DeserializeAsync</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="facade">The resolved typeless facade type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol facade)
+    /// <param name="markers">The compilation's lazily resolved typeless types.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, TypelessMarkers markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -103,7 +77,8 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (markers.GetFacade() is not { } facade
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, facade))
         {
             return;
@@ -118,9 +93,8 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1405 for a <c>.Instance</c> reference to a typeless resolver that opens the type set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="objectResolver">The resolved <c>TypelessObjectResolver</c>, or <see langword="null"/> when absent.</param>
-    /// <param name="contractlessResolver">The resolved <c>TypelessContractlessStandardResolver</c>, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeResolverReference(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? objectResolver, INamedTypeSymbol? contractlessResolver)
+    /// <param name="markers">The compilation's lazily resolved typeless types.</param>
+    private static void AnalyzeResolverReference(in SyntaxNodeAnalysisContext context, TypelessMarkers markers)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -132,6 +106,14 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
 
         var qualifier = GetRightmostSimpleName(memberAccess.Expression);
         if (qualifier is not (TypelessObjectResolverSimpleName or TypelessContractlessResolverSimpleName))
+        {
+            return;
+        }
+
+        var resolvers = markers.GetResolvers();
+        var objectResolver = resolvers[0];
+        var contractlessResolver = resolvers[1];
+        if (objectResolver is null && contractlessResolver is null)
         {
             return;
         }
@@ -169,4 +151,38 @@ public sealed class Ses1405TypelessDeserializationAnalyzer : DiagnosticAnalyzer
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
             _ => null,
         };
+
+    /// <summary>Resolves typeless facade and resolver types independently on first demand.</summary>
+    /// <param name="compilation">The compilation whose types are resolved.</param>
+    private sealed class TypelessMarkers(Compilation compilation)
+    {
+        /// <summary>The metadata name of the nested typeless facade.</summary>
+        private const string TypelessFacadeMetadataName = "MessagePack.MessagePackSerializer+Typeless";
+
+        /// <summary>The metadata name of the resolver that reconstructs arbitrary types by their embedded name.</summary>
+        private const string TypelessObjectResolverMetadataName = "MessagePack.Resolvers.TypelessObjectResolver";
+
+        /// <summary>The metadata name of the contractless resolver that also opens the type set.</summary>
+        private const string TypelessContractlessResolverMetadataName = "MessagePack.Resolvers.TypelessContractlessStandardResolver";
+
+        /// <summary>The facade result, including a missing type, or null before the first candidate call.</summary>
+        private INamedTypeSymbol?[]? _facade;
+
+        /// <summary>The resolver results, including missing types, or null before the first candidate reference.</summary>
+        private INamedTypeSymbol?[]? _resolvers;
+
+        /// <summary>Gets the typeless facade, resolving it on first demand.</summary>
+        /// <returns>The facade type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetFacade() => (_facade ??= [compilation.GetTypeByMetadataName(TypelessFacadeMetadataName)])[0];
+
+        /// <summary>Gets the typeless resolvers, resolving them on first demand.</summary>
+        /// <returns>The object and contractless resolver types, in that order, with null for absent types.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] GetResolvers() => _resolvers ??=
+        [
+            compilation.GetTypeByMetadataName(TypelessObjectResolverMetadataName),
+            compilation.GetTypeByMetadataName(TypelessContractlessResolverMetadataName),
+        ];
+    }
 }

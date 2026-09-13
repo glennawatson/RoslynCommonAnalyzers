@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -35,25 +37,21 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var overloads = CharOverloads.Resolve(start.Compilation);
-            if (!overloads.HasAny)
-            {
-                return;
-            }
-
+            var overloads = new OverloadCache(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, overloads), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1201 for a single-character literal passed to an ordinal-safe string search shape.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="overloads">The char overloads available in this compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CharOverloads overloads)
+    /// <param name="overloads">The deferred char overloads for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, OverloadCache overloads)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (!TryGetCandidateLiteral(invocation, overloads, out var literal, out var value, out var requiresOrdinalArgument)
+        if (!TryGetCandidateLiteral(invocation, out var literal, out var value, out var requiresOrdinalArgument)
+            || !overloads.Get().HasOverload(((MemberAccessExpressionSyntax)invocation.Expression).Name.Identifier.ValueText)
             || !IsReportableMethod(context.SemanticModel, invocation, requiresOrdinalArgument, context.CancellationToken))
         {
             return;
@@ -66,16 +64,14 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
             SyntaxFactory.Literal(value).Text));
     }
 
-    /// <summary>Runs the syntax-only checks: member name, gated shape, argument count, literal, and comparison spelling.</summary>
+    /// <summary>Runs the syntax-only checks: member name, argument count, literal, and comparison spelling.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
-    /// <param name="overloads">The char overloads available in this compilation.</param>
     /// <param name="literal">The matched single-character literal argument.</param>
     /// <param name="value">The literal's single character.</param>
     /// <param name="requiresOrdinalArgument">Whether the shape needs an explicit <c>StringComparison.Ordinal</c> argument.</param>
     /// <returns><see langword="true"/> when the invocation is a syntactic candidate.</returns>
     private static bool TryGetCandidateLiteral(
         InvocationExpressionSyntax invocation,
-        in CharOverloads overloads,
         out LiteralExpressionSyntax? literal,
         out char value,
         out bool requiresOrdinalArgument)
@@ -86,7 +82,7 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
         if (invocation.Expression is not MemberAccessExpressionSyntax access
             || !access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
             || access.Name is not IdentifierNameSyntax name
-            || !TryClassifyMethod(name.Identifier.ValueText, overloads, out requiresOrdinalArgument))
+            || !TryClassifyMethod(name.Identifier.ValueText, out requiresOrdinalArgument))
         {
             requiresOrdinalArgument = false;
             return false;
@@ -130,43 +126,24 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
             || IsOrdinalComparison(model, arguments[1].Expression, method.Parameters[1].Type, cancellationToken);
     }
 
-    /// <summary>Maps a member name to its reported shape, honoring the per-shape overload gates.</summary>
+    /// <summary>Maps a member name to its candidate argument shape without resolving overloads.</summary>
     /// <param name="methodName">The invoked member name.</param>
-    /// <param name="overloads">The char overloads available in this compilation.</param>
     /// <param name="requiresOrdinalArgument">Whether the shape needs an explicit <c>StringComparison.Ordinal</c> argument.</param>
-    /// <returns><see langword="true"/> when the member is a gated search method.</returns>
-    private static bool TryClassifyMethod(string methodName, in CharOverloads overloads, out bool requiresOrdinalArgument)
+    /// <returns><see langword="true"/> when the member is a supported search method.</returns>
+    private static bool TryClassifyMethod(string methodName, out bool requiresOrdinalArgument)
     {
         switch (methodName)
         {
             case "Contains":
             {
                 requiresOrdinalArgument = false;
-                return overloads.Contains;
+                return true;
             }
 
-            case "StartsWith":
+            case "StartsWith" or "EndsWith" or "IndexOf" or "LastIndexOf":
             {
                 requiresOrdinalArgument = true;
-                return overloads.StartsWith;
-            }
-
-            case "EndsWith":
-            {
-                requiresOrdinalArgument = true;
-                return overloads.EndsWith;
-            }
-
-            case "IndexOf":
-            {
-                requiresOrdinalArgument = true;
-                return overloads.IndexOf;
-            }
-
-            case "LastIndexOf":
-            {
-                requiresOrdinalArgument = true;
-                return overloads.LastIndexOf;
+                return true;
             }
 
             default:
@@ -214,6 +191,19 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
                 HasCharOverload(stringType, nameof(LastIndexOf)));
         }
 
+        /// <summary>Returns whether the named search method has a char overload.</summary>
+        /// <param name="methodName">The candidate search method name.</param>
+        /// <returns>Whether the corresponding char overload exists.</returns>
+        internal bool HasOverload(string methodName) => methodName switch
+        {
+            nameof(Contains) => Contains,
+            nameof(StartsWith) => StartsWith,
+            nameof(EndsWith) => EndsWith,
+            nameof(IndexOf) => IndexOf,
+            nameof(LastIndexOf) => LastIndexOf,
+            _ => false,
+        };
+
         /// <summary>Returns whether a named instance method with a single char parameter exists on a type.</summary>
         /// <param name="type">The type to probe.</param>
         /// <param name="methodName">The method name to probe.</param>
@@ -230,5 +220,18 @@ public sealed class Psh1201UseCharOverloadAnalyzer : DiagnosticAnalyzer
 
             return false;
         }
+    }
+
+    /// <summary>Probes char overloads only when a string-search candidate needs them.</summary>
+    /// <param name="compilation">The compilation whose string overloads are resolved.</param>
+    private sealed class OverloadCache(Compilation compilation)
+    {
+        /// <summary>The cached overload flags, including a result with no available overloads.</summary>
+        private CharOverloads[]? _resolved;
+
+        /// <summary>Gets the overload flags, resolving them on first demand.</summary>
+        /// <returns>The char overloads available in this compilation.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public CharOverloads Get() => (_resolved ??= [CharOverloads.Resolve(compilation)])[0];
     }
 }

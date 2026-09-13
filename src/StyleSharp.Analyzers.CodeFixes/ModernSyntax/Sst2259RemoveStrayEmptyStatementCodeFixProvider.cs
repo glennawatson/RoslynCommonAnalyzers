@@ -53,6 +53,80 @@ public sealed class Sst2259RemoveStrayEmptyStatementCodeFixProvider : CodeFixPro
     {
         var closeBrace = type.CloseBraceToken;
         var newCloseBrace = closeBrace.WithTrailingTrivia(closeBrace.TrailingTrivia.AddRange(type.SemicolonToken.TrailingTrivia));
-        return type.WithCloseBraceToken(newCloseBrace).WithSemicolonToken(default);
+        return type switch
+        {
+            ClassDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.Keyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                newCloseBrace,
+                default),
+            StructDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.Keyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                newCloseBrace,
+                default),
+            InterfaceDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.Keyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                declaration.ParameterList,
+                declaration.BaseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                newCloseBrace,
+                default),
+            RecordDeclarationSyntax declaration => RemoveRecordSemicolon(declaration, newCloseBrace),
+            EnumDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.EnumKeyword,
+                declaration.Identifier,
+                declaration.BaseList,
+                declaration.OpenBraceToken,
+                declaration.Members,
+                newCloseBrace,
+                default),
+            _ => type,
+        };
     }
+
+    /// <summary>Removes a record's semicolon while retaining its declaration children.</summary>
+    /// <param name="declaration">The record declaration.</param>
+    /// <param name="closeBrace">The closing brace carrying the semicolon's trailing trivia.</param>
+    /// <returns>The record without its trailing semicolon.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static RecordDeclarationSyntax RemoveRecordSemicolon(RecordDeclarationSyntax declaration, SyntaxToken closeBrace) =>
+        declaration.Update(
+            declaration.AttributeLists,
+            declaration.Modifiers,
+            declaration.Keyword,
+            declaration.ClassOrStructKeyword,
+            declaration.Identifier,
+            declaration.TypeParameterList,
+            declaration.ParameterList,
+            declaration.BaseList,
+            declaration.ConstraintClauses,
+            declaration.OpenBraceToken,
+            declaration.Members,
+            closeBrace,
+            default);
 }

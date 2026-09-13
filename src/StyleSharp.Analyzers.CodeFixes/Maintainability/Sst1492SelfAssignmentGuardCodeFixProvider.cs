@@ -81,8 +81,15 @@ public sealed class Sst1492SelfAssignmentGuardCodeFixProvider : CodeFixProvider,
     /// <returns>The replacement statement, carrying the guard's own trivia.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ExpressionStatementSyntax Unwrap(IfStatementSyntax ifStatement, ExpressionStatementSyntax assignment) =>
-        assignment
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(ifStatement.GetTrailingTrivia())
+        assignment.Update(
+                assignment.AttributeLists.Count == 0
+                    ? assignment.AttributeLists
+                    : assignment.AttributeLists.Replace(
+                        assignment.AttributeLists[0],
+                        assignment.AttributeLists[0].WithLeadingTrivia(ifStatement.GetLeadingTrivia())),
+                assignment.AttributeLists.Count == 0
+                    ? assignment.Expression.WithLeadingTrivia(ifStatement.GetLeadingTrivia())
+                    : assignment.Expression,
+                assignment.SemicolonToken.WithTrailingTrivia(ifStatement.GetTrailingTrivia()))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 }

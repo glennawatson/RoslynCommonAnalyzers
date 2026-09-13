@@ -47,7 +47,22 @@ internal abstract class DocumentDiagnosticFixAllProvider : FixAllProvider
     /// <returns>One entry per document that has at least one diagnostic.</returns>
     private static async Task<List<DocumentDiagnostics>> CollectAsync(FixAllContext fixAllContext)
     {
-        var result = new List<DocumentDiagnostics>();
+        var capacity = fixAllContext.Scope switch
+        {
+            FixAllScope.Document => 1,
+            FixAllScope.Project => fixAllContext.Project.DocumentIds.Count,
+            _ => 0
+        };
+
+        if (fixAllContext.Scope == FixAllScope.Solution)
+        {
+            foreach (var project in fixAllContext.Solution.Projects)
+            {
+                capacity += project.DocumentIds.Count;
+            }
+        }
+
+        var result = new List<DocumentDiagnostics>(capacity);
         switch (fixAllContext.Scope)
         {
             case FixAllScope.Document when fixAllContext.Document is { } document:

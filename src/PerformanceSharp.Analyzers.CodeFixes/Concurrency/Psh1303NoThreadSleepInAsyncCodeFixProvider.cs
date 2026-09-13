@@ -67,9 +67,8 @@ public sealed class Psh1303NoThreadSleepInAsyncCodeFixProvider : CodeFixProvider
             invocation.ArgumentList.WithoutTrivia());
 
         return SyntaxFactory.AwaitExpression(
-                SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-                delayCall)
-            .WithTriviaFrom(invocation);
+            SyntaxFactory.Token(invocation.GetLeadingTrivia(), SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            delayCall.WithTrailingTrivia(invocation.GetTrailingTrivia()));
     }
 
     /// <summary>Builds the task type expression, simple when the task's simple name resolves at the call site.</summary>

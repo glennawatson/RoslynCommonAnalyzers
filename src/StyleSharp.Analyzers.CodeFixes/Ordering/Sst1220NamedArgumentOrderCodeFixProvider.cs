@@ -82,9 +82,10 @@ public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider, 
         for (var slot = 0; slot < count; slot++)
         {
             var moved = arguments[order[slot]];
-            rebuilt[slot] = moved
-                .WithLeadingTrivia(arguments[slot].GetLeadingTrivia())
-                .WithTrailingTrivia(arguments[slot].GetTrailingTrivia());
+            rebuilt[slot] = moved.Update(
+                moved.NameColon!.WithLeadingTrivia(arguments[slot].GetLeadingTrivia()),
+                moved.RefKindKeyword,
+                moved.Expression.WithTrailingTrivia(arguments[slot].GetTrailingTrivia()));
         }
 
         return argumentList.WithArguments(SyntaxFactory.SeparatedList(rebuilt, arguments.GetSeparators()));

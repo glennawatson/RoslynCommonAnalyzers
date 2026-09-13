@@ -79,11 +79,26 @@ public sealed class Psh1105AvoidDoubleLookupCodeFixProvider : CodeFixProvider, I
         {
             statement = statement.ReplaceNode(
                 shape.MutationName,
-                SyntaxFactory.IdentifierName(Psh1105AvoidDoubleLookupAnalyzer.TryAddMethodName).WithTriviaFrom(shape.MutationName));
+                SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                    shape.MutationName.GetLeadingTrivia(),
+                    Psh1105AvoidDoubleLookupAnalyzer.TryAddMethodName,
+                    shape.MutationName.GetTrailingTrivia())));
         }
 
-        return statement
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(ifStatement.GetTrailingTrivia());
+        var attributeLists = statement.AttributeLists;
+        var expression = statement.Expression;
+        if (attributeLists.Count == 0)
+        {
+            expression = expression.WithLeadingTrivia(ifStatement.GetLeadingTrivia());
+        }
+        else
+        {
+            attributeLists = attributeLists.Replace(attributeLists[0], attributeLists[0].WithLeadingTrivia(ifStatement.GetLeadingTrivia()));
+        }
+
+        return statement.Update(
+            attributeLists,
+            expression,
+            statement.SemicolonToken.WithTrailingTrivia(ifStatement.GetTrailingTrivia()));
     }
 }

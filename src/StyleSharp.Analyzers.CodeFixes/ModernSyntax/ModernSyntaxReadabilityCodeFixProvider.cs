@@ -328,7 +328,13 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
     /// <returns>The comma-separated expression text.</returns>
     private static string JoinExpressions(List<ExpressionSyntax> inputs)
     {
-        var builder = new System.Text.StringBuilder();
+        var capacity = inputs.Count > 0 ? (inputs.Count - 1) * ", ".Length : 0;
+        for (var i = 0; i < inputs.Count; i++)
+        {
+            capacity += inputs[i].Span.Length;
+        }
+
+        var builder = new System.Text.StringBuilder(capacity);
         for (var i = 0; i < inputs.Count; i++)
         {
             if (i > 0)

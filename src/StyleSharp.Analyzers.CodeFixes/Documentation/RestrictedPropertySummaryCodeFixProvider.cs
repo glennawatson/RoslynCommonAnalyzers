@@ -88,31 +88,41 @@ public sealed class RestrictedPropertySummaryCodeFixProvider : CodeFixProvider, 
     /// <returns><see langword="true"/> when a change was produced.</returns>
     private static bool TryBuildChange(XmlElementSyntax summary, out TextChange change)
     {
-        foreach (var token in summary.DescendantTokens())
-        {
-            if (!token.IsKind(SyntaxKind.XmlTextLiteralToken))
+        var token = default(SyntaxToken);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            summary,
+            ref token,
+            static (in SyntaxToken current, ref SyntaxToken firstText) =>
             {
-                continue;
-            }
+                if (!current.IsKind(SyntaxKind.XmlTextLiteralToken))
+                {
+                    return true;
+                }
 
-            var value = token.ValueText.AsSpan();
-            var start = 0;
-            while (start < value.Length && char.IsWhiteSpace(value[start]))
-            {
-                start++;
-            }
-
-            if (!value[start..].StartsWith(ExistingPrefix.AsSpan(), StringComparison.Ordinal))
-            {
-                change = default;
+                firstText = current;
                 return false;
-            }
+            });
 
-            change = new(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
-            return true;
+        if (token.RawKind == 0)
+        {
+            change = default;
+            return false;
         }
 
-        change = default;
-        return false;
+        var value = token.ValueText.AsSpan();
+        var start = 0;
+        while (start < value.Length && char.IsWhiteSpace(value[start]))
+        {
+            start++;
+        }
+
+        if (!value[start..].StartsWith(ExistingPrefix.AsSpan(), StringComparison.Ordinal))
+        {
+            change = default;
+            return false;
+        }
+
+        change = new(new(token.SpanStart + start, ExistingPrefix.Length), "Gets");
+        return true;
     }
 }

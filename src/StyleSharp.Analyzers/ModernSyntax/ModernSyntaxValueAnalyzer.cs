@@ -130,7 +130,12 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        replacement = interpolation.WithExpression(receiver.WithTriviaFrom(interpolation.Expression)).WithFormatClause(format);
+        replacement = interpolation.Update(
+            interpolation.OpenBraceToken,
+            receiver.WithTriviaFrom(interpolation.Expression),
+            interpolation.AlignmentClause,
+            format,
+            interpolation.CloseBraceToken);
         return true;
     }
 
@@ -879,17 +884,19 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression contains a reference to the symbol.</returns>
     private static bool ContainsReference(ExpressionSyntax expression, ISymbol symbol, SemanticModel model, CancellationToken cancellationToken)
     {
-        foreach (var node in expression.DescendantNodesAndSelf())
+        if (expression is IdentifierNameSyntax identifier
+            && identifier.Identifier.ValueText == symbol.Name
+            && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
         {
-            if (node is IdentifierNameSyntax identifier
-                && identifier.Identifier.ValueText == symbol.Name
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, symbol))
-            {
-                return true;
-            }
+            return true;
         }
 
-        return false;
+        var state = (Symbol: symbol, Model: model, CancellationToken: cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (ISymbol Symbol, SemanticModel Model, CancellationToken CancellationToken)>(
+            expression,
+            ref state,
+            static (node, ref current) => node.Identifier.ValueText != current.Symbol.Name
+                || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(node, current.CancellationToken).Symbol, current.Symbol));
     }
 
     /// <summary>Returns whether a local delegate declaration can be represented as a local function.</summary>
@@ -1014,23 +1021,24 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken,
         ref bool seenReference)
     {
-        foreach (var node in statement.DescendantNodes())
-        {
-            if (node is not IdentifierNameSyntax identifier
-                || identifier.Identifier.ValueText != localSymbol.Name
-                || !SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, localSymbol))
+        var state = (Symbol: localSymbol, Model: model, CancellationToken: cancellationToken, SeenReference: seenReference);
+        var completed = DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, (ILocalSymbol Symbol, SemanticModel Model, CancellationToken CancellationToken, bool SeenReference)>(
+            statement,
+            ref state,
+            static (identifier, ref current) =>
             {
-                continue;
-            }
+                if (identifier.Identifier.ValueText != current.Symbol.Name
+                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Symbol))
+                {
+                    return true;
+                }
 
-            seenReference = true;
-            if (identifier.Parent is not InvocationExpressionSyntax invocation || invocation.Expression != identifier)
-            {
-                return false;
-            }
-        }
+                current.SeenReference = true;
+                return identifier.Parent is InvocationExpressionSyntax invocation && invocation.Expression == identifier;
+            });
 
-        return true;
+        seenReference = state.SeenReference;
+        return completed;
     }
 
     /// <summary>Returns whether an expression statement candidate produces a value that can be made explicit.</summary>
@@ -1050,24 +1058,28 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var node in invocation.ArgumentList.Arguments[0].DescendantNodesAndSelf())
-        {
-            if (node is not GenericNameSyntax genericName)
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendants<GenericNameSyntax, bool>(
+            invocation.ArgumentList.Arguments[0],
+            ref found,
+            static (genericName, ref state) =>
             {
-                continue;
-            }
-
-            var arguments = genericName.TypeArgumentList.Arguments;
-            for (var i = 0; i < arguments.Count; i++)
-            {
-                if (!arguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
+                var arguments = genericName.TypeArgumentList.Arguments;
+                for (var i = 0; i < arguments.Count; i++)
                 {
-                    return true;
-                }
-            }
-        }
+                    if (arguments[i].IsKind(SyntaxKind.OmittedTypeArgument))
+                    {
+                        continue;
+                    }
 
-        return false;
+                    state = true;
+                    return false;
+                }
+
+                return true;
+            });
+
+        return found;
     }
 
     /// <summary>Returns whether a pattern only checks for an <c>object</c> reference.</summary>

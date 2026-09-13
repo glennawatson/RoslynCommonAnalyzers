@@ -128,9 +128,12 @@ public sealed class NameSimplificationCodeFixProvider : CodeFixProvider, IBatchF
             MemberAccessExpressionSyntax memberAccess => memberAccess.Name.WithTriviaFrom(memberAccess),
             IdentifierNameSyntax identifier => SyntaxFactory.MemberAccessExpression(
                     SyntaxKind.SimpleMemberAccessExpression,
-                    SyntaxFactory.ThisExpression(),
-                    identifier.WithoutTrivia())
-                .WithTriviaFrom(identifier),
+                    SyntaxFactory.ThisExpression(SyntaxFactory.Token(
+                        identifier.GetLeadingTrivia(),
+                        SyntaxKind.ThisKeyword,
+                        SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker))),
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    identifier.WithoutLeadingTrivia()),
             _ => null
         };
 }

@@ -37,14 +37,10 @@ public sealed class Psh1303NoThreadSleepInAsyncAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var threadType = start.Compilation.GetTypeByMetadataName(ThreadMetadataName);
-            if (threadType is null || start.Compilation.GetTypeByMetadataName(TaskMetadataName) is null)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var threadType = new Lazy<INamedTypeSymbol?>(() => ResolveThreadType(compilation));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, threadType), SyntaxKind.InvocationExpression);
         });
     }
@@ -97,14 +93,15 @@ public sealed class Psh1303NoThreadSleepInAsyncAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1303 for a <c>Thread.Sleep</c> call whose nearest enclosing function is async.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="threadType">The thread type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol threadType)
+    /// <param name="threadType">The thread type resolved on first demand when Task is also available.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> threadType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsThreadSleepShape(invocation)
             || !IsInAsyncFunction(invocation)
+            || threadType.Value is not { } resolvedThreadType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, threadType))
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedThreadType))
         {
             return;
         }
@@ -113,5 +110,16 @@ public sealed class Psh1303NoThreadSleepInAsyncAnalyzer : DiagnosticAnalyzer
             ConcurrencyRules.NoThreadSleepInAsync,
             invocation.SyntaxTree,
             invocation.Span));
+    }
+
+    /// <summary>Resolves Thread only when both framework types required by the rule exist.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    /// <returns>The thread type, or null when either required type is absent.</returns>
+    private static INamedTypeSymbol? ResolveThreadType(Compilation compilation)
+    {
+        var threadType = compilation.GetTypeByMetadataName(ThreadMetadataName);
+        return threadType is not null && compilation.GetTypeByMetadataName(TaskMetadataName) is not null
+            ? threadType
+            : null;
     }
 }

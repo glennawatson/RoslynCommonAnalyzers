@@ -91,10 +91,12 @@ public sealed class Psh1127ClearOverFillDefaultCodeFixProvider : CodeFixProvider
             return false;
         }
 
-        var candidate = invocation
-            .WithExpression(RenameToClear(invocation.Expression))
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SeparatedList(clearArguments)))
-            .WithTriviaFrom(invocation);
+        var candidate = invocation.Update(
+            RenameToClear(invocation.Expression).WithLeadingTrivia(invocation.GetLeadingTrivia()),
+            SyntaxFactory.ArgumentList(
+                SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                SyntaxFactory.SeparatedList(clearArguments),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         if (!BindsToArrayClear(model, invocation.SpanStart, candidate, arrayType))
         {

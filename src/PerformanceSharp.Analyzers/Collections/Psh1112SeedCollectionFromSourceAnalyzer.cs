@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -30,12 +32,6 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <summary>The editorconfig key for the collection-expression preference.</summary>
     private const string PreferCollectionExpressionsKey = "performancesharp.prefer_collection_expressions";
 
-    /// <summary>The metadata name of the list type.</summary>
-    private const string ListMetadataName = "System.Collections.Generic.List`1";
-
-    /// <summary>The metadata name of the hash set type.</summary>
-    private const string HashSetMetadataName = "System.Collections.Generic.HashSet`1";
-
     /// <summary>Cached properties for diagnostics whose fix should emit a collection expression.</summary>
     private static readonly ImmutableDictionary<string, string?> CollectionExpressionProperties =
         ImmutableDictionary<string, string?>.Empty.Add(UseCollectionExpressionKey, "true");
@@ -52,16 +48,10 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var listType = start.Compilation.GetTypeByMetadataName(ListMetadataName);
-            var hashSetType = start.Compilation.GetTypeByMetadataName(HashSetMetadataName);
-            if (listType is null || hashSetType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, listType, hashSetType), SyntaxKind.InvocationExpression);
+            var types = new CollectionTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -135,27 +125,27 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
     /// <param name="source">The bulk-add source expression.</param>
     /// <param name="receiverName">The receiver local's name.</param>
     /// <returns><see langword="true"/> when the local appears inside the source.</returns>
-    private static bool SourceMentionsReceiver(ExpressionSyntax source, string receiverName)
-    {
-        foreach (var token in source.DescendantTokens())
-        {
-            if (token.IsKind(SyntaxKind.IdentifierToken) && token.ValueText == receiverName)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool SourceMentionsReceiver(ExpressionSyntax source, string receiverName) =>
+        !DescendantTraversalHelper.VisitDescendantTokens(
+            source,
+            ref receiverName,
+            static (in SyntaxToken token, ref string name) =>
+                !token.IsKind(SyntaxKind.IdentifierToken) || token.ValueText != name);
 
     /// <summary>Reports PSH1112 for a bulk add into a just-created empty list or set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="listType">The list type definition.</param>
-    /// <param name="hashSetType">The hash set type definition.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol listType, INamedTypeSymbol hashSetType)
+    /// <param name="types">The collection definitions resolved only after a syntax match.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, CollectionTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetSeedShape(invocation, out var declaration, out var creation))
+        {
+            return;
+        }
+
+        var resolved = types.Get();
+        if (resolved[0] is not { } listType || resolved[1] is not { } hashSetType)
         {
             return;
         }
@@ -199,5 +189,28 @@ public sealed class Psh1112SeedCollectionFromSourceAnalyzer : DiagnosticAnalyzer
         var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(context.Node.SyntaxTree);
         return options.TryGetValue(PreferCollectionExpressionsKey, out var value)
             && string.Equals(value, "false", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Resolves collection definitions on demand and caches missing references too.</summary>
+    /// <param name="compilation">The compilation whose symbols are cached.</param>
+    private sealed class CollectionTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the list type.</summary>
+        private const string ListMetadataName = "System.Collections.Generic.List`1";
+
+        /// <summary>The metadata name of the hash set type.</summary>
+        private const string HashSetMetadataName = "System.Collections.Generic.HashSet`1";
+
+        /// <summary>The published result; null until a candidate needs the types.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the definitions, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The list and hash set definitions, each null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol?[] Get() => _resolved ??=
+        [
+            compilation.GetTypeByMetadataName(ListMetadataName),
+            compilation.GetTypeByMetadataName(HashSetMetadataName),
+        ];
     }
 }

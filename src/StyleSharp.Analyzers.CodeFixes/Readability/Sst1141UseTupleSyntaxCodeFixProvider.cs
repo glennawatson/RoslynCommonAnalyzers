@@ -106,16 +106,26 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     private static void AddNestedTupleSpans(SemanticModel model, GenericNameSyntax generic, HashSet<TextSpan> tupleSpans, CancellationToken cancellationToken)
     {
         _ = tupleSpans.Add(generic.Span);
-        foreach (var node in generic.TypeArgumentList.DescendantNodes())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (node is GenericNameSyntax nested
-                && nested.Identifier.ValueText == "ValueTuple"
-                && model.GetSymbolInfo(nested, cancellationToken).Symbol is INamedTypeSymbol { IsTupleType: true })
+        var state = new NestedTupleState(model, tupleSpans, cancellationToken);
+        _ = DescendantTraversalHelper.VisitDescendants(
+            generic.TypeArgumentList,
+            ref state,
+            static (SyntaxNode node, ref NestedTupleState scan) =>
             {
-                _ = tupleSpans.Add(nested.Span);
-            }
-        }
+                scan.CancellationToken.ThrowIfCancellationRequested();
+                const int MinTupleArity = 2;
+                const int MaxTupleArity = 8;
+                if (node is GenericNameSyntax nested
+                    && nested.Identifier.ValueText == "ValueTuple"
+                    && nested.TypeArgumentList.Arguments.Count is >= MinTupleArity and <= MaxTupleArity
+                    && !scan.TupleSpans.Contains(nested.Span)
+                    && scan.Model.GetSymbolInfo(nested, scan.CancellationToken).Symbol is INamedTypeSymbol { IsTupleType: true })
+                {
+                    _ = scan.TupleSpans.Add(nested.Span);
+                }
+
+                return true;
+            });
     }
 
     /// <summary>Returns the node to replace — the qualified name when the generic is its right side.</summary>
@@ -138,7 +148,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     private static string BuildTupleText(GenericNameSyntax generic, HashSet<TextSpan>? tupleSpans)
     {
         var arguments = generic.TypeArgumentList.Arguments;
-        var builder = new StringBuilder("(");
+        var builder = new StringBuilder("(", generic.TypeArgumentList.Span.Length + arguments.Count);
         for (var i = 0; i < arguments.Count; i++)
         {
             if (i > 0)
@@ -190,13 +200,38 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The tuple diagnostic source spans.</returns>
     private static HashSet<TextSpan> CreateTupleSpanSet(ImmutableArray<Diagnostic> diagnostics)
     {
-        var tupleSpans = new HashSet<TextSpan>();
-        foreach (var diagnostic in diagnostics)
+        // The collection constructor pre-sizes the set on netstandard2.0, which has no capacity constructor.
+        var spans = new TextSpan[diagnostics.Length];
+        for (var i = 0; i < diagnostics.Length; i++)
         {
-            _ = tupleSpans.Add(diagnostic.Location.SourceSpan);
+            spans[i] = diagnostics[i].Location.SourceSpan;
         }
 
-        return tupleSpans;
+        return new(spans);
+    }
+
+    /// <summary>Carries semantic binding and the collected spans through nested tuple arguments.</summary>
+    private readonly record struct NestedTupleState
+    {
+        /// <summary>Initializes a new instance of the <see cref="NestedTupleState"/> struct.</summary>
+        /// <param name="model">The semantic model.</param>
+        /// <param name="tupleSpans">The set receiving nested tuple spans.</param>
+        /// <param name="cancellationToken">A token that cancels the operation.</param>
+        public NestedTupleState(SemanticModel model, HashSet<TextSpan> tupleSpans, CancellationToken cancellationToken)
+        {
+            Model = model;
+            TupleSpans = tupleSpans;
+            CancellationToken = cancellationToken;
+        }
+
+        /// <summary>Gets the semantic model used to confirm tuple types.</summary>
+        public SemanticModel Model { get; }
+
+        /// <summary>Gets the set receiving nested tuple spans.</summary>
+        public HashSet<TextSpan> TupleSpans { get; }
+
+        /// <summary>Gets the token checked for every visited node.</summary>
+        public CancellationToken CancellationToken { get; }
     }
 
     /// <summary>Fixes all explicit value-tuple diagnostics without asking <see cref="SyntaxEditor"/> to compose overlapping nodes.</summary>
@@ -221,7 +256,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
 
             var tupleSpans = CreateTupleSpanSet(diagnostics);
 
-            var replacements = new List<(SyntaxNode Target, TupleTypeSyntax Replacement)>();
+            var replacements = new List<(SyntaxNode Target, TupleTypeSyntax Replacement)>(diagnostics.Length);
             foreach (var diagnostic in diagnostics)
             {
                 if (TryCreateReplacement(root, diagnostic, tupleSpans, out var target, out var replacement))
@@ -285,7 +320,7 @@ public sealed class Sst1141UseTupleSyntaxCodeFixProvider : CodeFixProvider, IBat
                 return start != 0 ? start : right.Target.Span.Length.CompareTo(left.Target.Span.Length);
             });
 
-            var selected = new List<(SyntaxNode Target, TupleTypeSyntax Replacement)>();
+            var selected = new List<(SyntaxNode Target, TupleTypeSyntax Replacement)>(replacements.Count);
             foreach (var candidate in replacements)
             {
                 var contained = false;

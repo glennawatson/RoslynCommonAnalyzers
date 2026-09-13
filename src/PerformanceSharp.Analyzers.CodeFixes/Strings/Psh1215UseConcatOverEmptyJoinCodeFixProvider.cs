@@ -65,8 +65,9 @@ public sealed class Psh1215UseConcatOverEmptyJoinCodeFixProvider : CodeFixProvid
         remaining = remaining.Replace(first, first.WithLeadingTrivia(separator.GetLeadingTrivia()));
 
         return invocation
-            .WithExpression(access.WithName(RenameToConcat(access.Name)))
-            .WithArgumentList(invocation.ArgumentList.WithArguments(remaining))
+            .Update(
+                access.WithName(RenameToConcat(access.Name)),
+                invocation.ArgumentList.WithArguments(remaining))
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 

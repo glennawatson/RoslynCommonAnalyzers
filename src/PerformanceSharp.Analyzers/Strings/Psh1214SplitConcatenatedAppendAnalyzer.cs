@@ -11,15 +11,11 @@ namespace PerformanceSharp.Analyzers;
 /// <c>StringBuilder</c>, the argument is a built-in string concatenation, and the
 /// argument is not a compile-time constant — the compiler folds all-constant
 /// concatenations already. User-defined <c>+</c> operators are never reported.
-/// The <c>StringBuilder</c> type is probed once per compilation, so the rule costs
-/// nothing where it is missing.
+/// The <c>StringBuilder</c> type is probed only after an invocation passes the syntax checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the string builder type.</summary>
-    private const string StringBuilderMetadataName = "System.Text.StringBuilder";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.SplitConcatenatedAppend);
 
@@ -32,24 +28,21 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            if (start.Compilation.GetTypeByMetadataName(StringBuilderMetadataName) is not { } builderType)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, builderType), SyntaxKind.InvocationExpression);
+            var frameworkType = new FrameworkType(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, frameworkType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1214 for a concatenated Append or AppendLine argument.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="builderType">The resolved string builder type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol builderType)
+    /// <param name="frameworkType">The deferred type lookup shared by this compilation's callbacks.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, FrameworkType frameworkType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!TryGetConcatenationArgument(invocation, out var concatenation)
+            || frameworkType.Get() is not { } builderType
             || !IsStringBuilderAppendString(context.SemanticModel, invocation, builderType, context.CancellationToken)
             || !IsBuiltInStringConcatenation(context.SemanticModel, concatenation!, context.CancellationToken)
             || context.SemanticModel.GetConstantValue(concatenation!, context.CancellationToken).HasValue)
@@ -110,4 +103,23 @@ public sealed class Psh1214SplitConcatenatedAppendAnalyzer : DiagnosticAnalyzer
             MethodKind: MethodKind.BuiltinOperator,
             ContainingType.SpecialType: SpecialType.System_String,
         };
+
+    /// <summary>Resolves the string builder type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose references supply the type.</param>
+    private sealed class FrameworkType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the string builder type.</summary>
+        private const string StringBuilderMetadataName = "System.Text.StringBuilder";
+
+        /// <summary>The cached type, or an empty array when unavailable; null until first demand.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the string builder type, caching absent types as well as successful lookups.</summary>
+        /// <returns>The resolved type, or null when unavailable.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            var resolved = _resolved ??= compilation.GetTypeByMetadataName(StringBuilderMetadataName) is { } type ? [type] : [];
+            return resolved.Length == 0 ? null : resolved[0];
+        }
+    }
 }

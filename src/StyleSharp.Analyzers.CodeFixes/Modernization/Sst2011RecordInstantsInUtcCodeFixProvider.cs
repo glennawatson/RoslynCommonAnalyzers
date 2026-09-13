@@ -157,9 +157,13 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
                 // ambiguity being fixed. '.UtcDateTime' carries DateTimeKind.Utc.
                 return access.Expression is not MemberAccessExpressionSyntax clock
                     ? null
-                    : access
-                    .WithExpression(WithName(clock, ClockPropertyAccess.UtcNowName))
-                    .WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcDateTimePropertyName).WithTriviaFrom(access.Name));
+                    : access.Update(
+                        WithName(clock, ClockPropertyAccess.UtcNowName),
+                        access.OperatorToken,
+                        SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                            access.Name.GetLeadingTrivia(),
+                            ClockPropertyAccess.UtcDateTimePropertyName,
+                            access.Name.GetTrailingTrivia())));
                 }
 
             default:
@@ -197,5 +201,5 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
     /// <returns>The renamed member access.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static MemberAccessExpressionSyntax WithName(MemberAccessExpressionSyntax access, string name) =>
-        access.WithName(SyntaxFactory.IdentifierName(name).WithTriviaFrom(access.Name));
+        access.WithName(SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(access.Name.GetLeadingTrivia(), name, access.Name.GetTrailingTrivia())));
 }

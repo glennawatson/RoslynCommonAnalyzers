@@ -29,12 +29,10 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(AttributeMetadataName) is not { } attributeType)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var attributeType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(AttributeMetadataName));
 
             start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, attributeType), SymbolKind.NamedType);
         });
@@ -42,14 +40,17 @@ public sealed class Psh1401SealAttributeTypesAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1401 for an unsealed, non-abstract class deriving from <c>System.Attribute</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="attributeType">The resolved <c>System.Attribute</c> symbol.</param>
-    private static void AnalyzeNamedType(in SymbolAnalysisContext context, INamedTypeSymbol attributeType)
+    /// <param name="attributeType">The attribute base type, resolved only for an eligible class.</param>
+    private static void AnalyzeNamedType(in SymbolAnalysisContext context, Lazy<INamedTypeSymbol?> attributeType)
     {
         var symbol = (INamedTypeSymbol)context.Symbol;
         if (symbol.TypeKind != TypeKind.Class
             || symbol.IsSealed
             || symbol.IsAbstract
-            || !DerivesFromAttribute(symbol, attributeType))
+            || symbol.BaseType is null
+            || symbol.BaseType.SpecialType == SpecialType.System_Object
+            || attributeType.Value is not { } resolvedType
+            || !DerivesFromAttribute(symbol, resolvedType))
         {
             return;
         }

@@ -77,9 +77,15 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The rewritten using statement.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static UsingStatementSyntax RewriteUsingStatement(UsingStatementSyntax usingStatement) =>
-        usingStatement
-            .WithAwaitKeyword(CreateAwaitKeyword(usingStatement.UsingKeyword))
-            .WithUsingKeyword(usingStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
+        usingStatement.Update(
+                usingStatement.AttributeLists,
+                CreateAwaitKeyword(usingStatement.UsingKeyword),
+                usingStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+                usingStatement.OpenParenToken,
+                usingStatement.Declaration,
+                usingStatement.Expression,
+                usingStatement.CloseParenToken,
+                usingStatement.Statement)
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 
     /// <summary>Inserts the await keyword on a using declaration, keeping the statement's leading trivia on it.</summary>
@@ -87,9 +93,13 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The rewritten using declaration.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static LocalDeclarationStatementSyntax RewriteUsingDeclaration(LocalDeclarationStatementSyntax declarationStatement) =>
-        declarationStatement
-            .WithAwaitKeyword(CreateAwaitKeyword(declarationStatement.UsingKeyword))
-            .WithUsingKeyword(declarationStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()))
+        declarationStatement.Update(
+                declarationStatement.AttributeLists,
+                CreateAwaitKeyword(declarationStatement.UsingKeyword),
+                declarationStatement.UsingKeyword.WithLeadingTrivia(SyntaxFactory.TriviaList()),
+                declarationStatement.Modifiers,
+                declarationStatement.Declaration,
+                declarationStatement.SemicolonToken)
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
 
     /// <summary>Builds the await keyword carrying the original using keyword's leading trivia.</summary>
@@ -97,7 +107,5 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <returns>The await keyword to insert.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static SyntaxToken CreateAwaitKeyword(SyntaxToken usingKeyword) =>
-        SyntaxFactory.Token(SyntaxKind.AwaitKeyword)
-            .WithLeadingTrivia(usingKeyword.LeadingTrivia)
-            .WithTrailingTrivia(SyntaxFactory.Space);
+        SyntaxFactory.Token(usingKeyword.LeadingTrivia, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
 }

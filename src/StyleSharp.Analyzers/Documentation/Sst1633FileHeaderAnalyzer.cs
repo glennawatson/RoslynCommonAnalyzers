@@ -55,24 +55,29 @@ public sealed class Sst1633FileHeaderAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the header is present.</returns>
     private static bool HeaderMatches(SyntaxNode root, string rendered)
     {
-        var expected = rendered.Split('\n');
         var index = 0;
 
         foreach (var trivia in root.GetLeadingTrivia())
         {
             if (trivia.IsKind(SyntaxKind.SingleLineCommentTrivia))
             {
-                if (index >= expected.Length)
+                if (index > rendered.Length)
                 {
                     return true;
                 }
 
-                if (!string.Equals(trivia.ToString().TrimEnd(), expected[index], StringComparison.Ordinal))
+                var end = rendered.IndexOf('\n', index);
+                if (end < 0)
+                {
+                    end = rendered.Length;
+                }
+
+                if (!TrimTrailingWhitespace(trivia.ToString().AsSpan()).SequenceEqual(rendered.AsSpan(index, end - index)))
                 {
                     return false;
                 }
 
-                index++;
+                index = end + 1;
             }
             else if (!trivia.IsKind(SyntaxKind.WhitespaceTrivia)
                 && !trivia.IsKind(SyntaxKind.EndOfLineTrivia)
@@ -86,6 +91,20 @@ public sealed class Sst1633FileHeaderAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return index >= expected.Length;
+        return index > rendered.Length;
+    }
+
+    /// <summary>Excludes trailing whitespace from a comment without copying its text.</summary>
+    /// <param name="text">The comment text.</param>
+    /// <returns>The comment slice with trailing whitespace excluded.</returns>
+    private static ReadOnlySpan<char> TrimTrailingWhitespace(ReadOnlySpan<char> text)
+    {
+        var end = text.Length;
+        while (end > 0 && char.IsWhiteSpace(text[end - 1]))
+        {
+            end--;
+        }
+
+        return text.Slice(0, end);
     }
 }

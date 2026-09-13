@@ -12,8 +12,8 @@ namespace StyleSharp.Analyzers;
 /// character and never matches the intended request, leaving the action unreachable. The attribute is bound and
 /// only the argument that maps to the route-template parameter is inspected — its decoded value is checked, so a
 /// verbatim, escaped, or raw string literal are all caught. The whole rule is gated on the ASP.NET Core routing
-/// types resolving in the referenced framework, so a non-web project registers nothing and pays nothing. A code
-/// fix replaces each backslash with a forward slash.
+/// types resolving in the referenced framework, checked only after a backslash-bearing literal is found. A
+/// code fix replaces each backslash with a forward slash.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
@@ -41,13 +41,9 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var routeAttribute = start.Compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
-            if (routeAttribute is null)
-            {
-                return;
-            }
-
-            var httpMethodAttribute = start.Compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
+            var compilation = start.Compilation;
+            var routeAttribute = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(RouteAttributeMetadataName));
+            var httpMethodAttribute = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName));
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeAttribute(nodeContext, routeAttribute, httpMethodAttribute),
                 SyntaxKind.Attribute);
@@ -56,9 +52,9 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SST2700 for a routing attribute whose route-template argument contains a backslash.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="routeAttribute">The resolved <c>RouteAttribute</c> type.</param>
-    /// <param name="httpMethodAttribute">The resolved <c>HttpMethodAttribute</c> base type, or <see langword="null"/> when absent.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, INamedTypeSymbol routeAttribute, INamedTypeSymbol? httpMethodAttribute)
+    /// <param name="routeAttribute">The route type, resolved only for a backslash-bearing literal.</param>
+    /// <param name="httpMethodAttribute">The HTTP-method base type, resolved only for a bound attribute.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> routeAttribute, Lazy<INamedTypeSymbol?> httpMethodAttribute)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
@@ -67,8 +63,9 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-            || !IsRoutingAttribute(constructor.ContainingType, routeAttribute, httpMethodAttribute))
+        if (routeAttribute.Value is not { } resolvedRoute
+            || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
+            || !IsRoutingAttribute(constructor.ContainingType, resolvedRoute, httpMethodAttribute.Value))
         {
             return;
         }

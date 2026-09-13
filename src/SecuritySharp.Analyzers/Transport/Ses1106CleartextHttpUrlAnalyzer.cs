@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -22,9 +24,6 @@ namespace SecuritySharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the HTTP client whose request sinks are guarded.</summary>
-    private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
-
     /// <summary>The name of the <c>HttpClient.BaseAddress</c> property whose assignment is inspected.</summary>
     private const string BaseAddressPropertyName = "BaseAddress";
 
@@ -54,23 +53,18 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var httpClientType = start.Compilation.GetTypeByMetadataName(HttpClientMetadataName);
-            if (httpClientType is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, httpClientType), SyntaxKind.InvocationExpression);
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, httpClientType), SyntaxKind.SimpleAssignmentExpression);
+            var types = new HttpClientTypes(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
+            startContext.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1106 for an HttpClient request method given a cleartext URL literal.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    /// <param name="types">The compilation-scoped HTTP client type cache.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, HttpClientTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -85,7 +79,8 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         }
 
         // Semantic confirmation only after the cheap syntactic path has already matched a cleartext literal.
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (types.Get() is not { } httpClientType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, httpClientType))
         {
             return;
@@ -96,8 +91,8 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1106 for a <c>HttpClient.BaseAddress = new Uri("http://…")</c> assignment.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="httpClientType">The resolved <c>HttpClient</c> type.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol httpClientType)
+    /// <param name="types">The compilation-scoped HTTP client type cache.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, HttpClientTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -109,7 +104,8 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         }
 
         // Semantic confirmation: the assigned member is HttpClient.BaseAddress (the property is Uri-typed).
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: BaseAddressPropertyName } property
+        if (types.Get() is not { } httpClientType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol { Name: BaseAddressPropertyName } property
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, httpClientType))
         {
             return;
@@ -225,5 +221,21 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
 
         host = parsedHost;
         return true;
+    }
+
+    /// <summary>Resolves the HTTP client type on first demand within a compilation.</summary>
+    /// <param name="compilation">The compilation whose HTTP client type is resolved.</param>
+    private sealed class HttpClientTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the HTTP client whose request sinks are guarded.</summary>
+        private const string HttpClientMetadataName = "System.Net.Http.HttpClient";
+
+        /// <summary>The cached type, with a null element when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the HTTP client type on first demand and caches its absence too.</summary>
+        /// <returns>The HTTP client type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(HttpClientMetadataName)])[0];
     }
 }

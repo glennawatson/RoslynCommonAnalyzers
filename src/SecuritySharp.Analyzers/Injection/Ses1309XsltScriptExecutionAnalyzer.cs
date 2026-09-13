@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// function and script). Enabling script
 /// lets a script block in the stylesheet compile and run in the host process, so a stylesheet drawn from
 /// untrusted input is arbitrary code execution. The rule is gated on <c>XslCompiledTransform</c> and
-/// <c>XsltSettings</c> both resolving in the compilation, so a project without them registers nothing and pays
-/// nothing. The clean path binds nothing until a syntactic screen -- a member <c>.Load(...)</c> call carrying at
+/// <c>XsltSettings</c> both resolving in the compilation. These types are resolved once, on first demand.
+/// The clean path resolves and binds nothing until a syntactic screen -- a member <c>.Load(...)</c> call carrying at
 /// least two arguments -- passes. Only the local shape of the settings argument is inspected; no data-flow or
 /// interprocedural tracking is performed, so settings first stored in a variable and passed later are not
 /// followed and are outside this rule.
@@ -53,14 +53,11 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var transformType = start.Compilation.GetTypeByMetadataName(XslCompiledTransformMetadataName);
-            var settingsType = start.Compilation.GetTypeByMetadataName(XsltSettingsMetadataName);
-            if (transformType is null || settingsType is null)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var transformType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(XslCompiledTransformMetadataName));
+            var settingsType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(XsltSettingsMetadataName));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, transformType, settingsType), SyntaxKind.InvocationExpression);
         });
@@ -68,9 +65,9 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1309 for an <c>XslCompiledTransform.Load</c> call whose settings enable script.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="transformType">The gated <c>XslCompiledTransform</c> type resolved for the compilation.</param>
-    /// <param name="settingsType">The gated <c>XsltSettings</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol transformType, INamedTypeSymbol settingsType)
+    /// <param name="transformType">The <c>XslCompiledTransform</c> type resolved on first demand for the compilation.</param>
+    /// <param name="settingsType">The <c>XsltSettings</c> type resolved on first demand for the compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> transformType, Lazy<INamedTypeSymbol?> settingsType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -83,10 +80,12 @@ public sealed class Ses1309XsltScriptExecutionAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+        if (transformType.Value is not { } transform
+            || settingsType.Value is not { } settings
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
             || operation.TargetMethod.Name != LoadMethodName
-            || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, transformType)
-            || GetScriptEnablingSettings(operation, settingsType) is not { } enablingSyntax)
+            || !SymbolEqualityComparer.Default.Equals(operation.TargetMethod.ContainingType, transform)
+            || GetScriptEnablingSettings(operation, settings) is not { } enablingSyntax)
         {
             return;
         }

@@ -141,7 +141,9 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
     {
         var crefs = joined.Split('\n');
         var descriptions = (joinedDescriptions ?? string.Empty).Split('\n');
-        var builder = new StringBuilder();
+        var elementLength = indent.Length + "/// <exception cref=\"".Length + "\">".Length + "</exception>".Length + newLine.Length;
+        var capacity = joined.Length + (joinedDescriptions?.Length ?? 0) + (crefs.Length * elementLength);
+        var builder = new StringBuilder(capacity);
         for (var i = 0; i < crefs.Length; i++)
         {
             var crefText = crefs[i];

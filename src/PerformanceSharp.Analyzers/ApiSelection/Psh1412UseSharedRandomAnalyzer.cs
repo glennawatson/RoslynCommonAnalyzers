@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,9 +16,8 @@ namespace PerformanceSharp.Analyzers;
 /// <remarks>
 /// <para>
 /// <b>Gated on the API, never on a version number.</b> <c>Random.Shared</c> arrived in .NET 6, so the
-/// rule probes the compilation for the static <c>Shared</c> property and registers nothing at all when
-/// it is absent — on <c>netstandard2.0</c> or .NET Framework the rule is silent, and costs one type
-/// lookup per compilation to find that out.
+/// rule probes the compilation for the static <c>Shared</c> property only after a candidate passes
+/// the syntax checks. On <c>netstandard2.0</c> or .NET Framework the rule is silent.
 /// </para>
 /// <para>
 /// <b>A seed is a decision, and is never reported.</b> <c>new Random(42)</c> asks for a reproducible
@@ -41,9 +42,6 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member.</summary>
     internal const string SharedPropertyName = "Shared";
 
-    /// <summary>The metadata name of the allocated type.</summary>
-    private const string RandomMetadataName = "System.Random";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ApiSelectionRules.UseSharedRandom);
 
@@ -58,14 +56,9 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(RandomMetadataName) is not { } randomType
-                || !HasSharedProperty(randomType))
-            {
-                return;
-            }
-
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, randomType),
+                nodeContext => AnalyzeCreation(nodeContext, frameworkTypes),
                 SyntaxKind.ObjectCreationExpression,
                 SyntaxKind.ImplicitObjectCreationExpression);
         });
@@ -94,8 +87,8 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1412 for an allocation of a <c>Random</c> the shared instance could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="randomType">The compilation's <c>Random</c> type.</param>
-    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol randomType)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeCreation(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (!IsParameterlessCreationShape(creation) || !IsNamedRandomOrImplicit(creation))
@@ -104,7 +97,9 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
         }
 
         var model = context.SemanticModel;
-        if (model.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+        if (frameworkTypes.Get() is not [var randomType]
+            || !HasSharedProperty(randomType)
+            || model.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, randomType)
             || !CanWriteReplacement(creation, model, randomType, context.CancellationToken))
         {
@@ -184,5 +179,27 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the Random type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the allocated type.</summary>
+        private const string RandomMetadataName = "System.Random";
+
+        /// <summary>The cached type, empty when unavailable and null before resolution.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the Random type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the Random type from the compilation's references.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(RandomMetadataName) is { } type ? [type] : [];
     }
 }

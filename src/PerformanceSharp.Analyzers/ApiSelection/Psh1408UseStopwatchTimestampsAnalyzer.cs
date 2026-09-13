@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,9 +24,6 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
     /// <summary>The receiver type name the syntax gate requires.</summary>
     private const string StopwatchTypeName = "Stopwatch";
 
-    /// <summary>The metadata name of the stopwatch type.</summary>
-    private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
-
     /// <summary>The member whose presence gates the rule to .NET 7+.</summary>
     private const string GetElapsedTimeMethodName = "GetElapsedTime";
 
@@ -40,22 +39,17 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(StopwatchMetadataName) is not { } stopwatchType
-                || stopwatchType.GetMembers(GetElapsedTimeMethodName).IsEmpty)
-            {
-                return;
-            }
-
+            var stopwatchType = new StopwatchType(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeDeclaration(nodeContext, stopwatchType), SyntaxKind.LocalDeclarationStatement);
         });
     }
 
     /// <summary>Reports PSH1408 for a StartNew local used only to read elapsed time.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="stopwatchType">The stopwatch type.</param>
-    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, INamedTypeSymbol stopwatchType)
+    /// <param name="types">The compilation's deferred stopwatch type.</param>
+    private static void AnalyzeDeclaration(in SyntaxNodeAnalysisContext context, StopwatchType types)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (declaration.Declaration.Variables.Count != 1
@@ -74,8 +68,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(initializer, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, stopwatchType))
+        if (!IsSupportedStopwatchCall(context, initializer, types))
         {
             return;
         }
@@ -86,6 +79,17 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
             initializer.Span,
             elapsedMember));
     }
+
+    /// <summary>Checks that the candidate binds to Stopwatch on a framework with GetElapsedTime.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="initializer">The candidate StartNew call.</param>
+    /// <param name="types">The compilation's deferred stopwatch type.</param>
+    /// <returns>Whether the framework supports replacing this call with timestamps.</returns>
+    private static bool IsSupportedStopwatchCall(in SyntaxNodeAnalysisContext context, InvocationExpressionSyntax initializer, StopwatchType types) =>
+        types.Get() is { } stopwatchType
+        && !stopwatchType.GetMembers(GetElapsedTimeMethodName).IsEmpty
+        && context.SemanticModel.GetSymbolInfo(initializer, context.CancellationToken).Symbol is IMethodSymbol method
+        && SymbolEqualityComparer.Default.Equals(method.ContainingType, stopwatchType);
 
     /// <summary>Returns whether an invocation has the <c>Stopwatch.StartNew()</c> syntax shape.</summary>
     /// <param name="invocation">The invocation to inspect.</param>
@@ -134,6 +138,22 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         }
 
         return null;
+    }
+
+    /// <summary>Resolves the stopwatch type once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class StopwatchType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the stopwatch type.</summary>
+        private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
+
+        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the stopwatch type, caching an absent type too.</summary>
+        /// <returns>The stopwatch type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(StopwatchMetadataName)])[0];
     }
 
     /// <summary>Token-visitor state that whitelists elapsed reads and Stop calls on one local.</summary>

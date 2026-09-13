@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -11,8 +13,8 @@ namespace PerformanceSharp.Analyzers;
 /// pins the CPU and, on Interactive Server, floods the SignalR circuit.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on <c>Microsoft.AspNetCore.Components.ComponentBase</c>
-/// resolving; a project that does not reference Blazor registers no syntax action. On the clean path a
+/// The component base type is resolved once per compilation, after a candidate passes the syntax checks.
+/// A project that does not reference Blazor reports nothing. On the clean path a
 /// candidate invocation fails fast on syntax — its invoked member must be named <c>StateHasChanged</c>
 /// (bare or on <c>this</c>), its nearest enclosing method (reached without crossing a lambda or local
 /// function) must be named <c>OnAfterRender</c>/<c>OnAfterRenderAsync</c> with a single parameter, and the
@@ -24,9 +26,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the component base type whose presence proves a Blazor project.</summary>
-    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
-
     /// <summary>The name of the method that requests another render.</summary>
     private const string StateHasChangedMethodName = "StateHasChanged";
 
@@ -52,20 +51,15 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            if (componentBase is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, componentBase), SyntaxKind.InvocationExpression);
+            var types = new ComponentTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, types), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1602 when a component reaches <c>StateHasChanged()</c> unconditionally from a post-render callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="componentBase">The resolved component base type gating the rule.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol componentBase)
+    /// <param name="types">The component type resolved only after a syntax match.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ComponentTypes types)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsStateHasChangedName(invocation.Expression))
@@ -75,6 +69,11 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
 
         var callback = FindRenderCallback(invocation);
         if (callback is null || !IsUnconditional(invocation, callback))
+        {
+            return;
+        }
+
+        if (types.Get() is not { } componentBase)
         {
             return;
         }
@@ -172,5 +171,21 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the component type on demand and caches missing references too.</summary>
+    /// <param name="compilation">The compilation whose symbols are cached.</param>
+    private sealed class ComponentTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the component base type whose presence proves a Blazor project.</summary>
+        private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
+
+        /// <summary>The published result; null until a candidate needs the type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the component type, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The component base type, or null when Blazor is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ComponentBaseMetadataName)])[0];
     }
 }

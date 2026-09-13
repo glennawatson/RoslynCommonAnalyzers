@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -31,12 +33,7 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var targets = CollectionExpressionArgumentTargets.Resolve(start.Compilation);
-            if (targets is null)
-            {
-                return;
-            }
-
+            var targets = new ArgumentTargets(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, targets),
                 SyntaxKind.ObjectCreationExpression,
@@ -46,8 +43,8 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
 
     /// <summary>Reports one collection creation whose arguments are pure configuration.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="targets">The resolved collection and comparer symbols.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionExpressionArgumentTargets targets)
+    /// <param name="targets">The collection and comparer symbols resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ArgumentTargets targets)
     {
         if (!LanguageVersions.SupportsCSharp15(context.Node))
         {
@@ -60,12 +57,12 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
             return;
         }
 
-        if (!HasExplicitTarget(creation))
+        if (!HasExplicitTarget(creation) || targets.Get() is not { } resolved)
         {
             return;
         }
 
-        var created = ConfiguredCollection(context, creation, targets);
+        var created = ConfiguredCollection(context, creation, resolved);
         if (created is null)
         {
             return;
@@ -151,5 +148,18 @@ public sealed class Sst2106CollectionExpressionArgumentsAnalyzer : DiagnosticAna
             PropertyDeclarationSyntax => true,
             _ => false,
         };
+    }
+
+    /// <summary>Resolves collection argument targets once per compilation, only for a candidate creation.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class ArgumentTargets(Compilation compilation)
+    {
+        /// <summary>The cached targets, including an unavailable collection framework.</summary>
+        private CollectionExpressionArgumentTargets?[]? _resolved;
+
+        /// <summary>Gets the collection argument targets, resolving them on first use.</summary>
+        /// <returns>The resolved targets, or <see langword="null"/> when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public CollectionExpressionArgumentTargets? Get() => (_resolved ??= [CollectionExpressionArgumentTargets.Resolve(compilation)])[0];
     }
 }

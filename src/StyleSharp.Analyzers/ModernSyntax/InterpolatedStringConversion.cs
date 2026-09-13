@@ -118,7 +118,7 @@ internal static class InterpolatedStringConversion
             return null;
         }
 
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(top.Span.Length);
         var hasLiteral = false;
         var hasValue = false;
         for (var i = 0; i < operands.Count; i++)
@@ -194,7 +194,7 @@ internal static class InterpolatedStringConversion
         }
 
         var arguments = invocation.ArgumentList.Arguments;
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(invocation.ArgumentList.Span.Length);
         for (var i = 0; i < arguments.Count; i++)
         {
             var operand = arguments[i].Expression;
@@ -373,10 +373,17 @@ internal static class InterpolatedStringConversion
     private static bool TryFlattenStringConcatenation(SemanticModel model, BinaryExpressionSyntax top, CancellationToken cancellationToken, out List<ExpressionSyntax> operands)
     {
         operands = null!;
-        var rights = new List<ExpressionSyntax>();
+        const int InitialOperandCapacity = 4;
+        var rights = new List<ExpressionSyntax>(InitialOperandCapacity);
         var current = (ExpressionSyntax)top;
         while (current is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AddExpression } add)
         {
+            if (add.Left is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression or (int)SyntaxKind.CharacterLiteralExpression }
+                && add.Right is LiteralExpressionSyntax { RawKind: (int)SyntaxKind.NumericLiteralExpression or (int)SyntaxKind.CharacterLiteralExpression })
+            {
+                return false;
+            }
+
             if (model.GetSymbolInfo(add, cancellationToken).Symbol is not IMethodSymbol { ContainingType.SpecialType: SpecialType.System_String })
             {
                 return false;
@@ -395,6 +402,21 @@ internal static class InterpolatedStringConversion
         return true;
     }
 
+    /// <summary>Estimates the body capacity from the format text and the value expressions inserted into it.</summary>
+    /// <param name="format">The format string's runtime value.</param>
+    /// <param name="values">The value expressions inserted into the placeholders.</param>
+    /// <returns>The combined source lengths before escaping.</returns>
+    private static int FormatBodyCapacity(string format, List<ExpressionSyntax> values)
+    {
+        var capacity = format.Length;
+        for (var i = 0; i < values.Count; i++)
+        {
+            capacity += values[i].Span.Length;
+        }
+
+        return capacity;
+    }
+
     /// <summary>Builds the interpolated-string body for a composite format string, mapping each placeholder to its value.</summary>
     /// <param name="format">The format string's runtime value.</param>
     /// <param name="values">The value expressions the placeholders reference.</param>
@@ -403,7 +425,7 @@ internal static class InterpolatedStringConversion
     private static bool TryBuildFormatInnerText(string format, List<ExpressionSyntax> values, out string inner)
     {
         inner = null!;
-        var builder = new StringBuilder();
+        var builder = new StringBuilder(FormatBodyCapacity(format, values));
         var used = new bool[values.Count];
         var usedCount = 0;
         var index = 0;
@@ -498,6 +520,8 @@ internal static class InterpolatedStringConversion
     /// <returns><see langword="true"/> when a fresh, in-range index was read.</returns>
     private static bool TryReadReference(string format, ref int position, int valueCount, bool[] used, out int reference)
     {
+        const int DecimalRadix = 10;
+
         reference = 0;
         var start = position;
         while (position < format.Length && format[position] >= '0' && format[position] <= '9')
@@ -505,11 +529,18 @@ internal static class InterpolatedStringConversion
             position++;
         }
 
-        return position != start
-            && int.TryParse(format.Substring(start, position - start), out reference)
-            && reference >= 0
-            && reference < valueCount
-            && !used[reference];
+        for (var i = start; i < position; i++)
+        {
+            var digit = format[i] - '0';
+            if (reference > (int.MaxValue - digit) / DecimalRadix)
+            {
+                return false;
+            }
+
+            reference = (reference * DecimalRadix) + digit;
+        }
+
+        return position != start && reference < valueCount && !used[reference];
     }
 
     /// <summary>Reads a <c>,[-]digits</c> alignment clause into its canonical spelling.</summary>

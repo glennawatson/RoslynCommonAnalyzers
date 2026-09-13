@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -18,9 +20,6 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
 {
     /// <summary>The attribute simple names that mark an explicit inlining decision.</summary>
     internal const string MethodImplAttributeShortName = "MethodImpl";
-
-    /// <summary>The metadata name of the options enum the attribute takes.</summary>
-    private const string MethodImplOptionsMetadataName = "System.Runtime.CompilerServices.MethodImplOptions";
 
     /// <summary>The flag member the rule suggests.</summary>
     private const string AggressiveInliningMemberName = "AggressiveInlining";
@@ -39,13 +38,8 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(MethodImplOptionsMetadataName) is not { } options
-                || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeMethod, SyntaxKind.MethodDeclaration, SyntaxKind.OperatorDeclaration);
+            var frameworkTypes = new FrameworkTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, frameworkTypes), SyntaxKind.MethodDeclaration, SyntaxKind.OperatorDeclaration);
         });
     }
 
@@ -161,10 +155,17 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1410 for an eligible forwarder.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeMethod(SyntaxNodeAnalysisContext context)
+    /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkTypes frameworkTypes)
     {
         var declaration = (BaseMethodDeclarationSyntax)context.Node;
         if (!IsEligibleForwarder(declaration))
+        {
+            return;
+        }
+
+        if (frameworkTypes.Get() is not [var options]
+            || options.GetMembers(AggressiveInliningMemberName).IsEmpty)
         {
             return;
         }
@@ -176,5 +177,27 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.InlineTrivialForwarders,
             identifier.GetLocation(),
             identifier.ValueText));
+    }
+
+    /// <summary>Resolves the inlining options type on first demand within one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class FrameworkTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the options enum the attribute takes.</summary>
+        private const string MethodImplOptionsMetadataName = "System.Runtime.CompilerServices.MethodImplOptions";
+
+        /// <summary>The cached type, empty when unavailable and null before resolution.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the inlining options type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+
+        /// <summary>Resolves the inlining options type from the compilation's references.</summary>
+        /// <param name="compilation">The compilation whose references are searched.</param>
+        /// <returns>The resolved type, or an empty array when unavailable.</returns>
+        private static INamedTypeSymbol[] Resolve(Compilation compilation) =>
+            compilation.GetTypeByMetadataName(MethodImplOptionsMetadataName) is { } type ? [type] : [];
     }
 }

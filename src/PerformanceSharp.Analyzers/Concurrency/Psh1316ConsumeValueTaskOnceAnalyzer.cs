@@ -35,11 +35,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (ValueTaskTypes.Create(start.Compilation) is not { } valueTaskTypes)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var valueTaskTypes = new Lazy<ValueTaskTypes?>(() => ValueTaskTypes.Create(compilation));
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeLoop(nodeContext, valueTaskTypes),
                 SyntaxKind.ForStatement,
@@ -53,8 +50,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a ValueTask local awaited inside a loop it was declared outside of.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeLoop(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
+    private static void AnalyzeLoop(in SyntaxNodeAnalysisContext context, Lazy<ValueTaskTypes?> valueTaskTypes)
     {
         if (GetLoopBody(context.Node) is not { } body)
         {
@@ -74,8 +71,9 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
         if (!IsConsume(identifier)
             || NearestEnclosingLoop(identifier) != state.Loop
             || IsDeclaredOrAssignedInside(identifier, state.Loop)
+            || state.ValueTaskTypes.Value is not { } valueTaskTypes
             || state.Context.SemanticModel.GetSymbolInfo(identifier, state.Context.CancellationToken).Symbol is not ILocalSymbol local
-            || !state.ValueTaskTypes.IsValueTask(local.Type)
+            || !valueTaskTypes.IsValueTask(local.Type)
             || IsDeclaredInside(local, state.Loop)
             || IsPreserved(local, identifier.Identifier.ValueText, state.Context.CancellationToken))
         {
@@ -88,8 +86,8 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports a ValueTask local copied into a second local where both are consumed.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
-    private static void AnalyzeCopy(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes)
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
+    private static void AnalyzeCopy(in SyntaxNodeAnalysisContext context, Lazy<ValueTaskTypes?> valueTaskTypes)
     {
         var declaration = (LocalDeclarationStatementSyntax)context.Node;
         if (!declaration.UsingKeyword.IsKind(SyntaxKind.None))
@@ -106,28 +104,36 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one <c>var copy = source;</c> alias of a consumed ValueTask.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="valueTaskTypes">The ValueTask types resolved for this compilation.</param>
+    /// <param name="valueTaskTypes">The ValueTask types resolved on first demand.</param>
     /// <param name="variable">The copy declarator.</param>
-    private static void AnalyzeCopyVariable(in SyntaxNodeAnalysisContext context, in ValueTaskTypes valueTaskTypes, VariableDeclaratorSyntax variable)
+    private static void AnalyzeCopyVariable(in SyntaxNodeAnalysisContext context, Lazy<ValueTaskTypes?> valueTaskTypes, VariableDeclaratorSyntax variable)
     {
         if (variable.Initializer?.Value is not IdentifierNameSyntax source
+            || !IsConsumedCopy(variable, source)
+            || valueTaskTypes.Value is not { } resolvedValueTaskTypes
             || context.SemanticModel.GetSymbolInfo(source, context.CancellationToken).Symbol is not ILocalSymbol sourceLocal
-            || !valueTaskTypes.IsValueTask(sourceLocal.Type)
-            || context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol copyLocal
-            || GetEnclosingBody(variable) is not { } body)
+            || !resolvedValueTaskTypes.IsValueTask(sourceLocal.Type)
+            || context.SemanticModel.GetDeclaredSymbol(variable, context.CancellationToken) is not ILocalSymbol copyLocal)
         {
             return;
         }
 
-        if (IsPreserved(sourceLocal, sourceLocal.Name, context.CancellationToken)
-            || !IsConsumedIn(body, sourceLocal.Name)
-            || !IsConsumedIn(body, copyLocal.Name))
+        if (IsPreserved(sourceLocal, sourceLocal.Name, context.CancellationToken))
         {
             return;
         }
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ConcurrencyRules.ConsumeValueTaskOnce, variable.Identifier.GetLocation(), copyLocal.Name));
     }
+
+    /// <summary>Checks whether both names in a local copy are consumed in the enclosing body.</summary>
+    /// <param name="variable">The copy declarator.</param>
+    /// <param name="source">The copied identifier.</param>
+    /// <returns>Whether both names have a syntactic consume in the body.</returns>
+    private static bool IsConsumedCopy(VariableDeclaratorSyntax variable, IdentifierNameSyntax source) =>
+        GetEnclosingBody(variable) is { } body
+            && IsConsumedIn(body, source.Identifier.ValueText)
+            && IsConsumedIn(body, variable.Identifier.ValueText);
 
     /// <summary>Returns whether an identifier is consumed as a ValueTask.</summary>
     /// <param name="identifier">The identifier.</param>
@@ -330,9 +336,9 @@ public sealed class Psh1316ConsumeValueTaskOnceAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The state threaded through a loop-body consume scan.</summary>
     /// <param name="Context">The syntax node analysis context.</param>
-    /// <param name="ValueTaskTypes">The ValueTask types resolved for this compilation.</param>
+    /// <param name="ValueTaskTypes">The ValueTask types resolved on first demand.</param>
     /// <param name="Loop">The loop being analyzed.</param>
-    private readonly record struct LoopScan(SyntaxNodeAnalysisContext Context, ValueTaskTypes ValueTaskTypes, SyntaxNode Loop);
+    private readonly record struct LoopScan(SyntaxNodeAnalysisContext Context, Lazy<ValueTaskTypes?> ValueTaskTypes, SyntaxNode Loop);
 
     /// <summary>The state threaded through a name-consume scan.</summary>
     /// <param name="Name">The local name to look for.</param>

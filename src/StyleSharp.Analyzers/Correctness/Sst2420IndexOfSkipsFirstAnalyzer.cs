@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -18,9 +20,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the generic list interface.</summary>
-    private const string ListInterfaceMetadataName = "System.Collections.Generic.IList`1";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.IndexOfSkipsFirst);
 
@@ -32,17 +31,17 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var listInterface = start.Compilation.GetTypeByMetadataName(ListInterfaceMetadataName);
-            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, listInterface), SyntaxKind.GreaterThanExpression, SyntaxKind.LessThanExpression);
+            var listTypes = new ListTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, listTypes), SyntaxKind.GreaterThanExpression, SyntaxKind.LessThanExpression);
         });
     }
 
     /// <summary>Reports one index-of comparison that skips the first position.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? listInterface)
+    /// <param name="listTypes">The list interface resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ListTypes listTypes)
     {
         var comparison = (BinaryExpressionSyntax)context.Node;
         if (GetIndexOfCall(comparison) is not { } invocation)
@@ -52,7 +51,7 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
 
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.ReturnType.SpecialType != SpecialType.System_Int32
-            || !IsIndexSearch(method, listInterface))
+            || !IsIndexSearch(method, listTypes))
         {
             return;
         }
@@ -90,9 +89,9 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Returns whether a method is a recognised index search on a container.</summary>
     /// <param name="method">The resolved method.</param>
-    /// <param name="listInterface">The resolved <c>IList&lt;T&gt;</c> definition, if any.</param>
+    /// <param name="listTypes">The list interface resolved on first demand.</param>
     /// <returns><see langword="true"/> for a string, array, span, or list search.</returns>
-    private static bool IsIndexSearch(IMethodSymbol method, INamedTypeSymbol? listInterface)
+    private static bool IsIndexSearch(IMethodSymbol method, ListTypes listTypes)
     {
         var container = method.ContainingType;
         if (container is null)
@@ -106,7 +105,7 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        if (listInterface is null)
+        if (listTypes.Get() is not { } listInterface)
         {
             return false;
         }
@@ -126,5 +125,21 @@ public sealed class Sst2420IndexOfSkipsFirstAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the list interface once per compilation, after an index search needs it.</summary>
+    /// <param name="compilation">The compilation being analyzed.</param>
+    private sealed class ListTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the generic list interface.</summary>
+        private const string ListInterfaceMetadataName = "System.Collections.Generic.IList`1";
+
+        /// <summary>The cached lookup, including a missing interface.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the list interface, resolving it on first use.</summary>
+        /// <returns>The interface definition, or <see langword="null"/> when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(ListInterfaceMetadataName)])[0];
     }
 }

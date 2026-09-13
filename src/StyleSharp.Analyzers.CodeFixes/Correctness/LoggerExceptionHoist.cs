@@ -85,8 +85,13 @@ internal static class LoggerExceptionHoist
         }
 
         var newText = RemoveWithPadding(text, placeholders[placeholderIndex]);
-        var newLiteral = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(newText))
-            .WithTriviaFrom(literal);
+        var newLiteral = SyntaxFactory.LiteralExpression(
+            SyntaxKind.StringLiteralExpression,
+            SyntaxFactory.Literal(
+                literal.GetLeadingTrivia(),
+                SymbolDisplay.FormatLiteral(newText, quote: true),
+                newText,
+                literal.GetTrailingTrivia()));
         return templateArgument.WithExpression(newLiteral);
     }
 

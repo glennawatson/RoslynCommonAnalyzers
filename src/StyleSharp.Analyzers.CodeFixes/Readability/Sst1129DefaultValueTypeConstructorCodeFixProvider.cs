@@ -50,7 +50,11 @@ public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixP
             return;
         }
 
-        editor.ReplaceNode(creation, SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation));
+        editor.ReplaceNode(creation, SyntaxFactory.DefaultExpression(
+            SyntaxFactory.Token(creation.GetLeadingTrivia(), SyntaxKind.DefaultKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            creation.Type.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, creation.GetTrailingTrivia())));
     }
 
     /// <summary>Replaces the construction with a <c>default(T)</c> expression.</summary>
@@ -60,7 +64,11 @@ public sealed class Sst1129DefaultValueTypeConstructorCodeFixProvider : CodeFixP
     /// <returns>The updated document.</returns>
     internal static Document Replace(Document document, SyntaxNode root, ObjectCreationExpressionSyntax creation)
     {
-        var replacement = SyntaxFactory.DefaultExpression(creation.Type.WithoutTrivia()).WithTriviaFrom(creation);
+        var replacement = SyntaxFactory.DefaultExpression(
+            SyntaxFactory.Token(creation.GetLeadingTrivia(), SyntaxKind.DefaultKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            creation.Type.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, creation.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(creation, replacement));
     }
 }

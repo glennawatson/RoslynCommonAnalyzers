@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -22,20 +24,14 @@ namespace StyleSharp.Analyzers;
 /// never flagged.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>ComponentBase</c> resolving and on at least one timer
-/// type being present, so a non-component or non-timer project registers nothing. Explicit
-/// <c>new Timer(…)</c> creations are filtered by the written type name before any binding.
+/// The component model and each timer type are resolved on first demand and cached for the compilation.
+/// Explicit <c>new Timer(…)</c> creations are filtered by the written type name before any binding, and
+/// subscriptions must name <c>Elapsed</c>. Both paths require a supported callback expression.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the thread-pool timer whose callback runs off the dispatcher.</summary>
-    private const string ThreadingTimerMetadataName = "System.Threading.Timer";
-
-    /// <summary>The metadata name of the component-model timer whose <c>Elapsed</c> handler runs off the dispatcher.</summary>
-    private const string TimersTimerMetadataName = "System.Timers.Timer";
-
     /// <summary>The simple name shared by both timer types.</summary>
     private const string TimerTypeName = "Timer";
 
@@ -62,46 +58,33 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (BlazorComponentModel.Create(start.Compilation) is not { } model)
-            {
-                return;
-            }
-
-            var compilation = start.Compilation;
-            var threadingTimer = compilation.GetTypeByMetadataName(ThreadingTimerMetadataName);
-            var timersTimer = compilation.GetTypeByMetadataName(TimersTimerMetadataName);
-
-            if (threadingTimer is not null)
-            {
-                start.RegisterSyntaxNodeAction(
-                    nodeContext => AnalyzeThreadingTimerCreation(nodeContext, model, threadingTimer),
-                    SyntaxKind.ObjectCreationExpression,
-                    SyntaxKind.ImplicitObjectCreationExpression);
-            }
-
-            if (timersTimer is not null)
-            {
-                start.RegisterSyntaxNodeAction(
-                    nodeContext => AnalyzeTimersElapsedSubscription(nodeContext, model, timersTimer),
-                    SyntaxKind.AddAssignmentExpression);
-            }
+            var types = new TimerTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeThreadingTimerCreation(nodeContext, types),
+                SyntaxKind.ObjectCreationExpression,
+                SyntaxKind.ImplicitObjectCreationExpression);
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeTimersElapsedSubscription(nodeContext, types),
+                SyntaxKind.AddAssignmentExpression);
         });
     }
 
     /// <summary>Analyzes a <c>new System.Threading.Timer(callback, …)</c> construction.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    /// <param name="threadingTimer">The resolved <c>System.Threading.Timer</c> type.</param>
-    private static void AnalyzeThreadingTimerCreation(in SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol threadingTimer)
+    /// <param name="types">The deferred component-model and timer-type lookups for this compilation.</param>
+    private static void AnalyzeThreadingTimerCreation(in SyntaxNodeAnalysisContext context, TimerTypes types)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
         if (creation.ArgumentList is not { Arguments.Count: > 0 } argumentList
-            || (creation is ObjectCreationExpressionSyntax explicitCreation && !IsTimerNamed(explicitCreation.Type)))
+            || (creation is ObjectCreationExpressionSyntax explicitCreation && !IsTimerNamed(explicitCreation.Type))
+            || !IsSupportedCallback(argumentList.Arguments[0].Expression))
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
+        if (types.GetModel() is not { } model
+            || types.GetThreadingTimer() is not { } threadingTimer
+            || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol constructor
             || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, threadingTimer))
         {
             return;
@@ -112,12 +95,18 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes a <c>timer.Elapsed += handler</c> subscription on a <c>System.Timers.Timer</c>.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="model">The component model resolved for this compilation.</param>
-    /// <param name="timersTimer">The resolved <c>System.Timers.Timer</c> type.</param>
-    private static void AnalyzeTimersElapsedSubscription(in SyntaxNodeAnalysisContext context, BlazorComponentModel model, INamedTypeSymbol timersTimer)
+    /// <param name="types">The deferred component-model and timer-type lookups for this compilation.</param>
+    private static void AnalyzeTimersElapsedSubscription(in SyntaxNodeAnalysisContext context, TimerTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
         if (assignment.Left is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: ElapsedEventName } memberAccess
+            || !IsSupportedCallback(assignment.Right))
+        {
+            return;
+        }
+
+        if (types.GetModel() is not { } model
+            || types.GetTimersTimer() is not { } timersTimer
             || context.SemanticModel.GetSymbolInfo(memberAccess, context.CancellationToken).Symbol is not IEventSymbol eventSymbol
             || !SymbolEqualityComparer.Default.Equals(eventSymbol.ContainingType, timersTimer))
         {
@@ -126,6 +115,13 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
 
         AnalyzeCallback(context, model, assignment.Right);
     }
+
+    /// <summary>Returns whether a callback has a shape whose body can be inspected.</summary>
+    /// <param name="callback">The callback expression.</param>
+    /// <returns>Whether the callback is an inline delegate or a supported method-group expression.</returns>
+    private static bool IsSupportedCallback(ExpressionSyntax callback) =>
+        callback is SimpleLambdaExpressionSyntax or ParenthesizedLambdaExpressionSyntax or AnonymousMethodExpressionSyntax
+            or IdentifierNameSyntax or MemberAccessExpressionSyntax;
 
     /// <summary>Scans a timer callback body for a render request that is not marshalled onto the dispatcher.</summary>
     /// <param name="context">The syntax node analysis context.</param>
@@ -224,4 +220,39 @@ public sealed class Sst2710TimerStateHasChangedAnalyzer : DiagnosticAnalyzer
     /// <param name="Components">The component model resolved for this compilation.</param>
     /// <param name="Root">The callback body bounding the wrap-detection walk.</param>
     private readonly record struct RenderRequestScan(SyntaxNodeAnalysisContext Context, BlazorComponentModel Components, SyntaxNode Root);
+
+    /// <summary>Resolves the component model and timer types only when their syntax candidates need them.</summary>
+    /// <param name="compilation">The compilation whose component model and timer types are cached.</param>
+    private sealed class TimerTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the thread-pool timer whose callback runs off the dispatcher.</summary>
+        private const string ThreadingTimerMetadataName = "System.Threading.Timer";
+
+        /// <summary>The metadata name of the component-model timer whose <c>Elapsed</c> handler runs off the dispatcher.</summary>
+        private const string TimersTimerMetadataName = "System.Timers.Timer";
+
+        /// <summary>The published component-model lookup result, including a missing type.</summary>
+        private BlazorComponentModel?[]? _models;
+
+        /// <summary>The published thread-pool timer lookup result, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _threadingTimers;
+
+        /// <summary>The published event-based timer lookup result, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _timersTimers;
+
+        /// <summary>Gets the cached component model, resolving it on first use.</summary>
+        /// <returns>The model, or <see langword="null"/> when the component type is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public BlazorComponentModel? GetModel() => (_models ??= [BlazorComponentModel.Create(compilation)])[0];
+
+        /// <summary>Gets the cached thread-pool timer type, resolving it on first use.</summary>
+        /// <returns>The timer type, or <see langword="null"/> when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetThreadingTimer() => (_threadingTimers ??= [compilation.GetTypeByMetadataName(ThreadingTimerMetadataName)])[0];
+
+        /// <summary>Gets the cached event-based timer type, resolving it on first use.</summary>
+        /// <returns>The timer type, or <see langword="null"/> when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetTimersTimer() => (_timersTimers ??= [compilation.GetTypeByMetadataName(TimersTimerMetadataName)])[0];
+    }
 }

@@ -79,9 +79,9 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
             .WithLeadingTrivia(BuildLeadingTrivia(elseClause, block, innerIf))
             .WithTrailingTrivia(BuildTrailingTrivia(block, innerIf))
             .WithAdditionalAnnotations(Formatter.Annotation);
-        return elseClause
-            .WithElseKeyword(elseClause.ElseKeyword.WithTrailingTrivia(SyntaxFactory.Space))
-            .WithStatement(hoisted);
+        return elseClause.Update(
+            elseClause.ElseKeyword.WithTrailingTrivia(SyntaxFactory.Space),
+            hoisted);
     }
 
     /// <summary>Merges comment trivia that preceded the inner if onto the hoisted if's leading trivia.</summary>
@@ -91,7 +91,11 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <returns>The leading trivia for the hoisted if.</returns>
     private static SyntaxTriviaList BuildLeadingTrivia(ElseClauseSyntax elseClause, BlockSyntax block, IfStatementSyntax innerIf)
     {
-        var pieces = new List<SyntaxTrivia>();
+        var capacity = elseClause.ElseKeyword.TrailingTrivia.Count
+            + block.OpenBraceToken.LeadingTrivia.Count
+            + block.OpenBraceToken.TrailingTrivia.Count
+            + innerIf.GetLeadingTrivia().Count;
+        var pieces = new List<SyntaxTrivia>(capacity);
         AppendComments(pieces, elseClause.ElseKeyword.TrailingTrivia);
         AppendComments(pieces, block.OpenBraceToken.LeadingTrivia);
         AppendComments(pieces, block.OpenBraceToken.TrailingTrivia);
@@ -105,7 +109,10 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     /// <returns>The trailing trivia for the hoisted if.</returns>
     private static SyntaxTriviaList BuildTrailingTrivia(BlockSyntax block, IfStatementSyntax innerIf)
     {
-        var pieces = new List<SyntaxTrivia>();
+        var capacity = innerIf.GetTrailingTrivia().Count
+            + block.CloseBraceToken.LeadingTrivia.Count
+            + block.CloseBraceToken.TrailingTrivia.Count;
+        var pieces = new List<SyntaxTrivia>(capacity);
         AppendAll(pieces, innerIf.GetTrailingTrivia());
         AppendComments(pieces, block.CloseBraceToken.LeadingTrivia);
         AppendAll(pieces, block.CloseBraceToken.TrailingTrivia);

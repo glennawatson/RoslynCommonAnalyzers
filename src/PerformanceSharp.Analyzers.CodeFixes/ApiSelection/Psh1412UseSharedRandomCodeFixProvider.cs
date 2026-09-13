@@ -72,8 +72,11 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
 
         return SyntaxFactory.MemberAccessExpression(
             SyntaxKind.SimpleMemberAccessExpression,
-            type,
-            SyntaxFactory.IdentifierName(Psh1412UseSharedRandomAnalyzer.SharedPropertyName))
-            .WithTriviaFrom(creation);
+            type.WithLeadingTrivia(creation.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxKind.DotToken),
+            SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                Psh1412UseSharedRandomAnalyzer.SharedPropertyName,
+                creation.GetTrailingTrivia())));
     }
 }

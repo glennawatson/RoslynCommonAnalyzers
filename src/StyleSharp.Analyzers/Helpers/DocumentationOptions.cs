@@ -86,13 +86,21 @@ internal static class DocumentationOptions
     /// <summary>Reads the interface documentation mode, accepting <c>all</c>/<c>exposed</c>/<c>none</c> (or <c>true</c>/<c>false</c>).</summary>
     /// <param name="options">The analyzer config options.</param>
     /// <returns>The configured mode, or <see cref="DocumentationInterfaceMode.All"/> by default.</returns>
-    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options) => !options.TryGetValue(DocumentInterfacesKey, out var text)
-        ? DocumentationInterfaceMode.All
-        : text.ToLowerInvariant() switch
+    private static DocumentationInterfaceMode ReadInterfaceMode(AnalyzerConfigOptions options)
+    {
+        if (!options.TryGetValue(DocumentInterfacesKey, out var text))
         {
-            "all" or "true" => DocumentationInterfaceMode.All,
-            "exposed" => DocumentationInterfaceMode.Exposed,
-            "none" or "false" => DocumentationInterfaceMode.None,
-            _ => DocumentationInterfaceMode.All,
-        };
+            return DocumentationInterfaceMode.All;
+        }
+
+        if (string.Equals(text, "exposed", StringComparison.OrdinalIgnoreCase))
+        {
+            return DocumentationInterfaceMode.Exposed;
+        }
+
+        return string.Equals(text, "none", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(text, "false", StringComparison.OrdinalIgnoreCase)
+            ? DocumentationInterfaceMode.None
+            : DocumentationInterfaceMode.All;
+    }
 }

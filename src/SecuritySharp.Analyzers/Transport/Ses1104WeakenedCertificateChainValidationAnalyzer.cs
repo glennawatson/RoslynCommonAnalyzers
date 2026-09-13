@@ -12,8 +12,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>VerificationFlags</c> assigned an <c>X509VerificationFlags</c> value that names
 /// <c>AllowUnknownCertificateAuthority</c> or <c>AllFlags</c> (untrusted-authority errors ignored),
 /// including inside an OR-combination where any operand names one of those. The rule resolves
-/// <c>X509ChainPolicy</c> once per compilation and registers nothing when it is absent, so a target
-/// framework without the type pays nothing and never receives a diagnostic it cannot act on. Detection
+/// <c>X509ChainPolicy</c> once per compilation after an assignment passes the syntactic filter and reports
+/// nothing when it is absent, so a target framework without the type receives no diagnostic. Detection
 /// is local to the assignment: only the value written at the site is inspected, never a value that flows
 /// in from elsewhere.
 /// </summary>
@@ -50,13 +50,10 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var chainPolicyType = start.Compilation.GetTypeByMetadataName(ChainPolicyMetadataName);
-            if (chainPolicyType is null)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var chainPolicyType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(ChainPolicyMetadataName));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, chainPolicyType), SyntaxKind.SimpleAssignmentExpression);
         });
@@ -64,8 +61,8 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
 
     /// <summary>Reports SES1104 when an assignment weakens an <c>X509ChainPolicy</c> chain check.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="chainPolicyType">The resolved <c>X509ChainPolicy</c> type gating the rule.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol chainPolicyType)
+    /// <param name="chainPolicyType">The lazily resolved <c>X509ChainPolicy</c> type gating the rule.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> chainPolicyType)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -77,8 +74,9 @@ public sealed class Ses1104WeakenedCertificateChainValidationAnalyzer : Diagnost
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
-            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, chainPolicyType))
+        if (chainPolicyType.Value is not { } resolvedChainPolicyType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
+            || !SymbolEqualityComparer.Default.Equals(property.ContainingType, resolvedChainPolicyType))
         {
             return;
         }

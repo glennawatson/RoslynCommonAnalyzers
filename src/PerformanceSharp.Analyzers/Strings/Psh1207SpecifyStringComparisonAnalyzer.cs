@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -14,8 +16,8 @@ namespace PerformanceSharp.Analyzers;
 /// far cheaper <c>StringComparison.Ordinal</c>. Only the all-string shapes are matched:
 /// the char overloads, <c>Contains(string)</c>, and <c>Equals</c>/<c>==</c> are already
 /// ordinal, and any call that already passes a <c>StringComparison</c> has a different
-/// argument count and is left untouched. The rule is gated once per compilation on
-/// <c>System.StringComparison</c> existing, so it costs nothing on targets without it.
+/// argument count and is left untouched. The rule resolves <c>System.StringComparison</c>
+/// on first demand per compilation, after a call passes the syntax filter.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
@@ -40,18 +42,16 @@ public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName("System.StringComparison") is null)
-            {
-                return;
-            }
+            var comparisonTypes = new ComparisonTypes(start.Compilation);
 
-            start.RegisterSyntaxNodeAction(AnalyzeInvocation, SyntaxKind.InvocationExpression);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, comparisonTypes), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports PSH1207 for a culture-sensitive all-string search or comparison call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeInvocation(SyntaxNodeAnalysisContext context)
+    /// <param name="comparisonTypes">The lazily resolved comparison type for this compilation.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, ComparisonTypes comparisonTypes)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.Expression is not MemberAccessExpressionSyntax access
@@ -59,6 +59,7 @@ public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
             || access.Name is not IdentifierNameSyntax name
             || !TryClassify(name.Identifier.ValueText, out var argumentCount, out var isStatic)
             || invocation.ArgumentList.Arguments.Count != argumentCount
+            || comparisonTypes.Get() is null
             || !BindsToCultureSensitiveStringMethod(context.SemanticModel, invocation, argumentCount, isStatic, context.CancellationToken))
         {
             return;
@@ -135,5 +136,18 @@ public sealed class Psh1207SpecifyStringComparisonAnalyzer : DiagnosticAnalyzer
         }
 
         return true;
+    }
+
+    /// <summary>Resolves comparison support only after a call passes the syntax filter.</summary>
+    /// <param name="compilation">The compilation that owns the cached symbol.</param>
+    private sealed class ComparisonTypes(Compilation compilation)
+    {
+        /// <summary>The cached lookup, including a missing type.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the comparison type on first demand.</summary>
+        /// <returns>The framework comparison type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.StringComparison")])[0];
     }
 }

@@ -63,11 +63,9 @@ public sealed class Psh1122UseSortedSetExtremePropertyCodeFixProvider : CodeFixP
     private static MemberAccessExpressionSyntax Rewrite(InvocationExpressionSyntax invocation)
     {
         var memberAccess = (MemberAccessExpressionSyntax)invocation.Expression;
-        var propertyName = SyntaxFactory.IdentifierName(memberAccess.Name.Identifier).WithTriviaFrom(memberAccess.Name);
+        var propertyName = SyntaxFactory.IdentifierName(memberAccess.Name.Identifier.WithTrailingTrivia(invocation.GetTrailingTrivia()));
 
-        return memberAccess
-            .WithName(propertyName)
-            .WithTriviaFrom(invocation)
+        return memberAccess.Update(memberAccess.Expression, memberAccess.OperatorToken, propertyName)
             .WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);
     }
 }

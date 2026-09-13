@@ -115,9 +115,14 @@ public sealed class DeclarationPatternCodeFixProvider : CodeFixProvider, IBatchF
             return false;
         }
 
-        replacement = ifStatement
-            .WithCondition(condition)
-            .WithStatement(replacementBlock);
+        replacement = ifStatement.Update(
+            ifStatement.AttributeLists,
+            ifStatement.IfKeyword,
+            ifStatement.OpenParenToken,
+            condition,
+            ifStatement.CloseParenToken,
+            replacementBlock,
+            ifStatement.Else);
         return true;
     }
 

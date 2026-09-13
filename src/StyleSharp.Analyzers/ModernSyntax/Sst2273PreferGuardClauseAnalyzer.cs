@@ -115,7 +115,8 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="names">The set that receives the declared names.</param>
     private static void CollectDeclaredNames(SyntaxNode node, HashSet<string> names)
     {
-        var pending = new Stack<SyntaxNode>();
+        const int InitialTraversalCapacity = 16;
+        var pending = new Stack<SyntaxNode>(InitialTraversalCapacity);
         pending.Push(node);
         while (pending.Count > 0)
         {
@@ -139,7 +140,8 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a declaration outside the excluded branch uses one of the names.</returns>
     private static bool DeclaresAnyNameOutside(SyntaxNode scope, SyntaxNode excluded, HashSet<string> names)
     {
-        var pending = new Stack<SyntaxNode>();
+        const int InitialTraversalCapacity = 16;
+        var pending = new Stack<SyntaxNode>(InitialTraversalCapacity);
         pending.Push(scope);
         while (pending.Count > 0)
         {
@@ -181,7 +183,14 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, TrailingGuardOptions>();
+        const int CacheConcurrencyLevel = 4;
+        var treeCount = 0;
+        foreach (var tree in context.Compilation.SyntaxTrees)
+        {
+            treeCount++;
+        }
+
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, TrailingGuardOptions>(CacheConcurrencyLevel, treeCount);
         context.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, optionsByTree), SyntaxKind.IfStatement);
     }
 

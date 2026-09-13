@@ -93,9 +93,18 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
         StatementSyntax jump = jumpKind == SyntaxKind.ContinueStatement
             ? SyntaxFactory.ContinueStatement()
             : SyntaxFactory.ReturnStatement();
-        return SyntaxFactory.IfStatement(Negate(ifStatement.Condition, model), SyntaxFactory.Block(jump))
-            .WithLeadingTrivia(ifStatement.GetLeadingTrivia())
-            .WithTrailingTrivia(SyntaxFactory.ElasticCarriageReturnLineFeed);
+        return SyntaxFactory.IfStatement(
+            attributeLists: default,
+            SyntaxFactory.Token(ifStatement.GetLeadingTrivia(), SyntaxKind.IfKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+            Negate(ifStatement.Condition, model),
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+            SyntaxFactory.Block(
+                attributeLists: default,
+                SyntaxFactory.Token(SyntaxKind.OpenBraceToken),
+                SyntaxFactory.SingletonList(jump),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseBraceToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticCarriageReturnLineFeed))),
+            @else: null);
     }
 
     /// <summary>Negates a condition, pushing the negation inward rather than wrapping the whole thing.</summary>
@@ -223,9 +232,15 @@ public sealed class Sst2273PreferGuardClauseCodeFixProvider : CodeFixProvider, I
     private static IsPatternExpressionSyntax? TryNegatePattern(IsPatternExpressionSyntax expression) => expression.Pattern switch
     {
         UnaryPatternSyntax { RawKind: (int)SyntaxKind.NotPattern } negated
-            => expression.WithPattern(negated.Pattern.WithoutTrivia()).WithoutTrivia(),
+            => expression.Update(
+                expression.Expression.WithLeadingTrivia(default(SyntaxTriviaList)),
+                expression.IsKeyword,
+                negated.Pattern.WithoutTrivia()),
         ConstantPatternSyntax or TypePatternSyntax
-            => expression.WithPattern(SyntaxFactory.UnaryPattern(expression.Pattern.WithoutTrivia())).WithoutTrivia(),
+            => expression.Update(
+                expression.Expression.WithLeadingTrivia(default(SyntaxTriviaList)),
+                expression.IsKeyword,
+                SyntaxFactory.UnaryPattern(expression.Pattern.WithoutTrivia())),
         _ => null,
     };
 

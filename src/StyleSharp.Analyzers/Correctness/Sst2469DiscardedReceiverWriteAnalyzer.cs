@@ -112,7 +112,7 @@ public sealed class Sst2469DiscardedReceiverWriteAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var writes = new List<ExpressionSyntax>();
+        var writes = new List<ExpressionSyntax>(block.Members.Count);
         CollectReceiverWrites(block, receiverName, writes);
         if (writes.Count == 0)
         {

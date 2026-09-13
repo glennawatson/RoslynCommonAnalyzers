@@ -170,17 +170,20 @@ public sealed class Sst1422PrivateFieldUsedAsLocalAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the field's previous value flows into the reset.</returns>
     private static bool RightSideReadsField(ExpressionSyntax right, IFieldSymbol field, SemanticModel model, CancellationToken cancellationToken)
     {
-        foreach (var token in right.DescendantTokens())
-        {
-            if (token.IsKind(SyntaxKind.IdentifierToken)
-                && string.Equals(token.ValueText, field.Name, StringComparison.Ordinal)
-                && token.Parent is IdentifierNameSyntax identifier
-                && SymbolEqualityComparer.Default.Equals(model.GetSymbolInfo(identifier, cancellationToken).Symbol, field))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        var state = new FieldReadState(field, model, cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendantTokens(
+            right,
+            ref state,
+            static (in SyntaxToken token, ref FieldReadState state) =>
+                !token.IsKind(SyntaxKind.IdentifierToken)
+                    || !string.Equals(token.ValueText, state.Field.Name, StringComparison.Ordinal)
+                    || token.Parent is not IdentifierNameSyntax identifier
+                    || !SymbolEqualityComparer.Default.Equals(state.Model.GetSymbolInfo(identifier, state.CancellationToken).Symbol, state.Field));
     }
+
+    /// <summary>Carries the field binding inputs through a token traversal.</summary>
+    /// <param name="Field">The field whose previous value is being checked.</param>
+    /// <param name="Model">The semantic model used to bind matching names.</param>
+    /// <param name="CancellationToken">A token that cancels binding.</param>
+    private readonly record struct FieldReadState(IFieldSymbol Field, SemanticModel Model, CancellationToken CancellationToken);
 }

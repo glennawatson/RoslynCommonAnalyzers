@@ -147,22 +147,22 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
             return false;
         }
 
-        foreach (var descendant in outermost.DescendantNodes())
-        {
-            if (RecordAnalyzer.WrittenMemberAccess(descendant) is not { } access)
+        var state = new PropertyWriteState(context.SemanticModel, symbol, context.CancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants(
+            outermost,
+            ref state,
+            static (SyntaxNode descendant, ref PropertyWriteState scan) =>
             {
-                continue;
-            }
+                if (RecordAnalyzer.WrittenMemberAccess(descendant) is not { } access
+                    || access.Name.Identifier.ValueText != scan.Symbol.Name)
+                {
+                    return true;
+                }
 
-            if (SymbolEqualityComparer.Default.Equals(
-                context.SemanticModel.GetSymbolInfo(access, context.CancellationToken).Symbol?.OriginalDefinition,
-                symbol.OriginalDefinition))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                return !SymbolEqualityComparer.Default.Equals(
+                    scan.Model.GetSymbolInfo(access, scan.CancellationToken).Symbol?.OriginalDefinition,
+                    scan.Symbol.OriginalDefinition);
+            });
     }
 
     /// <summary>Returns whether the declaration itself puts the property outside the rule.</summary>
@@ -180,4 +180,28 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
             || ModifierListHelper.ContainsEither(property.Modifiers, SyntaxKind.PrivateKeyword, SyntaxKind.OverrideKeyword)
             || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.RequiredKeyword)
             || property.Parent is BaseTypeDeclarationSyntax { AttributeLists.Count: > 0 };
+
+    /// <summary>Carries the property binding context through the assignment scan.</summary>
+    private readonly record struct PropertyWriteState
+    {
+        /// <summary>Initializes a new instance of the <see cref="PropertyWriteState"/> struct.</summary>
+        /// <param name="model">The semantic model.</param>
+        /// <param name="symbol">The property whose writes are sought.</param>
+        /// <param name="cancellationToken">A token that cancels the operation.</param>
+        public PropertyWriteState(SemanticModel model, IPropertySymbol symbol, CancellationToken cancellationToken)
+        {
+            Model = model;
+            Symbol = symbol;
+            CancellationToken = cancellationToken;
+        }
+
+        /// <summary>Gets the semantic model used to bind assignments.</summary>
+        public SemanticModel Model { get; }
+
+        /// <summary>Gets the property whose writes are sought.</summary>
+        public IPropertySymbol Symbol { get; }
+
+        /// <summary>Gets the token that cancels semantic binding.</summary>
+        public CancellationToken CancellationToken { get; }
+    }
 }

@@ -15,11 +15,11 @@ namespace SecuritySharp.Analyzers;
 /// group-write (0o020) or other-write (0o002) bit is set -- whether written as a single member
 /// (<c>UnixFileMode.OtherWrite</c>), an OR-combination, or a broad 0o777-style combo. A group- or
 /// world-writable file lets other local users tamper with it (CWE-732). The rule is gated on
-/// <c>System.IO.UnixFileMode</c> resolving (.NET 7+); on a target framework without it
-/// (netstandard2.0, .NET Framework) nothing is registered, so a project that cannot call these APIs
-/// pays nothing. The clean path is a syntactic screen -- a member call named <c>SetUnixFileMode</c>
+/// <c>System.IO.UnixFileMode</c> resolving (.NET 7+), and the types are resolved once, on first demand.
+/// A target framework without it (netstandard2.0, .NET Framework) gets no diagnostic.
+/// The clean path is a syntactic screen -- a member call named <c>SetUnixFileMode</c>
 /// or <c>CreateDirectory</c> with at least two arguments, or an assignment to a member named
-/// <c>UnixCreateMode</c>/<c>UnixFileMode</c> -- before any binding runs. Only the local shape is
+/// <c>UnixCreateMode</c>/<c>UnixFileMode</c> -- before any type resolution or binding runs. Only the local shape is
 /// inspected: a mode first stored in a variable and passed later is not tracked, so the
 /// constant/non-constant decision is made at the call or assignment site with no data-flow analysis.
 /// </summary>
@@ -75,15 +75,11 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var unixFileMode = start.Compilation.GetTypeByMetadataName(UnixFileModeMetadataName);
-            if (unixFileMode is null)
-            {
-                return;
-            }
-
-            var sinkContainers = GetSinkContainers(start.Compilation);
+            var compilation = start.Compilation;
+            var unixFileMode = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(UnixFileModeMetadataName));
+            var sinkContainers = new Lazy<INamedTypeSymbol?[]>(() => GetSinkContainers(compilation));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, unixFileMode, sinkContainers), SyntaxKind.InvocationExpression);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, unixFileMode, sinkContainers), SyntaxKind.SimpleAssignmentExpression);
@@ -92,22 +88,22 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
 
     /// <summary>Reports SES1308 for a filesystem permission call whose mode grants group or other write.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="unixFileMode">The resolved <c>UnixFileMode</c> type.</param>
-    /// <param name="sinkContainers">The resolved filesystem sink container types.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
+    /// <param name="unixFileMode">The <c>UnixFileMode</c> type resolved on first demand.</param>
+    /// <param name="sinkContainers">The filesystem sink container types resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> unixFileMode, Lazy<INamedTypeSymbol?[]> sinkContainers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
         // Syntactic prefilter: a member '.SetUnixFileMode(...)' or '.CreateDirectory(...)' call with the
         // mode-carrying two-argument shape, before any binding runs.
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: SetUnixFileModeMethodName or CreateDirectoryMethodName }
-            || invocation.ArgumentList.Arguments.Count < 2)
+        if (!IsModeInvocationShape(invocation))
         {
             return;
         }
 
-        if (context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
-            || !IsSinkContainer(operation.TargetMethod.ContainingType, sinkContainers))
+        if (unixFileMode.Value is not { } modeType
+            || context.SemanticModel.GetOperation(invocation, context.CancellationToken) is not IInvocationOperation operation
+            || !IsSinkContainer(operation.TargetMethod.ContainingType, sinkContainers.Value))
         {
             return;
         }
@@ -116,7 +112,7 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
         for (var i = 0; i < arguments.Length; i++)
         {
             var argument = arguments[i];
-            if (!IsUnixFileMode(argument.Parameter?.Type, unixFileMode) || !GrantsGroupOrOtherWrite(argument.Value.ConstantValue))
+            if (!IsUnixFileMode(argument.Parameter?.Type, modeType) || !GrantsGroupOrOtherWrite(argument.Value.ConstantValue))
             {
                 continue;
             }
@@ -133,9 +129,9 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
 
     /// <summary>Reports SES1308 for an assignment of a group- or world-writable mode to a permission property.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="unixFileMode">The resolved <c>UnixFileMode</c> type.</param>
-    /// <param name="sinkContainers">The resolved filesystem sink container types.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol unixFileMode, INamedTypeSymbol?[] sinkContainers)
+    /// <param name="unixFileMode">The <c>UnixFileMode</c> type resolved on first demand.</param>
+    /// <param name="sinkContainers">The filesystem sink container types resolved on first demand.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> unixFileMode, Lazy<INamedTypeSymbol?[]> sinkContainers)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -146,9 +142,10 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
-            || !IsUnixFileMode(property.Type, unixFileMode)
-            || !IsSinkContainer(property.ContainingType, sinkContainers)
+        if (unixFileMode.Value is not { } modeType
+            || context.SemanticModel.GetSymbolInfo(assignment.Left, context.CancellationToken).Symbol is not IPropertySymbol property
+            || !IsUnixFileMode(property.Type, modeType)
+            || !IsSinkContainer(property.ContainingType, sinkContainers.Value)
             || !GrantsGroupOrOtherWrite(context.SemanticModel.GetConstantValue(assignment.Right, context.CancellationToken)))
         {
             return;
@@ -160,6 +157,13 @@ public sealed class Ses1308OverPermissiveUnixFileModeAnalyzer : DiagnosticAnalyz
             assignment.Right.Span,
             $"{property.ContainingType.Name}.{property.Name}"));
     }
+
+    /// <summary>Returns whether a call can supply a Unix mode to a filesystem API, before binding.</summary>
+    /// <param name="invocation">The invocation to screen.</param>
+    /// <returns><see langword="true"/> for a permission method name with at least two arguments.</returns>
+    private static bool IsModeInvocationShape(InvocationExpressionSyntax invocation) =>
+        invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: SetUnixFileModeMethodName or CreateDirectoryMethodName }
+            && invocation.ArgumentList.Arguments.Count >= 2;
 
     /// <summary>Returns the simple name of the member on the left of an assignment.</summary>
     /// <param name="left">The assignment's left-hand side.</param>

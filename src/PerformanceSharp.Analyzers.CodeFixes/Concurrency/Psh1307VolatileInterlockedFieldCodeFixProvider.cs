@@ -125,8 +125,10 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
         ExpressionSyntax field,
         ArgumentSyntax? extraArgument)
     {
-        var refArgument = SyntaxFactory.Argument(field.WithoutTrivia())
-            .WithRefOrOutKeyword(SyntaxFactory.Token(default, SyntaxKind.RefKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
+        var refArgument = SyntaxFactory.Argument(
+            nameColon: null,
+            SyntaxFactory.Token(default, SyntaxKind.RefKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            field.WithoutTrivia());
         var arguments = extraArgument is null
             ? SyntaxFactory.SingletonSeparatedList(refArgument)
             : SyntaxFactory.SeparatedList(ImmutableArrays.Of(refArgument, extraArgument));

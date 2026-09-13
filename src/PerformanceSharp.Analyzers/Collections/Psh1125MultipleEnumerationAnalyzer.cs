@@ -46,9 +46,6 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
     /// <summary>The type name the syntax prepass requires before any binding.</summary>
     internal const string EnumerableTypeName = "IEnumerable";
 
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The minimum number of walks that can constitute a re-enumeration.</summary>
     private const int MinimumWalkCount = 2;
 
@@ -75,10 +72,10 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static startContext =>
         {
-            var enumerableType = start.Compilation.GetTypeByMetadataName(EnumerableMetadataName);
-            start.RegisterSyntaxNodeAction(
+            var enumerableType = new EnumerableTypeCache(startContext.Compilation);
+            startContext.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeMember(nodeContext, enumerableType),
                 SyntaxKind.MethodDeclaration,
                 SyntaxKind.ConstructorDeclaration,
@@ -134,8 +131,8 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1125 for each lazy-sequence parameter or local the member body walks twice.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type, when the compilation has LINQ.</param>
-    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? enumerableType)
+    /// <param name="typeCache">The compilation's deferred LINQ type lookup.</param>
+    private static void AnalyzeMember(in SyntaxNodeAnalysisContext context, EnumerableTypeCache typeCache)
     {
         var shape = GetAnalyzableShape(context.Node);
         if (shape.Body is not { } body || !MentionsEnumerable(shape.PrepassScope ?? body))
@@ -155,7 +152,7 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ScanAndReport(context, body, candidates, enumerableType);
+        ScanAndReport(context, body, candidates, typeCache.Get());
     }
 
     /// <summary>Resolves the parameters, body, and prepass scope of a body-carrying declaration.</summary>
@@ -677,5 +674,32 @@ public sealed class Psh1125MultipleEnumerationAnalyzer : DiagnosticAnalyzer
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void AddWalk(IdentifierNameSyntax identifier) =>
             (Walks ??= new List<IdentifierNameSyntax>(MinimumWalkCount)).Add(identifier);
+    }
+
+    /// <summary>Resolves the LINQ extension type on first demand for one compilation.</summary>
+    /// <param name="compilation">The compilation whose references are searched.</param>
+    private sealed class EnumerableTypeCache(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>The resolved type, or null when it is unavailable.</summary>
+        private INamedTypeSymbol? _resolved;
+
+        /// <summary>Publishes completion of the lookup, including a missing type.</summary>
+        private volatile bool _done;
+
+        /// <summary>Gets the LINQ extension type, resolving it on first demand.</summary>
+        /// <returns>The resolved type, or null when the compilation has no LINQ extension type.</returns>
+        public INamedTypeSymbol? Get()
+        {
+            if (!_done)
+            {
+                _resolved = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                _done = true;
+            }
+
+            return _resolved;
+        }
     }
 }

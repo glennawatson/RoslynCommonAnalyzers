@@ -14,7 +14,7 @@ namespace PerformanceSharp.Analyzers;
 /// <para>
 /// The memory overloads are .NET Core 2.1+, so they are never assumed: <c>Memory&lt;byte&gt;</c>,
 /// <c>ReadOnlyMemory&lt;byte&gt;</c>, and a <c>Stream.ReadAsync</c> that actually takes one are
-/// all resolved at compilation start, and the rule registers nothing when the framework has none.
+/// all resolved once per compilation after an awaited array-overload candidate is found.
 /// The replacement overload is then resolved off the receiver's own type hierarchy, so a stream
 /// that does not expose one is not reported.
 /// </para>
@@ -72,13 +72,10 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (TryCreateGate(start.Compilation) is not { } gate)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var gate = new Lazy<MemoryOverloadGate?>(() => TryCreateGate(compilation));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
         });
     }
@@ -153,20 +150,21 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
 
     /// <summary>Reports PSH1314 for an awaited array-based stream call whose memory overload exists.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The per-compilation gate state.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, in MemoryOverloadGate gate)
+    /// <param name="gate">The per-compilation gate state resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<MemoryOverloadGate?> gate)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsArrayOverloadShape(invocation)
             || !IsDirectlyAwaited(invocation)
+            || gate.Value is not { } resolvedGate
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsStreamType(method.ContainingType, gate.StreamType)
-            || !TakesArrayOffsetCount(method.Parameters, gate.CancellationTokenType))
+            || !IsStreamType(method.ContainingType, resolvedGate.StreamType)
+            || !TakesArrayOffsetCount(method.Parameters, resolvedGate.CancellationTokenType))
         {
             return;
         }
 
-        var memoryType = method.Name == ReadAsyncMethodName ? gate.MemoryOfByte : gate.ReadOnlyMemoryOfByte;
+        var memoryType = method.Name == ReadAsyncMethodName ? resolvedGate.MemoryOfByte : resolvedGate.ReadOnlyMemoryOfByte;
         if (TryFindMemoryOverload(method.ContainingType, method.Name, memoryType) is null)
         {
             return;

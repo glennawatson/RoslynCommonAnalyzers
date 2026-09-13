@@ -23,7 +23,7 @@ namespace PerformanceSharp.Analyzers;
 /// </para>
 /// <para>
 /// <c>Convert.ToHexString</c> arrived in .NET 5, so it is resolved in the analyzed compilation and the
-/// rule registers nothing when it is absent — on netstandard2.0 and .NET Framework the diagnostic
+/// rule reports nothing when it is absent — on netstandard2.0 and .NET Framework the diagnostic
 /// would name an API the author cannot call.
 /// </para>
 /// </remarks>
@@ -48,9 +48,6 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The display used for the suggested call in the message.</summary>
     private const string ToHexStringDisplay = "Convert.ToHexString";
 
-    /// <summary>The metadata name of the type providing the one-call conversion.</summary>
-    private const string ConvertMetadataName = "System.Convert";
-
     /// <summary>The metadata name of the type providing the separated hex.</summary>
     private const string BitConverterTypeName = "BitConverter";
 
@@ -74,12 +71,8 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (!HasToHexString(start.Compilation))
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(AnalyzeReplace, SyntaxKind.InvocationExpression);
+            var support = new HexStringSupport(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeReplace(nodeContext, support), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -141,10 +134,11 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1224 for hex assembled from the separated form and then stripped.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    private static void AnalyzeReplace(SyntaxNodeAnalysisContext context)
+    /// <param name="support">The framework support resolved on first candidate.</param>
+    private static void AnalyzeReplace(in SyntaxNodeAnalysisContext context, HexStringSupport support)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
-        if (TryGetSeparatedHexCall(invocation) is not { } separatedHex)
+        if (TryGetSeparatedHexCall(invocation) is not { } separatedHex || !support.IsAvailable())
         {
             return;
         }
@@ -164,32 +158,6 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
             invocation.SyntaxTree,
             invocation.Span,
             ToHexStringDisplay));
-    }
-
-    /// <summary>Returns whether <see cref="Convert"/> declares the one-call hex conversion.</summary>
-    /// <param name="compilation">The analyzed compilation.</param>
-    /// <returns><see langword="true"/> when <c>Convert.ToHexString(byte[])</c> exists.</returns>
-    private static bool HasToHexString(Compilation compilation)
-    {
-        if (compilation.GetTypeByMetadataName(ConvertMetadataName) is not { } convert)
-        {
-            return false;
-        }
-
-        foreach (var member in convert.GetMembers(ToHexStringMethodName))
-        {
-            if (member is IMethodSymbol
-                {
-                    IsStatic: true,
-                    ReturnType.SpecialType: SpecialType.System_String,
-                    Parameters: [{ Type: IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte } }, ..],
-                })
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether an expression is the string literal <c>"-"</c>.</summary>
@@ -239,4 +207,46 @@ public sealed class Psh1224UseConvertToHexStringAnalyzer : DiagnosticAnalyzer
                 ContainingNamespace: { Name: nameof(System), ContainingNamespace.IsGlobalNamespace: true },
             },
         };
+
+    /// <summary>Caches hex conversion support after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose framework support is cached.</param>
+    private sealed class HexStringSupport(Compilation compilation)
+    {
+        /// <summary>The metadata name of the type providing the one-call conversion.</summary>
+        private const string ConvertMetadataName = "System.Convert";
+
+        /// <summary>The published result, including an unavailable API.</summary>
+        private bool[]? _resolved;
+
+        /// <summary>Resolves framework support once it is needed.</summary>
+        /// <returns>Whether the framework exposes the required hex conversion.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => (_resolved ??= [HasToHexString(compilation)])[0];
+
+        /// <summary>Returns whether <see cref="Convert"/> declares the one-call hex conversion.</summary>
+        /// <param name="compilation">The analyzed compilation.</param>
+        /// <returns><see langword="true"/> when <c>Convert.ToHexString(byte[])</c> exists.</returns>
+        private static bool HasToHexString(Compilation compilation)
+        {
+            if (compilation.GetTypeByMetadataName(ConvertMetadataName) is not { } convert)
+            {
+                return false;
+            }
+
+            foreach (var member in convert.GetMembers(ToHexStringMethodName))
+            {
+                if (member is IMethodSymbol
+                    {
+                        IsStatic: true,
+                        ReturnType.SpecialType: SpecialType.System_String,
+                        Parameters: [{ Type: IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Byte } }, ..],
+                    })
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
 }

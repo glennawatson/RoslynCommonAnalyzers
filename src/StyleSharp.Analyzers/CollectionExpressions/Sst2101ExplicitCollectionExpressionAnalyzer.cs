@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Suggests a C# 12 collection expression for explicit collection initializers (SST2101).</summary>
@@ -20,9 +22,9 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var targets = CollectionExpressionHelper.ResolveTargets(start.Compilation);
+            var targets = new CollectionTargets(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, targets),
                 SyntaxKind.ArrayCreationExpression,
@@ -49,21 +51,55 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
 
     /// <summary>Reports an accepted explicit collection creation.</summary>
     /// <param name="context">The syntax context.</param>
-    /// <param name="targets">The accepted target definitions.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol[] targets)
+    /// <param name="targets">The accepted target definitions resolved on demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, CollectionTargets targets)
     {
         if (context.Node is not ExpressionSyntax expression
             || !CollectionExpressionHelper.IsLanguageSupported(expression)
             || !TryGetInitializer(expression, out var initializer)
             || initializer!.Expressions.Count == 0
             || HasComplexElement(initializer)
-            || !CollectionExpressionHelper.HasAcceptedTarget(context, expression, targets)
+            || !HasAcceptedTarget(context, expression, targets)
             || ChangesOverloadResolution(context, expression, initializer!))
         {
             return;
         }
 
         context.ReportDiagnostic(Diagnostic.Create(CollectionExpressionRules.UseExplicitCollectionExpression, expression.GetLocation()));
+    }
+
+    /// <summary>Checks the target context before resolving named collection definitions.</summary>
+    /// <param name="context">The syntax context.</param>
+    /// <param name="expression">The collection creation.</param>
+    /// <param name="targets">The accepted target definitions resolved on demand.</param>
+    /// <returns>Whether the explicit target is a one-dimensional array or an accepted named collection.</returns>
+    private static bool HasAcceptedTarget(in SyntaxNodeAnalysisContext context, ExpressionSyntax expression, CollectionTargets targets)
+    {
+        if (!CollectionExpressionHelper.TryGetConvertedTypeWithExplicitTarget(context, expression, out var converted))
+        {
+            return false;
+        }
+
+        if (converted is IArrayTypeSymbol { Rank: 1 })
+        {
+            return true;
+        }
+
+        if (converted is not INamedTypeSymbol named)
+        {
+            return false;
+        }
+
+        var resolvedTargets = targets.Get();
+        for (var i = 0; i < resolvedTargets.Length; i++)
+        {
+            if (SymbolEqualityComparer.Default.Equals(resolvedTargets[i], named.OriginalDefinition))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether writing the creation as a collection expression would call something else.</summary>
@@ -117,5 +153,18 @@ public sealed class Sst2101ExplicitCollectionExpressionAnalyzer : DiagnosticAnal
         }
 
         return false;
+    }
+
+    /// <summary>Resolves named collection targets only when a candidate needs them.</summary>
+    /// <param name="compilation">The compilation whose collection target definitions are cached.</param>
+    private sealed class CollectionTargets(Compilation compilation)
+    {
+        /// <summary>The resolved target definitions, including an empty result when no target resolves.</summary>
+        private INamedTypeSymbol[]? _resolved;
+
+        /// <summary>Gets the target definitions, allowing equivalent concurrent first resolutions.</summary>
+        /// <returns>The accepted named collection definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol[] Get() => _resolved ??= CollectionExpressionHelper.ResolveTargets(compilation);
     }
 }

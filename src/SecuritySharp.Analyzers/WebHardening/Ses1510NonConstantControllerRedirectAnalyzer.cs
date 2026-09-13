@@ -14,8 +14,8 @@ namespace SecuritySharp.Analyzers;
 /// <c>LocalRedirect*</c> family (already local-only) and the <c>RedirectToAction</c>/<c>RedirectToRoute</c>/
 /// <c>RedirectToPage</c> helpers (which take action/route/page names, not a URL) are never flagged. The
 /// method is bound and its container matched by symbol, so a same-named method on an unrelated type is
-/// ignored. The whole rule is gated on <c>ControllerBase</c> resolving, so a non-ASP.NET project registers
-/// nothing and pays nothing.
+/// ignored. The <c>ControllerBase</c> type is resolved once per compilation, only after a call passes the
+/// syntactic filter, and the rule reports nothing when the type is absent.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAnalyzer
@@ -49,11 +49,8 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var controllerBase = start.Compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
-            if (controllerBase is null)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var controllerBase = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(ControllerBaseMetadataName));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, controllerBase), SyntaxKind.InvocationExpression);
         });
@@ -61,8 +58,8 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
 
     /// <summary>Reports SES1510 for a controller redirect helper whose URL argument is non-constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="controllerBase">The resolved <c>ControllerBase</c> type the rule gates on.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol controllerBase)
+    /// <param name="controllerBase">The lazily resolved <c>ControllerBase</c> type the rule gates on.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> controllerBase)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -73,9 +70,10 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (controllerBase.Value is not { } controllerBaseType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !IsRedirectHelperName(method.Name)
-            || !IsOrDerivesFrom(method.ContainingType, controllerBase))
+            || !IsOrDerivesFrom(method.ContainingType, controllerBaseType))
         {
             return;
         }

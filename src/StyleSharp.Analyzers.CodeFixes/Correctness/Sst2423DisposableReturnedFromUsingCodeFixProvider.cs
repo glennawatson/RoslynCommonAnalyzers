@@ -61,10 +61,13 @@ public sealed class Sst2423DisposableReturnedFromUsingCodeFixProvider : CodeFixP
             ? statement.UsingKeyword.LeadingTrivia
             : statement.AwaitKeyword.LeadingTrivia;
 
-        return statement
-            .WithAwaitKeyword(default)
-            .WithUsingKeyword(default)
-            .WithDeclaration(statement.Declaration.WithLeadingTrivia(leading))
+        return statement.Update(
+                statement.AttributeLists,
+                awaitKeyword: default,
+                usingKeyword: default,
+                statement.Modifiers,
+                statement.Declaration.WithLeadingTrivia(leading),
+                statement.SemicolonToken)
             .WithAdditionalAnnotations(Formatter.Annotation);
     }
 }

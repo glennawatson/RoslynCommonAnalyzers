@@ -15,8 +15,8 @@ namespace SecuritySharp.Analyzers;
 /// containing type must be <c>IFormFile</c> itself, so a same-named property on another type is ignored.
 /// This is a purely local, syntactic shape (no data-flow); a value sanitized with
 /// <c>Path.GetFileName(file.FileName)</c> is not flagged because <c>.FileName</c> is then a direct
-/// argument to <c>GetFileName</c>, not to the path sink. The <c>IFormFile</c> marker is probed once per
-/// compilation; a project without ASP.NET Core registers nothing and pays nothing.
+/// argument to <c>GetFileName</c>, not to the path sink. The <c>IFormFile</c> marker and sink types are
+/// resolved only after a <c>.FileName</c> access passes the syntactic sink checks.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
@@ -66,22 +66,12 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
-        {
-            var sinkTypes = GetSinkTypes(start.Compilation);
-            if (sinkTypes is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMemberAccess(nodeContext, sinkTypes), SyntaxKind.SimpleMemberAccessExpression);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeMemberAccess(nodeContext), SyntaxKind.SimpleMemberAccessExpression);
     }
 
     /// <summary>Reports SES1305 for an <c>IFormFile.FileName</c> read that flows straight into a path sink.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="sinkTypes">The gated marker and path-sink types resolved for the compilation.</param>
-    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context, SinkTypes sinkTypes)
+    private static void AnalyzeMemberAccess(in SyntaxNodeAnalysisContext context)
     {
         var memberAccess = (MemberAccessExpressionSyntax)context.Node;
 
@@ -96,6 +86,11 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
         var sinkCall = GetSyntacticSinkCall(memberAccess);
         var isPathConcat = sinkCall is null && IsPathFormingConcatOperand(memberAccess);
         if (sinkCall is null && !isPathConcat)
+        {
+            return;
+        }
+
+        if (GetSinkTypes(context.Compilation) is not { } sinkTypes)
         {
             return;
         }
@@ -264,7 +259,7 @@ public sealed class Ses1305UploadFilenameInPathAnalyzer : DiagnosticAnalyzer
             compilation.GetTypeByMetadataName(FileMetadataName),
             compilation.GetTypeByMetadataName(FileStreamMetadataName));
 
-    /// <summary>The marker and path-sink types resolved once per compilation.</summary>
+    /// <summary>The marker and path-sink types resolved for a candidate access.</summary>
     private sealed class SinkTypes
     {
         /// <summary>Initializes a new instance of the <see cref="SinkTypes"/> class.</summary>

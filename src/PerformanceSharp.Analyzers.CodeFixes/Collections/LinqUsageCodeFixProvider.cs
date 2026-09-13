@@ -88,9 +88,9 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
             SyntaxKind.SimpleMemberAccessExpression,
             receiver.WithoutTrivia(),
             outerAccess.Name.WithoutTrivia());
-        return invocation
-            .WithExpression(memberAccess)
-            .WithArgumentList(SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(whereInvocation.ArgumentList.Arguments[0].WithoutTrivia())))
+        return invocation.Update(
+                memberAccess,
+                SyntaxFactory.ArgumentList(SyntaxFactory.SingletonSeparatedList(whereInvocation.ArgumentList.Arguments[0].WithoutTrivia())))
             .WithTriviaFrom(invocation);
     }
 
@@ -120,7 +120,7 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
         }
 
         oldNode = invocation;
-        var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType")).WithTypeArgumentList(typeArguments.WithoutTrivia());
+        var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType"), typeArguments.WithoutTrivia());
         var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrivia(), ofTypeName);
         return invocation.WithExpression(memberAccess).WithTriviaFrom(invocation);
     }

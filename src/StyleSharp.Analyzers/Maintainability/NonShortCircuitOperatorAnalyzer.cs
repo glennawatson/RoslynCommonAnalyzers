@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -47,17 +49,17 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var expressionType = start.Compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1");
+            var expressionType = new ExpressionTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => Analyze(nodeContext, expressionType), SyntaxKind.BitwiseAndExpression, SyntaxKind.BitwiseOrExpression);
         });
     }
 
     /// <summary>Reports a boolean <c>&amp;</c> / <c>|</c>, choosing the id by whether the right operand does work.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="expressionType">The resolved <c>System.Linq.Expressions.Expression&lt;TDelegate&gt;</c> definition, if any.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol? expressionType)
+    /// <param name="expressionType">The expression-tree type, resolved on first demand.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, ExpressionTypes expressionType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (!IsBoolean(binary.Left, context.SemanticModel, context.CancellationToken)
@@ -66,7 +68,7 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (expressionType is not null && IsInExpressionTree(binary, context.SemanticModel, expressionType, context.CancellationToken))
+        if (IsInExpressionTree(binary, context.SemanticModel, expressionType, context.CancellationToken))
         {
             return;
         }
@@ -100,17 +102,22 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the operator appears inside a lambda converted to an expression tree.</summary>
     /// <param name="node">The reported binary expression.</param>
     /// <param name="model">The semantic model.</param>
-    /// <param name="expressionType">The resolved <c>Expression&lt;TDelegate&gt;</c> definition.</param>
+    /// <param name="expressionType">The <c>Expression&lt;TDelegate&gt;</c> definition, resolved only inside a lambda.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns><see langword="true"/> when a containing lambda is an expression tree.</returns>
-    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, INamedTypeSymbol expressionType, CancellationToken cancellationToken)
+    private static bool IsInExpressionTree(SyntaxNode node, SemanticModel model, ExpressionTypes expressionType, CancellationToken cancellationToken)
     {
         for (var current = node.Parent; current is not null; current = current.Parent)
         {
             if (current is AnonymousFunctionExpressionSyntax anonymous)
             {
+                if (expressionType.Get() is not { } resolved)
+                {
+                    return false;
+                }
+
                 if (model.GetTypeInfo(anonymous, cancellationToken).ConvertedType is INamedTypeSymbol converted
-                    && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, expressionType))
+                    && SymbolEqualityComparer.Default.Equals(converted.OriginalDefinition, resolved))
                 {
                     return true;
                 }
@@ -128,5 +135,18 @@ public sealed class NonShortCircuitOperatorAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the expression-tree type only for a boolean operator inside a lambda.</summary>
+    /// <param name="compilation">The compilation whose expression-tree type is resolved.</param>
+    private sealed class ExpressionTypes(Compilation compilation)
+    {
+        /// <summary>The resolved type slot, including null when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the expression-tree type, caching its absence too.</summary>
+        /// <returns>The expression-tree type, or null when unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName("System.Linq.Expressions.Expression`1")])[0];
     }
 }

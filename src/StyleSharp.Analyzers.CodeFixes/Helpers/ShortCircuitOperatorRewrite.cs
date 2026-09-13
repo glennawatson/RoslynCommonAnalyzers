@@ -29,7 +29,10 @@ internal static class ShortCircuitOperatorRewrite
             binary.OperatorToken.TrailingTrivia);
         var replacement = SyntaxFactory.BinaryExpression(isAnd ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression, binary.Left, operatorToken, binary.Right);
         return NeedsParentheses(binary.Parent)
-            ? SyntaxFactory.ParenthesizedExpression(replacement.WithoutTrivia()).WithTriviaFrom(replacement)
+            ? SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.Token(replacement.GetLeadingTrivia(), SyntaxKind.OpenParenToken, default),
+                replacement.WithoutTrivia(),
+                SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, replacement.GetTrailingTrivia()))
             : replacement;
     }
 

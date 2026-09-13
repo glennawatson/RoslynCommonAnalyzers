@@ -105,9 +105,19 @@ public sealed class Sst1490RedundantBaseListEntryCodeFixProvider : CodeFixProvid
                 continue;
             }
 
-            return baseList
-                .WithTypes(entries.RemoveAt(i))
-                .WithTrailingTrivia(baseList.GetTrailingTrivia());
+            var remaining = entries.RemoveAt(i);
+            if (remaining.SeparatorCount == remaining.Count)
+            {
+                var separator = remaining.GetSeparator(remaining.SeparatorCount - 1);
+                remaining = remaining.ReplaceSeparator(separator, separator.WithTrailingTrivia(baseList.GetTrailingTrivia()));
+            }
+            else
+            {
+                var last = remaining[remaining.Count - 1];
+                remaining = remaining.Replace(last, last.WithTrailingTrivia(baseList.GetTrailingTrivia()));
+            }
+
+            return baseList.Update(baseList.ColonToken, remaining);
         }
 
         return baseList;

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -13,16 +15,12 @@ namespace SecuritySharp.Analyzers;
 /// opens the connection to man-in-the-middle attacks. The callback body is inspected only locally, so a real
 /// validation callback is never reported, and the built-in
 /// <c>DangerousAcceptAnyServerCertificateValidator</c> sentinel is left to the rule that owns it. The rule is
-/// resolved once per compilation by probing <c>System.Net.Http.HttpClientHandler</c> and confirming the property
-/// exists; on a target framework without it (netstandard2.0, .NET Framework) nothing is registered, so a project
-/// that cannot reference the property pays nothing.
+/// resolved on the first syntactic candidate by probing <c>System.Net.Http.HttpClientHandler</c> and confirming
+/// the property exists; the result, including an unavailable property, is cached for the compilation.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the handler type that owns the validation callback.</summary>
-    private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
-
     /// <summary>The name of the custom server-certificate validation callback property.</summary>
     private const string CallbackPropertyName = "ServerCertificateCustomValidationCallback";
 
@@ -51,22 +49,17 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var handlerType = start.Compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName);
-            if (handlerType is null || handlerType.GetMembers(CallbackPropertyName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, handlerType), SyntaxKind.SimpleAssignmentExpression);
+            var types = new HandlerTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeAssignment(nodeContext, types), SyntaxKind.SimpleAssignmentExpression);
         });
     }
 
     /// <summary>Reports SES1108 for an always-true assignment to the server-certificate validation callback.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="handlerType">The gated <c>HttpClientHandler</c> type resolved for the compilation.</param>
-    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, INamedTypeSymbol handlerType)
+    /// <param name="types">The callback owner type resolved on first candidate.</param>
+    private static void AnalyzeAssignment(in SyntaxNodeAnalysisContext context, HandlerTypes types)
     {
         var assignment = (AssignmentExpressionSyntax)context.Node;
 
@@ -82,6 +75,11 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         var value = assignment.Right;
         var shape = ClassifyCallback(value);
         if (shape == CallbackShape.None)
+        {
+            return;
+        }
+
+        if (types.Get() is not { } handlerType)
         {
             return;
         }
@@ -128,5 +126,23 @@ public sealed class Ses1108AlwaysTrueServerCertificateValidationAnalyzer : Diagn
         }
 
         return value is IdentifierNameSyntax or MemberAccessExpressionSyntax ? CallbackShape.MethodGroup : CallbackShape.None;
+    }
+
+    /// <summary>Caches the callback owner type after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose callback support is cached.</param>
+    private sealed class HandlerTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the handler type that owns the validation callback.</summary>
+        private const string HttpClientHandlerMetadataName = "System.Net.Http.HttpClientHandler";
+
+        /// <summary>The cached handler type, or null when its callback API is unavailable.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Resolves the handler type and confirms the callback API on demand.</summary>
+        /// <returns>The handler type, or null when the callback API is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??=
+            [compilation.GetTypeByMetadataName(HttpClientHandlerMetadataName) is { } handlerType
+                && !handlerType.GetMembers(CallbackPropertyName).IsEmpty ? handlerType : null])[0];
     }
 }

@@ -16,9 +16,9 @@ namespace SecuritySharp.Analyzers;
 /// <c>ChatHistory.AddMessage(AuthorRole.System, ...)</c>, or <c>ChatMessageContent(AuthorRole.System, ...)</c>,
 /// when that content has no constant value. The role is confirmed by binding the argument to the
 /// static <c>System</c> role property, so a non-system message and a constant system template are both
-/// left alone. The rule resolves the AI types once per compilation and registers nothing when neither
-/// Microsoft.Extensions.AI nor Semantic Kernel is referenced, so a project that cannot call these APIs
-/// pays nothing. Detection is purely local -- the content expression itself must be non-constant; no
+/// left alone. The rule resolves the AI types on the first candidate that passes the syntactic checks
+/// and caches the result per compilation, including when neither library is referenced.
+/// Detection is purely local -- the content expression itself must be non-constant; no
 /// value is tracked across statements.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -54,33 +54,23 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            var apis = LlmChatApis.Resolve(start.Compilation);
-            if (apis is null)
-            {
-                return;
-            }
+            var markers = new LlmChatMarkers(start.Compilation);
 
-            if (apis.HasMessageCreationTargets)
-            {
-                start.RegisterSyntaxNodeAction(
-                    nodeContext => AnalyzeMessageCreation(nodeContext, apis),
-                    SyntaxKind.ObjectCreationExpression,
-                    SyntaxKind.ImplicitObjectCreationExpression);
-            }
+            start.RegisterSyntaxNodeAction(
+                nodeContext => AnalyzeMessageCreation(nodeContext, markers),
+                SyntaxKind.ObjectCreationExpression,
+                SyntaxKind.ImplicitObjectCreationExpression);
 
-            if (apis.HasChatHistory)
-            {
-                start.RegisterSyntaxNodeAction(nodeContext => AnalyzeChatHistoryCall(nodeContext, apis), SyntaxKind.InvocationExpression);
-            }
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeChatHistoryCall(nodeContext, markers), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1601 for a message type constructed with a system role and non-constant content.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="apis">The gated AI chat types resolved for the compilation.</param>
-    private static void AnalyzeMessageCreation(in SyntaxNodeAnalysisContext context, LlmChatApis apis)
+    /// <param name="markers">The compilation's lazily resolved AI chat types.</param>
+    private static void AnalyzeMessageCreation(in SyntaxNodeAnalysisContext context, LlmChatMarkers markers)
     {
         var creation = (BaseObjectCreationExpressionSyntax)context.Node;
 
@@ -90,7 +80,9 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
+        var apis = markers.Get();
+        if (!apis.HasMessageCreationTargets
+            || context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is not IMethodSymbol { MethodKind: MethodKind.Constructor } constructor
             || GetRoleTypeForMessage(constructor.ContainingType, apis) is not { } roleType
             || !IsRoleThenStringMethod(constructor, roleType))
         {
@@ -102,8 +94,8 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports SES1601 for a Semantic Kernel <c>ChatHistory</c> system-message call with non-constant content.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="apis">The gated AI chat types resolved for the compilation.</param>
-    private static void AnalyzeChatHistoryCall(in SyntaxNodeAnalysisContext context, LlmChatApis apis)
+    /// <param name="markers">The compilation's lazily resolved AI chat types.</param>
+    private static void AnalyzeChatHistoryCall(in SyntaxNodeAnalysisContext context, LlmChatMarkers markers)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
@@ -114,16 +106,28 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        var apis = markers.Get();
+        if (!apis.HasChatHistory
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || apis.SemanticKernelChatHistory is not { } chatHistory
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, chatHistory))
         {
             return;
         }
 
+        ReportChatHistoryContent(context, invocation.ArgumentList, method, apis);
+    }
+
+    /// <summary>Checks the content of a bound ChatHistory system-message call.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="argumentList">The bound call's arguments.</param>
+    /// <param name="method">The bound ChatHistory method.</param>
+    /// <param name="apis">The resolved chat types.</param>
+    private static void ReportChatHistoryContent(in SyntaxNodeAnalysisContext context, ArgumentListSyntax argumentList, IMethodSymbol method, LlmChatApis apis)
+    {
         if (method.Name == AddSystemMessageMethodName)
         {
-            ReportIfNonConstantContent(context, invocation.ArgumentList, method, 0, AddSystemMessageChannel);
+            ReportIfNonConstantContent(context, argumentList, method, 0, AddSystemMessageChannel);
             return;
         }
 
@@ -132,7 +136,7 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        ReportIfSystemRoleWithNonConstantContent(context, invocation.ArgumentList, method, authorRole, AddMessageChannel);
+        ReportIfSystemRoleWithNonConstantContent(context, argumentList, method, authorRole, AddMessageChannel);
     }
 
     /// <summary>Reports the content when the role argument is the system role and the content is non-constant.</summary>
@@ -241,7 +245,20 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
     private static bool HasConstantValue(SemanticModel model, ExpressionSyntax expression, CancellationToken cancellationToken) =>
         model.GetConstantValue(expression, cancellationToken).HasValue;
 
-    /// <summary>The AI chat types SES1601 gates on, resolved once per compilation.</summary>
+    /// <summary>Resolves AI chat types on first demand and caches missing types too.</summary>
+    /// <param name="compilation">The compilation whose chat types are resolved.</param>
+    private sealed class LlmChatMarkers(Compilation compilation)
+    {
+        /// <summary>The resolved types, or null before the first candidate.</summary>
+        private LlmChatApis? _resolved;
+
+        /// <summary>Gets the types, allowing equivalent resolutions during concurrent first use.</summary>
+        /// <returns>The resolved types, including an empty result when neither library is present.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public LlmChatApis Get() => _resolved ??= LlmChatApis.Resolve(compilation);
+    }
+
+    /// <summary>The AI chat types SES1601 gates on, resolved on demand per compilation.</summary>
     private sealed class LlmChatApis
     {
         /// <summary>Initializes a new instance of the <see cref="LlmChatApis"/> class.</summary>
@@ -289,17 +306,12 @@ public sealed class Ses1601NonConstantSystemPromptAnalyzer : DiagnosticAnalyzer
 
         /// <summary>Resolves the AI chat types present in the compilation.</summary>
         /// <param name="compilation">The compilation to probe.</param>
-        /// <returns>The resolved types, or <see langword="null"/> when no analysable shape is available.</returns>
-        public static LlmChatApis? Resolve(Compilation compilation)
-        {
-            var apis = new LlmChatApis(
+        /// <returns>The resolved types, with absent types represented by null properties.</returns>
+        public static LlmChatApis Resolve(Compilation compilation) => new(
                 compilation.GetTypeByMetadataName("Microsoft.Extensions.AI.ChatMessage"),
                 compilation.GetTypeByMetadataName("Microsoft.Extensions.AI.ChatRole"),
                 compilation.GetTypeByMetadataName("Microsoft.SemanticKernel.ChatCompletion.ChatHistory"),
                 compilation.GetTypeByMetadataName("Microsoft.SemanticKernel.ChatMessageContent"),
                 compilation.GetTypeByMetadataName("Microsoft.SemanticKernel.ChatCompletion.AuthorRole"));
-
-            return apis.HasMessageCreationTargets || apis.HasChatHistory ? apis : null;
-        }
     }
 }

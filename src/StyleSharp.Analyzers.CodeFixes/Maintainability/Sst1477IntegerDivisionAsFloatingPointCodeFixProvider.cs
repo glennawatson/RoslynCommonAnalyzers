@@ -99,9 +99,10 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
         }
 
         return SyntaxFactory.CastExpression(
-                SyntaxFactory.PredefinedType(SyntaxFactory.Token(keyword)),
-                operand)
-            .WithTriviaFrom(left);
+            SyntaxFactory.Token(left.GetLeadingTrivia(), SyntaxKind.OpenParenToken, default),
+            SyntaxFactory.PredefinedType(SyntaxFactory.Token(keyword)),
+            SyntaxFactory.Token(SyntaxKind.CloseParenToken),
+            operand.WithTrailingTrivia(left.GetTrailingTrivia()));
     }
 
     /// <summary>Gets the explicit cast the division only exists to feed, when it targets the same type.</summary>

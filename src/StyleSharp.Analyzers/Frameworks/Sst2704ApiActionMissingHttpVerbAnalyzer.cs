@@ -12,7 +12,7 @@ namespace StyleSharp.Analyzers;
 /// that does declare a verb. A method marked <c>[NonAction]</c>, one that already declares a verb, a static
 /// method, a property accessor, and an override inherited from <c>object</c> are all left alone. The rule is
 /// scoped to <c>[ApiController]</c> types to keep false positives low, is gated on the ASP.NET Core MVC types
-/// resolving in the referenced framework so a non-web project pays nothing, and has no code fix because the
+/// resolving in the referenced framework once an action candidate is found, and has no code fix because the
 /// intended verb cannot be inferred.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -47,28 +47,39 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var apiControllerAttribute = start.Compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
-            var controllerBase = start.Compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
-            var httpMethodAttribute = start.Compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
-            if (apiControllerAttribute is null || controllerBase is null || httpMethodAttribute is null)
-            {
-                return;
-            }
-
-            var actionHttpMethodProvider = start.Compilation.GetTypeByMetadataName(ActionHttpMethodProviderMetadataName);
-            var nonActionAttribute = start.Compilation.GetTypeByMetadataName(NonActionAttributeMetadataName);
-            var markers = new MvcMarkers(apiControllerAttribute, controllerBase, httpMethodAttribute, actionHttpMethodProvider, nonActionAttribute);
+            var compilation = start.Compilation;
+            var markers = new Lazy<MvcMarkers?>(() => ResolveMarkers(compilation));
             start.RegisterSymbolAction(symbolContext => AnalyzeType(symbolContext, markers), SymbolKind.NamedType);
         });
     }
 
+    /// <summary>Resolves MVC marker types once an eligible action needs them.</summary>
+    /// <param name="compilation">The compilation whose MVC references are inspected.</param>
+    /// <returns>The MVC markers, or null when a required type is unavailable.</returns>
+    private static MvcMarkers? ResolveMarkers(Compilation compilation)
+    {
+        var apiControllerAttribute = compilation.GetTypeByMetadataName(ApiControllerAttributeMetadataName);
+        var controllerBase = compilation.GetTypeByMetadataName(ControllerBaseMetadataName);
+        var httpMethodAttribute = compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
+        if (apiControllerAttribute is null || controllerBase is null || httpMethodAttribute is null)
+        {
+            return null;
+        }
+
+        var actionHttpMethodProvider = compilation.GetTypeByMetadataName(ActionHttpMethodProviderMetadataName);
+        var nonActionAttribute = compilation.GetTypeByMetadataName(NonActionAttributeMetadataName);
+        return new MvcMarkers(apiControllerAttribute, controllerBase, httpMethodAttribute, actionHttpMethodProvider, nonActionAttribute);
+    }
+
     /// <summary>Reports SST2704 for each verb-less public action on an <c>[ApiController]</c> type.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="markers">The resolved MVC marker types the rule gates on.</param>
-    private static void AnalyzeType(in SymbolAnalysisContext context, in MvcMarkers markers)
+    /// <param name="markerCache">The MVC markers, resolved only for a class with an eligible action.</param>
+    private static void AnalyzeType(in SymbolAnalysisContext context, Lazy<MvcMarkers?> markerCache)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind != TypeKind.Class
+            || !HasActionCandidate(type)
+            || markerCache.Value is not { } markers
             || !HasApiControllerAttribute(type, markers.ApiControllerAttribute)
             || !IsOrDerivesFrom(type, markers.ControllerBase))
         {
@@ -85,6 +96,22 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
                     method.Name));
             }
         }
+    }
+
+    /// <summary>Rejects classes with no reportable method before resolving MVC types.</summary>
+    /// <param name="type">The candidate controller type.</param>
+    /// <returns>True when at least one declared method has the shape of an action.</returns>
+    private static bool HasActionCandidate(INamedTypeSymbol type)
+    {
+        foreach (var member in type.GetMembers())
+        {
+            if (member is IMethodSymbol method && IsActionCandidate(method))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether a method is a public action that declares no HTTP verb and is not opted out.</summary>

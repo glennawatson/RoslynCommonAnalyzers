@@ -21,8 +21,8 @@ namespace StyleSharp.Analyzers;
 /// and never binds.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on <c>System.Runtime.InteropServices.SafeHandle</c> resolving,
-/// so a compilation that has no safe handle type pays nothing. There is no code fix: the correct remedy is a
+/// The <c>System.Runtime.InteropServices.SafeHandle</c> type is resolved once per compilation, only after a
+/// call passes the syntactic filter. There is no code fix: the correct remedy is a
 /// reference-counting protocol around the raw handle, not a mechanical rewrite of the call.
 /// </para>
 /// </remarks>
@@ -49,10 +49,8 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(SafeHandleMetadataName) is not { } safeHandleType)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var safeHandleType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(SafeHandleMetadataName));
 
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, safeHandleType), SyntaxKind.InvocationExpression);
         });
@@ -60,8 +58,8 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one raw handle read through a safe handle's dangerous accessor.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="safeHandleType">The compilation's safe-handle type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol safeHandleType)
+    /// <param name="safeHandleType">The compilation's lazily resolved safe-handle type.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> safeHandleType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 0 || GetInvokedName(invocation) != DangerousGetHandleName)
@@ -69,8 +67,9 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
-            || !IsSafeHandleOrDerived(method.ContainingType, safeHandleType))
+        if (safeHandleType.Value is not { } resolvedSafeHandleType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
+            || !IsSafeHandleOrDerived(method.ContainingType, resolvedSafeHandleType))
         {
             return;
         }

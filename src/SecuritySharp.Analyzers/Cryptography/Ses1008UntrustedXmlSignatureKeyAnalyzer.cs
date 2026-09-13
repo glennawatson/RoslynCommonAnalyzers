@@ -15,9 +15,9 @@ namespace SecuritySharp.Analyzers;
 /// validate and carry a different member name, so the syntactic prefilter (member name <c>CheckSignature</c>)
 /// already excludes them. Detection is a cheap name prefilter followed by a symbol bind: the invocation must
 /// resolve to a method named <c>CheckSignature</c> declared on <c>System.Security.Cryptography.Xml.SignedXml</c>
-/// whose parameters are empty or a single <c>bool</c>. <c>SignedXml</c> is probed once per compilation (it
-/// ships in the separate <c>System.Security.Cryptography.Xml</c> package on modern .NET), so a project without
-/// it registers no syntax action and pays nothing.
+/// whose parameters are empty or a single <c>bool</c>. <c>SignedXml</c> is probed once per compilation,
+/// only after a call with the matching name and argument count is found. It ships in the separate
+/// <c>System.Security.Cryptography.Xml</c> package on modern .NET.
 /// </summary>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
@@ -41,38 +41,32 @@ public sealed class Ses1008UntrustedXmlSignatureKeyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            // Gate the whole rule on SignedXml: without it there is no CheckSignature to report, so nothing
-            // is registered and the clean path costs nothing. On modern .NET the type lives in the separate
-            // System.Security.Cryptography.Xml package, so its absence is common.
-            var signedXmlType = start.Compilation.GetTypeByMetadataName(SignedXmlMetadataName);
-            if (signedXmlType is null)
-            {
-                return;
-            }
-
+            var compilation = start.Compilation;
+            var signedXmlType = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(SignedXmlMetadataName));
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, signedXmlType), SyntaxKind.InvocationExpression);
         });
     }
 
     /// <summary>Reports SES1008 for a no-key <c>SignedXml.CheckSignature</c> call.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="signedXmlType">The gated <c>SignedXml</c> type resolved for the compilation.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol signedXmlType)
+    /// <param name="signedXmlType">The <c>SignedXml</c> type resolved on first demand.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> signedXmlType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
 
-        // Syntactic prefilter: an invocation of a member named 'CheckSignature'. Only the bare name is checked
-        // here, so the semantic model is never touched on the overwhelmingly common non-matching path.
-        if (InvokedName.Of(invocation.Expression) != CheckSignatureMethodName)
+        // Reject unrelated calls before resolving the framework type or binding the invocation.
+        if (InvokedName.Of(invocation.Expression) != CheckSignatureMethodName
+            || invocation.ArgumentList.Arguments.Count > 1)
         {
             return;
         }
 
-        if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
+        if (signedXmlType.Value is not { } resolvedSignedXmlType
+            || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || method.Name != CheckSignatureMethodName
-            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, signedXmlType)
+            || !SymbolEqualityComparer.Default.Equals(method.ContainingType, resolvedSignedXmlType)
             || !IsNoKeyOverload(method))
         {
             return;

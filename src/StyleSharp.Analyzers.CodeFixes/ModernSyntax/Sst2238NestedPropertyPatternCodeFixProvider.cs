@@ -57,7 +57,9 @@ public sealed class Sst2238NestedPropertyPatternCodeFixProvider : CodeFixProvide
         }
 
         var flattened = SyntaxFactory.Subpattern(
-                SyntaxFactory.ExpressionColon(path, SyntaxFactory.Token(SyntaxKind.ColonToken).WithTrailingTrivia(SyntaxFactory.Space)),
+                SyntaxFactory.ExpressionColon(
+                    path,
+                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))),
                 inner.Pattern.WithoutTrivia())
             .WithTriviaFrom(outer);
 

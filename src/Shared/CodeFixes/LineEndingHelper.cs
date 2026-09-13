@@ -15,16 +15,37 @@ internal static class LineEndingHelper
     /// <returns>The end-of-line trivia to insert.</returns>
     internal static SyntaxTrivia GetLineBreak(SyntaxNode anchor)
     {
-        // A trivia walk is fine here: fixes run on demand for one reported node, never on the
-        // analyzer hot path, and the first line break almost always sits within a few tokens.
-        foreach (var trivia in anchor.DescendantTrivia())
-        {
-            if (trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+        var lineBreak = default(SyntaxTrivia);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            anchor,
+            ref lineBreak,
+            static (in SyntaxToken token, ref SyntaxTrivia found) =>
             {
-                return trivia;
-            }
-        }
+                foreach (var trivia in token.LeadingTrivia)
+                {
+                    if (!trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+                    {
+                        continue;
+                    }
 
-        return SyntaxFactory.EndOfLine("\n");
+                    found = trivia;
+                    return false;
+                }
+
+                foreach (var trivia in token.TrailingTrivia)
+                {
+                    if (!trivia.IsKind(SyntaxKind.EndOfLineTrivia))
+                    {
+                        continue;
+                    }
+
+                    found = trivia;
+                    return false;
+                }
+
+                return true;
+            });
+
+        return lineBreak.RawKind == 0 ? SyntaxFactory.EndOfLine("\n") : lineBreak;
     }
 }

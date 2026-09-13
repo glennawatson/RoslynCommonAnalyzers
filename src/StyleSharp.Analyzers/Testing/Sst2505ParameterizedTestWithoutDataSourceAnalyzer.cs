@@ -23,9 +23,8 @@ namespace StyleSharp.Analyzers;
 /// <c>[DynamicData]</c>); TUnit needs an attribute implementing <c>TUnit.Core.IDataSourceAttribute</c>.
 /// </para>
 /// <para>
-/// The whole rule is gated at compilation start on at least one test-attribute marker resolving, so a
-/// project that references no test framework pays nothing. The clean path is a syntactic prepass: the
-/// method must declare a parameter and carry an attribute written with a known test-attribute name
+/// Framework symbols are resolved only for syntactically eligible methods. The clean path is a syntactic prepass:
+/// the method must declare a parameter and carry an attribute written with a known test-attribute name
 /// before anything binds. Only then are the method's and parameters' attributes bound to confirm a real
 /// test attribute is present and that no recognized data source is — the conservative condition under
 /// which the case is reported. A parameterless test and a parameterized test that already has any data
@@ -60,16 +59,7 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var symbols = FrameworkSymbols.Resolve(start.Compilation);
-            if (symbols is null)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols), SyntaxKind.MethodDeclaration);
-        });
+        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeMethod(nodeContext), SyntaxKind.MethodDeclaration);
     }
 
     /// <summary>Returns whether an attribute's simple name is one a test framework uses to mark a test.</summary>
@@ -80,8 +70,7 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
 
     /// <summary>Analyzes one method declaration for a parameterized test with no data source.</summary>
     /// <param name="context">The syntax node context.</param>
-    /// <param name="symbols">The resolved test-framework symbols.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, FrameworkSymbols symbols)
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (method.ParameterList.Parameters.Count == 0
@@ -90,7 +79,8 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
             return;
         }
 
-        if (!IsReportableTest(context.SemanticModel, method, symbols, context.CancellationToken))
+        if (FrameworkSymbols.Resolve(context.Compilation) is not { } symbols
+            || !IsReportableTest(context.SemanticModel, method, symbols, context.CancellationToken))
         {
             return;
         }
@@ -109,30 +99,54 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
     /// <returns><see langword="true"/> when the method should be reported.</returns>
     private static bool IsReportableTest(SemanticModel model, MethodDeclarationSyntax method, FrameworkSymbols symbols, CancellationToken cancellationToken)
     {
-        var hasTestMarker = false;
-        var lists = method.AttributeLists;
-        for (var i = 0; i < lists.Count; i++)
+        if (model.GetDeclaredSymbol(method, cancellationToken) is not { } methodSymbol)
         {
-            var attributes = lists[i].Attributes;
-            for (var j = 0; j < attributes.Count; j++)
-            {
-                if (model.GetSymbolInfo(attributes[j], cancellationToken).Symbol is not IMethodSymbol { ContainingType: { } attributeClass })
-                {
-                    continue;
-                }
-
-                if (symbols.IsDataSource(attributeClass))
-                {
-                    return false;
-                }
-
-                hasTestMarker = hasTestMarker || symbols.IsTestMarker(attributeClass);
-            }
+            return false;
         }
 
-        return hasTestMarker
+        var hasTestMarker = false;
+        return !ContainsDataSource(methodSymbol.GetAttributes(), method, symbols, cancellationToken, ref hasTestMarker)
+            && !ContainsDataSource(methodSymbol.GetReturnTypeAttributes(), method, symbols, cancellationToken, ref hasTestMarker)
+            && hasTestMarker
             && !ParameterCarriesDataSource(model, method.ParameterList, symbols, cancellationToken)
             && HasDataRequiringParameter(model, method, symbols, cancellationToken);
+    }
+
+    /// <summary>Checks a declaration's attributes for data sources while collecting test markers.</summary>
+    /// <param name="attributes">The declaration symbol's attributes.</param>
+    /// <param name="method">The method whose written attributes are being inspected.</param>
+    /// <param name="symbols">The resolved test-framework symbols.</param>
+    /// <param name="cancellationToken">A token that cancels the operation.</param>
+    /// <param name="hasTestMarker">Whether a test marker has been found.</param>
+    /// <returns>True when the written declaration contains a recognized data source.</returns>
+    private static bool ContainsDataSource(
+        ImmutableArray<AttributeData> attributes,
+        MethodDeclarationSyntax method,
+        FrameworkSymbols symbols,
+        CancellationToken cancellationToken,
+        ref bool hasTestMarker)
+    {
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var attribute = attributes[i];
+            if (attribute.ApplicationSyntaxReference is not { } reference
+                || reference.SyntaxTree != method.SyntaxTree
+                || !method.Span.Contains(reference.Span)
+                || attribute.AttributeConstructor is not { ContainingType: { } attributeClass })
+            {
+                continue;
+            }
+
+            if (symbols.IsDataSource(attributeClass))
+            {
+                return true;
+            }
+
+            hasTestMarker = hasTestMarker || symbols.IsTestMarker(attributeClass);
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether the method declares a parameter that a data source would have to fill.</summary>
@@ -192,20 +206,31 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
     /// <returns><see langword="true"/> when a per-parameter data source is present.</returns>
     private static bool ParameterCarriesDataSource(SemanticModel model, ParameterListSyntax parameterList, FrameworkSymbols symbols, CancellationToken cancellationToken)
     {
-        var parameters = parameterList.Parameters;
-        for (var p = 0; p < parameters.Count; p++)
+        if (model.GetDeclaredSymbol(parameterList.Parent!, cancellationToken) is not IMethodSymbol methodSymbol)
         {
-            var lists = parameters[p].AttributeLists;
-            for (var i = 0; i < lists.Count; i++)
+            return false;
+        }
+
+        var parameters = methodSymbol.Parameters;
+        for (var p = 0; p < parameters.Length; p++)
+        {
+            if (parameterList.Parameters[p].AttributeLists.Count == 0)
             {
-                var attributes = lists[i].Attributes;
-                for (var j = 0; j < attributes.Count; j++)
+                continue;
+            }
+
+            var attributes = parameters[p].GetAttributes();
+            for (var i = 0; i < attributes.Length; i++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var attribute = attributes[i];
+                if (attribute.ApplicationSyntaxReference is { } reference
+                    && reference.SyntaxTree == parameterList.SyntaxTree
+                    && parameterList.Span.Contains(reference.Span)
+                    && attribute.AttributeConstructor is { ContainingType: { } attributeClass }
+                    && symbols.IsDataSource(attributeClass))
                 {
-                    if (model.GetSymbolInfo(attributes[j], cancellationToken).Symbol is IMethodSymbol { ContainingType: { } attributeClass }
-                        && symbols.IsDataSource(attributeClass))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
         }
@@ -224,7 +249,7 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
         _ => string.Empty,
     };
 
-    /// <summary>The test-framework symbols resolved once per compilation the rule needs to classify attributes.</summary>
+    /// <summary>The test-framework symbols resolved for a candidate method to classify attributes.</summary>
     private sealed class FrameworkSymbols
     {
         /// <summary>The metadata name of the xUnit base attribute every data attribute derives from.</summary>

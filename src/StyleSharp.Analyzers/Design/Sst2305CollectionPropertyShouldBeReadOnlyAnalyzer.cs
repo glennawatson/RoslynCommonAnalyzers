@@ -19,10 +19,10 @@ namespace StyleSharp.Analyzers;
 /// Every shape the rule leaves alone is recognized on syntax alone, so nothing is bound until a
 /// property has an ordinary, caller-visible <c>set</c> accessor: an <c>init</c> accessor is a different
 /// syntax kind, and <c>private set</c>, <c>required</c>, <c>override</c>, an explicit interface
-/// implementation, and any attribute on the property or its containing type all reject before the
-/// semantic model is touched. The attribute test is the serialization escape hatch: a contract that
-/// needs a setter says so with an attribute, and being conservative there costs one missed report and
-/// saves a stream of false ones.
+/// implementation, and contract attributes on the property or its containing type all reject before
+/// the semantic model is touched. The attribute test is the serialization escape hatch: a contract
+/// that needs a setter says so with an attribute. Known diagnostic and tooling metadata does not
+/// express that contract.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -65,7 +65,7 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
                 continue;
             }
 
-            var isCallerFacing = accessor.AttributeLists.Count == 0
+            var isCallerFacing = !HasContractAttribute(accessor.AttributeLists)
                 && !ModifierListHelper.Contains(accessor.Modifiers, SyntaxKind.PrivateKeyword);
             return isCallerFacing ? accessor : null;
         }
@@ -170,16 +170,86 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer : Diagnost
     /// <returns><see langword="true"/> when the setter is not the author's to remove, or is deliberate.</returns>
     /// <remarks>
     /// A <c>required</c> property must stay settable for an object initializer to satisfy it, and a
-    /// <c>private set</c> keeps the collection under the type's own control. An attribute — on the
-    /// property or on its type — is the serialization escape hatch: a contract that needs a setter says
-    /// so, the rule cannot know every attribute that means it, and so it steps back from all of them.
+    /// <c>private set</c> keeps the collection under the type's own control. Attributes may express a
+    /// serialization contract that needs a setter, so only known tooling metadata is disregarded.
     /// </remarks>
     private static bool IsExemptDeclaration(PropertyDeclarationSyntax property) =>
-        property.AttributeLists.Count > 0
+        HasContractAttribute(property.AttributeLists)
             || property.ExplicitInterfaceSpecifier is not null
             || ModifierListHelper.ContainsEither(property.Modifiers, SyntaxKind.PrivateKeyword, SyntaxKind.OverrideKeyword)
             || ModifierListHelper.Contains(property.Modifiers, SyntaxKind.RequiredKeyword)
-            || property.Parent is BaseTypeDeclarationSyntax { AttributeLists.Count: > 0 };
+            || (property.Parent is BaseTypeDeclarationSyntax containingType && HasContractAttribute(containingType.AttributeLists));
+
+    /// <summary>Returns whether an attribute may require the setter as part of a contract.</summary>
+    /// <param name="attributeLists">The declaration's attribute lists.</param>
+    /// <returns>True when any attribute is not recognized as tooling metadata.</returns>
+    private static bool HasContractAttribute(SyntaxList<AttributeListSyntax> attributeLists)
+    {
+        for (var i = 0; i < attributeLists.Count; i++)
+        {
+            var attributes = attributeLists[i].Attributes;
+            for (var j = 0; j < attributes.Count; j++)
+            {
+                if (!IsToolingAttribute(attributes[j].Name))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Recognizes metadata that controls tooling without requiring a collection setter.</summary>
+    /// <param name="name">The written attribute name, including any namespace qualification.</param>
+    /// <returns>True for known diagnostic, coverage, debugger, editor, and compiler metadata.</returns>
+    /// <remarks>
+    /// Match only explicit names: an unknown attribute may carry a serialization contract. Binding
+    /// attributes would add semantic work to every attributed declaration on the syntax clean path.
+    /// </remarks>
+    private static bool IsToolingAttribute(NameSyntax name)
+    {
+        var identifier = name switch
+        {
+            IdentifierNameSyntax simple => simple.Identifier.ValueText,
+            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
+            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
+            _ => string.Empty,
+        };
+
+        return IsNonDebuggerToolingAttribute(identifier)
+            || IsDebuggerDisplayAttribute(identifier)
+            || IsDebuggerExecutionAttribute(identifier);
+    }
+
+    /// <summary>Recognizes suppression, coverage, editor, and compiler metadata.</summary>
+    /// <param name="name">The unqualified attribute name.</param>
+    /// <returns>True when the attribute does not express a setter contract.</returns>
+    private static bool IsNonDebuggerToolingAttribute(string name) =>
+        name is "SuppressMessage" or "SuppressMessageAttribute"
+            or "UnconditionalSuppressMessage" or "UnconditionalSuppressMessageAttribute"
+            or "ExcludeFromCodeCoverage" or "ExcludeFromCodeCoverageAttribute"
+            or "EditorBrowsable" or "EditorBrowsableAttribute"
+            or "CompilerGenerated" or "CompilerGeneratedAttribute";
+
+    /// <summary>Recognizes attributes that change how the debugger displays a value.</summary>
+    /// <param name="name">The unqualified attribute name.</param>
+    /// <returns>True for debugger display metadata.</returns>
+    private static bool IsDebuggerDisplayAttribute(string name) =>
+        name is "DebuggerBrowsable" or "DebuggerBrowsableAttribute"
+            or "DebuggerDisplay" or "DebuggerDisplayAttribute"
+            or "DebuggerTypeProxy" or "DebuggerTypeProxyAttribute"
+            or "DebuggerVisualizer" or "DebuggerVisualizerAttribute";
+
+    /// <summary>Recognizes attributes that control debugger stepping and exception handling.</summary>
+    /// <param name="name">The unqualified attribute name.</param>
+    /// <returns>True for debugger execution metadata.</returns>
+    private static bool IsDebuggerExecutionAttribute(string name) =>
+        name is "DebuggerHidden" or "DebuggerHiddenAttribute"
+            or "DebuggerNonUserCode" or "DebuggerNonUserCodeAttribute"
+            or "DebuggerStepThrough" or "DebuggerStepThroughAttribute"
+            or "DebuggerStepperBoundary" or "DebuggerStepperBoundaryAttribute"
+            or "DebuggerDisableUserUnhandledExceptions" or "DebuggerDisableUserUnhandledExceptionsAttribute";
 
     /// <summary>Carries the property binding context through the assignment scan.</summary>
     private readonly record struct PropertyWriteState

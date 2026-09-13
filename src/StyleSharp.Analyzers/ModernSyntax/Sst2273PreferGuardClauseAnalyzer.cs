@@ -126,9 +126,13 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
                 _ = names.Add(name);
             }
 
-            foreach (var child in current.ChildNodes())
+            var children = current.ChildNodesAndTokens();
+            for (var i = 0; i < children.Count; i++)
             {
-                pending.Push(child);
+                if (children[i].AsNode() is { } child)
+                {
+                    pending.Push(child);
+                }
             }
         }
     }
@@ -156,9 +160,13 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
                 return true;
             }
 
-            foreach (var child in current.ChildNodes())
+            var children = current.ChildNodesAndTokens();
+            for (var i = 0; i < children.Count; i++)
             {
-                pending.Push(child);
+                if (children[i].AsNode() is { } child)
+                {
+                    pending.Push(child);
+                }
             }
         }
 

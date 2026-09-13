@@ -172,7 +172,8 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             return;
         }
 
-        if (FindParameter(model, type, name) is not { } parameter)
+        if (!HasMismatchedPropertyType(type, name, constraintType)
+            || FindParameter(model, type, name) is not { } parameter)
         {
             return;
         }
@@ -248,6 +249,35 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
 
         var token = segment.Slice(start, end - start).ToString();
         return token.ToLowerInvariant();
+    }
+
+    /// <summary>Rejects a matching route before binding property attributes when no property type could produce a diagnostic.</summary>
+    /// <param name="type">The routable component type.</param>
+    /// <param name="name">The route parameter name.</param>
+    /// <param name="constraintType">The type required by the route constraint.</param>
+    /// <returns>Whether a same-named property has a non-error type that differs from the constraint.</returns>
+    private static bool HasMismatchedPropertyType(INamedTypeSymbol type, string name, ITypeSymbol constraintType)
+    {
+        for (var current = type; current is not null; current = current.BaseType)
+        {
+            var members = current.GetMembers();
+            for (var i = 0; i < members.Length; i++)
+            {
+                if (members[i] is not IPropertySymbol property
+                    || !string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var propertyType = UnwrapNullable(property.Type);
+                if (propertyType.TypeKind != TypeKind.Error && !SymbolEqualityComparer.Default.Equals(propertyType, constraintType))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Finds a same-named component parameter on the type or one of its base types.</summary>

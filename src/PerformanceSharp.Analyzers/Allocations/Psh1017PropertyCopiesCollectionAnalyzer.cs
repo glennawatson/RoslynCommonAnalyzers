@@ -311,11 +311,22 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="creation">The matched object creation.</param>
     /// <returns><see langword="true"/> when the constructor copies a source collection into a new one.</returns>
-    private static bool IsSeedingConstructor(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation) =>
-        context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
+    private static bool IsSeedingConstructor(in SyntaxNodeAnalysisContext context, BaseObjectCreationExpressionSyntax creation)
+    {
+        // Binding the written type avoids constructing and resolving its constructor overloads
+        // for read-only wrappers and other collections outside the copying namespaces.
+        if (creation is ObjectCreationExpressionSyntax explicitCreation
+            && (context.SemanticModel.GetTypeInfo(explicitCreation.Type, context.CancellationToken).Type is not INamedTypeSymbol createdType
+                || !IsCopyingCollectionType(createdType)))
+        {
+            return false;
+        }
+
+        return context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
             && IsCollectionType(constructor.Parameters[0].Type)
             && constructor.ContainingType is { } created
             && IsCopyingCollectionType(created);
+    }
 
     /// <summary>Returns whether a created type is one whose seeding constructor copies rather than wraps.</summary>
     /// <param name="type">The created type.</param>

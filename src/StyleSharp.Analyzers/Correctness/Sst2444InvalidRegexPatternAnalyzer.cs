@@ -62,6 +62,9 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.InvalidRegexPattern);
 
+    /// <summary>The regex call shapes registered for each compilation.</summary>
+    private static readonly SyntaxKind[] CallKinds = [SyntaxKind.InvocationExpression, SyntaxKind.ObjectCreationExpression];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -82,8 +85,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
             var cache = new ConcurrentDictionary<(string Pattern, int Options), string?>(concurrencyLevel: 1, capacity: 4);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, regexType, optionsType, cache),
-                SyntaxKind.InvocationExpression,
-                SyntaxKind.ObjectCreationExpression);
+                CallKinds);
         });
     }
 

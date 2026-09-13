@@ -42,9 +42,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(qualifiedName.Right);
         if (qualifiedName.Right.Span.Length >= qualifiedName.Span.Length
-            || !BindsToSameTypeOrNamespace(context.SemanticModel, qualifiedName, replacement, context.CancellationToken))
+            || !BindsToSameTypeOrNamespace(context.SemanticModel, qualifiedName, qualifiedName.Right, context.CancellationToken))
         {
             return;
         }
@@ -64,9 +63,8 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(aliasQualifiedName.Name);
         if (aliasQualifiedName.Name.Span.Length >= aliasQualifiedName.Span.Length
-            || !BindsToSameTypeOrNamespace(context.SemanticModel, aliasQualifiedName, replacement, context.CancellationToken))
+            || !BindsToSameTypeOrNamespace(context.SemanticModel, aliasQualifiedName, aliasQualifiedName.Name, context.CancellationToken))
         {
             return;
         }
@@ -90,8 +88,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var replacement = CloneSimpleName(memberAccess.Name);
-        if (!BindsToSameExpression(context.SemanticModel, memberAccess, replacement, context.CancellationToken))
+        if (!BindsToSameExpression(context.SemanticModel, memberAccess, memberAccess.Name, context.CancellationToken))
         {
             return;
         }
@@ -227,7 +224,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
     private static bool BindsToSameTypeOrNamespace(
         SemanticModel model,
         NameSyntax original,
-        NameSyntax replacement,
+        SimpleNameSyntax replacement,
         CancellationToken cancellationToken)
     {
         var originalSymbol = SymbolResolution.GetSingleSymbol(model.GetSymbolInfo(original, cancellationToken));
@@ -243,7 +240,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
-            replacement,
+            CloneSimpleName(replacement),
             SpeculativeBindingOption.BindAsTypeOrNamespace));
 
         return SymbolEqualityComparer.Default.Equals(originalSymbol, replacementSymbol);
@@ -300,7 +297,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         var replacementSymbol = SymbolResolution.GetSingleSymbol(model.GetSpeculativeSymbolInfo(
             original.SpanStart,
-            replacement,
+            replacement is SimpleNameSyntax speculativeName ? CloneSimpleName(speculativeName) : replacement,
             SpeculativeBindingOption.BindAsExpression));
 
         return SymbolEqualityComparer.Default.Equals(originalSymbol, replacementSymbol);

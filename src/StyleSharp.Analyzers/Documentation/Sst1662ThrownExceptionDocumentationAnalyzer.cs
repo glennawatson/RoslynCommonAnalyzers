@@ -330,43 +330,55 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         {
             if (attribute is XmlCrefAttributeSyntax cref)
             {
-                return LastNameSegment(cref.Cref.ToString());
+                return LastNameSegment(cref.Cref);
             }
         }
 
         return null;
     }
 
-    /// <summary>Extracts the rightmost identifier from a cref's textual form, dropping any generic or parameter suffix.</summary>
-    /// <param name="cref">The cref text.</param>
-    /// <returns>The rightmost identifier segment.</returns>
-    private static ReadOnlyMemory<char> LastNameSegment(string cref)
+    /// <summary>Reads the last name token before a cref's first generic or parameter suffix without rendering syntax.</summary>
+    /// <param name="cref">The cref syntax.</param>
+    /// <returns>The written identifier segment, or empty memory when the segment includes other text.</returns>
+    private static ReadOnlyMemory<char> LastNameSegment(CrefSyntax cref)
     {
-        var end = cref.Length;
-        for (var i = 0; i < cref.Length; i++)
-        {
-            if (cref[i] is not ('{' or '(' or '<'))
+        var state = (Name: default(SyntaxToken), Start: cref.SpanStart, cref.Span.End);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(
+            cref,
+            ref state,
+            static (in SyntaxToken token, ref (SyntaxToken Name, int Start, int End) current) =>
             {
-                continue;
-            }
+                switch (token.Text)
+                {
+                    case "{" or "(" or "<":
+                    {
+                        current.End = token.SpanStart;
+                        return false;
+                    }
 
-            end = i;
-            break;
-        }
+                    case "." or "::":
+                    {
+                        current.Start = token.Span.End;
+                        break;
+                    }
 
-        var start = 0;
-        for (var i = end - 1; i >= 0; i--)
-        {
-            if (cref[i] is not ('.' or ':'))
-            {
-                continue;
-            }
+                    default:
+                    {
+                        if (token.IsKind(SyntaxKind.IdentifierToken))
+                        {
+                            current.Name = token;
+                        }
 
-            start = i + 1;
-            break;
-        }
+                        break;
+                    }
+                }
 
-        return cref.AsMemory(start, end - start);
+                return true;
+            });
+
+        return state.Name.SpanStart == state.Start && state.Name.Span.End == state.End
+            ? state.Name.Text.AsMemory()
+            : ReadOnlyMemory<char>.Empty;
     }
 
     /// <summary>Returns the reported name token and text for a member.</summary>

@@ -140,24 +140,8 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         return null;
     }
 
-    /// <summary>Resolves the stopwatch type once per compilation, on first demand.</summary>
-    /// <param name="compilation">The compilation whose type is resolved.</param>
-    private sealed class StopwatchType(Compilation compilation)
-    {
-        /// <summary>The metadata name of the stopwatch type.</summary>
-        private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
-
-        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
-        private INamedTypeSymbol?[]? _resolved;
-
-        /// <summary>Gets the stopwatch type, caching an absent type too.</summary>
-        /// <returns>The stopwatch type, or null when absent.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(StopwatchMetadataName)])[0];
-    }
-
     /// <summary>Token-visitor state that whitelists elapsed reads and Stop calls on one local.</summary>
-    private sealed class UsageScan
+    private struct UsageScan
     {
         /// <summary>The local's name.</summary>
         private readonly string _name;
@@ -165,7 +149,7 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
         /// <summary>The declarator identifier's position, excluded from the scan.</summary>
         private readonly int _declaratorStart;
 
-        /// <summary>Initializes a new instance of the <see cref="UsageScan"/> class.</summary>
+        /// <summary>Initializes a new instance of the <see cref="UsageScan"/> struct.</summary>
         /// <param name="name">The local's name.</param>
         /// <param name="declaratorStart">The declarator identifier's position.</param>
         public UsageScan(string name, int declaratorStart)
@@ -225,5 +209,21 @@ public sealed class Psh1408UseStopwatchTimestampsAnalyzer : DiagnosticAnalyzer
 
             return memberName == "Stop" && access.Parent is InvocationExpressionSyntax;
         }
+    }
+
+    /// <summary>Resolves the stopwatch type once per compilation, on first demand.</summary>
+    /// <param name="compilation">The compilation whose type is resolved.</param>
+    private sealed class StopwatchType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the stopwatch type.</summary>
+        private const string StopwatchMetadataName = "System.Diagnostics.Stopwatch";
+
+        /// <summary>The resolved result, including a null entry when the type is absent.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the stopwatch type, caching an absent type too.</summary>
+        /// <returns>The stopwatch type, or null when absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (_resolved ??= [compilation.GetTypeByMetadataName(StopwatchMetadataName)])[0];
     }
 }

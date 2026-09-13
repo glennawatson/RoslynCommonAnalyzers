@@ -117,6 +117,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
         var model = context.SemanticModel;
         var cancellationToken = context.CancellationToken;
         if (BindDecode(model, decodeCall, encoding, cancellationToken) is not { } decode
+            || !HasGetStringSibling(decode)
             || !BuildsAString(model, creation, cancellationToken)
             || SpanRewriteGuard.IsInsideExpressionTree(creation, model, cancellationToken)
             || !RewriteBindsToGetString(model, creation.SpanStart, BuildGetString(decodeCall), decode))
@@ -184,6 +185,25 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             ContainingType.SpecialType: SpecialType.System_String,
             Parameters: [{ Type: IArrayTypeSymbol { ElementType.SpecialType: SpecialType.System_Char } }],
         };
+
+    /// <summary>Rejects decoders without a matching sibling before constructing or binding a rewrite.</summary>
+    /// <param name="decode">The bound decoding method.</param>
+    /// <returns>Whether the declaring type has a potentially matching string decoder.</returns>
+    private static bool HasGetStringSibling(IMethodSymbol decode)
+    {
+        var members = decode.ContainingType.GetMembers(GetStringMethodName);
+        for (var i = 0; i < members.Length; i++)
+        {
+            if (members[i] is IMethodSymbol { IsStatic: false } candidate
+                && (candidate.IsGenericMethod
+                    || (candidate.ReturnType.SpecialType == SpecialType.System_String && HasSameParameters(candidate, decode))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Returns whether two methods take exactly the same parameter types.</summary>
     /// <param name="first">The first method.</param>

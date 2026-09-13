@@ -13,18 +13,24 @@ namespace StyleSharp.Analyzers.Tests;
 public class ThrownExceptionDocumentationAnalyzerUnitTest
 {
     /// <summary>Verifies a documented thrown exception produces no diagnostics.</summary>
+    /// <param name="cref">The written reference to the documented exception type or constructor.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     [Test]
-    public Task DocumentedThrowIsCleanAsync() =>
+    [Arguments("InvalidOperationException")]
+    [Arguments("System.InvalidOperationException")]
+    [Arguments("global::System.InvalidOperationException")]
+    [Arguments("InvalidOperationException()")]
+    [Arguments("System.InvalidOperationException(string)")]
+    public Task DocumentedThrowIsCleanAsync(string cref) =>
         Verify.VerifyAnalyzerAsync(
-            """
+            $$"""
             using System;
 
             internal class C
             {
                 /// <summary>Does it.</summary>
-                /// <exception cref="InvalidOperationException">When bad.</exception>
+                /// <exception cref="{{cref}}">When bad.</exception>
                 public void M()
                 {
                     throw new InvalidOperationException();

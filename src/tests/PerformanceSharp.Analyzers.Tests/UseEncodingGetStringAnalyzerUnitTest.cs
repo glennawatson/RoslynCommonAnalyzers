@@ -164,6 +164,42 @@ public class UseEncodingGetStringAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies inferred generic sibling return types are still resolved speculatively.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task GenericStringSiblingIsFlaggedAndFixedAsync()
+    {
+        const string Source = """
+                              using System.Text;
+
+                              public class CustomEncoding : UTF8Encoding
+                              {
+                                  public char[] GetChars<T>(T source) => source.ToString().ToCharArray();
+                                  public T GetString<T>(T source) => source;
+                              }
+
+                              public class C
+                              {
+                                  public string M(CustomEncoding encoding, string source) => {|PSH1225:new string(encoding.GetChars(source))|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Text;
+
+                                   public class CustomEncoding : UTF8Encoding
+                                   {
+                                       public char[] GetChars<T>(T source) => source.ToString().ToCharArray();
+                                       public T GetString<T>(T source) => source;
+                                   }
+
+                                   public class C
+                                   {
+                                       public string M(CustomEncoding encoding, string source) => encoding.GetString(source);
+                                   }
+                                   """;
+        await VerifyAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a decode inside an expression tree is not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

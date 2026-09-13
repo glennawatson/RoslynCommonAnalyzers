@@ -173,8 +173,60 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <param name="model">The semantic model.</param>
     /// <param name="cancellationToken">A token that cancels the operation.</param>
     /// <returns>The bound parameter's name, or <see langword="null"/> when the argument does not bind to one.</returns>
-    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken) =>
-        model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
+    private static string? GetArgumentParameterName(ArgumentSyntax argument, SemanticModel model, CancellationToken cancellationToken)
+    {
+        if (argument.Parent is BaseArgumentListSyntax { Parent: { } owner } arguments)
+        {
+            var symbolInfo = model.GetSymbolInfo(owner, cancellationToken);
+            var parameters = symbolInfo.CandidateReason == CandidateReason.None
+                ? symbolInfo.Symbol switch
+                {
+                    IMethodSymbol method => method.Parameters,
+                    IPropertySymbol property => property.Parameters,
+                    _ => default,
+                }
+                : default;
+
+            if (!parameters.IsDefaultOrEmpty)
+            {
+                var parameter = FindParameter(argument, arguments, parameters);
+                if (parameter is { IsParams: false })
+                {
+                    return parameter.Name;
+                }
+            }
+        }
+
+        // Expanded params arguments and dynamically bound or unresolved calls retain Roslyn's operation-based mapping.
+        return model.GetOperation(argument, cancellationToken) is IArgumentOperation { Parameter.Name: { } parameterName } ? parameterName : null;
+    }
+
+    /// <summary>Maps a named or positional argument to an already bound parameter without constructing operations.</summary>
+    /// <param name="argument">The argument to map.</param>
+    /// <param name="arguments">Its enclosing argument list.</param>
+    /// <param name="parameters">The bound member's parameters.</param>
+    /// <returns>The corresponding parameter, or null when no parameter matches.</returns>
+    private static IParameterSymbol? FindParameter(
+        ArgumentSyntax argument,
+        BaseArgumentListSyntax arguments,
+        ImmutableArray<IParameterSymbol> parameters)
+    {
+        if (argument.NameColon is { Name.Identifier.ValueText: var name })
+        {
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].Name == name)
+                {
+                    return parameters[i];
+                }
+            }
+
+            return null;
+        }
+
+        var index = arguments.Arguments.IndexOf(argument);
+        return index >= 0 && index < parameters.Length ? parameters[index] : null;
+    }
 
     /// <summary>Returns the simple name written on the left-hand side of an assignment, or <see langword="null"/>.</summary>
     /// <param name="left">The assignment target expression.</param>

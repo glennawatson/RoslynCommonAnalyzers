@@ -263,6 +263,52 @@ public class Sst2703RouteConstraintTypeMismatchAnalyzerUnitTest
         await VerifyAsync(Source);
     }
 
+    /// <summary>Verifies an unmarked matching property does not hide a mismatched inherited parameter from analysis.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MatchingUnmarkedPropertyKeepsInheritedMismatchAsync()
+    {
+        const string Source = """
+                              #nullable disable
+                              using Microsoft.AspNetCore.Components;
+
+                              public class BasePage
+                              {
+                                  [Parameter] public string {|SST2703:Id|} { get; set; }
+                              }
+
+                              [Route("/user/{id:int}")]
+                              public class UserPage : BasePage
+                              {
+                                  public new int Id { get; set; }
+                              }
+                              """;
+        await VerifyAsync(Source);
+    }
+
+    /// <summary>Verifies a matching marked property still takes precedence over a mismatched inherited parameter.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task MatchingMarkedPropertyHidesInheritedMismatchAsync()
+    {
+        const string Source = """
+                              #nullable disable
+                              using Microsoft.AspNetCore.Components;
+
+                              public class BasePage
+                              {
+                                  [Parameter] public string Id { get; set; }
+                              }
+
+                              [Route("/user/{id:int}")]
+                              public class UserPage : BasePage
+                              {
+                                  [Parameter] public new int Id { get; set; }
+                              }
+                              """;
+        await VerifyAsync(Source);
+    }
+
     /// <summary>Verifies a catch-all segment's constraint is checked after the leading marker is dropped.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

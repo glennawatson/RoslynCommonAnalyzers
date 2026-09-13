@@ -91,9 +91,7 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
                     continue;
                 }
 
-                if (defaultValueAttribute.Get() is not { } attributeType
-                    || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-                    || !SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType))
+                if (!IsDesignerAttribute(context, parameter, attribute, defaultValueAttribute))
                 {
                     continue;
                 }
@@ -104,6 +102,57 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
                     parameter.Identifier.ValueText));
             }
         }
+    }
+
+    /// <summary>Confirms the designer attribute after excluding unrelated declaration attributes.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="parameter">The parameter carrying the attribute.</param>
+    /// <param name="attribute">The candidate attribute syntax.</param>
+    /// <param name="defaultValueAttribute">The cached designer attribute type.</param>
+    /// <returns>Whether the attribute constructor belongs to the designer attribute.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsDesignerAttribute(
+        in SyntaxNodeAnalysisContext context,
+        ParameterSyntax parameter,
+        AttributeSyntax attribute,
+        DefaultValueType defaultValueAttribute) =>
+        defaultValueAttribute.Get() is { } attributeType
+            && !IsUnrelatedAttribute(context, parameter, attribute, attributeType)
+            && context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol constructor
+            && SymbolEqualityComparer.Default.Equals(constructor.ContainingType, attributeType);
+
+    /// <summary>Excludes an unrelated attribute using declaration data before creating an attribute semantic model.</summary>
+    /// <param name="context">The syntax node analysis context.</param>
+    /// <param name="parameter">The parameter carrying the attribute.</param>
+    /// <param name="attribute">The candidate attribute syntax.</param>
+    /// <param name="attributeType">The resolved designer attribute type.</param>
+    /// <returns>Whether the declaration has already resolved the candidate to a different attribute type.</returns>
+    private static bool IsUnrelatedAttribute(
+        in SyntaxNodeAnalysisContext context,
+        ParameterSyntax parameter,
+        AttributeSyntax attribute,
+        INamedTypeSymbol attributeType)
+    {
+        if (context.SemanticModel.GetDeclaredSymbol(parameter, context.CancellationToken) is not { } symbol)
+        {
+            return false;
+        }
+
+        var attributes = symbol.GetAttributes();
+        for (var i = 0; i < attributes.Length; i++)
+        {
+            var candidate = attributes[i];
+            if (candidate.ApplicationSyntaxReference is { } reference
+                && reference.SyntaxTree == attribute.SyntaxTree
+                && reference.Span == attribute.Span)
+            {
+                return candidate.AttributeClass is { } candidateType
+                    && candidateType.TypeKind != TypeKind.Error
+                    && !SymbolEqualityComparer.Default.Equals(candidateType, attributeType);
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Returns whether an attribute name is spelled <c>DefaultValue</c> or <c>DefaultValueAttribute</c>.</summary>

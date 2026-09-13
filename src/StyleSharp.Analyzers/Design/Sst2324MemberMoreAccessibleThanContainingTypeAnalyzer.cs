@@ -454,16 +454,25 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
                         return true;
                     }
 
-                    for (var ancestor = name.Parent; ancestor is not null; ancestor = ancestor.Parent)
-                    {
-                        if (IsAny(ancestor, scan.DeclaringNodes))
-                        {
-                            return true;
-                        }
-                    }
-
-                    return false;
+                    return IsInsideDeclaringType(name, scan.ExcludedDeclarations);
                 }))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Returns whether a node is inside one of the declaring type's own declarations.</summary>
+    /// <param name="node">The node whose ancestors are inspected.</param>
+    /// <param name="declarations">The declarations excluded from outside-reference scanning.</param>
+    /// <returns><see langword="true"/> when an ancestor is one of the excluded declarations.</returns>
+    private static bool IsInsideDeclaringType(SyntaxNode node, SyntaxNode[] declarations)
+    {
+        for (var ancestor = node.Parent; ancestor is not null; ancestor = ancestor.Parent)
+        {
+            if (IsAny(ancestor, declarations))
             {
                 return true;
             }
@@ -549,18 +558,18 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzer : Diag
     {
         /// <summary>Initializes a new instance of the <see cref="OutsideReferenceState"/> struct.</summary>
         /// <param name="name">The member name to find.</param>
-        /// <param name="declaringNodes">The declarations whose descendants do not count as outside references.</param>
-        public OutsideReferenceState(string name, SyntaxNode[] declaringNodes)
+        /// <param name="excludedDeclarations">The declarations whose descendants do not count as outside references.</param>
+        public OutsideReferenceState(string name, SyntaxNode[] excludedDeclarations)
         {
             Name = name;
-            DeclaringNodes = declaringNodes;
+            ExcludedDeclarations = excludedDeclarations;
         }
 
         /// <summary>Gets the member name to find.</summary>
         public string Name { get; }
 
         /// <summary>Gets the declarations whose descendants are excluded.</summary>
-        public SyntaxNode[] DeclaringNodes { get; }
+        public SyntaxNode[] ExcludedDeclarations { get; }
     }
 
     /// <summary>Resolves framework attribute types on demand and caches empty results for this compilation.</summary>

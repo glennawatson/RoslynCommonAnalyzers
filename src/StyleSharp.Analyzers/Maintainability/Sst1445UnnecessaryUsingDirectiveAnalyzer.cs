@@ -176,9 +176,10 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <returns>The tracker, or <see langword="null"/> when the file has nothing to track.</returns>
         public static UsageTracker? Create(CompilationUnitSyntax root, SemanticModel model, CancellationToken cancellationToken)
         {
+            var capacity = root.Usings.Count + CountNamespaceUsings(root.Members);
             List<Entry>? entries = null;
-            CollectUsings(root.Usings, model, cancellationToken, ref entries);
-            CollectNamespaceUsings(root.Members, model, cancellationToken, ref entries);
+            CollectUsings(root.Usings, model, capacity, cancellationToken, ref entries);
+            CollectNamespaceUsings(root.Members, model, capacity, cancellationToken, ref entries);
             return entries is { Count: > 0 }
                 ? new UsageTracker([.. entries], model, cancellationToken)
                 : null;
@@ -348,9 +349,10 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
         /// <summary>Collects the trackable directives from one using list.</summary>
         /// <param name="usings">The using directives of one scope.</param>
         /// <param name="model">The file's semantic model.</param>
+        /// <param name="capacity">The number of directives across all scopes in the file.</param>
         /// <param name="cancellationToken">The analysis cancellation token.</param>
         /// <param name="entries">The entry list, created on first use.</param>
-        private static void CollectUsings(SyntaxList<UsingDirectiveSyntax> usings, SemanticModel model, CancellationToken cancellationToken, ref List<Entry>? entries)
+        private static void CollectUsings(SyntaxList<UsingDirectiveSyntax> usings, SemanticModel model, int capacity, CancellationToken cancellationToken, ref List<Entry>? entries)
         {
             for (var i = 0; i < usings.Count; i++)
             {
@@ -365,17 +367,35 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                entries ??= new List<Entry>(capacity: 8);
+                entries ??= new List<Entry>(capacity);
                 entries.Add(entry);
             }
+        }
+
+        /// <summary>Counts namespace-scoped directives before allocating the tracked-entry buffer.</summary>
+        /// <param name="members">The members of one scope.</param>
+        /// <returns>The number of directives across this scope's namespace declarations.</returns>
+        private static int CountNamespaceUsings(SyntaxList<MemberDeclarationSyntax> members)
+        {
+            var count = 0;
+            for (var i = 0; i < members.Count; i++)
+            {
+                if (members[i] is BaseNamespaceDeclarationSyntax ns)
+                {
+                    count += ns.Usings.Count + CountNamespaceUsings(ns.Members);
+                }
+            }
+
+            return count;
         }
 
         /// <summary>Collects trackable directives declared inside namespace declarations.</summary>
         /// <param name="members">The members of one scope.</param>
         /// <param name="model">The file's semantic model.</param>
+        /// <param name="capacity">The number of directives across all scopes in the file.</param>
         /// <param name="cancellationToken">The analysis cancellation token.</param>
         /// <param name="entries">The entry list, created on first use.</param>
-        private static void CollectNamespaceUsings(SyntaxList<MemberDeclarationSyntax> members, SemanticModel model, CancellationToken cancellationToken, ref List<Entry>? entries)
+        private static void CollectNamespaceUsings(SyntaxList<MemberDeclarationSyntax> members, SemanticModel model, int capacity, CancellationToken cancellationToken, ref List<Entry>? entries)
         {
             for (var i = 0; i < members.Count; i++)
             {
@@ -384,8 +404,8 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                     continue;
                 }
 
-                CollectUsings(ns.Usings, model, cancellationToken, ref entries);
-                CollectNamespaceUsings(ns.Members, model, cancellationToken, ref entries);
+                CollectUsings(ns.Usings, model, capacity, cancellationToken, ref entries);
+                CollectNamespaceUsings(ns.Members, model, capacity, cancellationToken, ref entries);
             }
         }
 

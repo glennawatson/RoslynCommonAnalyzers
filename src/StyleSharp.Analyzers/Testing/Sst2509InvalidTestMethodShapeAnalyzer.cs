@@ -29,6 +29,9 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
 {
+    /// <summary>The method declaration registration shared by every compilation.</summary>
+    private static readonly SyntaxKind[] MethodKinds = [SyntaxKind.MethodDeclaration];
+
     /// <summary>The simple names, with and without the suffix, that a test-marking attribute is written as.</summary>
     private static readonly HashSet<string> TestAttributeSimpleNames = new(StringComparer.Ordinal)
     {
@@ -54,12 +57,18 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeMethod(nodeContext), SyntaxKind.MethodDeclaration);
+        context.RegisterCompilationStartAction(static start =>
+        {
+            var compilation = start.Compilation;
+            var symbols = new Lazy<FrameworkSymbols?>(() => FrameworkSymbols.Resolve(compilation));
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols), MethodKinds);
+        });
     }
 
     /// <summary>Analyzes one method declaration for a test-method shape the runner cannot execute.</summary>
     /// <param name="context">The syntax node context.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context)
+    /// <param name="frameworkSymbols">The framework types resolved on first demand per compilation.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<FrameworkSymbols?> frameworkSymbols)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists) || IsSyntacticallyRunnableShape(method))
@@ -67,7 +76,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var symbols = FrameworkSymbols.Resolve(context.Compilation);
+        var symbols = frameworkSymbols.Value;
         if (symbols is null)
         {
             return;

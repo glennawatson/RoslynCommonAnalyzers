@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -350,6 +351,17 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
             && !RepeatsWorkInLoop(value, reference, block)
             && !HasSideEffectBeforeReference(useStatement, reference);
 
+    /// <summary>Checks whether the next statement contains any identifier that could read the local.</summary>
+    /// <param name="statement">The statement immediately following the declaration.</param>
+    /// <param name="name">The declared local's identifier text.</param>
+    /// <returns>Whether binding could find a reference in the only statement eligible for inlining.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasPossibleReference(StatementSyntax statement, string name) =>
+        !DescendantTraversalHelper.VisitDescendants<IdentifierNameSyntax, string>(
+            statement,
+            ref name,
+            static (identifier, ref localName) => identifier.Identifier.ValueText != localName);
+
     /// <summary>Reports a single-use local whose initializer can be safely inlined into its one read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
@@ -377,7 +389,8 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         }
 
         var useStatement = block.Statements[declarationIndex + 1];
-        if (context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
+        if (!HasPossibleReference(useStatement, declarator.Identifier.ValueText)
+            || context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken) is not ILocalSymbol symbol
             || !PreservesDeclaredMeaning(context.SemanticModel, value, symbol, context.CancellationToken)
             || !IsSafeSingleUse(context.SemanticModel, block, useStatement, symbol, value, context.CancellationToken))
         {

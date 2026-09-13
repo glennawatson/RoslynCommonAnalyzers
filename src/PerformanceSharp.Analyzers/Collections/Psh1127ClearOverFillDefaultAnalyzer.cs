@@ -162,7 +162,7 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
 
         var arguments = invocation.ArgumentList.Arguments;
         if (arguments.Count == WholeArrayFillArgumentCount
-            && !resolved.HasWholeArrayClear
+            && !resolved.SupportsWholeArrayClear
             && !IsRepeatableExpression(arguments[0].Expression))
         {
             return;
@@ -287,13 +287,13 @@ public sealed class Psh1127ClearOverFillDefaultAnalyzer : DiagnosticAnalyzer
 
     /// <summary>The immutable array method support published by the deferred resolver.</summary>
     /// <param name="arrayType">The array type, or null when Fill or Clear is unavailable.</param>
-    /// <param name="hasWholeArrayClear">Whether the whole-array Clear overload exists.</param>
-    private sealed class ArrayMethods(INamedTypeSymbol? arrayType, bool hasWholeArrayClear)
+    /// <param name="supportsWholeArrayClear">Whether the whole-array Clear overload exists.</param>
+    private sealed class ArrayMethods(INamedTypeSymbol? arrayType, bool supportsWholeArrayClear)
     {
         /// <summary>Gets the array type when Fill and Clear are available.</summary>
         public INamedTypeSymbol? ArrayType { get; } = arrayType;
 
         /// <summary>Gets whether the whole-array Clear overload exists.</summary>
-        public bool HasWholeArrayClear { get; } = hasWholeArrayClear;
+        public bool SupportsWholeArrayClear { get; } = supportsWholeArrayClear;
     }
 }

@@ -25,7 +25,7 @@ public sealed class Psh1215UseConcatOverEmptyJoinCodeFixProvider : CodeFixProvid
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Concat", nameof(Psh1215UseConcatOverEmptyJoinCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Concat", nameof(Psh1215UseConcatOverEmptyJoinCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,6 +41,14 @@ public sealed class Psh1215UseConcatOverEmptyJoinCodeFixProvider : CodeFixProvid
         Psh1215UseConcatOverEmptyJoinAnalyzer.IsCandidate(invocation, out _, out _)
             ? document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && Psh1215UseConcatOverEmptyJoinAnalyzer.IsCandidate(invocation, out _, out _);
 
     /// <summary>Resolves the reported Join invocation and builds its Concat replacement.</summary>
     /// <param name="root">The syntax root.</param>

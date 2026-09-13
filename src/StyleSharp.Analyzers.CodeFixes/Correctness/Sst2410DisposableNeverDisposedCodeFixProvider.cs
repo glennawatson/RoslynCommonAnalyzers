@@ -24,12 +24,21 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Dispose with a using declaration", nameof(Sst2410DisposableNeverDisposedCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        TryGetStatement(root, diagnostic)is { } statement
+            && RequiresAwait(model, statement)is { } needsAwait;
 
     /// <summary>Resolves the reported local and builds its using-declaration replacement.</summary>
     /// <param name="root">The syntax root.</param>

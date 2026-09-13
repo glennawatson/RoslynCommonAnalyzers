@@ -34,6 +34,7 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
             context,
             "Divide in floating point",
             nameof(Sst1477IntegerDivisionAsFloatingPointCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -50,6 +51,17 @@ public sealed class Sst1477IntegerDivisionAsFloatingPointCodeFixProvider : CodeF
         TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (diagnostic.Properties.TryGetValue(Sst1477IntegerDivisionAsFloatingPointAnalyzer.TargetTypeKey, out var target)
+            && GetKeyword(target)is { } keyword)
+            && ((root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.DivideExpression } division)
+            && ((TryGetOuterCast(division, keyword)is not { } cast)
+            || (true)));
 
     /// <summary>Resolves the reported division and builds its floating-point form.</summary>
     /// <param name="root">The syntax root.</param>

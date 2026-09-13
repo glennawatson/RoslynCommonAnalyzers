@@ -26,12 +26,33 @@ public sealed class Sst1219DefaultSectionLastCodeFixProvider : CodeFixProvider, 
             context,
             "Move the default section to the end",
             nameof(Sst1219DefaultSectionLastCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // A directive among the sections marks a position, not a section, so moving one past it leaves the
+        // directive covering different cases than it was written around.
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<SwitchSectionSyntax>()is not { } section
+            || section.Parent is not SwitchStatementSyntax switchStatement
+            || DirectiveBoundaries.Cross(switchStatement, switchStatement.Span))
+        {
+            return false;
+        }
+
+        var index = switchStatement.Sections.IndexOf(section);
+        return !(index < 0
+            || index == switchStatement.Sections.Count - 1);
+    }
 
     /// <summary>Resolves the reported switch and moves its default section last.</summary>
     /// <param name="root">The syntax root.</param>

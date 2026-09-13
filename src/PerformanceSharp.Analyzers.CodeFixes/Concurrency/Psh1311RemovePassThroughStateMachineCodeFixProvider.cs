@@ -25,7 +25,7 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Return the task directly", nameof(Psh1311RemovePassThroughStateMachineCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,6 +41,22 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
         Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(method, out _, out _, out _)
             ? document.WithSyntaxRoot(root.ReplaceNode(method, Rewrite(method)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        return Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(node, out _, out _, out _)
+            && (node switch
+        {
+            MethodDeclarationSyntax method => true,
+            LocalFunctionStatementSyntax localFunction => true,
+            _ => false,
+        });
+    }
 
     /// <summary>Resolves the reported declaration and builds its de-async'd replacement.</summary>
     /// <param name="root">The syntax root.</param>

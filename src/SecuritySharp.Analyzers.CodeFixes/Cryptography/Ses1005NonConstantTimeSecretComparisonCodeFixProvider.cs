@@ -45,12 +45,23 @@ public sealed class Ses1005NonConstantTimeSecretComparisonCodeFixProvider : Code
             context,
             "Compare in constant time with CryptographicOperations.FixedTimeEquals",
             nameof(Ses1005NonConstantTimeSecretComparisonCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
+            && Ses1005NonConstantTimeSecretComparisonAnalyzer.TryGetFixableByteComparison(model, invocation, CancellationToken.None, out var _, out var _)
+            && HasFixedTimeEquals(model.Compilation);
 
     /// <summary>Resolves the reported byte-buffer <c>SequenceEqual</c> and builds its <c>FixedTimeEquals</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

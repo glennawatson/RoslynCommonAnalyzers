@@ -22,12 +22,32 @@ public sealed class Sst2261UseExclusiveOrCodeFixProvider : CodeFixProvider, IBat
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the exclusive-or operator", nameof(Sst2261UseExclusiveOrCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the exclusive-or operator", nameof(Sst2261UseExclusiveOrCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is BinaryExpressionSyntax binary
+                && (binary.IsKind(SyntaxKind.LogicalOrExpression)
+                || binary.IsKind(SyntaxKind.BitwiseOrExpression)))
+            {
+                return Sst2261UseExclusiveOrAnalyzer.TryMatch(binary, out var _, out var _);
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported disjunction and rewrites it to an exclusive-or.</summary>
     /// <param name="root">The syntax root.</param>

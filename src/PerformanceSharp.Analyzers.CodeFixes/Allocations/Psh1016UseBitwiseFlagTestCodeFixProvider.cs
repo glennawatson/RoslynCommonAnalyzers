@@ -28,7 +28,7 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a bitwise flag test", nameof(Psh1016UseBitwiseFlagTestCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a bitwise flag test", nameof(Psh1016UseBitwiseFlagTestCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -44,6 +44,15 @@ public sealed class Psh1016UseBitwiseFlagTestCodeFixProvider : CodeFixProvider, 
         TryGetReplacement(invocation) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && Psh1016UseBitwiseFlagTestAnalyzer.TryGetHasFlagAccess(invocation)is not null
+            && IsRepeatSafe(invocation.ArgumentList.Arguments[0].Expression);
 
     /// <summary>Resolves the reported HasFlag invocation and builds its bitwise replacement.</summary>
     /// <param name="root">The syntax root.</param>

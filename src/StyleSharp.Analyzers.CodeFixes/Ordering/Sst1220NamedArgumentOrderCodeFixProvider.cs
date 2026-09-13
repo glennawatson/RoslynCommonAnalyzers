@@ -24,12 +24,39 @@ public sealed class Sst1220NamedArgumentOrderCodeFixProvider : CodeFixProvider, 
             context,
             "Order the named arguments by declaration",
             nameof(Sst1220NamedArgumentOrderCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ArgumentListSyntax>()is not { Parent: { } call } list
+            || list.Arguments.Count < 2
+            || model.GetSymbolInfo(call).Symbol is not IMethodSymbol method)
+        {
+            return false;
+        }
+
+        foreach (var argument in list.Arguments)
+        {
+            if (argument.NameColon is not { Name.Identifier.ValueText: var name }
+                || Sst1220NamedArgumentOrderAnalyzer.ParameterPosition(method, name) < 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Resolves the reported argument list and reorders it to declaration order.</summary>
     /// <param name="root">The syntax root.</param>

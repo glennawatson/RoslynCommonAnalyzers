@@ -22,12 +22,24 @@ public sealed class Sst2259RemoveStrayEmptyStatementCodeFixProvider : CodeFixPro
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the stray semicolon", nameof(Sst2259RemoveStrayEmptyStatementCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the stray semicolon", nameof(Sst2259RemoveStrayEmptyStatementCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var token = root.FindToken(diagnostic.Location.SourceSpan.Start);
+        return (token.IsKind(SyntaxKind.SemicolonToken))
+            && (token.Parent is BaseTypeDeclarationSyntax type
+            && Sst2259RemoveStrayEmptyStatementAnalyzer.HasStraySemicolon(type));
+    }
 
     /// <summary>Resolves the reported semicolon and rebuilds its declaration without it.</summary>
     /// <param name="root">The syntax root.</param>

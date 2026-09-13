@@ -34,6 +34,7 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
             context,
             "Use Random.Shared",
             nameof(Psh1412UseSharedRandomCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -50,6 +51,14 @@ public sealed class Psh1412UseSharedRandomCodeFixProvider : CodeFixProvider, IBa
         Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation)
             ? document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BaseObjectCreationExpressionSyntax creation
+            && Psh1412UseSharedRandomAnalyzer.IsParameterlessCreationShape(creation);
 
     /// <summary>Resolves the reported allocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

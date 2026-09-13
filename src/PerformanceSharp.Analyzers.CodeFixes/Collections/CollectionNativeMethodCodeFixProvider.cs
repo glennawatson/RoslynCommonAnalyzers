@@ -32,7 +32,7 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -55,6 +55,21 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         string.Equals(diagnostic.Id, CollectionRules.UseContainsForMembership.Id, StringComparison.Ordinal)
             ? "Use Contains"
             : $"Use '{GetTargetName(diagnostic)}'";
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var invocation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return invocation is { ArgumentList.Arguments.Count: 1, Expression: MemberAccessExpressionSyntax }
+            && (!string.Equals(diagnostic.Id, CollectionRules.UseContainsForMembership.Id, StringComparison.Ordinal)
+                ? GetTargetName(diagnostic).Length != 0
+                : LinqCallSyntax.TryGetPredicateLambda(invocation.ArgumentList.Arguments[0].Expression, out var parameterName, out var expressionBody)
+                    && expressionBody is BinaryExpressionSyntax equality
+                    && LinqCallSyntax.TryGetComparedValue(equality, parameterName, out _));
+    }
 
     /// <summary>Creates the replacement node for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>

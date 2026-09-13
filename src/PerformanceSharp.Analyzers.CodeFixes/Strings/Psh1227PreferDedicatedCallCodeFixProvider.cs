@@ -31,12 +31,22 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the purpose-built call", nameof(Psh1227PreferDedicatedCallCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && invocation.Expression is MemberAccessExpressionSyntax access)
+            && ((Psh1227PreferDedicatedCallAnalyzer.IsCompareOrdinalShape(invocation))
+            || (Psh1227PreferDedicatedCallAnalyzer.IsDebugFailShape(invocation)));
 
     /// <summary>Resolves the reported invocation and builds its purpose-built replacement.</summary>
     /// <param name="root">The syntax root.</param>

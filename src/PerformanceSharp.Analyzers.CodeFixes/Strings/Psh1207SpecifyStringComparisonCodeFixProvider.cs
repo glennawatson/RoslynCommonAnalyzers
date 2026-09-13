@@ -26,12 +26,20 @@ public sealed class Psh1207SpecifyStringComparisonCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Specify StringComparison.Ordinal", nameof(Psh1207SpecifyStringComparisonCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Specify StringComparison.Ordinal", nameof(Psh1207SpecifyStringComparisonCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported invocation and builds its argument list with the ordinal comparison appended.</summary>
     /// <param name="root">The syntax root.</param>

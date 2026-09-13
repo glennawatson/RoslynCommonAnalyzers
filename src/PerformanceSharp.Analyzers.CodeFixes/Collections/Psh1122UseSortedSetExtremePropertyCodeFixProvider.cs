@@ -23,12 +23,19 @@ public sealed class Psh1122UseSortedSetExtremePropertyCodeFixProvider : CodeFixP
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Read the sorted set's property", nameof(Psh1122UseSortedSetExtremePropertyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Read the sorted set's property", nameof(Psh1122UseSortedSetExtremePropertyCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetExtremeInvocation(root, diagnostic)is { } invocation;
 
     /// <summary>Resolves the reported call and builds its property-read replacement.</summary>
     /// <param name="root">The syntax root.</param>

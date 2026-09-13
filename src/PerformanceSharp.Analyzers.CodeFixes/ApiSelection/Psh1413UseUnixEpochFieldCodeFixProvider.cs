@@ -36,6 +36,7 @@ public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, I
             context,
             "Use the UnixEpoch field",
             nameof(Psh1413UseUnixEpochFieldCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -52,6 +53,14 @@ public sealed class Psh1413UseUnixEpochFieldCodeFixProvider : CodeFixProvider, I
         Psh1413UseUnixEpochFieldAnalyzer.IsEpochCreationShape(creation)
             ? document.WithSyntaxRoot(root.ReplaceNode(creation, Rewrite(creation)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is ObjectCreationExpressionSyntax creation
+            && Psh1413UseUnixEpochFieldAnalyzer.IsEpochCreationShape(creation);
 
     /// <summary>Resolves the reported allocation and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

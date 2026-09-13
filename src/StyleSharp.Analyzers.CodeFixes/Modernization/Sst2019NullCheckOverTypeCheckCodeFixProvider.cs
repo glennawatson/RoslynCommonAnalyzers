@@ -23,12 +23,28 @@ public sealed class Sst2019NullCheckOverTypeCheckCodeFixProvider : CodeFixProvid
             context,
             "Test for null",
             nameof(Sst2019NullCheckOverTypeCheckCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        return node switch
+        {
+            BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression) => true,
+            IsPatternExpressionSyntax pattern => true,
+            _ => false,
+        };
+    }
 
     /// <summary>Resolves the reported test and builds the equivalent null pattern.</summary>
     /// <param name="root">The syntax root.</param>

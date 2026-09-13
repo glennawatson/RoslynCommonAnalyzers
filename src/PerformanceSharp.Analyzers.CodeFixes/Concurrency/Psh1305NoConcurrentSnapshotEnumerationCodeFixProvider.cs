@@ -32,12 +32,21 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the dictionary's key/value pairs", nameof(Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        PairSupportsDeconstruct(model.Compilation)
+            && TryGetFixableForEach(root, diagnostic)is { } statement;
 
     /// <summary>Resolves the reported foreach and builds its deconstructing replacement.</summary>
     /// <param name="root">The syntax root.</param>

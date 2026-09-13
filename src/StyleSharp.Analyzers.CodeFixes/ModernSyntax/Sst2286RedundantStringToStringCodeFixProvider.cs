@@ -27,12 +27,20 @@ public sealed class Sst2286RedundantStringToStringCodeFixProvider : CodeFixProvi
             context,
             "Remove the 'ToString' call",
             nameof(Sst2286RedundantStringToStringCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { Expression: MemberAccessExpressionSyntax { Expression: { } receiver } } invocation;
 
     /// <summary>Resolves the reported call and replaces it with its receiver.</summary>
     /// <param name="root">The syntax root.</param>

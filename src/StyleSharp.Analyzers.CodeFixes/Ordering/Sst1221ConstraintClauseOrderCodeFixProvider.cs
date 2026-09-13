@@ -24,12 +24,38 @@ public sealed class Sst1221ConstraintClauseOrderCodeFixProvider : CodeFixProvide
             context,
             "Order the constraint clauses by type parameter",
             nameof(Sst1221ConstraintClauseOrderCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<TypeParameterConstraintClauseSyntax>()is not { Parent: { } declaration }
+            || !GenericConstraintLayout.TryGet(declaration, out var typeParameters, out var clauses)
+            || typeParameters is null
+            || clauses.Count < 2)
+        {
+            return false;
+        }
+
+        foreach (var clause in clauses)
+        {
+            if (GenericConstraintLayout.PositionOf(typeParameters, clause.Name.Identifier.ValueText) < 0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Resolves the reported clause and reorders its declaration's constraints.</summary>
     /// <param name="root">The syntax root.</param>

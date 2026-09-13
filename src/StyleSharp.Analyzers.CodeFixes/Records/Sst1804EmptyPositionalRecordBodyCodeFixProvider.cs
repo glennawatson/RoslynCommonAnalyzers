@@ -23,12 +23,24 @@ public sealed class Sst1804EmptyPositionalRecordBodyCodeFixProvider : CodeFixPro
             context,
             "Replace the empty body with a semicolon",
             nameof(Sst1804EmptyPositionalRecordBodyCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        !(root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<RecordDeclarationSyntax>()is not { } record
+            || record.ParameterList is null
+            || record.Members.Count != 0
+            || record.OpenBraceToken.IsKind(SyntaxKind.None)
+            || record.CloseBraceToken.IsKind(SyntaxKind.None));
 
     /// <summary>Resolves the reported record and drops its empty body for a semicolon.</summary>
     /// <param name="root">The syntax root.</param>

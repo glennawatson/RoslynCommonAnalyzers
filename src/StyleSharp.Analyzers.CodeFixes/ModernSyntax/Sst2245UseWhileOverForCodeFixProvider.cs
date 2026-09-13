@@ -24,7 +24,7 @@ public sealed class Sst2245UseWhileOverForCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the loop as a while loop", nameof(Sst2245UseWhileOverForCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Rewrite the loop as a while loop", nameof(Sst2245UseWhileOverForCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -39,6 +39,24 @@ public sealed class Sst2245UseWhileOverForCodeFixProvider : CodeFixProvider, IBa
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, ForStatementSyntax statement) =>
         document.WithSyntaxRoot(root.ReplaceNode(statement, Rewrite(statement)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is ForStatementSyntax statement)
+            {
+                return Sst2245UseWhileOverForAnalyzer.IsConditionOnlyLoop(statement);
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported loop and builds its <c>while</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

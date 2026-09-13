@@ -24,12 +24,35 @@ public sealed class Sst2267InfiniteLoopStyleCodeFixProvider : CodeFixProvider, I
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Normalize the infinite loop style", nameof(Sst2267InfiniteLoopStyleCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            switch (current)
+            {
+                case ForStatementSyntax forStatement when Sst2267InfiniteLoopStyleAnalyzer.IsForeverFor(forStatement):
+                    return true;
+                case WhileStatementSyntax whileStatement when Sst2267InfiniteLoopStyleAnalyzer.IsForeverWhile(whileStatement):
+                    return true;
+                case StatementSyntax:
+                    return false;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported loop and builds its opposite-style replacement.</summary>
     /// <param name="root">The syntax root.</param>

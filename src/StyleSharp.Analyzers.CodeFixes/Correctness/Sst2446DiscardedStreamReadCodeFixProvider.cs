@@ -28,12 +28,24 @@ public sealed class Sst2446DiscardedStreamReadCodeFixProvider : CodeFixProvider,
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Read the buffer fully with ReadExactlyAsync", nameof(Sst2446DiscardedStreamReadCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Read the buffer fully with ReadExactlyAsync", nameof(Sst2446DiscardedStreamReadCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)is { } node
+            && (node as InvocationExpressionSyntax ?? node.FirstAncestorOrSelf<InvocationExpressionSyntax>())is { } invocation
+            && Sst2446DiscardedStreamReadAnalyzer.GetInvokedName(invocation) == Sst2446DiscardedStreamReadAnalyzer.ReadAsyncName)
+            && (IsConfiguredAwaitDiscard(invocation)
+            && StreamHasReadExactly(model));
 
     /// <summary>Resolves the reported read and rewrites it to the read-exactly call.</summary>
     /// <param name="root">The syntax root.</param>

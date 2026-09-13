@@ -33,12 +33,21 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use EqualityComparer<T>.Default", nameof(Psh1012EqualityComparerDefaultCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use EqualityComparer<T>.Default", nameof(Psh1012EqualityComparerDefaultCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
+            && Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, CancellationToken.None)is { } comparison;
 
     /// <summary>Resolves the reported call and builds its comparer-based replacement.</summary>
     /// <param name="root">The syntax root.</param>

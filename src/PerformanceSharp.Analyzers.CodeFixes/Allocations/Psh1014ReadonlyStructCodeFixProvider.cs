@@ -24,7 +24,7 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Make the struct readonly", nameof(Psh1014ReadonlyStructCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Make the struct readonly", nameof(Psh1014ReadonlyStructCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -109,6 +109,14 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
             _ => declaration.WithModifiers(updatedModifiers).WithKeyword(updatedKeyword)
         };
     }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is TypeDeclarationSyntax { RawKind: (int)SyntaxKind.StructDeclaration or (int)SyntaxKind.RecordStructDeclaration } declaration
+            && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword);
 
     /// <summary>Resolves the reported struct declaration and builds it with the modifier added.</summary>
     /// <param name="root">The syntax root.</param>

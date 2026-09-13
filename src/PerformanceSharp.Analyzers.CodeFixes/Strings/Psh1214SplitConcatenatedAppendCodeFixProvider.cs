@@ -26,7 +26,7 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Split the concatenation into separate Append calls", nameof(Psh1214SplitConcatenatedAppendCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -48,6 +48,19 @@ public sealed class Psh1214SplitConcatenatedAppendCodeFixProvider : CodeFixProvi
         var concatenation = (BinaryExpressionSyntax)invocation.ArgumentList.Arguments[0].Expression;
         return document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation, SyntacticSpineDepth(concatenation))));
     }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax concatenation
+            && concatenation.IsKind(SyntaxKind.AddExpression)
+            && concatenation.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Arguments.Count: 1, Parent: InvocationExpressionSyntax invocation } }
+            && invocation.Expression is MemberAccessExpressionSyntax access
+            && access.IsKind(SyntaxKind.SimpleMemberAccessExpression)
+            && access.Name is IdentifierNameSyntax { Identifier.ValueText: nameof(System.Text.StringBuilder.Append) or nameof(System.Text.StringBuilder.AppendLine) };
 
     /// <summary>Resolves the reported concatenation and builds the chained per-part replacement.</summary>
     /// <param name="root">The syntax root.</param>

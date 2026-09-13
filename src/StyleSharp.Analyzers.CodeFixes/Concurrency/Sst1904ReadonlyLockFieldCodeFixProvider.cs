@@ -31,7 +31,8 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
             context,
             "Make the lock field readonly",
             nameof(Sst1904ReadonlyLockFieldCodeFixProvider),
-            (root, model, diagnostic) => TryRewrite(root, model, diagnostic, cancellationToken));
+            (root, model, diagnostic) => CanRewrite(root, model, diagnostic, cancellationToken),
+            static (root, model, diagnostic) => TryRewrite(root, model, diagnostic, CancellationToken.None));
     }
 
     /// <inheritdoc/>
@@ -61,6 +62,21 @@ public sealed class Sst1904ReadonlyLockFieldCodeFixProvider : CodeFixProvider, I
         var replacement = AddReadonly(declaration);
         return new NodeReplacement(declaration, replacement, static current => AddReadonly((FieldDeclarationSyntax)current));
     }
+
+    /// <summary>Checks the field's declaration and writes before offering the modifier edit.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="cancellationToken">The registration cancellation token.</param>
+    /// <returns>Whether the field can be made readonly.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic, CancellationToken cancellationToken) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is { } target
+            && model.GetSymbolInfo(target, cancellationToken).Symbol is IFieldSymbol field
+            && field.DeclaringSyntaxReferences is [var reference]
+            && reference.GetSyntax(cancellationToken)is VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax declaration }
+            && declaration.Declaration.Variables.Count == 1
+            && !declaration.Modifiers.Any(SyntaxKind.ReadOnlyKeyword)
+            && !AssignedOutsideConstructor(declaration.Parent, field, model, cancellationToken);
 
     /// <summary>Returns whether the field is assigned anywhere outside a constructor.</summary>
     /// <param name="typeDeclaration">The declaring type node.</param>

@@ -25,12 +25,21 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Combine these comparisons into an is-pattern", nameof(Sst2248UseComparisonPatternCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
+            && Sst2248UseComparisonPatternAnalyzer.TryGetComparisonMerge(binary, model, out var _);
 
     /// <summary>Resolves the reported combination and builds its is-pattern replacement.</summary>
     /// <param name="root">The syntax root.</param>

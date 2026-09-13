@@ -27,12 +27,20 @@ public sealed class Psh1226IterateStringWithoutCopyCodeFixProvider : CodeFixProv
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Iterate the string directly", nameof(Psh1226IterateStringWithoutCopyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Iterate the string directly", nameof(Psh1226IterateStringWithoutCopyCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && Psh1226IterateStringWithoutCopyAnalyzer.TryGetRetypeableLocal(invocation, out var _, out var _);
 
     /// <summary>Resolves the reported copy and builds the retyped declaration that drops it.</summary>
     /// <param name="root">The syntax root.</param>

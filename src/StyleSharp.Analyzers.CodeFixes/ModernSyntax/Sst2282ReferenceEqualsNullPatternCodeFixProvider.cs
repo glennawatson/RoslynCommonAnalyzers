@@ -25,12 +25,20 @@ public sealed class Sst2282ReferenceEqualsNullPatternCodeFixProvider : CodeFixPr
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Match null with an is-pattern", nameof(Sst2282ReferenceEqualsNullPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Match null with an is-pattern", nameof(Sst2282ReferenceEqualsNullPatternCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
+            && Sst2282ReferenceEqualsNullPatternAnalyzer.TryGetNonNullOperand(invocation, out var _);
 
     /// <summary>Resolves the reported call and rewrites it (or its enclosing <c>!</c>) as a null pattern.</summary>
     /// <param name="root">The syntax root.</param>

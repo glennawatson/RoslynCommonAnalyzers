@@ -29,6 +29,7 @@ public sealed class Sst2400SwappedArgumentsCodeFixProvider : CodeFixProvider, IB
             context,
             "Swap the arguments into the parameter order",
             nameof(Sst2400SwappedArgumentsCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -45,6 +46,14 @@ public sealed class Sst2400SwappedArgumentsCodeFixProvider : CodeFixProvider, IB
         TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SwappedArgumentCodeFix.CanSwap(root, diagnostic, Sst2400SwappedArgumentsAnalyzer.SwapWithKey);
 
     /// <summary>Resolves the reported argument and swaps it with the position it belongs in.</summary>
     /// <param name="root">The syntax root.</param>

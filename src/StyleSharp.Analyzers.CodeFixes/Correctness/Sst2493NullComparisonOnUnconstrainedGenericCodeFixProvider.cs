@@ -28,12 +28,21 @@ public sealed class Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider :
             context,
             "Use 'is null' / 'is not null'",
             nameof(Sst2493NullComparisonOnUnconstrainedGenericCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } binary
+            && GetOperandComparedToNull(binary)is { } operand;
 
     /// <summary>Resolves the reported comparison and builds its constant-pattern replacement.</summary>
     /// <param name="root">The syntax root.</param>

@@ -26,7 +26,7 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -49,6 +49,37 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
         string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
             ? "Move predicate to terminal call"
             : "Use one typed filter";
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var invocation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return string.Equals(diagnostic.Id, CollectionRules.CollapseLinqWhereTerminal.Id, StringComparison.Ordinal)
+            ? invocation is
+            {
+                ArgumentList.Arguments.Count: 0,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: InvocationExpressionSyntax
+                    {
+                        ArgumentList.Arguments.Count: 1,
+                        Expression: MemberAccessExpressionSyntax { Expression: { } },
+                    },
+                },
+            }
+            : invocation is
+            {
+                ArgumentList.Arguments.Count: 0,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Name: GenericNameSyntax { TypeArgumentList: { } },
+                    Expression: InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax { Expression: { } } },
+                },
+            };
+    }
 
     /// <summary>Creates the collapsed invocation for one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>

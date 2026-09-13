@@ -35,6 +35,7 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceCodeFixProvider : CodeFixProvide
             context,
             "Use string.IsNullOrWhiteSpace",
             nameof(Psh1219UseIsNullOrWhiteSpaceCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -51,6 +52,14 @@ public sealed class Psh1219UseIsNullOrWhiteSpaceCodeFixProvider : CodeFixProvide
         Psh1219UseIsNullOrWhiteSpaceAnalyzer.TryGetBlankTest(test, out var receiver, out var negated)
             ? document.WithSyntaxRoot(root.ReplaceNode(test, Rewrite(test, receiver!, negated)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is ExpressionSyntax test
+            && Psh1219UseIsNullOrWhiteSpaceAnalyzer.TryGetBlankTest(test, out var _, out var _);
 
     /// <summary>Resolves the reported test and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

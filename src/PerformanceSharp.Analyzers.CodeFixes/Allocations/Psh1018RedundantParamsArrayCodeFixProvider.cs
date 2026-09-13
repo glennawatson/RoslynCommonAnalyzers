@@ -24,7 +24,7 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Pass the arguments directly", nameof(Psh1018RedundantParamsArrayCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -39,6 +39,19 @@ public sealed class Psh1018RedundantParamsArrayCodeFixProvider : CodeFixProvider
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // The diagnostic sits on the array argument, which is itself an invocation for
+        // Array.Empty<T>(), so the call being fixed is reached through the argument list rather
+        // than by walking up to the nearest invocation.
+        return (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is { Parent: ArgumentSyntax { Parent.Parent: InvocationExpressionSyntax invocation } })
+            && (Psh1018RedundantParamsArrayAnalyzer.TryGetArrayArgument(invocation, out _));
+    }
 
     /// <summary>Resolves the reported call and builds its unwrapped replacement.</summary>
     /// <param name="root">The syntax root.</param>

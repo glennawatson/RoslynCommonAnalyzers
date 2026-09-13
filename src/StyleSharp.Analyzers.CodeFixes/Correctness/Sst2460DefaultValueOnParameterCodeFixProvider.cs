@@ -47,12 +47,34 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
             context,
             "Use [DefaultParameterValue]",
             nameof(Sst2460DefaultValueOnParameterCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AttributeSyntax>()is not { } attribute
+            || attribute.ArgumentList is not { Arguments.Count: 1 } argumentList)
+        {
+            return false;
+        }
+
+        var argument = argumentList.Arguments[0];
+        return argument is { NameEquals: null, NameColon: null }
+            && model.Compilation.GetTypeByMetadataName(Sst2460DefaultValueOnParameterAnalyzer.DefaultParameterValueMetadataName)is { } interopAttribute
+            && attribute.FirstAncestorOrSelf<ParameterSyntax>()is { } parameter
+            && model.GetDeclaredSymbol(parameter)is IParameterSymbol parameterSymbol
+            && model.ClassifyConversion(argument.Expression, parameterSymbol.Type).IsImplicit;
+    }
 
     /// <summary>Resolves the reported attribute and rewrites it to the interop attribute.</summary>
     /// <param name="root">The syntax root.</param>

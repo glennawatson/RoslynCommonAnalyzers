@@ -26,12 +26,21 @@ public sealed class Sst2440TransposedTemplateArgumentsCodeFixProvider : CodeFixP
             context,
             "Swap the values into the placeholders' order",
             nameof(Sst2440TransposedTemplateArgumentsCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        SwappedArgumentCodeFix.CanSwap(root, diagnostic, LoggerCallAnalyzer.SwapWithKey);
 
     /// <summary>Resolves the reported value and swaps it with the position it belongs in.</summary>
     /// <param name="root">The syntax root.</param>

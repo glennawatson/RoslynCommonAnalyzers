@@ -34,12 +34,31 @@ public sealed class Psh1208Utf8LiteralCodeFixProvider : CodeFixProvider, IBatchF
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use a u8 literal", nameof(Psh1208Utf8LiteralCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)is not InvocationExpressionSyntax invocation
+            || Psh1208Utf8LiteralAnalyzer.TryGetEncodingPropertyName(invocation)is not { } encodingName)
+        {
+            return false;
+        }
+
+        var argument = invocation.ArgumentList.Arguments[0].Expression;
+        var asciiOnly = encodingName.Identifier.ValueText == Psh1208Utf8LiteralAnalyzer.AsciiPropertyName;
+        return model.GetConstantValue(argument).Value is string value
+            && Psh1208Utf8LiteralAnalyzer.CanBecomeUtf8Literal(value, asciiOnly);
+    }
 
     /// <summary>Resolves the reported invocation and builds its u8 replacement.</summary>
     /// <param name="root">The syntax root.</param>

@@ -19,7 +19,7 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Combine into an 'or' pattern", nameof(Sst1144PreferOrPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Combine into an 'or' pattern", nameof(Sst1144PreferOrPatternCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -34,6 +34,13 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, SwitchSectionSyntax section) =>
         document.WithSyntaxRoot(root.ReplaceNode(section, Merge(section)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>()is { } section;
 
     /// <summary>Resolves the reported switch section and builds its combined <c>or</c>-pattern form.</summary>
     /// <param name="root">The syntax root.</param>

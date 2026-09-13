@@ -23,12 +23,32 @@ public sealed class Sst2255UseIsNullOrEmptyCodeFixProvider : CodeFixProvider, IB
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.IsNullOrEmpty", nameof(Sst2255UseIsNullOrEmptyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.IsNullOrEmpty", nameof(Sst2255UseIsNullOrEmptyCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is BinaryExpressionSyntax binary
+                && (binary.IsKind(SyntaxKind.LogicalOrExpression)
+                || binary.IsKind(SyntaxKind.LogicalAndExpression)))
+            {
+                return Sst2255UseIsNullOrEmptyAnalyzer.TryMatch(binary, out var _, out var _);
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported disjunction/conjunction and rewrites it to the helper call.</summary>
     /// <param name="root">The syntax root.</param>

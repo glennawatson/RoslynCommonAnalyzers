@@ -35,12 +35,21 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
             context,
             "Replace LoadWithPartialName with Assembly.Load",
             nameof(Sst2486PreferAssemblyLoadCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
+            && invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: LoadWithPartialNameName } name, };
 
     /// <summary>Resolves a reported LoadWithPartialName call and renames it to Load.</summary>
     /// <param name="root">The syntax root.</param>

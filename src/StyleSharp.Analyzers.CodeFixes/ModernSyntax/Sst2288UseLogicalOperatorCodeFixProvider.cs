@@ -27,12 +27,21 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             context,
             "Use the logical operator",
             nameof(Sst2288UseLogicalOperatorCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ConditionalExpressionSyntax>()is { } conditional
+            && Sst2288UseLogicalOperatorAnalyzer.TryClassify(conditional, out var _, out var _, out var _);
 
     /// <summary>Resolves the reported conditional and replaces it with the equivalent logical expression.</summary>
     /// <param name="root">The syntax root.</param>

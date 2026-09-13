@@ -24,7 +24,7 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Collapse to 'else if'", nameof(Sst1465CollapseElseIntoElseIfCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,6 +40,14 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
         TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ElseClauseSyntax>()is { } elseClause
+            && IsCollapsible(elseClause);
 
     /// <summary>Resolves the reported else clause and builds its collapsed <c>else if</c> form.</summary>
     /// <param name="root">The syntax root.</param>

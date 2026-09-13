@@ -23,7 +23,7 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Begin the summary with a capital letter", nameof(Sst1628TextBeginsWithCapitalCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -82,6 +82,27 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
         }
 
         return -1;
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // A documentation comment is trivia, so the lookup has to descend into it to reach the element.
+        if (root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true, getInnermostNodeForTie: true)is not XmlElementSyntax summary
+            || LeadingText(summary)is not { } text)
+        {
+            return false;
+        }
+
+        var tokens = text.TextTokens;
+        var index = FirstVisibleToken(text);
+        var token = tokens[index];
+        var value = token.ValueText;
+        var at = FirstVisibleCharacter(value);
+        return char.IsLower(value[at]);
     }
 
     /// <summary>Resolves the reported summary and builds it with a capitalized first letter.</summary>

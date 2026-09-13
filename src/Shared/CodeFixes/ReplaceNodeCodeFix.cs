@@ -11,13 +11,25 @@ namespace RoslynCommon.Analyzers.CodeFixes;
 
 /// <summary>
 /// Runs the registration skeleton shared by every single-node-replacement code fix: resolve
-/// the syntax root (and semantic model when the rewriter needs one), re-derive the edit from
-/// each diagnostic, and register one code action that swaps the node — with a matching batch
-/// entry point for <see cref="BatchEditFixAllProvider"/>. Providers keep only their shape
-/// re-validation and replacement construction.
+/// the syntax root (and semantic model when needed), check applicability, and register one code
+/// action that derives and applies the edit when invoked. Providers supply a guard that does not
+/// construct replacement syntax and a rewriter shared with <see cref="BatchEditFixAllProvider"/>.
 /// </summary>
 internal static class ReplaceNodeCodeFix
 {
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the rewriter can produce an edit.</returns>
+    internal delegate bool SyntaxGuard(SyntaxNode root, Diagnostic diagnostic);
+
+    /// <summary>Checks applicability with semantic information, without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model for the document.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the rewriter can produce an edit.</returns>
+    internal delegate bool SemanticGuard(SyntaxNode root, SemanticModel model, Diagnostic diagnostic);
+
     /// <summary>Computes a node replacement from the root and one diagnostic.</summary>
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
@@ -36,12 +48,97 @@ internal static class ReplaceNodeCodeFix
     /// <returns>The code action title.</returns>
     internal delegate string TitleFactory(Diagnostic diagnostic);
 
+    /// <summary>Registers applicable fixes and defers replacement construction until invocation.</summary>
+    /// <param name="context">The code fix context.</param>
+    /// <param name="title">The code action title.</param>
+    /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
+    /// <param name="canRewrite">Checks the rewriter's applicability without building syntax.</param>
+    /// <param name="tryRewrite">The provider's edit derivation, invoked only when applying.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static Task RegisterAsync(in CodeFixContext context, string title, string equivalenceKey, SyntaxGuard canRewrite, SyntaxRewriter tryRewrite) =>
+        RegisterAsync(context, _ => title, _ => equivalenceKey, canRewrite, tryRewrite);
+
+    /// <summary>Registers deferred fixes with diagnostic-specific titles and equivalence keys.</summary>
+    /// <param name="context">The code fix context.</param>
+    /// <param name="title">Builds the code action title for one diagnostic.</param>
+    /// <param name="equivalenceKey">Builds the equivalence key grouping the fix across documents.</param>
+    /// <param name="canRewrite">Checks the rewriter's applicability without building syntax.</param>
+    /// <param name="tryRewrite">The provider's edit derivation, invoked only when applying.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterAsync(CodeFixContext context, TitleFactory title, TitleFactory equivalenceKey, SyntaxGuard canRewrite, SyntaxRewriter tryRewrite)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (!canRewrite(root, diagnostic))
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    title(diagnostic),
+                    cancellationToken =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return Task.FromResult(Apply(context.Document, root, diagnostic, tryRewrite));
+                    },
+                    equivalenceKey(diagnostic)),
+                diagnostic);
+        }
+    }
+
+    /// <summary>Registers deferred fixes whose applicability and rewrite need semantic information.</summary>
+    /// <param name="context">The code fix context.</param>
+    /// <param name="title">The code action title.</param>
+    /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
+    /// <param name="canRewrite">Checks the rewriter's applicability without building syntax.</param>
+    /// <param name="tryRewrite">The provider's edit derivation, invoked only when applying.</param>
+    /// <returns>A task that represents the asynchronous operation.</returns>
+    internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticGuard canRewrite, SemanticRewriter tryRewrite)
+    {
+        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
+        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
+        if (root is null || model is null)
+        {
+            return;
+        }
+
+        foreach (var diagnostic in context.Diagnostics)
+        {
+            if (!canRewrite(root, model, diagnostic))
+            {
+                continue;
+            }
+
+            context.RegisterCodeFix(
+                CodeAction.Create(
+                    title,
+                    cancellationToken =>
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                        return Task.FromResult(tryRewrite(root, model, diagnostic) is { } edit
+                            ? context.Document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
+                            : context.Document);
+                    },
+                    equivalenceKey),
+                diagnostic);
+        }
+    }
+
     /// <summary>Registers one replace-node code action per fixable diagnostic.</summary>
     /// <param name="context">The code fix context.</param>
     /// <param name="title">The code action title.</param>
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <remarks>Use only when applicability requires constructing and validating the replacement.</remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task RegisterAsync(in CodeFixContext context, string title, string equivalenceKey, SyntaxRewriter tryRewrite) =>
         RegisterAsync(context, _ => title, _ => equivalenceKey, tryRewrite);
@@ -55,6 +152,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="equivalenceKey">Builds the equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <remarks>Use only when applicability requires constructing and validating the replacement.</remarks>
     internal static async Task RegisterAsync(CodeFixContext context, TitleFactory title, TitleFactory equivalenceKey, SyntaxRewriter tryRewrite)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
@@ -86,6 +184,7 @@ internal static class ReplaceNodeCodeFix
     /// <param name="equivalenceKey">The equivalence key grouping the fix across documents.</param>
     /// <param name="tryRewrite">The provider's edit derivation.</param>
     /// <returns>A task that represents the asynchronous operation.</returns>
+    /// <remarks>Use only when applicability requires constructing and validating the replacement.</remarks>
     internal static async Task RegisterAsync(CodeFixContext context, string title, string equivalenceKey, SemanticRewriter tryRewrite)
     {
         var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);

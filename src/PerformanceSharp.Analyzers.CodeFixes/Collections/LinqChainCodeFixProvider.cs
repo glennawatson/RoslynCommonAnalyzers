@@ -36,7 +36,7 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CreateEdit);
+        ReplaceNodeCodeFix.RegisterAsync(context, GetTitle, static diagnostic => diagnostic.Id, CanRewrite, CreateEdit);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -65,6 +65,58 @@ public sealed class LinqChainCodeFixProvider : CodeFixProvider, IBatchFixableCod
         return string.Equals(diagnostic.Id, CollectionRules.UseThenBy.Id, StringComparison.Ordinal)
             ? "Refine the previous sort"
             : "Merge the Where predicates";
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        if (string.Equals(diagnostic.Id, CollectionRules.UseThenBy.Id, StringComparison.Ordinal))
+        {
+            return node is SimpleNameSyntax name
+                && IsSingleKeySortName(name.Identifier.ValueText);
+        }
+
+        var invocation = node.FirstAncestorOrSelf<InvocationExpressionSyntax>();
+        return string.Equals(diagnostic.Id, CollectionRules.FilterBeforeSort.Id, StringComparison.Ordinal)
+            ? invocation is
+            {
+                ArgumentList.Arguments.Count: 1,
+                Expression: MemberAccessExpressionSyntax
+                {
+                    Expression: InvocationExpressionSyntax
+                    {
+                        ArgumentList.Arguments.Count: 1,
+                        Expression: MemberAccessExpressionSyntax { Name: { } sortName, Expression: { } receiver },
+                    },
+                },
+            }
+                && IsSingleKeySortName(sortName.Identifier.ValueText)
+                && !IsSortInvocation(receiver)
+            : CanMergeWhere(invocation);
+    }
+
+    /// <summary>Checks whether the predicates can be combined without changing parameter binding.</summary>
+    /// <param name="invocation">The outer Where call.</param>
+    /// <returns>Whether the predicates can be merged.</returns>
+    private static bool CanMergeWhere(InvocationExpressionSyntax? invocation)
+    {
+        if (invocation is not { Expression: MemberAccessExpressionSyntax { Expression: InvocationExpressionSyntax inner } }
+            || !LinqCallSyntax.TryGetOneParameterLambda(invocation, out var second)
+            || !LinqCallSyntax.TryGetOneParameterLambda(inner, out var first)
+            || first.ExpressionBody is null
+            || second.ExpressionBody is not { } body)
+        {
+            return false;
+        }
+
+        var firstName = GetLambdaParameterName(first);
+        var secondName = GetLambdaParameterName(second);
+        return firstName == secondName
+            || TryCollectRenameTargets(body, secondName, firstName, new(RenameTargetCapacity));
     }
 
     /// <summary>Creates the replacement node for one diagnostic.</summary>

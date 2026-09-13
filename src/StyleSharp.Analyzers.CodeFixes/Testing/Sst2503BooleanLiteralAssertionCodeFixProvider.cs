@@ -29,12 +29,47 @@ public sealed class Sst2503BooleanLiteralAssertionCodeFixProvider : CodeFixProvi
             context,
             "Use the dedicated boolean assertion",
             nameof(Sst2503BooleanLiteralAssertionCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)is not { } node
+            || (node as InvocationExpressionSyntax ?? node.FirstAncestorOrSelf<InvocationExpressionSyntax>())is not { } invocation)
+        {
+            return false;
+        }
+
+        var arguments = invocation.ArgumentList.Arguments;
+        if (arguments.Count != 2)
+        {
+            return false;
+        }
+
+        var literalIndex = Sst2503BooleanLiteralAssertionAnalyzer.GetBooleanLiteralArgumentIndex(arguments);
+        if (literalIndex < 0)
+        {
+            return false;
+        }
+
+        if (model.GetSymbolInfo(invocation).Symbol is not IMethodSymbol method)
+        {
+            return false;
+        }
+
+        var literalIsTrue = arguments[literalIndex].Expression.IsKind(SyntaxKind.TrueLiteralExpression);
+        return Sst2503BooleanLiteralAssertionAnalyzer.TryGetBooleanAssertion(method, literalIsTrue)is { } targetMethod;
+    }
 
     /// <summary>Resolves the reported assertion and rewrites it to the boolean assertion.</summary>
     /// <param name="root">The syntax root.</param>

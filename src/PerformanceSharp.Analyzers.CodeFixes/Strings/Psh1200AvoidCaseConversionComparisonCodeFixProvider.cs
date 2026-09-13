@@ -31,7 +31,7 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with a StringComparison", nameof(Psh1200AvoidCaseConversionComparisonCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -47,6 +47,25 @@ public sealed class Psh1200AvoidCaseConversionComparisonCodeFixProvider : CodeFi
         TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (!TryGetTarget(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true), out var target))
+        {
+            return false;
+        }
+
+        return target is BinaryExpressionSyntax binary
+            ? Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetCaseConversion(binary.Left, out _, out var leftName)
+            && Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetCaseConversion(binary.Right, out _, out var rightName)
+            && string.Equals(leftName, rightName, StringComparison.Ordinal)
+            : target is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation
+            && Psh1200AvoidCaseConversionComparisonAnalyzer.TryGetEqualsOperands(invocation, access, out _, out _, out _);
+    }
 
     /// <summary>Resolves the reported comparison and builds its <c>string.Equals</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

@@ -23,12 +23,24 @@ public sealed class Sst2258RemoveRedundantDelegateCreationCodeFixProvider : Code
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the delegate wrapper", nameof(Sst2258RemoveRedundantDelegateCreationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the delegate wrapper", nameof(Sst2258RemoveRedundantDelegateCreationCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        var creation = root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ObjectCreationExpressionSyntax>();
+        return !(creation is null
+            || !Sst2258RemoveRedundantDelegateCreationAnalyzer.TryGetUnwrapped(creation, model, CancellationToken.None, out var _, out _));
+    }
 
     /// <summary>Resolves the reported delegate creation and rewrites it to the bare method group.</summary>
     /// <param name="root">The syntax root.</param>

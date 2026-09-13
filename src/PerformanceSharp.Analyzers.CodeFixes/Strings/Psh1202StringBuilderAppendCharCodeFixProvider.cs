@@ -23,7 +23,7 @@ public sealed class Psh1202StringBuilderAppendCharCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1202StringBuilderAppendCharCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1202StringBuilderAppendCharCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -38,6 +38,14 @@ public sealed class Psh1202StringBuilderAppendCharCodeFixProvider : CodeFixProvi
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, LiteralExpressionSyntax literal) =>
         document.WithSyntaxRoot(root.ReplaceNode(literal, Rewrite(literal)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetLiteral(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported string literal and builds its char literal replacement.</summary>
     /// <param name="root">The syntax root.</param>

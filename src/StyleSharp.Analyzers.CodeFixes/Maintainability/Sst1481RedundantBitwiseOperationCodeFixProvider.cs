@@ -40,6 +40,7 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
             context,
             "Remove the redundant operation",
             nameof(Sst1481RedundantBitwiseOperationCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -56,6 +57,16 @@ public sealed class Sst1481RedundantBitwiseOperationCodeFixProvider : CodeFixPro
         TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (diagnostic.Properties.TryGetValue(Sst1481RedundantBitwiseOperationAnalyzer.SurvivingOperandKey, out var side)
+            && side is (Sst1481RedundantBitwiseOperationAnalyzer.LeftOperandSurvives or Sst1481RedundantBitwiseOperationAnalyzer.RightOperandSurvives))
+            && (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax binary
+            && IsFixableKind(binary));
 
     /// <summary>Resolves the reported operation and lifts out the operand that survives it.</summary>
     /// <param name="root">The syntax root.</param>

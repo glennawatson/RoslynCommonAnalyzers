@@ -23,7 +23,7 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Enumerate the source directly", nameof(Psh1120DoNotMaterializeToEnumerateCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -38,6 +38,13 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetMaterializeInvocation(root, diagnostic)is { } invocation;
 
     /// <summary>Resolves the reported materialization call and builds its receiver-only replacement.</summary>
     /// <param name="root">The syntax root.</param>

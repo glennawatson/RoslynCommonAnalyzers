@@ -28,6 +28,7 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : C
             context,
             "Remove the setter",
             nameof(Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -44,6 +45,15 @@ public sealed class Sst2305CollectionPropertyShouldBeReadOnlyCodeFixProvider : C
         RemoveSetter(property) is { } updated
             ? document.WithSyntaxRoot(root.ReplaceNode(property, updated))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindToken(diagnostic.Location.SourceSpan.Start).Parent is PropertyDeclarationSyntax property
+            && Sst2305CollectionPropertyShouldBeReadOnlyAnalyzer.FindRemovableSetter(property)is not null
+            && property.AccessorList is not null;
 
     /// <summary>Resolves the reported property and builds the get-only replacement.</summary>
     /// <param name="root">The syntax root.</param>

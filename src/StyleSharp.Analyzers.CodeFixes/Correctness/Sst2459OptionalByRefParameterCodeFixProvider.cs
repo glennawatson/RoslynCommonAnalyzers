@@ -23,12 +23,22 @@ public sealed class Sst2459OptionalByRefParameterCodeFixProvider : CodeFixProvid
             context,
             "Remove the [Optional] attribute",
             nameof(Sst2459OptionalByRefParameterCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AttributeSyntax>()is { Parent: AttributeListSyntax list }
+            && (list.Attributes.Count > 1
+            || list.Parent is ParameterSyntax);
 
     /// <summary>Resolves the reported attribute and removes it from its parameter.</summary>
     /// <param name="root">The syntax root.</param>

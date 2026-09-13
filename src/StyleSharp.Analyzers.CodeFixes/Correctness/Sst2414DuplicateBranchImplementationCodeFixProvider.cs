@@ -44,6 +44,7 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
             context,
             "Merge the duplicated sections",
             nameof(Sst2414DuplicateBranchImplementationCodeFixProvider),
+            CanRewrite,
             (current, reported) => TryRewrite(current, options, reported)).ConfigureAwait(false);
     }
 
@@ -76,6 +77,46 @@ public sealed class Sst2414DuplicateBranchImplementationCodeFixProvider : CodeFi
         var duplicateIndex = sections.IndexOf(duplicate);
         var partnerIndex = FindPartner(sections, duplicateIndex);
         return partnerIndex < 0 ? null : new NodeReplacement(switchStatement, Merge(switchStatement, partnerIndex, duplicateIndex));
+    }
+
+    /// <summary>Finds a compatible earlier branch without constructing the merged branch.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether a matching branch can be merged.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var reported = root.FindNode(diagnostic.Location.SourceSpan);
+        return reported?.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax expression } arm
+            ? CanMergeArm(expression, arm)
+            : reported?.FirstAncestorOrSelf<SwitchSectionSyntax>()is { Parent: SwitchStatementSyntax statement } section
+            && FindPartner(statement.Sections, statement.Sections.IndexOf(section)) >= 0;
+    }
+
+    /// <summary>Checks for an earlier arm that can share the reported arm's expression.</summary>
+    /// <param name="expression">The containing switch expression.</param>
+    /// <param name="arm">The reported duplicate arm.</param>
+    /// <returns>Whether an earlier arm can be merged.</returns>
+    private static bool CanMergeArm(SwitchExpressionSyntax expression, SwitchExpressionArmSyntax arm)
+    {
+        var index = expression.Arms.IndexOf(arm);
+        if (index <= 0
+            || arm.WhenClause is not null)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < index; i++)
+        {
+            var partner = expression.Arms[i];
+            if (partner.WhenClause is null
+                && SyntaxFactory.AreEquivalent(partner.Expression, arm.Expression, topLevel: false)
+                && !DirectiveBoundaries.Separate(partner, arm))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>Joins a duplicated switch-expression arm into the earlier arm that produces the same value.</summary>

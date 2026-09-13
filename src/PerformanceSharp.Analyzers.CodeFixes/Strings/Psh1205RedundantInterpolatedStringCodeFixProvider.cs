@@ -25,7 +25,7 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant interpolation", nameof(Psh1205RedundantInterpolatedStringCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant interpolation", nameof(Psh1205RedundantInterpolatedStringCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,6 +41,14 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
         TryGetReplacement(interpolated, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(interpolated, replacement!))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InterpolatedStringExpressionSyntax interpolated
+            && Psh1205RedundantInterpolatedStringAnalyzer.TryClassify(interpolated, out _);
 
     /// <summary>Resolves the reported interpolated string and builds its value or literal replacement.</summary>
     /// <param name="root">The syntax root.</param>

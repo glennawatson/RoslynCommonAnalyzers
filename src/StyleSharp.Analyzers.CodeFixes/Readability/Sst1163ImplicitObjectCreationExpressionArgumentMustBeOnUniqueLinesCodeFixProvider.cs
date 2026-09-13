@@ -23,6 +23,7 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
             context,
             CodeFixResources.SST1150CodeFixTitle,
             $"{nameof(Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider)}-Add",
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -38,6 +39,13 @@ public sealed class Sst1163ImplicitObjectCreationExpressionArgumentMustBeOnUniqu
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, ImplicitObjectCreationExpressionSyntax node) =>
         Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<ImplicitObjectCreationExpressionSyntax>()is { } node;
 
     /// <summary>Resolves the reported implicit object creation expression and builds its arguments-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

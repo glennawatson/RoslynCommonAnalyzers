@@ -29,6 +29,16 @@ internal static class SwappedArgumentCodeFix
         return !IsSwappablePair(list, index, partner) ? null : new NodeReplacement(list, Swap(list, index, partner), current => Reapply(current, index, partner));
     }
 
+    /// <summary>Checks whether both arguments can be swapped without building the replacement list.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <param name="swapWithKey">The property containing the partner's index.</param>
+    /// <returns>Whether the reported pair can be swapped.</returns>
+    internal static bool CanSwap(SyntaxNode root, Diagnostic diagnostic, string swapWithKey) =>
+        TryGetPartner(diagnostic, swapWithKey, out var partner)
+            && root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>() is { Parent: ArgumentListSyntax list } argument
+            && IsSwappablePair(list, list.Arguments.IndexOf(argument), partner);
+
     /// <summary>Returns whether both positions still exist in the list and are distinct.</summary>
     /// <param name="list">The argument list.</param>
     /// <param name="index">The reported argument's position.</param>

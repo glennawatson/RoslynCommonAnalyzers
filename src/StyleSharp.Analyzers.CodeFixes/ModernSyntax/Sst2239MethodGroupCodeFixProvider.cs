@@ -27,12 +27,21 @@ public sealed class Sst2239MethodGroupCodeFixProvider : CodeFixProvider, IBatchF
             context,
             "Use the method group",
             nameof(Sst2239MethodGroupCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        !(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is not AnonymousFunctionExpressionSyntax lambda
+            || lambda.Body is not InvocationExpressionSyntax invocation);
 
     /// <summary>Resolves the reported lambda and swaps it for the invoked method group.</summary>
     /// <param name="root">The syntax root.</param>

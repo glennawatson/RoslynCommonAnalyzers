@@ -25,7 +25,7 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Take the extreme element directly", nameof(Psh1118TakeExtremeWithoutSortingCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,6 +40,13 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetTerminalInvocation(root, diagnostic)is { } invocation;
 
     /// <summary>Resolves the reported chain and builds its extreme-scan replacement.</summary>
     /// <param name="root">The syntax root.</param>

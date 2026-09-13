@@ -26,7 +26,7 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Move the condition into a 'when' filter", nameof(Sst2009UseExceptionFilterCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +42,24 @@ public sealed class Sst2009UseExceptionFilterCodeFixProvider : CodeFixProvider, 
         BuildReplacement(catchClause) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(catchClause, replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<CatchClauseSyntax>()is not { Filter: null } clause)
+        {
+            return false;
+        }
+
+        var statements = clause.Block.Statements;
+        return statements.Count > 0
+            && statements[0] is IfStatementSyntax statement
+            && !DirectiveBoundaries.Cross(clause, clause.Span)
+            && Sst2009UseExceptionFilterAnalyzer.MatchesFilterShape(statement, statements.Count);
+    }
 
     /// <summary>Resolves the reported catch clause and builds its filtered form.</summary>
     /// <param name="root">The syntax root.</param>

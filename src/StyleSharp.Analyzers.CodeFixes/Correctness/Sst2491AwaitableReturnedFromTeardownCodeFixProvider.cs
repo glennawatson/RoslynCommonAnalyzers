@@ -31,6 +31,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
             context,
             "Make the method 'async' and await the call",
             nameof(Sst2491AwaitableReturnedFromTeardownCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -44,6 +45,39 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         var function = FindFixableFunction(root, diagnostic);
         span = function?.Span ?? default;
         return function is not null;
+    }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (FindFixableFunction(root, diagnostic)is not { } function
+            || Decompose(function)is not (var modifiers, { } body)
+            || modifiers.Any(SyntaxKind.AsyncKeyword))
+        {
+            return false;
+        }
+
+        var returns = new List<ReturnStatementSyntax>(capacity: 4);
+        CollectOwnedReturns(body, returns);
+        if (returns.Count == 0)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < returns.Count; i++)
+        {
+            if (IsInsideLock(returns[i], function))
+            {
+                return false;
+            }
+        }
+
+        return model.GetDeclaredSymbol(function)is IMethodSymbol method
+            && method.ReturnType is INamedTypeSymbol returnType;
     }
 
     /// <summary>Resolves the reported return to its function and builds the async replacement.</summary>

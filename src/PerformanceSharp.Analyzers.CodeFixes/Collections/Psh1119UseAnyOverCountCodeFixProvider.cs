@@ -26,7 +26,7 @@ public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use Any()", nameof(Psh1119UseAnyOverCountCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use Any()", nameof(Psh1119UseAnyOverCountCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +42,14 @@ public sealed class Psh1119UseAnyOverCountCodeFixProvider : CodeFixProvider, IBa
         TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
+            && Psh1119UseAnyOverCountAnalyzer.TryGetComparisonShape(binary)is not null;
 
     /// <summary>Resolves the reported comparison and builds its Any() replacement.</summary>
     /// <param name="root">The syntax root.</param>

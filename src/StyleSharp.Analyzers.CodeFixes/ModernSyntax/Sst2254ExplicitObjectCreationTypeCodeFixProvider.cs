@@ -27,12 +27,29 @@ public sealed class Sst2254ExplicitObjectCreationTypeCodeFixProvider : CodeFixPr
             context,
             "Name the created type explicitly",
             nameof(Sst2254ExplicitObjectCreationTypeCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        if (root.FindToken(diagnostic.Location.SourceSpan.Start).Parent?.FirstAncestorOrSelf<ImplicitObjectCreationExpressionSyntax>()is not { } creation)
+        {
+            return false;
+        }
+
+        var typeInfo = model.GetTypeInfo(creation);
+        return Sst2254ExplicitObjectCreationTypeAnalyzer.IsExpressibleTypeName(typeInfo.Type ?? typeInfo.ConvertedType);
+    }
 
     /// <summary>Resolves the target-typed creation and rewrites it to an explicitly-typed creation.</summary>
     /// <param name="root">The syntax root.</param>

@@ -25,7 +25,7 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use System.Threading.Lock", nameof(Psh1300PreferLockTypeCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use System.Threading.Lock", nameof(Psh1300PreferLockTypeCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,6 +40,13 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, FieldDeclarationSyntax field) =>
         document.WithSyntaxRoot(root.ReplaceNode(field, Rewrite(field)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>()is { } field;
 
     /// <summary>Resolves the reported lock field and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

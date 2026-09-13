@@ -25,12 +25,21 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use TryAdd", nameof(Psh1115SingleProbeInsertCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use TryAdd", nameof(Psh1115SingleProbeInsertCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is IfStatementSyntax ifStatement
+            && Psh1115SingleProbeInsertAnalyzer.TryGetNegatedGuard(ifStatement, Psh1115SingleProbeInsertAnalyzer.ContainsKeyMethodName, argumentCount: 1)is { } guard
+            && Psh1115SingleProbeInsertAnalyzer.TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key)is { } value;
 
     /// <summary>Resolves the reported guard and builds the TryAdd statement.</summary>
     /// <param name="root">The syntax root.</param>

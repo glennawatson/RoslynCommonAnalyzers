@@ -27,12 +27,31 @@ public sealed class Sst2447DifferenceComparedToZeroCodeFixProvider : CodeFixProv
             context,
             "Compare the operands directly",
             nameof(Sst2447DifferenceComparedToZeroCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is not { } comparison)
+        {
+            return false;
+        }
+
+        var subtractionOnLeft = Sst2447DifferenceComparedToZeroAnalyzer.Unwrap(comparison.Left)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression };
+        var subtractionSide = subtractionOnLeft
+            ? comparison.Left
+            : comparison.Right;
+        return Sst2447DifferenceComparedToZeroAnalyzer.Unwrap(subtractionSide)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction;
+    }
 
     /// <summary>Resolves the reported comparison and replaces it with the direct comparison.</summary>
     /// <param name="root">The syntax root.</param>

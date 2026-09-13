@@ -28,12 +28,35 @@ public sealed class Psh1023PreferTupleOverAnonymousTypeCodeFixProvider : CodeFix
             context,
             "Use a tuple",
             nameof(Psh1023PreferTupleOverAnonymousTypeCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)is not AnonymousObjectCreationExpressionSyntax creation)
+        {
+            return false;
+        }
+
+        foreach (var initializer in creation.Initializers)
+        {
+            if ((initializer.NameEquals?.Name.Identifier.ValueText ?? InferName(initializer.Expression))is null)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// <summary>Resolves the reported anonymous type and builds the equivalent tuple.</summary>
     /// <param name="root">The syntax root.</param>

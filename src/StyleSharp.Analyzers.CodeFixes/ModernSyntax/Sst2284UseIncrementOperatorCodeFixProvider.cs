@@ -28,12 +28,29 @@ public sealed class Sst2284UseIncrementOperatorCodeFixProvider : CodeFixProvider
             context,
             "Use the stepping operator",
             nameof(Sst2284UseIncrementOperatorCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AssignmentExpressionSyntax>()is not { } assignment)
+        {
+            return false;
+        }
+
+        var increment = assignment.IsKind(SyntaxKind.AddAssignmentExpression);
+        return increment
+            || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression);
+    }
 
     /// <summary>Resolves the reported assignment and replaces it with the postfix stepping form.</summary>
     /// <param name="root">The syntax root.</param>

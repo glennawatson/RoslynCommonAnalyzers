@@ -38,12 +38,23 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
             context,
             "Test parity in a way that is correct for negative values",
             nameof(Sst2416SignedRemainderTestCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } comparison
+            && IsEqualityComparison(comparison)
+            && TryGetParity(comparison, model, out var _, out var _);
 
     /// <summary>Resolves the reported parity test and rewrites it.</summary>
     /// <param name="root">The syntax root.</param>

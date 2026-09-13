@@ -26,12 +26,25 @@ public sealed class Sst2439ExceptionAsTemplateArgumentCodeFixProvider : CodeFixP
             context,
             "Pass the exception as the exception argument",
             nameof(Sst2439ExceptionAsTemplateArgumentCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ArgumentSyntax>()is { Parent: ArgumentListSyntax { Parent: InvocationExpressionSyntax } list } argument
+            && LoggerFixProperties.TryGetIndex(diagnostic, LoggerCallAnalyzer.InsertIndexKey, out var insertIndex)
+            && LoggerFixProperties.TryGetIndex(diagnostic, LoggerCallAnalyzer.TailStartKey, out _)
+            && list.Arguments.IndexOf(argument) >= 0
+            && insertIndex >= 0
+            && insertIndex < list.Arguments.Count;
 
     /// <summary>Resolves the reported exception value and hoists it into the exception argument.</summary>
     /// <param name="root">The syntax root.</param>

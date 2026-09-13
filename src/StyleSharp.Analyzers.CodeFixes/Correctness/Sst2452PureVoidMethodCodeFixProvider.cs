@@ -24,12 +24,23 @@ public sealed class Sst2452PureVoidMethodCodeFixProvider : CodeFixProvider, IBat
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the [Pure] attribute", nameof(Sst2452PureVoidMethodCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the [Pure] attribute", nameof(Sst2452PureVoidMethodCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<AttributeSyntax>()is { } attribute
+            && Sst2452PureVoidMethodAnalyzer.IsPureAttributeName(attribute.Name)
+            && attribute.Parent is AttributeListSyntax list)
+            && ((list.Attributes.Count > 1)
+            || (list.Parent is MethodDeclarationSyntax method));
 
     /// <summary>Resolves the reported attribute and builds the edit that removes it.</summary>
     /// <param name="root">The syntax root.</param>

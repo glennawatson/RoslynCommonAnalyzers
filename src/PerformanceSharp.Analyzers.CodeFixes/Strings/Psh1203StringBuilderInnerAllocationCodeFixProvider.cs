@@ -48,7 +48,7 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Let StringBuilder do the formatting work", nameof(Psh1203StringBuilderInnerAllocationCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -63,6 +63,14 @@ public sealed class Psh1203StringBuilderInnerAllocationCodeFixProvider : CodeFix
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetInvocation(root, diagnostic, out var _);
 
     /// <summary>Resolves the reported Append invocation and builds its direct-formatting replacement.</summary>
     /// <param name="root">The syntax root.</param>

@@ -25,7 +25,7 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1201UseCharOverloadCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the char overload", nameof(Psh1201UseCharOverloadCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,6 +41,14 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
         literal.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments }
             ? document.WithSyntaxRoot(root.ReplaceNode(arguments, Rewrite(arguments, literal)))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetLiteral(root, diagnostic, out var literal)
+            && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments };
 
     /// <summary>Resolves the reported string argument and builds the char overload's argument list.</summary>
     /// <param name="root">The syntax root.</param>

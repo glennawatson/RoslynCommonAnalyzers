@@ -22,7 +22,7 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Make the anonymous function static", nameof(Psh1000StaticAnonymousFunctionCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Make the anonymous function static", nameof(Psh1000StaticAnonymousFunctionCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -37,6 +37,13 @@ public sealed class Psh1000StaticAnonymousFunctionCodeFixProvider : CodeFixProvi
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, AnonymousFunctionExpressionSyntax function) =>
         document.WithSyntaxRoot(root.ReplaceNode(function, Rewrite(function)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<AnonymousFunctionExpressionSyntax>()is { } function;
 
     /// <summary>Resolves the reported anonymous function and builds its static replacement.</summary>
     /// <param name="root">The syntax root.</param>

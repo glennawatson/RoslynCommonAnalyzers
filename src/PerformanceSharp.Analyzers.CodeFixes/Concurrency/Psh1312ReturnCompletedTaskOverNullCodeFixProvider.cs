@@ -26,7 +26,7 @@ public sealed class Psh1312ReturnCompletedTaskOverNullCodeFixProvider : CodeFixP
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Return a completed task", nameof(Psh1312ReturnCompletedTaskOverNullCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Return a completed task", nameof(Psh1312ReturnCompletedTaskOverNullCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +42,16 @@ public sealed class Psh1312ReturnCompletedTaskOverNullCodeFixProvider : CodeFixP
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, ExpressionSyntax returned, string replacementText) =>
         document.WithSyntaxRoot(root.ReplaceNode(returned, CreateReplacement(returned, replacementText)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        diagnostic.Properties.TryGetValue(Psh1312ReturnCompletedTaskOverNullAnalyzer.ReplacementKey, out var replacementText)
+            && replacementText is { Length: > 0 }
+            && root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is ExpressionSyntax returned
+            && Psh1312ReturnCompletedTaskOverNullAnalyzer.IsNullOrDefaultShape(returned);
 
     /// <summary>Resolves the reported returned expression and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

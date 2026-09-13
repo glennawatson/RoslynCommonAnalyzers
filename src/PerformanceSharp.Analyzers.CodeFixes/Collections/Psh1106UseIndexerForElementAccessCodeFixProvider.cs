@@ -27,7 +27,7 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the indexer", nameof(Psh1106UseIndexerForElementAccessCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -43,6 +43,14 @@ public sealed class Psh1106UseIndexerForElementAccessCodeFixProvider : CodeFixPr
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation, string countPropertyName) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, CreateReplacement(invocation, countPropertyName)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax } invocation
+            && CanApply(invocation);
 
     /// <summary>Resolves the reported Enumerable call and builds its indexer replacement.</summary>
     /// <param name="root">The syntax root.</param>

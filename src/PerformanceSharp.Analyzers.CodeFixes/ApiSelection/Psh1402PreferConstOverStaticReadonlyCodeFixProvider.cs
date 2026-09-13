@@ -22,12 +22,23 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use const", nameof(Psh1402PreferConstOverStaticReadonlyCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use const", nameof(Psh1402PreferConstOverStaticReadonlyCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        return (node.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>()is { } local)
+            || (node.FirstAncestorOrSelf<FieldDeclarationSyntax>()is { } field);
+    }
 
     /// <summary>Resolves the reported field or local declaration and builds its <c>const</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

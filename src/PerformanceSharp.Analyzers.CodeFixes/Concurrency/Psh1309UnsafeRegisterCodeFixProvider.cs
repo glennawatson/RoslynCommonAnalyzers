@@ -23,12 +23,21 @@ public sealed class Psh1309UnsafeRegisterCodeFixProvider : CodeFixProvider, IBat
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use UnsafeRegister", nameof(Psh1309UnsafeRegisterCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use UnsafeRegister", nameof(Psh1309UnsafeRegisterCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
+            && Psh1309UnsafeRegisterAnalyzer.IsRegisterShape(invocation)
+            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { } name;
 
     /// <summary>Resolves the reported invocation's <c>Register</c> name and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

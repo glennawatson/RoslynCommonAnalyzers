@@ -27,12 +27,22 @@ public sealed class Sst2420IndexOfSkipsFirstCodeFixProvider : CodeFixProvider, I
             context,
             "Test membership without skipping the first position",
             nameof(Sst2420IndexOfSkipsFirstCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } comparison
+            && GetIndexOfCall(comparison)is { Expression: MemberAccessExpressionSyntax member } invocation;
 
     /// <summary>Resolves the reported comparison and rewrites it to a correct membership test.</summary>
     /// <param name="root">The syntax root.</param>

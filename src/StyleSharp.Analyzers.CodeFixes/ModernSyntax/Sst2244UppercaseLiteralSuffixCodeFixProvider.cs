@@ -24,7 +24,7 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Upper-case the literal suffix", nameof(Sst2244UppercaseLiteralSuffixCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,6 +40,15 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
         Rewrite(literal) is { } replacement
             ? document.WithSyntaxRoot(root.ReplaceNode(literal, replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is LiteralExpressionSyntax literal
+            && literal.IsKind(SyntaxKind.NumericLiteralExpression)
+            && Sst2244UppercaseLiteralSuffixAnalyzer.TryGetLowercaseSuffix(literal.Token.Text, out _);
 
     /// <summary>Resolves the reported literal and builds its upper-cased replacement.</summary>
     /// <param name="root">The syntax root.</param>

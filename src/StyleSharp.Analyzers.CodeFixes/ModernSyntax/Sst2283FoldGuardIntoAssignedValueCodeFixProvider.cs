@@ -25,12 +25,28 @@ public sealed class Sst2283FoldGuardIntoAssignedValueCodeFixProvider : CodeFixPr
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Fold the guard into a throw expression", nameof(Sst2283FoldGuardIntoAssignedValueCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Fold the guard into a throw expression", nameof(Sst2283FoldGuardIntoAssignedValueCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="model">The semantic model.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic)
+    {
+        // The reported diagnostic already honored the argument-null stand-down, so re-derivation need not
+        // re-check it: any reported guard passed that gate in this same compilation.
+        return root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>()is { } ifStatement
+            && ifStatement.Parent is BlockSyntax block
+            && Sst2283FoldGuardIntoAssignedValueAnalyzer.TryGetFold(ifStatement, model, argumentNullFolded: false, CancellationToken.None, out var _, out var _, out var assignmentStatement)
+            && assignmentStatement.Expression is AssignmentExpressionSyntax assignment
+            && !DirectiveBoundaries.Separate(ifStatement, assignmentStatement);
+    }
 
     /// <summary>Resolves the reported guard and rewrites its block with the guard removed and the throw folded.</summary>
     /// <param name="root">The syntax root.</param>

@@ -49,6 +49,7 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
             context,
             "Validate the arguments eagerly and return a private iterator",
             nameof(Sst2404IteratorValidatesTooLateCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
@@ -65,6 +66,27 @@ public sealed class Sst2404IteratorValidatesTooLateCodeFixProvider : CodeFixProv
         TryRewrite(root, diagnostic) is { } edit
             ? document.WithSyntaxRoot(root.ReplaceNode(edit.Original, edit.Replacement))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // The statements after the guards move into a new local function body. A directive among them marks
+        // a position in the method, so half of a pair would travel with the moved statements.
+        if (root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<MethodDeclarationSyntax>()is not { Body: { } body } method
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword)
+            || DirectiveBoundaries.Cross(method, body.FullSpan))
+        {
+            return false;
+        }
+
+        var guards = IteratorGuardAnalysis.CountLeadingGuards(body, method.ParameterList);
+        return !(guards == 0
+            || body.Statements.Count <= guards
+            || !IteratorGuardAnalysis.IsIterator(body));
+    }
 
     /// <summary>Resolves the reported iterator and rewrites it as a validating wrapper plus an iterator.</summary>
     /// <param name="root">The syntax root.</param>

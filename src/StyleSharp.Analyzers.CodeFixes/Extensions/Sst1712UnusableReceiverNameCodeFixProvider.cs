@@ -27,12 +27,23 @@ public sealed class Sst1712UnusableReceiverNameCodeFixProvider : CodeFixProvider
             context,
             "Drop the receiver name",
             nameof(Sst1712UnusableReceiverNameCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ParameterSyntax>()is { Type: { } receiverType } parameter
+            && parameter.Parent?.Parent is TypeDeclarationSyntax block
+            && ExtensionBlockHelper.IsExtensionBlock(block)
+            && Sst1712UnusableReceiverNameAnalyzer.DeclaresOnlyStaticMembers(block);
 
     /// <summary>Rewrites the receiver parameter without its name.</summary>
     /// <param name="root">The syntax root.</param>

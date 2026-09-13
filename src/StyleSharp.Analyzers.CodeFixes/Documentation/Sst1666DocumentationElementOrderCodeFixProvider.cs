@@ -29,12 +29,23 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
             context,
             "Order the documentation elements",
             nameof(Sst1666DocumentationElementOrderCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        // A documentation comment is structured trivia, so the search has to be told to descend into it.
+        return root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()is { } documentation;
+    }
 
     /// <summary>Resolves the reported comment and replaces it with one whose elements are in order.</summary>
     /// <param name="root">The syntax root.</param>

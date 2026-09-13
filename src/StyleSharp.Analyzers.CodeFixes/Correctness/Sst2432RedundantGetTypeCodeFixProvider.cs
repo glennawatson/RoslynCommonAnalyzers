@@ -27,12 +27,21 @@ public sealed class Sst2432RedundantGetTypeCodeFixProvider : CodeFixProvider, IB
             context,
             "Remove the redundant GetType() call",
             nameof(Sst2432RedundantGetTypeCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
+            && invocation.Expression is MemberAccessExpressionSyntax memberAccess;
 
     /// <summary>Resolves the reported invocation and replaces it with its receiver.</summary>
     /// <param name="root">The syntax root.</param>

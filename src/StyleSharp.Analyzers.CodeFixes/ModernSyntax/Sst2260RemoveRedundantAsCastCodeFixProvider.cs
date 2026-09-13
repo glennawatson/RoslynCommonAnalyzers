@@ -23,12 +23,30 @@ public sealed class Sst2260RemoveRedundantAsCastCodeFixProvider : CodeFixProvide
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant 'as' cast", nameof(Sst2260RemoveRedundantAsCastCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Remove the redundant 'as' cast", nameof(Sst2260RemoveRedundantAsCastCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var node = root.FindNode(diagnostic.Location.SourceSpan);
+        for (var current = node; current is not null; current = current.Parent)
+        {
+            if (current is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } expression)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     /// <summary>Resolves the reported <c>as</c> expression and rewrites it to its operand.</summary>
     /// <param name="root">The syntax root.</param>

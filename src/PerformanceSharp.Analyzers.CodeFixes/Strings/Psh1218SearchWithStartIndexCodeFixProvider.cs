@@ -34,12 +34,22 @@ public sealed class Psh1218SearchWithStartIndexCodeFixProvider : CodeFixProvider
             context,
             "Search the tail with AsSpan",
             nameof(Psh1218SearchWithStartIndexCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax slice
+            && Psh1218SearchWithStartIndexAnalyzer.IsSubstringSliceShape(slice)
+            && ((MemberAccessExpressionSyntax)slice.Expression).Name is { } name;
 
     /// <summary>Resolves the reported Substring slice and builds its AsSpan rename.</summary>
     /// <param name="root">The syntax root.</param>

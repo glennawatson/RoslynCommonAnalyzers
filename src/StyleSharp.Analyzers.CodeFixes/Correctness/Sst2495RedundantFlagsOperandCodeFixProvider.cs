@@ -27,12 +27,34 @@ public sealed class Sst2495RedundantFlagsOperandCodeFixProvider : CodeFixProvide
             context,
             "Remove the redundant operand",
             nameof(Sst2495RedundantFlagsOperandCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
+    {
+        var element = root.FindNode(diagnostic.Location.SourceSpan);
+        if (element is null)
+        {
+            return false;
+        }
+
+        while (element.Parent is ParenthesizedExpressionSyntax parenthesized)
+        {
+            element = parenthesized;
+        }
+
+        return element.Parent is BinaryExpressionSyntax operation
+            && operation.IsKind(SyntaxKind.BitwiseOrExpression);
+    }
 
     /// <summary>Resolves the reported operand and replaces its <c>|</c> operation with the surviving side.</summary>
     /// <param name="root">The syntax root.</param>

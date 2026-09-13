@@ -27,12 +27,21 @@ public sealed class Sst2443LoggerCategoryCodeFixProvider : CodeFixProvider, IBat
             context,
             "Use the enclosing type as the logger category",
             nameof(Sst2443LoggerCategoryCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is TypeSyntax category
+            && category.FirstAncestorOrSelf<TypeDeclarationSyntax>()is { } enclosing;
 
     /// <summary>Resolves the reported category syntax and replaces it with the enclosing type's name.</summary>
     /// <param name="root">The syntax root.</param>

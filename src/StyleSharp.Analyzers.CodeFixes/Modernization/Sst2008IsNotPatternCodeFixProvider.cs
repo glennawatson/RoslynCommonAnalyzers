@@ -23,7 +23,7 @@ public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatch
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use an 'is not' pattern", nameof(Sst2008IsNotPatternCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use an 'is not' pattern", nameof(Sst2008IsNotPatternCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -42,6 +42,14 @@ public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatch
 
         return expression;
     }
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpression
+            && Unwrap(notExpression.Operand)is IsPatternExpressionSyntax isPattern;
 
     /// <summary>Resolves the reported negation and builds its <c>is not</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

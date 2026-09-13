@@ -26,7 +26,7 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use the static HashData method", nameof(Psh1400PreferStaticHashDataCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use the static HashData method", nameof(Psh1400PreferStaticHashDataCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -41,6 +41,13 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, InvocationExpressionSyntax invocation) =>
         document.WithSyntaxRoot(root.ReplaceNode(invocation, Rewrite(invocation)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        TryGetChainedInvocation(root, diagnostic)is { } invocation;
 
     /// <summary>Resolves the reported chained invocation and builds its static HashData replacement.</summary>
     /// <param name="root">The syntax root.</param>

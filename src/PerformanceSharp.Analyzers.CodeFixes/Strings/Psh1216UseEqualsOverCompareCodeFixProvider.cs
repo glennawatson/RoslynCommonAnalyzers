@@ -43,7 +43,7 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with the matching StringComparison", nameof(Psh1216UseEqualsOverCompareCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Use string.Equals with the matching StringComparison", nameof(Psh1216UseEqualsOverCompareCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -59,6 +59,14 @@ public sealed class Psh1216UseEqualsOverCompareCodeFixProvider : CodeFixProvider
         TryGetReplacement(comparison, out var replacement)
             ? document.WithSyntaxRoot(root.ReplaceNode(comparison, replacement!))
             : document;
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is BinaryExpressionSyntax binary
+            && Psh1216UseEqualsOverCompareAnalyzer.TryGetOrderingCall(binary, out _, out _);
 
     /// <summary>Resolves the reported comparison and builds its <c>string.Equals</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

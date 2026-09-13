@@ -25,12 +25,25 @@ public sealed class Sst2470FusedSqlKeywordCodeFixProvider : CodeFixProvider, IBa
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Add a space between the concatenated string literals", nameof(Sst2470FusedSqlKeywordCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        (root.FindNode(diagnostic.Location.SourceSpan)is { } node
+            && (node as BinaryExpressionSyntax ?? node.FirstAncestorOrSelf<BinaryExpressionSyntax>())is { } binary
+            && binary.IsKind(SyntaxKind.AddExpression)
+            && Sst2470FusedSqlKeywordAnalyzer.TryGetFusedSeam(binary.Left, binary.Right)is not null)
+            && (!(binary.Right is not LiteralExpressionSyntax rightLiteral
+            || !rightLiteral.Token.IsKind(SyntaxKind.StringLiteralToken)
+            || IsVerbatim(rightLiteral.Token)));
 
     /// <summary>Resolves the reported concatenation and gives its right literal a leading space.</summary>
     /// <param name="root">The syntax root.</param>

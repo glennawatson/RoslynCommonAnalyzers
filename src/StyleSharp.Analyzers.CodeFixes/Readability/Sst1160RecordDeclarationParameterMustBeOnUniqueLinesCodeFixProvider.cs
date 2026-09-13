@@ -19,7 +19,12 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixP
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, $"{nameof(Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixProvider)}-Add", TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            CodeFixResources.SST1150CodeFixTitle,
+            $"{nameof(Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixProvider)}-Add",
+            CanRewrite,
+            TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -34,6 +39,13 @@ public sealed class Sst1160RecordDeclarationParameterMustBeOnUniqueLinesCodeFixP
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, RecordDeclarationSyntax node) =>
         Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is RecordDeclarationSyntax node;
 
     /// <summary>Resolves the reported record declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

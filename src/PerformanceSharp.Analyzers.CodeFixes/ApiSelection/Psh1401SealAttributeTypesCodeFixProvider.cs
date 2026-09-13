@@ -19,7 +19,7 @@ public sealed class Psh1401SealAttributeTypesCodeFixProvider : CodeFixProvider, 
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, "Seal the attribute type", nameof(Psh1401SealAttributeTypesCodeFixProvider), TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(context, "Seal the attribute type", nameof(Psh1401SealAttributeTypesCodeFixProvider), CanRewrite, TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -34,6 +34,13 @@ public sealed class Psh1401SealAttributeTypesCodeFixProvider : CodeFixProvider, 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Document Apply(Document document, SyntaxNode root, ClassDeclarationSyntax declaration) =>
         document.WithSyntaxRoot(root.ReplaceNode(declaration, SealedModifierRewrite.AddSealed(declaration)));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<ClassDeclarationSyntax>()is { } declaration;
 
     /// <summary>Resolves the reported class declaration and builds its sealed replacement.</summary>
     /// <param name="root">The syntax root.</param>

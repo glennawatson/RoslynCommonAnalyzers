@@ -27,12 +27,23 @@ public sealed class Sst2438ExceptionDiscardedInCatchCodeFixProvider : CodeFixPro
             context,
             "Pass the caught exception to the logger",
             nameof(Sst2438ExceptionDiscardedInCatchCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
+            && TryReadProperties(diagnostic, out _, out var insertIndex, out _, out _)
+            && insertIndex >= 0
+            && insertIndex < invocation.ArgumentList.Arguments.Count;
 
     /// <summary>Resolves the reported call and rewrites it to pass the caught exception.</summary>
     /// <param name="root">The syntax root.</param>

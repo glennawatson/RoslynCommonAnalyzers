@@ -19,7 +19,12 @@ public sealed class Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFi
 
     /// <inheritdoc/>
     public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
-        ReplaceNodeCodeFix.RegisterAsync(context, CodeFixResources.SST1150CodeFixTitle, $"{nameof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider)}-Add", TryRewrite);
+        ReplaceNodeCodeFix.RegisterAsync(
+            context,
+            CodeFixResources.SST1150CodeFixTitle,
+            $"{nameof(Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFixProvider)}-Add",
+            CanRewrite,
+            TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -34,6 +39,13 @@ public sealed class Sst1154InvocationExpressionArgumentMustBeOnUniqueLinesCodeFi
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static Task<Document> FixAsync(Document document, SyntaxNode root, InvocationExpressionSyntax node) =>
         Task.FromResult(document.WithSyntaxRoot(root.ReplaceNode(node, Rewrite(node))));
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax node;
 
     /// <summary>Resolves the reported invocation expression and builds its arguments-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

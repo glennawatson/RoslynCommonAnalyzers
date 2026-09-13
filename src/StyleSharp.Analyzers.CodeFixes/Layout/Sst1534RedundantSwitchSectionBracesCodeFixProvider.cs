@@ -28,12 +28,23 @@ public sealed class Sst1534RedundantSwitchSectionBracesCodeFixProvider : CodeFix
             context,
             "Remove the switch section braces",
             nameof(Sst1534RedundantSwitchSectionBracesCodeFixProvider),
+            CanRewrite,
             TryRewrite);
 
     /// <inheritdoc/>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic) =>
         ReplaceNodeCodeFix.ApplyBatchEdit(editor, diagnostic, TryRewrite);
+
+    /// <summary>Checks applicability without constructing replacement syntax.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>Whether the reported shape can be rewritten.</returns>
+    private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<SwitchSectionSyntax>()is { } section
+            && section.Statements.Count == 1
+            && section.Statements[0] is BlockSyntax block
+            && !DirectiveBoundaries.Cross(section, block.FullSpan);
 
     /// <summary>Resolves the reported section and replaces it with one holding the block's statements.</summary>
     /// <param name="root">The syntax root.</param>

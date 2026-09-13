@@ -20,14 +20,28 @@ dotnet build RoslynCommonAnalyzers.slnx -c Release
 dotnet test  --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release
 dotnet test  --project tests/PerformanceSharp.Analyzers.Tests/PerformanceSharp.Analyzers.Tests.csproj -c Release
 
+# The gate is the whole solution: a per-project loop skips the nine Roslyn-slot assemblies
+dotnet test --solution RoslynCommonAnalyzers.slnx -c Release
+
+# Coverage, one package at a time into its own results directory. A --solution run points every
+# project at the same --coverage-output and they overwrite each other; the reported number is the
+# union across the three.
+dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release \
+  --coverage --coverage-output-format xml \
+  --results-directory TestResults/StyleSharp --coverage-output sonar-coverage.xml
+
 # TUnit / Microsoft.Testing.Platform notes
 # - `dotnet test` must still be run from src/ in this repo so the relative project paths resolve.
-# - Runner-specific arguments must come after `--`.
+# - src/global.json selects the MTP runner, so `dotnet test` runs in MTP mode: platform options are
+#   its own options and take NO `--` separator. Passing them after `--` makes the CLI read the next
+#   token as a positional path and fail with "Specifying a directory for 'dotnet test' should be via
+#   '--project' or '--solution'". `dotnet run` still needs `--` to separate its own args from the
+#   test app's.
 # - For focused local runs, `dotnet run` is usually easier than `dotnet test` because TUnit
 #   exposes its CLI flags directly there.
 # - TUnit filtering uses tree-node filters, not VSTest `--filter` syntax:
 #     dotnet run --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release -- --treenode-filter "/*/*/MyTestClass/*"
-#     dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release -- --treenode-filter "/*/*/*/MyTestMethod"
+#     dotnet test --project tests/StyleSharp.Analyzers.Tests/StyleSharp.Analyzers.Tests.csproj -c Release --treenode-filter "/*/*/*/MyTestMethod"
 # - Tree-node filter pattern: `/Assembly/Namespace/Class/Method[Property=Value]`
 # - Wildcards are supported with `*`, and OR within a segment uses `(A)|(B)`.
 

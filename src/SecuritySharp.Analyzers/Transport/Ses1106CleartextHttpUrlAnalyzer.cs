@@ -214,7 +214,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
         }
 
         var parsedHost = CleartextUrl.ExtractHost(text);
-        if (parsedHost.Length == 0 || CleartextUrl.IsLoopbackHost(parsedHost))
+        if (parsedHost.IsEmpty || CleartextUrl.IsLoopbackHost(parsedHost))
         {
             return false;
         }

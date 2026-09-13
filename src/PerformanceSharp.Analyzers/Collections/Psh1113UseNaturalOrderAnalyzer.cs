@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -30,9 +32,6 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
     /// <summary>The argument count of the sort overload that carries a comparer.</summary>
     internal const int SelectorAndComparerArgumentCount = 2;
 
-    /// <summary>The metadata name of the LINQ extension class.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CollectionRules.UseNaturalOrder);
 
@@ -45,15 +44,10 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(start =>
+        context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(EnumerableMetadataName) is not { } enumerableType
-                || enumerableType.GetMembers(OrderMethodName).IsEmpty)
-            {
-                return;
-            }
-
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableType), SyntaxKind.InvocationExpression);
+            var enumerableSymbols = new EnumerableSymbols(start.Compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, enumerableSymbols), SyntaxKind.InvocationExpression);
         });
     }
 
@@ -84,11 +78,12 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1113 for an identity-selector sort that binds to the LINQ extension class.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="enumerableType">The LINQ extension class.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, INamedTypeSymbol enumerableType)
+    /// <param name="enumerableSymbols">The LINQ extension class, resolved only for an identity-sort candidate.</param>
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, EnumerableSymbols enumerableSymbols)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsIdentitySortShape(invocation)
+            || enumerableSymbols.Get() is not { } enumerableType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !SymbolEqualityComparer.Default.Equals(method.ContainingType, enumerableType))
         {
@@ -102,5 +97,50 @@ public sealed class Psh1113UseNaturalOrderAnalyzer : DiagnosticAnalyzer
             name.GetLocation(),
             isDescending ? OrderDescendingMethodName : OrderMethodName,
             name.Identifier.ValueText));
+    }
+
+    /// <summary>Resolves natural-order support once, after the first identity-sort candidate.</summary>
+    /// <param name="compilation">The compilation whose LINQ API is probed.</param>
+    private sealed class EnumerableSymbols(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension class.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>Serializes the first resolution across concurrent invocation callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The published resolution, including an unavailable LINQ API.</summary>
+        private EnumerableResolution? _resolved;
+
+        /// <summary>Gets the LINQ extension class when it provides natural ordering.</summary>
+        /// <returns>The extension class, or null when Enumerable.Order is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (Volatile.Read(ref _resolved) ?? Resolve()).Type;
+
+        /// <summary>Builds and publishes the framework probe without locking subsequent reads.</summary>
+        /// <returns>The cached resolution, including a missing replacement API.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private EnumerableResolution Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    var enumerableType = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                    resolved = new(
+                        enumerableType is not null && !enumerableType.GetMembers(OrderMethodName).IsEmpty
+                            ? enumerableType
+                            : null);
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
+
+        /// <summary>Stores the complete probe result, including the absence of natural ordering.</summary>
+        /// <param name="Type">The LINQ extension class, or null when the replacement is unavailable.</param>
+        private sealed record EnumerableResolution(INamedTypeSymbol? Type);
     }
 }

@@ -153,8 +153,14 @@ internal static class WhileLoopCounter
     /// </remarks>
     private static bool HasContinueTargetingLoop(SyntaxNode body)
     {
-        foreach (var child in body.ChildNodes())
+        var children = body.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
+            if (children[i].AsNode() is not { } child)
+            {
+                continue;
+            }
+
             if (child is ContinueStatementSyntax)
             {
                 return true;

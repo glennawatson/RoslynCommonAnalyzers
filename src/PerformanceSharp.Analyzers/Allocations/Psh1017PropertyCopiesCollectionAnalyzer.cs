@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
 
@@ -82,7 +83,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
     /// <param name="context">The compilation start context.</param>
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
-        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>(concurrencyLevel: 4, capacity: 31);
+        var optionsByTree = new ConcurrentDictionary<SyntaxTree, PropertyCopyOptions>(concurrencyLevel: 4, capacity: ((CSharpCompilation)context.Compilation).SyntaxTrees.Length);
         context.RegisterSyntaxNodeAction(nodeContext => AnalyzeProperty(nodeContext, optionsByTree), SyntaxKind.PropertyDeclaration);
     }
 
@@ -317,7 +318,8 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         // for read-only wrappers and other collections outside the copying namespaces.
         if (creation is ObjectCreationExpressionSyntax explicitCreation
             && (context.SemanticModel.GetTypeInfo(explicitCreation.Type, context.CancellationToken).Type is not INamedTypeSymbol createdType
-                || !IsCopyingCollectionType(createdType)))
+                || !IsCopyingCollectionType(createdType)
+                || !CouldSeedFromFirstArgument(createdType, creation)))
         {
             return false;
         }
@@ -327,6 +329,45 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
             && constructor.ContainingType is { } created
             && IsCopyingCollectionType(created);
     }
+
+    /// <summary>Rejects primitive literal capacities before constructing generic constructor overloads.</summary>
+    /// <param name="type">The explicitly created collection type.</param>
+    /// <param name="creation">The creation whose first argument is checked.</param>
+    /// <returns>Whether a constructor could receive a collection as its first parameter.</returns>
+    private static bool CouldSeedFromFirstArgument(INamedTypeSymbol type, BaseObjectCreationExpressionSyntax creation)
+    {
+        if (creation.ArgumentList is not { Arguments: [var first, ..] }
+            || first.NameColon is not null
+            || !IsPrimitiveLiteral(first.Expression))
+        {
+            return true;
+        }
+
+        // Primitive literals cannot convert to an enumerable interface. Inspect the original
+        // definition so a capacity-only call never constructs all the substituted overloads.
+        // Keep type parameters, params arrays, and collection classes: substitution, expansion,
+        // or a user-defined conversion can make those receive a collection from this syntax.
+        var constructors = type.OriginalDefinition.InstanceConstructors;
+        for (var i = 0; i < constructors.Length; i++)
+        {
+            if (constructors[i].Parameters is [{ Type: { } parameterType }, ..]
+                && (parameterType.TypeKind == TypeKind.TypeParameter
+                    || (parameterType.TypeKind != TypeKind.Interface && IsCollectionType(parameterType))))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Recognizes literal values that cannot convert to enumerable interfaces.</summary>
+    /// <param name="expression">The supplied constructor argument.</param>
+    /// <returns>Whether the argument is a primitive numeric, character, or boolean literal.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool IsPrimitiveLiteral(ExpressionSyntax expression) =>
+        expression.Kind() is SyntaxKind.NumericLiteralExpression or SyntaxKind.CharacterLiteralExpression
+            or SyntaxKind.TrueLiteralExpression or SyntaxKind.FalseLiteralExpression;
 
     /// <summary>Returns whether a created type is one whose seeding constructor copies rather than wraps.</summary>
     /// <param name="type">The created type.</param>

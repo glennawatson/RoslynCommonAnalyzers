@@ -174,6 +174,29 @@ public sealed class Sst1495ReferenceEqualityOnValueEqualTypeCodeFixProvider : Co
     /// <summary>Strips the trivia an operand carried around the operator it no longer sits beside.</summary>
     /// <param name="operand">The comparison operand.</param>
     /// <returns>The operand with no surrounding trivia.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static ExpressionSyntax Bare(ExpressionSyntax operand) => operand.WithoutLeadingTrivia().WithoutTrailingTrivia();
+    private static ExpressionSyntax Bare(ExpressionSyntax operand)
+    {
+        var first = operand.GetFirstToken(includeZeroWidth: true);
+        var last = operand.GetLastToken(includeZeroWidth: true);
+        if (!first.HasLeadingTrivia)
+        {
+            return last.HasTrailingTrivia ? operand.WithoutTrailingTrivia() : operand;
+        }
+
+        if (!last.HasTrailingTrivia)
+        {
+            return operand.WithoutLeadingTrivia();
+        }
+
+        if (first == last)
+        {
+            return operand.ReplaceToken(first, first.WithoutTrivia());
+        }
+
+        return operand.ReplaceTokens(
+            [first, last],
+            (original, rewritten) => original == first
+                ? rewritten.WithLeadingTrivia(default(SyntaxTriviaList))
+                : rewritten.WithTrailingTrivia(default(SyntaxTriviaList)));
+    }
 }

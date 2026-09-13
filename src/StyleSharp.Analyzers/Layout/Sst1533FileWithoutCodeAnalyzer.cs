@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -74,23 +76,9 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
     /// declares its type on the ones that do not. The file is not the empty shell it appears to be here, and
     /// reporting it would ask for a deletion that breaks every other framework the project builds.
     /// </remarks>
-    private static bool DeclaresSomethingInAnotherConfiguration(CompilationUnitSyntax root)
-    {
-        if (!root.ContainsDirectives)
-        {
-            return false;
-        }
-
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
-        {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool DeclaresSomethingInAnotherConfiguration(CompilationUnitSyntax root) =>
+        root.ContainsDirectives && ContainsDisabledText(root);
 
     /// <summary>Returns whether a trivia kind is one of the comment forms.</summary>
     /// <param name="kind">The trivia kind.</param>
@@ -99,4 +87,36 @@ public sealed class Sst1533FileWithoutCodeAnalyzer : DiagnosticAnalyzer
         or SyntaxKind.MultiLineCommentTrivia
         or SyntaxKind.SingleLineDocumentationCommentTrivia
         or SyntaxKind.MultiLineDocumentationCommentTrivia;
+
+    /// <summary>Scans descendant token trivia, including structured trivia, for inactive source.</summary>
+    /// <param name="root">The node whose tokens are scanned.</param>
+    /// <returns>Whether any descendant trivia contains inactive source.</returns>
+    private static bool ContainsDisabledText(SyntaxNode root)
+    {
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref found, static (in SyntaxToken token, ref bool result) =>
+        {
+            result = ContainsDisabledText(token.LeadingTrivia) || ContainsDisabledText(token.TrailingTrivia);
+            return !result;
+        });
+        return found;
+    }
+
+    /// <summary>Checks a trivia list and any nested structured trivia for inactive source.</summary>
+    /// <param name="triviaList">The trivia to scan.</param>
+    /// <returns>Whether the list contains inactive source.</returns>
+    private static bool ContainsDisabledText(in SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
+        {
+            var trivia = triviaList[i];
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia)
+                || (trivia.GetStructure() is { } structure && ContainsDisabledText(structure)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

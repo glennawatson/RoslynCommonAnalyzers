@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -61,17 +63,25 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         {
             var compilation = start.Compilation;
             var symbols = new Lazy<FrameworkSymbols?>(() => FrameworkSymbols.Resolve(compilation));
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols), MethodKinds);
+            var returnTypes = new ReturnTypeCache(compilation);
+            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeMethod(nodeContext, symbols, returnTypes), MethodKinds);
         });
     }
 
     /// <summary>Analyzes one method declaration for a test-method shape the runner cannot execute.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="frameworkSymbols">The framework types resolved on first demand per compilation.</param>
-    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<FrameworkSymbols?> frameworkSymbols)
+    /// <param name="returnTypes">The awaited return types resolved independently of test markers.</param>
+    private static void AnalyzeMethod(in SyntaxNodeAnalysisContext context, Lazy<FrameworkSymbols?> frameworkSymbols, ReturnTypeCache returnTypes)
     {
         var method = (MethodDeclarationSyntax)context.Node;
         if (!HasTestAttributeName(method.AttributeLists) || IsSyntacticallyRunnableShape(method))
+        {
+            return;
+        }
+
+        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } methodSymbol
+            || IsUniversallyRunnable(methodSymbol, returnTypes))
         {
             return;
         }
@@ -82,18 +92,13 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not { } methodSymbol)
-        {
-            return;
-        }
-
         var (isTest, requiresPublic) = ClassifyTestAttributes(context, method.AttributeLists, methodSymbol, symbols);
         if (!isTest)
         {
             return;
         }
 
-        var reason = DescribeViolation(methodSymbol, requiresPublic, symbols);
+        var reason = DescribeViolation(methodSymbol, requiresPublic, returnTypes);
         if (reason is null)
         {
             return;
@@ -105,6 +110,15 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             method.Identifier.ValueText,
             reason));
     }
+
+    /// <summary>Excludes bound method shapes that cannot violate any framework's requirements.</summary>
+    /// <param name="method">The candidate method.</param>
+    /// <param name="returnTypes">The return definitions cached independently of framework markers.</param>
+    /// <returns>Whether no test framework can report this method's shape.</returns>
+    private static bool IsUniversallyRunnable(IMethodSymbol method, ReturnTypeCache returnTypes) =>
+        method.DeclaredAccessibility == Accessibility.Public
+            && (!method.IsGenericMethod || !method.Parameters.IsEmpty)
+            && (method.ReturnsVoid || method.ReturnType.TypeKind == TypeKind.Error || returnTypes.Contains(method.ReturnType));
 
     /// <summary>Binds the method's attributes to determine whether it is a real test and whether its framework requires a public method.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -185,9 +199,9 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <summary>Describes the first shape violation on a confirmed test method, or <see langword="null"/> when it is runnable.</summary>
     /// <param name="method">The test method symbol.</param>
     /// <param name="requiresPublic">Whether the matched framework discovers only public test methods.</param>
-    /// <param name="symbols">The resolved test-framework symbols.</param>
+    /// <param name="returnTypes">The awaited return types resolved independently of test markers.</param>
     /// <returns>A clause describing the violation, or <see langword="null"/> when the shape is runnable.</returns>
-    private static string? DescribeViolation(IMethodSymbol method, bool requiresPublic, FrameworkSymbols symbols)
+    private static string? DescribeViolation(IMethodSymbol method, bool requiresPublic, ReturnTypeCache returnTypes)
     {
         if (requiresPublic && method.DeclaredAccessibility != Accessibility.Public)
         {
@@ -200,7 +214,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         }
 
         var returnType = method.ReturnType;
-        return !method.ReturnsVoid && returnType.TypeKind != TypeKind.Error && !symbols.IsRunnableReturnType(returnType)
+        return !method.ReturnsVoid && returnType.TypeKind != TypeKind.Error && !returnTypes.Contains(returnType)
             ? $"returns '{returnType.ToDisplayString()}', which is not void, Task, or ValueTask"
             : null;
     }
@@ -248,7 +262,70 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         _ => string.Empty,
     };
 
-    /// <summary>The test-framework symbols resolved for a candidate method to classify attributes and returns.</summary>
+    /// <summary>Caches the awaitable return definitions only after a matching type name is encountered.</summary>
+    /// <param name="compilation">The compilation whose return types are cached.</param>
+    private sealed class ReturnTypeCache(Compilation compilation)
+    {
+        /// <summary>Serializes the first return-type resolution.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The immutable published return-type definitions.</summary>
+        private INamedTypeSymbol?[]? _types;
+
+        /// <summary>Determines whether a return type is one the test runner awaits.</summary>
+        /// <param name="type">The method return type.</param>
+        /// <returns>Whether the return is Task, ValueTask, or a generic form of either.</returns>
+        public bool Contains(ITypeSymbol type)
+        {
+            if (type.Name is not ("Task" or "ValueTask"))
+            {
+                return false;
+            }
+
+            var types = GetTypes();
+            var definition = type.OriginalDefinition;
+            for (var i = 0; i < types.Length; i++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(definition, types[i]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>Reads the published definitions without entering the cold resolution gate.</summary>
+        /// <returns>The immutable return-type definitions.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private INamedTypeSymbol?[] GetTypes() => Volatile.Read(ref _types) ?? Resolve();
+
+        /// <summary>Resolves and publishes all awaited return definitions together.</summary>
+        /// <returns>The immutable return-type definitions.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var types = _types;
+                if (types is null)
+                {
+                    types =
+                    [
+                        compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),
+                        compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"),
+                        compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask"),
+                        compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1"),
+                    ];
+                    Volatile.Write(ref _types, types);
+                }
+
+                return types;
+            }
+        }
+    }
+
+    /// <summary>The test-framework symbols resolved for a candidate method to classify attributes.</summary>
     private sealed class FrameworkSymbols
     {
         /// <summary>The metadata name of the TUnit test marker, which does not universally require a public method.</summary>
@@ -273,39 +350,15 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
         /// <summary>The resolved TUnit test marker, or <see langword="null"/> when TUnit is not referenced.</summary>
         private readonly INamedTypeSymbol? _tunitMarker;
 
-        /// <summary>The resolved <c>System.Threading.Tasks.Task</c>, or <see langword="null"/> when it is absent.</summary>
-        private readonly INamedTypeSymbol? _task;
-
-        /// <summary>The resolved <c>System.Threading.Tasks.Task&lt;T&gt;</c> definition, or <see langword="null"/> when it is absent.</summary>
-        private readonly INamedTypeSymbol? _taskOfT;
-
-        /// <summary>The resolved <c>System.Threading.Tasks.ValueTask</c>, or <see langword="null"/> when it is absent.</summary>
-        private readonly INamedTypeSymbol? _valueTask;
-
-        /// <summary>The resolved <c>System.Threading.Tasks.ValueTask&lt;T&gt;</c> definition, or <see langword="null"/> when it is absent.</summary>
-        private readonly INamedTypeSymbol? _valueTaskOfT;
-
         /// <summary>Initializes a new instance of the <see cref="FrameworkSymbols"/> class.</summary>
         /// <param name="publicRequiredMarkers">The resolved public-required test markers.</param>
         /// <param name="tunitMarker">The resolved TUnit test marker, or <see langword="null"/>.</param>
-        /// <param name="task">The resolved <c>Task</c> type, or <see langword="null"/>.</param>
-        /// <param name="taskOfT">The resolved <c>Task&lt;T&gt;</c> definition, or <see langword="null"/>.</param>
-        /// <param name="valueTask">The resolved <c>ValueTask</c> type, or <see langword="null"/>.</param>
-        /// <param name="valueTaskOfT">The resolved <c>ValueTask&lt;T&gt;</c> definition, or <see langword="null"/>.</param>
         private FrameworkSymbols(
             INamedTypeSymbol?[] publicRequiredMarkers,
-            INamedTypeSymbol? tunitMarker,
-            INamedTypeSymbol? task,
-            INamedTypeSymbol? taskOfT,
-            INamedTypeSymbol? valueTask,
-            INamedTypeSymbol? valueTaskOfT)
+            INamedTypeSymbol? tunitMarker)
         {
             _publicRequiredMarkers = publicRequiredMarkers;
             _tunitMarker = tunitMarker;
-            _task = task;
-            _taskOfT = taskOfT;
-            _valueTask = valueTask;
-            _valueTaskOfT = valueTaskOfT;
         }
 
         /// <summary>Resolves the test-framework symbols, or <see langword="null"/> when no test framework is referenced.</summary>
@@ -325,13 +378,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             var tunitMarker = compilation.GetTypeByMetadataName(TUnitTestMarkerMetadataName);
             return !anyPublicRequired && tunitMarker is null
                 ? null
-                : new FrameworkSymbols(
-                publicRequiredMarkers,
-                tunitMarker,
-                compilation.GetTypeByMetadataName("System.Threading.Tasks.Task"),
-                compilation.GetTypeByMetadataName("System.Threading.Tasks.Task`1"),
-                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask"),
-                compilation.GetTypeByMetadataName("System.Threading.Tasks.ValueTask`1"));
+                : new FrameworkSymbols(publicRequiredMarkers, tunitMarker);
         }
 
         /// <summary>Returns whether an attribute type is or derives from a marker whose framework requires a public test method.</summary>
@@ -368,21 +415,6 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             }
 
             return false;
-        }
-
-        /// <summary>Returns whether a return type is one the runner awaits or runs to completion.</summary>
-        /// <param name="type">The method's return type.</param>
-        /// <returns><see langword="true"/> for <c>Task</c>, <c>ValueTask</c>, <c>Task&lt;T&gt;</c>, or <c>ValueTask&lt;T&gt;</c>.</returns>
-        public bool IsRunnableReturnType(ITypeSymbol type)
-        {
-            if (SymbolEqualityComparer.Default.Equals(type, _task) || SymbolEqualityComparer.Default.Equals(type, _valueTask))
-            {
-                return true;
-            }
-
-            var definition = type.OriginalDefinition;
-            return SymbolEqualityComparer.Default.Equals(definition, _taskOfT)
-                || SymbolEqualityComparer.Default.Equals(definition, _valueTaskOfT);
         }
     }
 }

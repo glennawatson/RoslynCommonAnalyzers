@@ -84,20 +84,27 @@ public sealed class Sst2324MemberMoreAccessibleThanContainingTypeCodeFixProvider
     /// <param name="keywords">The accessibility as its C# keywords, separated by spaces.</param>
     private static void AppendKeywords(List<SyntaxToken> tokens, string keywords)
     {
-        var parts = keywords.Split(' ');
-        for (var i = 0; i < parts.Length; i++)
+        for (var start = 0; start < keywords.Length;)
         {
-            if (KeywordKind(parts[i]) is { } kind)
+            var end = keywords.IndexOf(' ', start);
+            if (end < 0)
+            {
+                end = keywords.Length;
+            }
+
+            if (KeywordKind(keywords.AsSpan(start, end - start)) is { } kind)
             {
                 tokens.Add(SyntaxFactory.Token(default, kind, SyntaxFactory.TriviaList(SyntaxFactory.Space)));
             }
+
+            start = end + 1;
         }
     }
 
     /// <summary>Gets the token kind of one accessibility keyword.</summary>
     /// <param name="keyword">The keyword text.</param>
     /// <returns>The token kind, or <see langword="null"/> when the text names no access modifier.</returns>
-    private static SyntaxKind? KeywordKind(string keyword) => keyword switch
+    private static SyntaxKind? KeywordKind(ReadOnlySpan<char> keyword) => keyword switch
     {
         "public" => SyntaxKind.PublicKeyword,
         "private" => SyntaxKind.PrivateKeyword,

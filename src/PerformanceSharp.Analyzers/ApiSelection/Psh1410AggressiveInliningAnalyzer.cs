@@ -79,26 +79,52 @@ public sealed class Psh1410AggressiveInliningAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        var depth = 0;
-        var start = declaration.SpanStart;
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        var state = (Start: declaration.SpanStart, Depth: 0);
+        _ = DescendantTraversalHelper.VisitDescendantTokens(root, ref state, VisitConditionalToken);
+        return state.Depth > 0;
+    }
+
+    /// <summary>Scans one token's trivia until the member's start is reached.</summary>
+    /// <param name="token">The token visited in document order.</param>
+    /// <param name="state">The member's start and the current conditional nesting depth.</param>
+    /// <returns>True when the traversal should continue.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool VisitConditionalToken(in SyntaxToken token, ref (int Start, int Depth) state) =>
+        ScanConditionalTrivia(token.LeadingTrivia, ref state)
+            && token.SpanStart < state.Start
+            && ScanConditionalTrivia(token.TrailingTrivia, ref state);
+
+    /// <summary>Counts conditional directives before the member, including structured trivia.</summary>
+    /// <param name="triviaList">The leading or trailing trivia to inspect.</param>
+    /// <param name="state">The member's start and the current conditional nesting depth.</param>
+    /// <returns>True when the traversal has not reached the member.</returns>
+    private static bool ScanConditionalTrivia(in SyntaxTriviaList triviaList, ref (int Start, int Depth) state)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
         {
-            if (trivia.SpanStart >= start)
+            var trivia = triviaList[i];
+            if (trivia.SpanStart >= state.Start)
             {
-                break;
+                return false;
             }
 
             if (trivia.IsKind(SyntaxKind.IfDirectiveTrivia))
             {
-                depth++;
+                state.Depth++;
             }
             else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia))
             {
-                depth--;
+                state.Depth--;
+            }
+
+            if (trivia.GetStructure() is { } structure
+                && !DescendantTraversalHelper.VisitDescendantTokens(structure, ref state, VisitConditionalToken))
+            {
+                return false;
             }
         }
 
-        return depth > 0;
+        return true;
     }
 
     /// <summary>Returns whether an expression is a plain forward: a call, member read, index, or constant.</summary>

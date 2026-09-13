@@ -387,9 +387,32 @@ public sealed class ExpressionBodyAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        foreach (var trivia in container.DescendantTrivia(descendIntoTrivia: true))
+        return ContainsDisabledText(container);
+    }
+
+    /// <summary>Searches token trivia, including structured trivia, without allocating a descendant iterator.</summary>
+    /// <param name="node">The subtree whose token trivia is scanned.</param>
+    /// <returns>True when any token carries inactive preprocessor text.</returns>
+    private static bool ContainsDisabledText(SyntaxNode node)
+    {
+        var state = false;
+        return !DescendantTraversalHelper.VisitDescendantTokens(
+            node,
+            ref state,
+            static (in token, ref current) =>
+                !ContainsDisabledText(token.LeadingTrivia) && !ContainsDisabledText(token.TrailingTrivia));
+    }
+
+    /// <summary>Searches trivia and its nested structures for inactive preprocessor text.</summary>
+    /// <param name="triviaList">The leading or trailing trivia of one token.</param>
+    /// <returns>True when inactive preprocessor text occurs at any depth.</returns>
+    private static bool ContainsDisabledText(in SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
         {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            var trivia = triviaList[i];
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia)
+                || (trivia.GetStructure() is { } structure && ContainsDisabledText(structure)))
             {
                 return true;
             }

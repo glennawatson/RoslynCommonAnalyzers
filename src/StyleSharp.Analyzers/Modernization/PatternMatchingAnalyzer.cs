@@ -73,8 +73,8 @@ public sealed class PatternMatchingAnalyzer : DiagnosticAnalyzer
         var typePattern = SyntaxFactory.TypePattern(type.WithoutTrivia());
         var notPattern = SyntaxFactory.UnaryPattern(SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)), typePattern);
         return SyntaxFactory.IsPatternExpression(
-            operand.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(default, SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            operand.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             notPattern);
     }
 

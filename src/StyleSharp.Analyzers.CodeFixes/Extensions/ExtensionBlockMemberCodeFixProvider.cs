@@ -138,12 +138,44 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        var introduced = block.AddMembers(member)
-            .WithLeadingTrivia(LayoutTriviaOf(method).AddRange(BlockDocumentation(receiverType, NewLineOf(containingClass))))
-            .WithTrailingTrivia(method.GetTrailingTrivia())
-            .WithAdditionalAnnotations(Formatter.Annotation);
-        return containingClass.ReplaceNode(method, introduced);
+        var leading = LayoutTriviaOf(method).AddRange(BlockDocumentation(receiverType, NewLineOf(containingClass)));
+        var introduced = IntroduceBlock(block, member, leading, method.GetTrailingTrivia());
+        return containingClass.ReplaceNode(method, introduced.WithAdditionalAnnotations(Formatter.Annotation));
     }
+
+    /// <summary>Populates a parsed block and transfers the replaced method's surrounding trivia.</summary>
+    /// <param name="block">The empty parsed block.</param>
+    /// <param name="member">The converted method.</param>
+    /// <param name="leading">The block's leading trivia.</param>
+    /// <param name="trailing">The block's trailing trivia.</param>
+    /// <returns>The populated block.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static TypeDeclarationSyntax IntroduceBlock(
+        TypeDeclarationSyntax block,
+        MethodDeclarationSyntax member,
+        in SyntaxTriviaList leading,
+        in SyntaxTriviaList trailing) =>
+#if ROSLYN_5_OR_GREATER
+        block is ExtensionBlockDeclarationSyntax extension
+            ? extension.Update(
+                extension.AttributeLists,
+                extension.Modifiers,
+                extension.Keyword.WithLeadingTrivia(leading),
+                extension.TypeParameterList,
+                extension.ParameterList,
+                extension.ConstraintClauses,
+                extension.OpenBraceToken,
+                extension.Members.Add(member),
+                extension.CloseBraceToken.WithTrailingTrivia(trailing),
+                extension.SemicolonToken)
+            : block.AddMembers(member)
+                .WithLeadingTrivia(leading)
+                .WithTrailingTrivia(trailing);
+#else
+        block.AddMembers(member)
+            .WithLeadingTrivia(leading)
+            .WithTrailingTrivia(trailing);
+#endif
 
     /// <summary>Builds the documentation the opened block carries.</summary>
     /// <param name="receiverType">The receiver type the block extends.</param>
@@ -170,8 +202,46 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
     /// a second time.
     /// </remarks>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string EscapeXml(string text) =>
-        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    private static string EscapeXml(string text)
+    {
+        if (text.AsSpan().IndexOfAny('&', '<', '>') < 0)
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length);
+        foreach (var character in text)
+        {
+            switch (character)
+            {
+                case '&':
+                {
+                    _ = builder.Append("&amp;");
+                    break;
+                }
+
+                case '<':
+                {
+                    _ = builder.Append("&lt;");
+                    break;
+                }
+
+                case '>':
+                {
+                    _ = builder.Append("&gt;");
+                    break;
+                }
+
+                default:
+                {
+                    _ = builder.Append(character);
+                    break;
+                }
+            }
+        }
+
+        return builder.ToString();
+    }
 
     /// <summary>Gets the line ending a declaration is already written with.</summary>
     /// <param name="node">The declaration to read.</param>
@@ -589,11 +659,30 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
             return null;
         }
 
-        return split.BlockConstraints.Count == 0
-            ? block
-            : block
-                .WithParameterList(block.ParameterList!.WithCloseParenToken(block.ParameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker)))
-                .WithConstraintClauses(Elastic(split.BlockConstraints));
+        if (split.BlockConstraints.Count == 0)
+        {
+            return block;
+        }
+
+        var parameterList = block.ParameterList!.WithCloseParenToken(block.ParameterList.CloseParenToken.WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+        var constraints = Elastic(split.BlockConstraints);
+#if ROSLYN_5_OR_GREATER
+        return block is ExtensionBlockDeclarationSyntax extension
+            ? extension.Update(
+                extension.AttributeLists,
+                extension.Modifiers,
+                extension.Keyword,
+                extension.TypeParameterList,
+                parameterList,
+                constraints,
+                extension.OpenBraceToken,
+                extension.Members,
+                extension.CloseBraceToken,
+                extension.SemicolonToken)
+            : block.WithParameterList(parameterList).WithConstraintClauses(constraints);
+#else
+        return block.WithParameterList(parameterList).WithConstraintClauses(constraints);
+#endif
     }
 
     /// <summary>Hands constraint clauses to the formatter to place.</summary>
@@ -604,10 +693,24 @@ public sealed class ExtensionBlockMemberCodeFixProvider : CodeFixProvider, IBatc
         var placed = new List<TypeParameterConstraintClauseSyntax>(clauses.Count);
         for (var index = 0; index < clauses.Count; index++)
         {
-            placed.Add(clauses[index]
-                .NormalizeWhitespace()
-                .WithLeadingTrivia(SyntaxFactory.ElasticSpace)
-                .WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+            var clause = clauses[index].NormalizeWhitespace();
+            var constraints = clause.Constraints;
+            var colon = clause.ColonToken;
+            if (constraints.Count == 0)
+            {
+                colon = colon.WithTrailingTrivia(SyntaxFactory.ElasticMarker);
+            }
+            else
+            {
+                var last = constraints[constraints.Count - 1];
+                constraints = constraints.Replace(last, last.WithTrailingTrivia(SyntaxFactory.ElasticMarker));
+            }
+
+            placed.Add(clause.Update(
+                clause.WhereKeyword.WithLeadingTrivia(SyntaxFactory.ElasticSpace),
+                clause.Name,
+                colon,
+                constraints));
         }
 
         return SyntaxFactory.List(placed);

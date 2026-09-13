@@ -36,16 +36,13 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
     /// <returns>The readonly declaration.</returns>
     internal static TypeDeclarationSyntax AddReadonlyModifier(TypeDeclarationSyntax declaration)
     {
-        var readonlyToken = SyntaxFactory.Token(default, SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var modifiers = declaration.Modifiers;
         if (modifiers.Count == 0)
         {
-            var keyword = declaration.Keyword;
-            return declaration
-                .WithModifiers(SyntaxFactory.TokenList(readonlyToken.WithLeadingTrivia(keyword.LeadingTrivia)))
-                .WithKeyword(keyword.WithLeadingTrivia());
+            return AddFirstReadonlyModifier(declaration);
         }
 
+        var readonlyToken = SyntaxFactory.Token(default, SyntaxKind.ReadOnlyKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var insertIndex = modifiers.Count;
         for (var i = 0; i < modifiers.Count; i++)
         {
@@ -67,6 +64,50 @@ public sealed class Psh1014ReadonlyStructCodeFixProvider : CodeFixProvider, IBat
         }
 
         return declaration.WithModifiers(modifiers.Insert(insertIndex, readonlyToken));
+    }
+
+    /// <summary>Adds the first modifier while transferring the declaration keyword's leading trivia.</summary>
+    /// <param name="declaration">The declaration without modifiers.</param>
+    /// <returns>The declaration with its readonly modifier.</returns>
+    private static TypeDeclarationSyntax AddFirstReadonlyModifier(TypeDeclarationSyntax declaration)
+    {
+        var keyword = declaration.Keyword;
+        var updatedModifiers = SyntaxFactory.TokenList(SyntaxFactory.Token(
+            keyword.LeadingTrivia,
+            SyntaxKind.ReadOnlyKeyword,
+            SyntaxFactory.TriviaList(SyntaxFactory.Space)));
+        var updatedKeyword = keyword.WithLeadingTrivia();
+        return declaration switch
+        {
+            StructDeclarationSyntax structure => structure.Update(
+                structure.AttributeLists,
+                updatedModifiers,
+                updatedKeyword,
+                structure.Identifier,
+                structure.TypeParameterList,
+                structure.ParameterList,
+                structure.BaseList,
+                structure.ConstraintClauses,
+                structure.OpenBraceToken,
+                structure.Members,
+                structure.CloseBraceToken,
+                structure.SemicolonToken),
+            RecordDeclarationSyntax record => record.Update(
+                record.AttributeLists,
+                updatedModifiers,
+                updatedKeyword,
+                record.ClassOrStructKeyword,
+                record.Identifier,
+                record.TypeParameterList,
+                record.ParameterList,
+                record.BaseList,
+                record.ConstraintClauses,
+                record.OpenBraceToken,
+                record.Members,
+                record.CloseBraceToken,
+                record.SemicolonToken),
+            _ => declaration.WithModifiers(updatedModifiers).WithKeyword(updatedKeyword)
+        };
     }
 
     /// <summary>Resolves the reported struct declaration and builds it with the modifier added.</summary>

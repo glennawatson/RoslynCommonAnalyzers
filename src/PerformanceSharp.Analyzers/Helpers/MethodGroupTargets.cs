@@ -2,9 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
-/// <summary>The set of methods a compilation converts to a delegate somewhere, resolved once and on demand.</summary>
+/// <summary>The cached set of methods a compilation converts to a delegate somewhere, resolved on demand.</summary>
 /// <param name="compilation">The compilation to search.</param>
 /// <remarks>
 /// <para>
@@ -30,15 +32,14 @@ internal sealed class MethodGroupTargets(Compilation compilation)
     /// <param name="method">The method's original definition.</param>
     /// <param name="cancellationToken">A token that cancels the walk.</param>
     /// <returns><see langword="true"/> when the method is used as a method group.</returns>
-    internal bool Contains(ISymbol method, CancellationToken cancellationToken)
-    {
-        lock (_gate)
-        {
-            _targets ??= Collect(compilation, cancellationToken);
-        }
-
-        return _targets.Contains(method);
-    }
+    /// <remarks>
+    /// Every call after the first is a volatile read, so callbacks never contend. The gate is only
+    /// reached while the set is still missing, and it is what keeps concurrent first queries from
+    /// each running the walk and discarding all but one result.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool Contains(ISymbol method, CancellationToken cancellationToken) =>
+        (Volatile.Read(ref _targets) ?? Resolve(cancellationToken)).Contains(method);
 
     /// <summary>Walks every tree collecting the methods named outside a call.</summary>
     /// <param name="compilation">The compilation to search.</param>
@@ -134,6 +135,25 @@ internal sealed class MethodGroupTargets(Compilation compilation)
         DelegateDeclarationSyntax @delegate => @delegate.ReturnType == name,
         _ => false,
     };
+
+    /// <summary>Runs the walk once and publishes it, off the inlined fast path.</summary>
+    /// <param name="cancellationToken">A token that cancels the walk.</param>
+    /// <returns>The resolved methods.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private HashSet<ISymbol> Resolve(CancellationToken cancellationToken)
+    {
+        lock (_gate)
+        {
+            var targets = _targets;
+            if (targets is null)
+            {
+                targets = Collect(compilation, cancellationToken);
+                Volatile.Write(ref _targets, targets);
+            }
+
+            return targets;
+        }
+    }
 
     /// <summary>Carries the per-tree method-group collection state without capturing a closure.</summary>
     /// <param name="Compilation">The compilation used to resolve the semantic model on demand.</param>

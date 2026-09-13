@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -12,19 +14,13 @@ namespace StyleSharp.Analyzers;
 /// down.
 /// </summary>
 /// <remarks>
-/// The whole rule is gated at compilation start on the <c>Microsoft.AspNetCore.Components.ComponentBase</c>
-/// marker resolving; a project that references no component assembly registers nothing and pays nothing. The
-/// clean path is symbol-only and short-circuits on cheap flags first — an ordinary method that is an
-/// <c>override</c>, is <c>async</c>, and returns <c>void</c> — before the name is compared and the overridden
-/// chain is walked to confirm the method it overrides is defined on <c>ComponentBase</c> itself, so a
-/// same-named method that does not actually override the framework hook is never reported.
+/// The component marker is resolved once on first demand, after the cheap method flags and lifecycle name
+/// match. A project without the marker stays silent. The override chain must reach a method declared on
+/// <c>ComponentBase</c> itself, so a same-named method outside the framework contract is never reported.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the component base type the lifecycle hooks are declared on.</summary>
-    private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
-
     /// <summary>The suffix that names each synchronous hook's Task-returning twin.</summary>
     private const string AsyncSuffix = "Async";
 
@@ -51,20 +47,15 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var componentBase = start.Compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
-            if (componentBase is null)
-            {
-                return;
-            }
-
+            var componentBase = new ComponentBaseType(start.Compilation);
             start.RegisterSymbolAction(symbolContext => AnalyzeMethod(symbolContext, componentBase), SymbolKind.Method);
         });
     }
 
     /// <summary>Reports a synchronous lifecycle override declared <c>async void</c>.</summary>
     /// <param name="context">The symbol analysis context.</param>
-    /// <param name="componentBase">The resolved <c>ComponentBase</c> type.</param>
-    private static void AnalyzeMethod(in SymbolAnalysisContext context, INamedTypeSymbol componentBase)
+    /// <param name="componentBase">The component base type resolved on first demand.</param>
+    private static void AnalyzeMethod(in SymbolAnalysisContext context, ComponentBaseType componentBase)
     {
         var method = (IMethodSymbol)context.Symbol;
         if (method.MethodKind != MethodKind.Ordinary
@@ -72,7 +63,8 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
             || !method.IsAsync
             || !method.ReturnsVoid
             || !IsSynchronousLifecycleName(method.Name)
-            || !OverridesComponentBaseMethod(method, componentBase))
+            || componentBase.Get() is not { } resolved
+            || !OverridesComponentBaseMethod(method, resolved))
         {
             return;
         }
@@ -107,5 +99,44 @@ public sealed class Sst2711AsyncVoidLifecycleOverrideAnalyzer : DiagnosticAnalyz
         }
 
         return false;
+    }
+
+    /// <summary>Resolves the component marker once, only when a lifecycle override needs it.</summary>
+    /// <param name="compilation">The compilation whose component marker is resolved.</param>
+    private sealed class ComponentBaseType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the component base type the lifecycle hooks are declared on.</summary>
+        private const string ComponentBaseMetadataName = "Microsoft.AspNetCore.Components.ComponentBase";
+
+        /// <summary>Serializes the first metadata lookup across symbol callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved component marker, or null when it is absent.</summary>
+        private INamedTypeSymbol? _componentBase;
+
+        /// <summary>Indicates that the marker lookup, including an absent result, has completed.</summary>
+        private bool _resolved;
+
+        /// <summary>Gets the component marker without locking after the first lookup.</summary>
+        /// <returns>The component marker, or null when the compilation does not define it.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _componentBase : Resolve();
+
+        /// <summary>Resolves and publishes the marker under the first-demand gate.</summary>
+        /// <returns>The component marker, or null when the compilation does not define it.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _componentBase = compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _componentBase;
+            }
+        }
     }
 }

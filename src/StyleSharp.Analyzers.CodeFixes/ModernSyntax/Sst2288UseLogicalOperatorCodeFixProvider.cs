@@ -64,11 +64,10 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             SyntaxFactory.TriviaList(SyntaxFactory.Space));
 
         var replacement = SyntaxFactory.BinaryExpression(
-                conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,
-                left,
-                operatorToken,
-                right)
-            .WithTriviaFrom(conditional);
+            conjunction ? SyntaxKind.LogicalAndExpression : SyntaxKind.LogicalOrExpression,
+            left.WithLeadingTrivia(conditional.GetLeadingTrivia()),
+            operatorToken,
+            right.WithTrailingTrivia(conditional.GetTrailingTrivia()));
 
         return new NodeReplacement(conditional, replacement);
     }
@@ -127,7 +126,10 @@ public sealed class Sst2288UseLogicalOperatorCodeFixProvider : CodeFixProvider, 
             switch (inner)
             {
                 case IsPatternExpressionSyntax pattern:
-                    return pattern.WithoutTrivia().WithPattern(PatternNegation.Negate(pattern.Pattern.WithoutTrivia()));
+                    return pattern.Update(
+                        pattern.Expression.WithoutLeadingTrivia(),
+                        pattern.IsKeyword,
+                        PatternNegation.Negate(pattern.Pattern.WithoutTrivia()));
 
                 case BinaryExpressionSyntax { RawKind: (int)SyntaxKind.IsExpression, Right: TypeSyntax type } typeTest:
                     return SyntaxFactory.IsPatternExpression(

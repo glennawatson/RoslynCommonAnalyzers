@@ -99,16 +99,16 @@ public sealed class Ses1606CleartextModelWeightsUrlAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextModelWeightsUrl, literal.SyntaxTree, literal.Span, host));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextModelWeightsUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Returns whether a literal's text is a cleartext-http URL to a non-loopback model-weights file.</summary>
     /// <param name="text">The decoded literal text.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns><see langword="true"/> for a reportable cleartext weights URL.</returns>
-    private static bool IsCleartextWeightsUrl(string text, out string host)
+    private static bool IsCleartextWeightsUrl(string text, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         if (text.Length <= CleartextUrl.HttpSchemePrefix.Length
             || !text.StartsWith(CleartextUrl.HttpSchemePrefix, StringComparison.OrdinalIgnoreCase))
         {

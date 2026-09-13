@@ -69,7 +69,46 @@ public sealed class Sst2330FlagsCombinationLiteralCodeFixProvider : CodeFixProvi
             return null;
         }
 
-        var replacement = SyntaxFactory.ParseExpression(members!.Replace(",", " | ")).WithTriviaFrom(literal);
-        return (literal, replacement);
+        ExpressionSyntax? replacement = null;
+        foreach (var token in SyntaxFactory.ParseTokens(members!))
+        {
+            if (token.IsKind(SyntaxKind.CommaToken) || token.IsKind(SyntaxKind.EndOfFileToken))
+            {
+                continue;
+            }
+
+            if (!token.IsKind(SyntaxKind.IdentifierToken) || token.ContainsDiagnostics)
+            {
+                return (literal, SyntaxFactory.ParseExpression(members!.Replace(",", " | ")).WithTriviaFrom(literal));
+            }
+
+            replacement = AppendMember(replacement, literal, token, members!.Length);
+        }
+
+        return replacement is null ? null : (literal, replacement);
+    }
+
+    /// <summary>Appends a named flag while retaining the literal's outer trivia.</summary>
+    /// <param name="replacement">The flags already combined, or null for the first member.</param>
+    /// <param name="literal">The literal being replaced.</param>
+    /// <param name="token">The member's identifier token.</param>
+    /// <param name="membersLength">The length of the diagnostic's member list.</param>
+    /// <returns>The member name or the extended OR expression.</returns>
+    private static ExpressionSyntax AppendMember(ExpressionSyntax? replacement, LiteralExpressionSyntax literal, in SyntaxToken token, int membersLength)
+    {
+        var space = SyntaxFactory.TriviaList(SyntaxFactory.Space);
+        var name = SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+            replacement is null ? literal.GetLeadingTrivia() : default,
+            SyntaxKind.None,
+            token.Text,
+            token.ValueText,
+            token.Span.End == membersLength ? literal.GetTrailingTrivia() : space));
+        return replacement is null
+            ? name
+            : SyntaxFactory.BinaryExpression(
+                SyntaxKind.BitwiseOrExpression,
+                replacement,
+                SyntaxFactory.Token(default, SyntaxKind.BarToken, space),
+                name);
     }
 }

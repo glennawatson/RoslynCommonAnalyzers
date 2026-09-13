@@ -60,8 +60,8 @@ public sealed class Sst2261UseExclusiveOrCodeFixProvider : CodeFixProvider, IBat
         var caret = SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.CaretToken, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         return SyntaxFactory.BinaryExpression(
             SyntaxKind.ExclusiveOrExpression,
-            x.WithoutTrivia().WithLeadingTrivia(binary.GetLeadingTrivia()),
+            x.WithLeadingTrivia(binary.GetLeadingTrivia()).WithoutTrailingTrivia(),
             caret,
-            y.WithoutTrivia().WithTrailingTrivia(binary.GetTrailingTrivia()));
+            y.WithoutLeadingTrivia().WithTrailingTrivia(binary.GetTrailingTrivia()));
     }
 }

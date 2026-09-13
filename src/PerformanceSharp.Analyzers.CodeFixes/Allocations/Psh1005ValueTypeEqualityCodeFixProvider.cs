@@ -342,10 +342,44 @@ public sealed class Psh1005ValueTypeEqualityCodeFixProvider : CodeFixProvider
     /// <param name="lineBreak">The file's line-break trivia.</param>
     /// <returns>The parsed member.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static MemberDeclarationSyntax ParseMember(string text, string indentation, in SyntaxTrivia lineBreak) =>
-        SyntaxFactory.ParseMemberDeclaration(text)!
-            .WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation))
-            .WithTrailingTrivia(lineBreak);
+    private static MemberDeclarationSyntax ParseMember(string text, string indentation, in SyntaxTrivia lineBreak)
+    {
+        var member = SyntaxFactory.ParseMemberDeclaration(text)!;
+        var modifiers = member.Modifiers;
+        modifiers = modifiers.Replace(
+            modifiers[0],
+            modifiers[0].WithLeadingTrivia(lineBreak, SyntaxFactory.Whitespace(indentation)));
+
+        if (member is MethodDeclarationSyntax method)
+        {
+            return method.Update(
+                method.AttributeLists,
+                modifiers,
+                method.ReturnType,
+                method.ExplicitInterfaceSpecifier,
+                method.Identifier,
+                method.TypeParameterList,
+                method.ParameterList,
+                method.ConstraintClauses,
+                method.Body,
+                method.ExpressionBody,
+                method.SemicolonToken.WithTrailingTrivia(lineBreak));
+        }
+
+        var @operator = (OperatorDeclarationSyntax)member;
+        return @operator.Update(
+            @operator.AttributeLists,
+            modifiers,
+            @operator.ReturnType,
+            @operator.ExplicitInterfaceSpecifier,
+            @operator.OperatorKeyword,
+            @operator.CheckedKeyword,
+            @operator.OperatorToken,
+            @operator.ParameterList,
+            @operator.Body,
+            @operator.ExpressionBody,
+            @operator.SemicolonToken.WithTrailingTrivia(lineBreak));
+    }
 
     /// <summary>Builds the strongly typed Equals body comparing every data member.</summary>
     /// <param name="members">The instance data members.</param>

@@ -165,14 +165,14 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private sealed class RaisedNameIndex
     {
-        /// <summary>Synchronizes the one-off build.</summary>
+        /// <summary>Guards the one-time build.</summary>
         private readonly object _gate = new();
 
         /// <summary>The compilation whose trees are indexed.</summary>
         private readonly Compilation _compilation;
 
         /// <summary>The names used as values, once built.</summary>
-        private volatile HashSet<string>? _names;
+        private HashSet<string>? _names;
 
         /// <summary>Initializes a new instance of the <see cref="RaisedNameIndex"/> class.</summary>
         /// <param name="compilation">The compilation to index.</param>
@@ -182,8 +182,14 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
         /// <param name="name">The event's name.</param>
         /// <param name="cancellationToken">A token that cancels analysis.</param>
         /// <returns><see langword="true"/> when something might raise it.</returns>
+        /// <remarks>
+        /// Every call after the first is a volatile read, so events never contend on each other. The
+        /// gate is only reached while the index is missing, and it is what stops concurrent first
+        /// queries from each walking every tree in the compilation.
+        /// </remarks>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool Contains(string name, CancellationToken cancellationToken) => Build(cancellationToken).Contains(name);
+        public bool Contains(string name, CancellationToken cancellationToken) =>
+            (Volatile.Read(ref _names) ?? Build(cancellationToken)).Contains(name);
 
         /// <summary>Records one name that is used as a value.</summary>
         /// <param name="identifier">The identifier being visited.</param>
@@ -215,21 +221,17 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                 && (assignment.IsKind(SyntaxKind.AddAssignmentExpression) || assignment.IsKind(SyntaxKind.SubtractAssignmentExpression));
         }
 
-        /// <summary>Builds the index, at most once.</summary>
+        /// <summary>Builds the index once and publishes it, off the inlined fast path.</summary>
         /// <param name="cancellationToken">A token that cancels analysis.</param>
         /// <returns>The names used as values.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
         private HashSet<string> Build(CancellationToken cancellationToken)
         {
-            if (_names is { } built)
-            {
-                return built;
-            }
-
             lock (_gate)
             {
-                if (_names is { } raced)
+                if (_names is { } built)
                 {
-                    return raced;
+                    return built;
                 }
 
                 var names = new HashSet<string>(StringComparer.Ordinal);
@@ -242,7 +244,7 @@ public sealed class Sst2407EventNeverRaisedAnalyzer : DiagnosticAnalyzer
                         VisitIdentifier);
                 }
 
-                _names = names;
+                Volatile.Write(ref _names, names);
                 return names;
             }
         }

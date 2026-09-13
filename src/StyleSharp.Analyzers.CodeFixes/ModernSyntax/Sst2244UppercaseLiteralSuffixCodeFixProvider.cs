@@ -58,7 +58,7 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
     /// <summary>Builds the literal with its suffix upper-cased and its digits untouched.</summary>
     /// <param name="literal">The reported literal.</param>
     /// <returns>The rewritten literal carrying the original trivia, or <see langword="null"/> when the shape no longer matches.</returns>
-    private static ExpressionSyntax? Rewrite(LiteralExpressionSyntax literal)
+    private static LiteralExpressionSyntax? Rewrite(LiteralExpressionSyntax literal)
     {
         var text = literal.Token.Text;
         if (!literal.IsKind(SyntaxKind.NumericLiteralExpression)
@@ -67,7 +67,14 @@ public sealed class Sst2244UppercaseLiteralSuffixCodeFixProvider : CodeFixProvid
             return null;
         }
 
-        var upperCased = text[0..(0 + suffixStart)] + text[suffixStart..].ToUpperInvariant();
-        return SyntaxFactory.ParseExpression(upperCased).WithTriviaFrom(literal);
+        var characters = text.ToCharArray();
+        for (var index = suffixStart; index < characters.Length; index++)
+        {
+            characters[index] = char.ToUpperInvariant(characters[index]);
+        }
+
+        var upperCased = new string(characters);
+        var token = SyntaxFactory.ParseToken(upperCased).WithTriviaFrom(literal.Token);
+        return SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, token);
     }
 }

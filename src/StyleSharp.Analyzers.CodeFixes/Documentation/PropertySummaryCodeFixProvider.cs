@@ -38,10 +38,16 @@ public sealed class PropertySummaryCodeFixProvider : CodeFixProvider, ITextChang
             }
 
             var prefix = DocumentationConventions.PropertyAccessorPrefix(property);
+            var title = prefix switch
+            {
+                "Gets or sets " => "Prefix summary with 'Gets or sets'",
+                "Sets " => "Prefix summary with 'Sets'",
+                _ => "Prefix summary with 'Gets'"
+            };
 
             context.RegisterCodeFix(
                 CodeAction.Create(
-                    $"Prefix summary with '{prefix.TrimEnd()}'",
+                    title,
                     cancellationToken => ApplyAsync(context.Document, summary, prefix, cancellationToken),
                     equivalenceKey: nameof(PropertySummaryCodeFixProvider)),
                 diagnostic);

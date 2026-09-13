@@ -43,9 +43,25 @@ public sealed class Sst2257SimplifyLambdaBodyCodeFixProvider : CodeFixProvider, 
         }
 
         var body = expression.WithoutLeadingTrivia().WithTrailingTrivia(lambda.Body.GetTrailingTrivia());
-        var rewritten = lambda
-            .WithArrowToken(lambda.ArrowToken.WithTrailingTrivia(SyntaxFactory.Space))
-            .WithBody(body);
+        var rewritten = lambda switch
+        {
+            SimpleLambdaExpressionSyntax simple => simple.Update(
+                simple.AttributeLists,
+                simple.Modifiers,
+                simple.Parameter,
+                simple.ArrowToken.WithTrailingTrivia(SyntaxFactory.Space),
+                block: null,
+                body),
+            ParenthesizedLambdaExpressionSyntax parenthesized => parenthesized.Update(
+                parenthesized.AttributeLists,
+                parenthesized.Modifiers,
+                parenthesized.ReturnType,
+                parenthesized.ParameterList,
+                parenthesized.ArrowToken.WithTrailingTrivia(SyntaxFactory.Space),
+                block: null,
+                body),
+            _ => lambda
+        };
 
         return new NodeReplacement(lambda, rewritten);
     }

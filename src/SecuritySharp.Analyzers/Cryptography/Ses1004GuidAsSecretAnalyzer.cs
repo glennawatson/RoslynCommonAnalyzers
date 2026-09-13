@@ -277,98 +277,71 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when a whole word equals a secret term or a consecutive word run matches.</returns>
     private static bool IsSecretName(string name)
     {
-        // A valid identifier always yields at least one word; an empty list simply matches nothing below.
-        var words = SplitIntoWords(name);
-
-        for (var i = 0; i < words.Count; i++)
+        var position = 0;
+        while (position < name.Length)
         {
-            var word = words[i];
+            var word = ReadWord(name, ref position);
             for (var t = 0; t < SecretWords.Length; t++)
             {
-                if (WordEquals(word.Span, SecretWords[t]))
+                if (WordEquals(word, SecretWords[t]))
+                {
+                    return true;
+                }
+            }
+
+            for (var r = 0; r < SecretWordRuns.Length; r++)
+            {
+                var run = SecretWordRuns[r];
+                if (WordEquals(word, run[0]) && MatchesWordRun(name, position, run))
                 {
                     return true;
                 }
             }
         }
 
-        for (var r = 0; r < SecretWordRuns.Length; r++)
-        {
-            if (ContainsWordRun(words, SecretWordRuns[r]))
-            {
-                return true;
-            }
-        }
-
         return false;
     }
 
-    /// <summary>Returns whether a list of words contains a run of words in order (e.g. <c>api</c>, <c>key</c>).</summary>
-    /// <param name="words">The identifier's words.</param>
-    /// <param name="run">The consecutive words to find.</param>
-    /// <returns><see langword="true"/> when the run appears in order.</returns>
-    private static bool ContainsWordRun(List<ReadOnlyMemory<char>> words, string[] run)
+    /// <summary>Checks the remaining words of a secret term after its first word matched.</summary>
+    /// <param name="name">The identifier being scanned.</param>
+    /// <param name="position">The position immediately following the first word.</param>
+    /// <param name="run">The consecutive words to match.</param>
+    /// <returns>Whether all remaining words match in order.</returns>
+    private static bool MatchesWordRun(string name, int position, string[] run)
     {
-        for (var start = 0; start + run.Length <= words.Count; start++)
+        for (var offset = 1; offset < run.Length; offset++)
         {
-            var matched = true;
-            for (var offset = 0; offset < run.Length; offset++)
+            if (!WordEquals(ReadWord(name, ref position), run[offset]))
             {
-                if (WordEquals(words[start + offset].Span, run[offset]))
-                {
-                    continue;
-                }
-
-                matched = false;
-                break;
-            }
-
-            if (matched)
-            {
-                return true;
+                return false;
             }
         }
 
-        return false;
+        return true;
     }
 
-    /// <summary>Splits an identifier into word slices on separators, case transitions, and acronym ends.</summary>
-    /// <param name="name">The identifier to split.</param>
-    /// <returns>The word slices; empty when the identifier holds no letters or digits.</returns>
-    private static List<ReadOnlyMemory<char>> SplitIntoWords(string name)
+    /// <summary>Reads the next identifier word without allocating a collection of word slices.</summary>
+    /// <param name="name">The identifier being scanned.</param>
+    /// <param name="position">The scan position, advanced past the returned word.</param>
+    /// <returns>The next word, or an empty span when only separators remain.</returns>
+    private static ReadOnlySpan<char> ReadWord(string name, ref int position)
     {
-        const int InitialIdentifierWordCapacity = 4;
-
-        var words = new List<ReadOnlyMemory<char>>(InitialIdentifierWordCapacity);
-        var start = -1;
-        for (var i = 0; i < name.Length; i++)
+        while (position < name.Length && !char.IsLetterOrDigit(name[position]))
         {
-            var c = name[i];
-            if (!char.IsLetterOrDigit(c))
-            {
-                FlushWord(words, name, start, i);
-                start = -1;
-                continue;
-            }
-
-            if (start < 0)
-            {
-                start = i;
-                continue;
-            }
-
-            // aB -> a|B, and a1 / 1a digit boundaries.
-            if (!IsWordBoundary(name, i))
-            {
-                continue;
-            }
-
-            FlushWord(words, name, start, i);
-            start = i;
+            position++;
         }
 
-        FlushWord(words, name, start, name.Length);
-        return words;
+        var start = position;
+        if (position < name.Length)
+        {
+            position++;
+            while (position < name.Length && char.IsLetterOrDigit(name[position]) && !IsWordBoundary(name, position))
+            {
+                position++;
+            }
+        }
+
+        return name.AsSpan(start, position - start);
     }
 
     /// <summary>Returns whether a boundary falls immediately before the character at <paramref name="i"/>.</summary>
@@ -394,22 +367,6 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
 
         // letter/digit transition either way: 'otp2' / '2fa'.
         return char.IsDigit(current) != char.IsDigit(previous);
-    }
-
-    /// <summary>Appends the slice <c>[start, end)</c> of <paramref name="name"/> as a word when non-empty.</summary>
-    /// <param name="words">The accumulating word list.</param>
-    /// <param name="name">The identifier being split.</param>
-    /// <param name="start">The inclusive word start, or a negative value when no word is open.</param>
-    /// <param name="end">The exclusive word end.</param>
-    private static void FlushWord(List<ReadOnlyMemory<char>> words, string name, int start, int end)
-    {
-        // Callers only pass end > start once a word is open (start >= 0), so a single guard suffices.
-        if (start < 0)
-        {
-            return;
-        }
-
-        words.Add(name.AsMemory(start, end - start));
     }
 
     /// <summary>Compares a word to the lowercase vocabulary using the original invariant lowercase mapping.</summary>
@@ -450,11 +407,19 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
         /// <summary>Gets the GUID type when the suggested cryptographic RNG is available.</summary>
         /// <returns>The GUID type, or null when either required type is unavailable.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public INamedTypeSymbol? GetGuidType() => (_resolved ??=
-        [
-            compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is not null
-                ? compilation.GetTypeByMetadataName(GuidMetadataName)
-                : null,
-        ])[0];
+        public INamedTypeSymbol? GetGuidType() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Publishes the two inexpensive metadata lookups together on first demand.</summary>
+        /// <returns>The winning GUID lookup, including the cached missing-type result.</returns>
+        private INamedTypeSymbol?[] Resolve()
+        {
+            INamedTypeSymbol?[] resolved =
+            [
+                compilation.GetTypeByMetadataName(RandomNumberGeneratorMetadataName) is not null
+                    ? compilation.GetTypeByMetadataName(GuidMetadataName)
+                    : null,
+            ];
+            return Interlocked.CompareExchange(ref _resolved, resolved, null) ?? resolved;
+        }
     }
 }

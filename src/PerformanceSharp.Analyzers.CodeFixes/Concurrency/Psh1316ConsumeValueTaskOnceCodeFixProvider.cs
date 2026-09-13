@@ -125,31 +125,23 @@ public sealed class Psh1316ConsumeValueTaskOnceCodeFixProvider : CodeFixProvider
     /// <returns><see langword="true"/> when moving the declaration would strand a use.</returns>
     private static bool UsedOutside(BlockSyntax body, ILocalSymbol local, SemanticModel model, IdentifierNameSyntax ignore, CancellationToken cancellationToken)
     {
-        var state = (Body: body, Local: local, Model: model, Ignore: ignore, CancellationToken: cancellationToken);
-        foreach (var reference in local.DeclaringSyntaxReferences)
+        var scope = local.DeclaringSyntaxReferences[0].GetSyntax(cancellationToken).FirstAncestorOrSelf<BlockSyntax>();
+        if (scope is null)
         {
-            var scope = reference.GetSyntax(cancellationToken).FirstAncestorOrSelf<BlockSyntax>();
-            if (scope is null)
-            {
-                return true;
-            }
-
-            if (!DescendantTraversalHelper.VisitDescendants<
-                IdentifierNameSyntax,
-                (BlockSyntax Body, ILocalSymbol Local, SemanticModel Model, IdentifierNameSyntax Ignore, CancellationToken CancellationToken)>(
-                scope,
-                ref state,
-                static (identifier, ref current) => identifier == current.Ignore
-                    || identifier.Identifier.ValueText != current.Local.Name
-                    || current.Body.Span.Contains(identifier.Span)
-                    || IsDeclarator(identifier)
-                    || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local)))
-            {
-                return true;
-            }
+            return true;
         }
 
-        return false;
+        var state = (Body: body, Local: local, Model: model, Ignore: ignore, CancellationToken: cancellationToken);
+        return !DescendantTraversalHelper.VisitDescendants<
+            IdentifierNameSyntax,
+            (BlockSyntax Body, ILocalSymbol Local, SemanticModel Model, IdentifierNameSyntax Ignore, CancellationToken CancellationToken)>(
+            scope,
+            ref state,
+            static (identifier, ref current) => identifier == current.Ignore
+                || identifier.Identifier.ValueText != current.Local.Name
+                || current.Body.Span.Contains(identifier.Span)
+                || IsDeclarator(identifier)
+                || !SymbolEqualityComparer.Default.Equals(current.Model.GetSymbolInfo(identifier, current.CancellationToken).Symbol, current.Local));
     }
 
     /// <summary>Returns whether an identifier is the local's own declarator name.</summary>

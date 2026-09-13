@@ -53,7 +53,11 @@ public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider, IB
         }
 
         var literal = (LiteralExpressionSyntax)Sst1139UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
-        var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);
+        var parsed = (LiteralExpressionSyntax)SyntaxFactory.ParseExpression(literal.Token.Text + suffix);
+        var suffixed = parsed.Update(
+            parsed.Token
+                .WithLeadingTrivia(cast.GetLeadingTrivia())
+                .WithTrailingTrivia(cast.GetTrailingTrivia()));
         editor.ReplaceNode(cast, suffixed);
     }
 
@@ -66,7 +70,11 @@ public sealed class Sst1139UseLiteralSuffixCodeFixProvider : CodeFixProvider, IB
     internal static Document Replace(Document document, SyntaxNode root, CastExpressionSyntax cast, string suffix)
     {
         var literal = (LiteralExpressionSyntax)Sst1139UseLiteralSuffixAnalyzer.Unwrap(cast.Expression);
-        var suffixed = SyntaxFactory.ParseExpression(literal.Token.Text + suffix).WithTriviaFrom(cast);
+        var parsed = (LiteralExpressionSyntax)SyntaxFactory.ParseExpression(literal.Token.Text + suffix);
+        var suffixed = parsed.Update(
+            parsed.Token
+                .WithLeadingTrivia(cast.GetLeadingTrivia())
+                .WithTrailingTrivia(cast.GetTrailingTrivia()));
         return document.WithSyntaxRoot(root.ReplaceNode(cast, suffixed));
     }
 }

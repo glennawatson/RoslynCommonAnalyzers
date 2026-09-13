@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace StyleSharp.Analyzers;
@@ -97,9 +96,10 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <param name="into">The list receiving each <c>throw new T</c> and what reaches it.</param>
     private static void CollectDirectThrows(SyntaxNode node, List<ThrownException> into)
     {
-        foreach (var child in node.ChildNodes())
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            if (IsDeferredScope(child))
+            if (children[i].AsNode() is not { } child || IsDeferredScope(child))
             {
                 // A throw inside a closure or nested function runs in a different context; not "this member throws".
                 continue;
@@ -107,7 +107,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
             if (ThrownObjectCreationType(child) is { } type)
             {
-                into.Add(new(type, DescribeTrigger(child)));
+                into.Add(new(type, child));
                 continue;
             }
 
@@ -213,7 +213,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
     /// <returns>The documented exception simple-name slices.</returns>
     private static List<ReadOnlyMemory<char>> CollectDocumentedExceptionNames(DocumentationCommentTriviaSyntax documentation)
     {
-        var names = new List<ReadOnlyMemory<char>>();
+        var names = new List<ReadOnlyMemory<char>>(documentation.Content.Count);
         foreach (var node in documentation.Content)
         {
             if (XmlDocumentationHelper.GetElementName(node) != "exception")
@@ -242,40 +242,55 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         out string missing,
         out string descriptions)
     {
-        var seen = new HashSet<string>(StringComparer.Ordinal);
+        HashSet<string>? seen = null;
         var typeCapacity = thrown.Count;
-        var reasonCapacity = thrown.Count;
         foreach (var exception in thrown)
         {
             typeCapacity += exception.Type.Span.Length;
-            reasonCapacity += exception.Description.Length;
         }
 
-        var types = new StringBuilder(typeCapacity);
-        var reasons = new StringBuilder(reasonCapacity);
-        var found = false;
+        StringBuilder? types = null;
+        StringBuilder? reasons = null;
         foreach (var exception in thrown)
         {
             var simpleName = SimpleName(exception.Type);
-            if (simpleName.Length == 0 || IsDocumented(documented, simpleName) || !seen.Add(simpleName))
+            if (simpleName.Length == 0 || IsDocumented(documented, simpleName))
             {
                 continue;
             }
 
-            if (found)
+            seen ??= new HashSet<string>(StringComparer.Ordinal);
+            if (!seen.Add(simpleName))
             {
-                _ = types.Append('\n');
-                _ = reasons.Append('\n');
+                continue;
             }
 
-            _ = types.Append(CrefForm(exception.Type));
-            _ = reasons.Append(exception.Description);
-            found = true;
+            var description = DescribeTrigger(exception.ThrowNode);
+            if (types is null)
+            {
+                types = new(typeCapacity);
+                reasons = new(description.Length);
+            }
+            else
+            {
+                _ = types.Append('\n');
+                _ = reasons!.Append('\n');
+            }
+
+            AppendCrefForm(types, exception.Type);
+            _ = reasons!.Append(description);
+        }
+
+        if (types is null)
+        {
+            missing = string.Empty;
+            descriptions = string.Empty;
+            return false;
         }
 
         missing = types.ToString();
-        descriptions = reasons.ToString();
-        return found;
+        descriptions = reasons!.ToString();
+        return true;
     }
 
     /// <summary>Compares a thrown type's simple name to the documented name slices.</summary>
@@ -307,12 +322,22 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         _ => string.Empty,
     };
 
-    /// <summary>Returns a cref-attribute form of a thrown type, converting generic angle brackets to braces.</summary>
+    /// <summary>Appends a thrown type as cref text, converting generic angle brackets to braces.</summary>
+    /// <param name="builder">The diagnostic property builder receiving the type text.</param>
     /// <param name="type">The type syntax as written.</param>
-    /// <returns>The cref-safe type text.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string CrefForm(TypeSyntax type) =>
-        type.ToString().Replace('<', '{').Replace('>', '}');
+    private static void AppendCrefForm(StringBuilder builder, TypeSyntax type)
+    {
+        var text = type.ToString();
+        for (var i = 0; i < text.Length; i++)
+        {
+            _ = builder.Append(text[i] switch
+            {
+                '<' => '{',
+                '>' => '}',
+                var character => character,
+            });
+        }
+    }
 
     /// <summary>Returns the simple name an <c>&lt;exception&gt;</c> element's cref refers to, or <see langword="null"/>.</summary>
     /// <param name="node">The <c>&lt;exception&gt;</c> element.</param>
@@ -393,8 +418,8 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         _ => null,
     };
 
-    /// <summary>An exception a member throws directly, and what reaches it.</summary>
+    /// <summary>An exception a member throws directly, retaining its syntax until a description is needed.</summary>
     /// <param name="Type">The constructed exception type as written.</param>
-    /// <param name="Description">The documentation text for the trigger, empty when the throw is unconditional.</param>
-    private readonly record struct ThrownException(TypeSyntax Type, string Description);
+    /// <param name="ThrowNode">The throw whose guarding condition supplies a missing exception's description.</param>
+    private readonly record struct ThrownException(TypeSyntax Type, SyntaxNode ThrowNode);
 }

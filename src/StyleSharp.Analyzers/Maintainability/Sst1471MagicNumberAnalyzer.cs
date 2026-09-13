@@ -2,7 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -62,15 +62,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         var positionalTypes = new Lazy<PositionalConstructorTypes>(
             () => PositionalConstructorTypes.Create(compilation),
             LazyThreadSafetyMode.ExecutionAndPublication);
-        var treeCount = 0;
-        foreach (var tree in compilation.SyntaxTrees)
-        {
-            treeCount++;
-        }
-
-        var settingsByTree = new ConcurrentDictionary<SyntaxTree, MagicNumberSettings>(
-            concurrencyLevel: 1,
-            capacity: treeCount);
+        var settingsByTree = new SettingsCache(compilation, context.Options.AnalyzerConfigOptionsProvider);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, settingsByTree, positionalTypes),
             SyntaxKind.NumericLiteralExpression);
@@ -82,7 +74,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
     /// <param name="positionalTypes">The well-known positional constructor types.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree,
+        SettingsCache settingsByTree,
         Lazy<PositionalConstructorTypes> positionalTypes)
     {
         var literal = (LiteralExpressionSyntax)context.Node;
@@ -91,7 +83,7 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var settings = GetSettings(context, settingsByTree);
+        var settings = settingsByTree.Get(context.Node.SyntaxTree);
         var node = Unwrap(literal, out var negated);
         if (!TryGetValue(literal.Token, negated, out var value)
             || MagicNumberOptions.Contains(settings.Allowed, value)
@@ -104,24 +96,6 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         }
 
         context.ReportDiagnostic(Diagnostic.Create(MaintainabilityRules.MagicNumber, node.GetLocation(), node.ToString()));
-    }
-
-    /// <summary>Reads the settings for the literal's tree, parsing each tree's options at most once.</summary>
-    /// <param name="context">The syntax node context.</param>
-    /// <param name="settingsByTree">The per-tree settings cache.</param>
-    /// <returns>The resolved settings.</returns>
-    private static MagicNumberSettings GetSettings(in SyntaxNodeAnalysisContext context, ConcurrentDictionary<SyntaxTree, MagicNumberSettings> settingsByTree)
-    {
-        var tree = context.Node.SyntaxTree;
-        if (settingsByTree.TryGetValue(tree, out var settings))
-        {
-            return settings;
-        }
-
-        var options = context.Options.AnalyzerConfigOptionsProvider.GetOptions(tree);
-        settings = new(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
-        _ = settingsByTree.TryAdd(tree, settings);
-        return settings;
     }
 
     /// <summary>Returns whether the literal is the capacity a collection is constructed with.</summary>
@@ -484,4 +458,85 @@ public sealed class Sst1471MagicNumberAnalyzer : DiagnosticAnalyzer
         node.Parent is ArgumentSyntax { Parent: ArgumentListSyntax { Parent: BaseObjectCreationExpressionSyntax creation } }
             && context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol constructor
             && positionalTypes.Value.Contains(constructor.ContainingType);
+
+    /// <summary>Keeps settings in dense slots indexed by the compilation's immutable tree set.</summary>
+    /// <param name="compilation">The compilation whose trees are indexed on first use.</param>
+    /// <param name="provider">The source of each tree's analyzer options.</param>
+    private sealed class SettingsCache(Compilation compilation, AnalyzerConfigOptionsProvider provider)
+    {
+        /// <summary>Serializes table creation and the first settings read for each tree.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The published tree index and settings slots.</summary>
+        private SettingsTable? _table;
+
+        /// <summary>Gets the settings without allocating an entry object for each tree.</summary>
+        /// <param name="tree">The current literal's tree.</param>
+        /// <returns>The options resolved once for this tree.</returns>
+        public MagicNumberSettings Get(SyntaxTree tree)
+        {
+            var table = GetTable();
+            var index = table.Index[tree];
+            return Volatile.Read(ref table.Initialized[index])
+                ? table.Settings[index]
+                : ResolveSettings(table, tree, index);
+        }
+
+        /// <summary>Reads the published table without entering its initialization gate.</summary>
+        /// <returns>The tree index and settings slots.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private SettingsTable GetTable() => Volatile.Read(ref _table) ?? CreateTable();
+
+        /// <summary>Creates the immutable tree index once, after a numeric literal survives filtering.</summary>
+        /// <returns>The published tree index and settings slots.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private SettingsTable CreateTable()
+        {
+            lock (_gate)
+            {
+                var table = _table;
+                if (table is null)
+                {
+                    var trees = ((CSharpCompilation)compilation).SyntaxTrees;
+                    var index = new Dictionary<SyntaxTree, int>(trees.Length);
+                    for (var i = 0; i < trees.Length; i++)
+                    {
+                        index.Add(trees[i], i);
+                    }
+
+                    table = new(index, new MagicNumberSettings[trees.Length], new bool[trees.Length]);
+                    Volatile.Write(ref _table, table);
+                }
+
+                return table;
+            }
+        }
+
+        /// <summary>Publishes a tree's complete settings before allowing concurrent reads of its slot.</summary>
+        /// <param name="table">The indexed settings slots.</param>
+        /// <param name="tree">The tree whose options are requested.</param>
+        /// <param name="index">The tree's unique slot.</param>
+        /// <returns>The options resolved once for this tree.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private MagicNumberSettings ResolveSettings(SettingsTable table, SyntaxTree tree, int index)
+        {
+            lock (_gate)
+            {
+                if (!table.Initialized[index])
+                {
+                    var options = provider.GetOptions(tree);
+                    table.Settings[index] = new(MagicNumberOptions.Read(options), MagicNumberOptions.ReadAllowCapacityArguments(options));
+                    Volatile.Write(ref table.Initialized[index], true);
+                }
+
+                return table.Settings[index];
+            }
+        }
+    }
+
+    /// <summary>The immutable tree index and independently published settings slots.</summary>
+    /// <param name="Index">The tree-to-slot map, never mutated after publication.</param>
+    /// <param name="Settings">The options stored directly in each tree's slot.</param>
+    /// <param name="Initialized">The publication flags protecting complete settings reads.</param>
+    private sealed record SettingsTable(Dictionary<SyntaxTree, int> Index, MagicNumberSettings[] Settings, bool[] Initialized);
 }

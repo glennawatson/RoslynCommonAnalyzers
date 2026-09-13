@@ -41,6 +41,9 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseEncodingGetString);
 
+    /// <summary>The creation syntax kinds shared by every compilation registration.</summary>
+    private static readonly SyntaxKind[] SyntaxKinds = [SyntaxKind.ObjectCreationExpression];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -55,7 +58,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             var types = new EncodingTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeStringCreation(nodeContext, types),
-                SyntaxKind.ObjectCreationExpression);
+                SyntaxKinds);
         });
     }
 
@@ -80,7 +83,10 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
     {
         var access = (MemberAccessExpressionSyntax)decode.Expression;
         return decode.Update(
-            access.WithName(SyntaxFactory.IdentifierName(GetStringMethodName)).WithoutLeadingTrivia(),
+            access.Update(
+                access.Expression.WithoutLeadingTrivia(),
+                access.OperatorToken,
+                SyntaxFactory.IdentifierName(GetStringMethodName)),
             decode.ArgumentList.WithoutTrailingTrivia());
     }
 

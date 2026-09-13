@@ -57,7 +57,9 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         var declaration = (TypeDeclarationSyntax)context.Node;
 
         // Syntactic prefilter: no attributes means no '[Authorize]' can be present.
-        if (declaration.AttributeLists.Count == 0 || declaration.Modifiers.Any(SyntaxKind.AbstractKeyword))
+        if (declaration.AttributeLists.Count == 0
+            || declaration.Modifiers.Any(SyntaxKind.AbstractKeyword)
+            || (declaration.BaseList is null && !declaration.Modifiers.Any(SyntaxKind.PartialKeyword)))
         {
             return;
         }
@@ -99,7 +101,6 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         INamedTypeSymbol route)
     {
         AttributeSyntax? authorizeAttribute = null;
-        var routable = false;
         for (var i = 0; i < attributeLists.Count; i++)
         {
             var attributes = attributeLists[i].Attributes;
@@ -108,16 +109,17 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
                 var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
                 if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, route))
                 {
-                    routable = true;
+                    return null;
                 }
-                else if (authorizeAttribute is null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, authorize))
+
+                if (authorizeAttribute is null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, authorize))
                 {
                     authorizeAttribute = attributes[j];
                 }
             }
         }
 
-        return routable ? null : authorizeAttribute;
+        return authorizeAttribute;
     }
 
     /// <summary>Returns whether a declaration is a concrete, non-exempt component the rule should report.</summary>
@@ -187,18 +189,21 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         /// <summary>The metadata name of the layout base type whose descendants are exempt.</summary>
         private const string LayoutComponentBaseMetadataName = "Microsoft.AspNetCore.Components.LayoutComponentBase";
 
+        /// <summary>Serializes the first metadata lookup while leaving cached reads lock-free.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The resolved markers, or an empty array when a required marker is absent.</summary>
         private INamedTypeSymbol[]? _resolved;
 
         /// <summary>Gets the markers, caching missing markers as an empty result.</summary>
         /// <returns>The four required markers, or an empty array.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public INamedTypeSymbol[] Get() => _resolved ??= Resolve(compilation);
+        public INamedTypeSymbol[] Get() => Volatile.Read(ref _resolved) ?? Resolve();
 
         /// <summary>Resolves the markers required to identify a non-routable component.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The four required markers, or an empty array when any is absent.</returns>
-        private static INamedTypeSymbol[] Resolve(Compilation compilation)
+        private static INamedTypeSymbol[] Collect(Compilation compilation)
         {
             var authorize = compilation.GetTypeByMetadataName(AuthorizeMetadataName);
             var componentBase = compilation.GetTypeByMetadataName(ComponentBaseMetadataName);
@@ -207,6 +212,24 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
             return authorize is not null && componentBase is not null && route is not null && layout is not null
                 ? [authorize, componentBase, route, layout]
                 : [];
+        }
+
+        /// <summary>Resolves and publishes all markers once for concurrent candidate callbacks.</summary>
+        /// <returns>The four required markers, or an empty array.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = Collect(compilation);
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
         }
     }
 }

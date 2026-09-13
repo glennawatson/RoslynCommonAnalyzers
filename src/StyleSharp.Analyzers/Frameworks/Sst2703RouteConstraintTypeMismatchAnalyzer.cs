@@ -224,12 +224,21 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
         return segment.Slice(start, end - start).ToString();
     }
 
-    /// <summary>Reads the first constraint token, dropping any additional constraints, arguments, or optional marker.</summary>
+    /// <summary>Reads the first typed constraint, dropping additional constraints, arguments, and optional markers.</summary>
     /// <param name="segment">The segment content.</param>
     /// <param name="start">The index just after the first colon.</param>
-    /// <returns>The lowercased constraint token.</returns>
+    /// <returns>The canonical constraint keyword, or an empty string for an untyped constraint.</returns>
     private static string NormalizeConstraint(ReadOnlySpan<char> segment, int start)
     {
+        const string IntConstraint = "int";
+        const string LongConstraint = "long";
+        const string GuidConstraint = "guid";
+        const string BoolConstraint = "bool";
+        const string DateTimeConstraint = "datetime";
+        const string DecimalConstraint = "decimal";
+        const string DoubleConstraint = "double";
+        const string FloatConstraint = "float";
+
         var end = segment.Length;
         for (var i = start; i < segment.Length; i++)
         {
@@ -247,8 +256,18 @@ public sealed class Sst2703RouteConstraintTypeMismatchAnalyzer : DiagnosticAnaly
             end--;
         }
 
-        var token = segment.Slice(start, end - start).ToString();
-        return token.ToLowerInvariant();
+        return segment.Slice(start, end - start) switch
+        {
+            var token when token.Equals(IntConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => IntConstraint,
+            var token when token.Equals(LongConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => LongConstraint,
+            var token when token.Equals(GuidConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => GuidConstraint,
+            var token when token.Equals(BoolConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => BoolConstraint,
+            var token when token.Equals(DateTimeConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DateTimeConstraint,
+            var token when token.Equals(DecimalConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DecimalConstraint,
+            var token when token.Equals(DoubleConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => DoubleConstraint,
+            var token when token.Equals(FloatConstraint.AsSpan(), StringComparison.OrdinalIgnoreCase) => FloatConstraint,
+            _ => string.Empty,
+        };
     }
 
     /// <summary>Rejects a matching route before binding property attributes when no property type could produce a diagnostic.</summary>

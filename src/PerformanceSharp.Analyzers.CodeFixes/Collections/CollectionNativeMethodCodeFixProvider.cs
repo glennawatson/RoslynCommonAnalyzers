@@ -122,7 +122,15 @@ public sealed class CollectionNativeMethodCodeFixProvider : CodeFixProvider, IBa
         }
 
         oldNode = invocation;
-        return CreateArrayHelperInvocation(invocation, memberAccess, target.Substring(ArrayTargetPrefix.Length));
+        var methodName = target switch
+        {
+            "Array.Find" => nameof(Array.Find),
+            "Array.Exists" => nameof(Array.Exists),
+            "Array.TrueForAll" => nameof(Array.TrueForAll),
+            _ => target.Substring(ArrayTargetPrefix.Length)
+        };
+
+        return CreateArrayHelperInvocation(invocation, memberAccess, methodName);
     }
 
     /// <summary>Creates a <c>System.Array.&lt;method&gt;(receiver, predicate)</c> invocation.</summary>

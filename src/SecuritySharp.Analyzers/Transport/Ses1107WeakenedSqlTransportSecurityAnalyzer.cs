@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
+
 namespace SecuritySharp.Analyzers;
 
 /// <summary>
@@ -337,8 +339,24 @@ public sealed class Ses1107WeakenedSqlTransportSecurityAnalyzer : DiagnosticAnal
     /// <param name="valueStart">The inclusive start of the trimmed value.</param>
     /// <param name="valueEnd">The exclusive end of the trimmed value.</param>
     /// <returns>The <c>keyword=value</c> label.</returns>
-    private static string BuildSetting(string text, int keyStart, int keyEnd, int valueStart, int valueEnd) =>
-        $"{text.Substring(keyStart, keyEnd - keyStart)}={text.Substring(valueStart, valueEnd - valueStart)}";
+    private static string BuildSetting(string text, int keyStart, int keyEnd, int valueStart, int valueEnd)
+    {
+        var keyLength = keyEnd - keyStart;
+        var valueLength = valueEnd - valueStart;
+        var length = keyLength + 1 + valueLength;
+        var buffer = ArrayPool<char>.Shared.Rent(length);
+        try
+        {
+            text.AsSpan(keyStart, keyLength).CopyTo(buffer.AsSpan());
+            buffer[keyLength] = '=';
+            text.AsSpan(valueStart, valueLength).CopyTo(buffer.AsSpan(keyLength + 1));
+            return new(buffer, 0, length);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
+    }
 
     /// <summary>Returns the index of a character within a half-open range, or <c>-1</c>.</summary>
     /// <param name="text">The text to scan.</param>

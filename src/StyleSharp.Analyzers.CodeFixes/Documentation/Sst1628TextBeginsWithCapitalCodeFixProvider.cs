@@ -107,7 +107,9 @@ public sealed class Sst1628TextBeginsWithCapitalCodeFixProvider : CodeFixProvide
             return null;
         }
 
-        var capitalized = value[0..(0 + at)] + char.ToUpperInvariant(value[at]) + value.Substring(at + 1);
+        var characters = value.ToCharArray();
+        characters[at] = char.ToUpperInvariant(characters[at]);
+        var capitalized = new string(characters);
         var replacement = SyntaxFactory.XmlTextLiteral(token.LeadingTrivia, capitalized, capitalized, token.TrailingTrivia);
         return new NodeReplacement(text, text.WithTextTokens(tokens.Replace(token, replacement)));
     }

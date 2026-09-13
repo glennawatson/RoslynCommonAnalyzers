@@ -21,15 +21,21 @@ internal static class AwaitExpressionRewrite
     /// <returns>The awaited expression.</returns>
     internal static ExpressionSyntax WrapInAwait(ExpressionSyntax awaited, ExpressionSyntax original)
     {
+        var needsParentheses = NeedsParenthesesAfterAwait(original);
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
-            awaited.WithoutTrivia());
-        if (NeedsParenthesesAfterAwait(original))
+            SyntaxFactory.Token(needsParentheses ? default : original.GetLeadingTrivia(), SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            needsParentheses
+                ? awaited.WithoutTrivia()
+                : awaited.WithoutLeadingTrivia().WithTrailingTrivia(original.GetTrailingTrivia()));
+        if (needsParentheses)
         {
-            result = SyntaxFactory.ParenthesizedExpression(result);
+            result = SyntaxFactory.ParenthesizedExpression(
+                SyntaxFactory.Token(original.GetLeadingTrivia(), SyntaxKind.OpenParenToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                result,
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, original.GetTrailingTrivia()));
         }
 
-        return result.WithTriviaFrom(original).WithAdditionalAnnotations(Formatter.Annotation);
+        return result.WithAdditionalAnnotations(Formatter.Annotation);
     }
 
     /// <summary>Returns whether the surrounding expression binds tighter than <c>await</c>, so the result needs parentheses.</summary>

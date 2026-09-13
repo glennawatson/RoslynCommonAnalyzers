@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -520,46 +521,33 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         };
 
     /// <summary>Tracks private member candidates and references for one type symbol.</summary>
+    /// <remarks>
+    /// The two collections are read together by the compilation-end action, which Roslyn runs only
+    /// after every action that fills them, so the pair cannot be observed half-written and the
+    /// additions need nothing beyond their own thread safety.
+    /// </remarks>
     private sealed class PrivateTypeUsage
     {
-        /// <summary>Synchronizes access to the accumulated state.</summary>
-        private readonly object _gate = new();
-
         /// <summary>The collected private member candidates.</summary>
-        private readonly List<PrivateMemberCandidate> _candidates = [];
+        private readonly ConcurrentQueue<PrivateMemberCandidate> _candidates = new();
 
         /// <summary>The collected member references.</summary>
-        private readonly List<PrivateMemberReference> _references = [];
+        private readonly ConcurrentQueue<PrivateMemberReference> _references = new();
 
         /// <summary>Adds one private member candidate.</summary>
         /// <param name="candidate">The candidate to add.</param>
-        public void AddMemberCandidate(PrivateMemberCandidate candidate)
-        {
-            lock (_gate)
-            {
-                _candidates.Add(candidate);
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddMemberCandidate(PrivateMemberCandidate candidate) => _candidates.Enqueue(candidate);
 
         /// <summary>Adds one member reference.</summary>
         /// <param name="reference">The reference to add.</param>
-        public void AddMemberReference(PrivateMemberReference reference)
-        {
-            lock (_gate)
-            {
-                _references.Add(reference);
-            }
-        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddMemberReference(PrivateMemberReference reference) => _references.Enqueue(reference);
 
         /// <summary>Creates a stable snapshot of the accumulated candidates and references.</summary>
         /// <returns>The accumulated candidates and references.</returns>
-        public (List<PrivateMemberCandidate> Candidates, List<PrivateMemberReference> References) Snapshot()
-        {
-            lock (_gate)
-            {
-                return (new List<PrivateMemberCandidate>(_candidates), new List<PrivateMemberReference>(_references));
-            }
-        }
+        public (List<PrivateMemberCandidate> Candidates, List<PrivateMemberReference> References) Snapshot() =>
+            (new List<PrivateMemberCandidate>(_candidates.ToArray()), new List<PrivateMemberReference>(_references.ToArray()));
     }
 
     /// <summary>Tracks one private member candidate.</summary>

@@ -179,8 +179,7 @@ public sealed class Sst2300DisposePatternCodeFixProvider : CodeFixProvider, IBat
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static StatementSyntax BuildSuppressFinalizeStatement() =>
         SyntaxFactory.ParseStatement(SuppressFinalizeCall)
-            .WithAdditionalAnnotations(Simplifier.Annotation)
-            .WithAdditionalAnnotations(Formatter.Annotation);
+            .WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation);
 
     /// <summary>Replaces a <c>Dispose(bool)</c>'s <c>public</c> with the modifiers the pattern asks for.</summary>
     /// <param name="method">The <c>Dispose(bool)</c> declaration.</param>

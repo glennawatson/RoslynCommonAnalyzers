@@ -38,15 +38,9 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var treeCount = 0;
-            foreach (var tree in start.Compilation.SyntaxTrees)
-            {
-                treeCount++;
-            }
-
             var optionsByTree = new ConcurrentDictionary<SyntaxTree, InlineSingleUseLocalOptions>(
                 concurrencyLevel: 1,
-                capacity: treeCount);
+                capacity: ((CSharpCompilation)start.Compilation).SyntaxTrees.Length);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, optionsByTree),
                 SyntaxKind.LocalDeclarationStatement);
@@ -230,16 +224,34 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether a block holds source that this configuration compiled out.</summary>
     /// <param name="block">The block holding the local's scope.</param>
     /// <returns><see langword="true"/> when an inactive <c>#if</c> region falls inside the block.</returns>
-    private static bool HasInactiveRegion(BlockSyntax block)
-    {
-        if (!block.ContainsDirectives)
-        {
-            return false;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasInactiveRegion(BlockSyntax block) =>
+        block.ContainsDirectives && ContainsDisabledText(block);
 
-        foreach (var trivia in block.DescendantTrivia(descendIntoTrivia: true))
+    /// <summary>Scans token trivia, including structured trivia, without a descendant iterator.</summary>
+    /// <param name="node">The subtree whose trivia is inspected.</param>
+    /// <returns>True when disabled source text is found.</returns>
+    private static bool ContainsDisabledText(SyntaxNode node)
+    {
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref found, static (in SyntaxToken token, ref bool state) =>
         {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            state = ContainsDisabledText(token.LeadingTrivia) || ContainsDisabledText(token.TrailingTrivia);
+            return !state;
+        });
+        return found;
+    }
+
+    /// <summary>Checks a trivia list and the tokens inside its structured trivia.</summary>
+    /// <param name="triviaList">The leading or trailing trivia to inspect.</param>
+    /// <returns>True when disabled source text is found.</returns>
+    private static bool ContainsDisabledText(in SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
+        {
+            var trivia = triviaList[i];
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia)
+                || (trivia.GetStructure() is { } structure && ContainsDisabledText(structure)))
             {
                 return true;
             }

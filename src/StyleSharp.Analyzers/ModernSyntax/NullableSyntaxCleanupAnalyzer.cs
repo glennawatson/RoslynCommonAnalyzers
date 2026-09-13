@@ -67,10 +67,62 @@ public sealed class NullableSyntaxCleanupAnalyzer : DiagnosticAnalyzer
         string? currentState = null;
         var sawFileStateChange = false;
 
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        AnalyzeDirectiveNodes(root, context, ref currentState, ref sawFileStateChange);
+    }
+
+    /// <summary>Visits directive-bearing tokens in source order without a trivia iterator.</summary>
+    /// <param name="node">The subtree to inspect.</param>
+    /// <param name="context">The syntax tree context.</param>
+    /// <param name="currentState">The last explicit nullable state.</param>
+    /// <param name="sawFileStateChange">Whether an explicit state has appeared.</param>
+    private static void AnalyzeDirectiveNodes(
+        SyntaxNode node,
+        in SyntaxTreeAnalysisContext context,
+        ref string? currentState,
+        ref bool sawFileStateChange)
+    {
+        if (!node.ContainsDirectives)
         {
-            if (trivia.GetStructure() is not NullableDirectiveTriviaSyntax directive)
+            return;
+        }
+
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
+        {
+            var child = children[i];
+            if (child.AsNode() is { } childNode)
             {
+                AnalyzeDirectiveNodes(childNode, context, ref currentState, ref sawFileStateChange);
+                continue;
+            }
+
+            var token = child.AsToken();
+            AnalyzeDirectiveTrivia(token.LeadingTrivia, context, ref currentState, ref sawFileStateChange);
+            AnalyzeDirectiveTrivia(token.TrailingTrivia, context, ref currentState, ref sawFileStateChange);
+        }
+    }
+
+    /// <summary>Applies nullable directives from one token's trivia in source order.</summary>
+    /// <param name="trivia">The trivia to inspect.</param>
+    /// <param name="context">The syntax tree context.</param>
+    /// <param name="currentState">The last explicit nullable state.</param>
+    /// <param name="sawFileStateChange">Whether an explicit state has appeared.</param>
+    private static void AnalyzeDirectiveTrivia(
+        in SyntaxTriviaList trivia,
+        in SyntaxTreeAnalysisContext context,
+        ref string? currentState,
+        ref bool sawFileStateChange)
+    {
+        for (var i = 0; i < trivia.Count; i++)
+        {
+            if (trivia[i].GetStructure() is not { } structure)
+            {
+                continue;
+            }
+
+            if (structure is not NullableDirectiveTriviaSyntax directive)
+            {
+                AnalyzeDirectiveNodes(structure, context, ref currentState, ref sawFileStateChange);
                 continue;
             }
 

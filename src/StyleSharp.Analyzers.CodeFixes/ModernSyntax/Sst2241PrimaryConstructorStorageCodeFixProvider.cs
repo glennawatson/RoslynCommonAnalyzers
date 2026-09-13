@@ -132,12 +132,39 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             return false;
         }
 
-        replacement = WithParameterList(
-                ClearPrimaryConstructorInsertionTrivia(containingType),
-                CreatePrimaryConstructorParameterList(containingType, constructor.ParameterList))
-            .WithBaseList(baseList)
-            .WithMembers(members)
-            .WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
+        var cleared = ClearPrimaryConstructorInsertionTrivia(containingType);
+        var parameterList = CreatePrimaryConstructorParameterList(containingType, constructor.ParameterList);
+        replacement = cleared switch
+        {
+            ClassDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.Keyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                parameterList,
+                baseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            StructDeclarationSyntax declaration => declaration.Update(
+                declaration.AttributeLists,
+                declaration.Modifiers,
+                declaration.Keyword,
+                declaration.Identifier,
+                declaration.TypeParameterList,
+                parameterList,
+                baseList,
+                declaration.ConstraintClauses,
+                declaration.OpenBraceToken,
+                members,
+                declaration.CloseBraceToken,
+                declaration.SemicolonToken),
+            _ => WithParameterList(cleared, parameterList).WithBaseList(baseList).WithMembers(members)
+        };
+        replacement = replacement.WithLeadingTrivia(MoveParameterDocsToType(containingType, constructor));
         return true;
     }
 
@@ -254,8 +281,11 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         BaseTypeSyntax? replacement = first switch
         {
             SimpleBaseTypeSyntax simple => SyntaxFactory.PrimaryConstructorBaseType(
-                simple.Type.WithoutTrivia(),
-                initializer.ArgumentList.WithoutTrivia()).WithTriviaFrom(simple),
+                simple.Type.WithoutTrailingTrivia(),
+                initializer.ArgumentList.Update(
+                    initializer.ArgumentList.OpenParenToken.WithLeadingTrivia(default(SyntaxTriviaList)),
+                    initializer.ArgumentList.Arguments,
+                    initializer.ArgumentList.CloseParenToken.WithTrailingTrivia(simple.GetTrailingTrivia()))),
             PrimaryConstructorBaseTypeSyntax primary => primary.WithArgumentList(initializer.ArgumentList.WithoutTrivia()),
             _ => null
         };
@@ -682,7 +712,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
                 }
             }
 
-            var line = text.Substring(start, end - start);
+            var line = text.AsSpan(start, end - start);
             if (IsParameterDocumentationLine(line))
             {
                 AddNormalizedDocumentationLine(collected, line, indentation);
@@ -698,15 +728,26 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <param name="collected">The destination trivia list.</param>
     /// <param name="line">The source documentation line.</param>
     /// <param name="indentation">The target indentation.</param>
-    private static void AddNormalizedDocumentationLine(List<SyntaxTrivia> collected, string line, string indentation)
+    private static void AddNormalizedDocumentationLine(List<SyntaxTrivia> collected, ReadOnlySpan<char> line, ReadOnlySpan<char> indentation)
     {
-        var markerIndex = line.IndexOf("///", StringComparison.Ordinal);
+        var markerIndex = line.IndexOf("///".AsSpan(), StringComparison.Ordinal);
         if (markerIndex < 0)
         {
             return;
         }
 
-        var parsed = SyntaxFactory.ParseLeadingTrivia(indentation + line[markerIndex..]);
+        var builder = new System.Text.StringBuilder(indentation.Length + line.Length - markerIndex);
+        foreach (var character in indentation)
+        {
+            _ = builder.Append(character);
+        }
+
+        foreach (var character in line[markerIndex..])
+        {
+            _ = builder.Append(character);
+        }
+
+        var parsed = SyntaxFactory.ParseLeadingTrivia(builder.ToString());
         for (var i = 0; i < parsed.Count; i++)
         {
             collected.Add(parsed[i]);
@@ -716,9 +757,9 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Returns whether a documentation line is constructor parameter documentation.</summary>
     /// <param name="line">The line to inspect.</param>
     /// <returns><see langword="true"/> when the trivia contains a <c>param</c> element.</returns>
-    private static bool IsParameterDocumentationLine(string line) =>
-        line.IndexOf("///", StringComparison.Ordinal) >= 0
-            && line.IndexOf("<param ", StringComparison.Ordinal) >= 0;
+    private static bool IsParameterDocumentationLine(ReadOnlySpan<char> line) =>
+        line.IndexOf("///".AsSpan(), StringComparison.Ordinal) >= 0
+            && line.IndexOf("<param ".AsSpan(), StringComparison.Ordinal) >= 0;
 
     /// <summary>Finds where constructor parameter docs should be inserted in type leading trivia.</summary>
     /// <param name="leading">The type leading trivia.</param>
@@ -740,7 +781,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
     /// <summary>Gets the indentation used by the type declaration's documentation.</summary>
     /// <param name="type">The type declaration.</param>
     /// <returns>The indentation text.</returns>
-    private static string GetTypeIndentation(TypeDeclarationSyntax type)
+    private static ReadOnlySpan<char> GetTypeIndentation(TypeDeclarationSyntax type)
     {
         var leading = type.GetLeadingTrivia();
         var text = leading.ToFullString();
@@ -751,14 +792,14 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
         }
 
         var lineStart = Math.Max(text.LastIndexOf('\n'), text.LastIndexOf('\r')) + 1;
-        return lineStart < text.Length ? text[lineStart..] : text;
+        return lineStart < text.Length ? text.AsSpan(lineStart) : text.AsSpan();
     }
 
     /// <summary>Gets the text before a target index on the same line.</summary>
     /// <param name="text">The text to inspect.</param>
     /// <param name="index">The target index.</param>
     /// <returns>The text between the start of the line and the target index.</returns>
-    private static string GetLinePrefix(string text, int index)
+    private static ReadOnlySpan<char> GetLinePrefix(string text, int index)
     {
         var lineStart = index;
         while (lineStart > 0 && text[lineStart - 1] != '\r' && text[lineStart - 1] != '\n')
@@ -766,7 +807,7 @@ public sealed class Sst2241PrimaryConstructorStorageCodeFixProvider : CodeFixPro
             lineStart--;
         }
 
-        return lineStart < index ? text.Substring(lineStart, index - lineStart) : string.Empty;
+        return text.AsSpan(lineStart, index - lineStart);
     }
 
     /// <summary>Captures a constructor storage assignment.</summary>

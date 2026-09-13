@@ -61,8 +61,9 @@ public sealed class Sst2248UseComparisonPatternCodeFixProvider : CodeFixProvider
             Keyword(merge.IsConjunction ? SyntaxKind.AndKeyword : SyntaxKind.OrKeyword),
             BuildPattern(merge.RightOperator, merge.RightConstant).WithTrailingTrivia(original.GetTrailingTrivia()));
 
+        var subject = (IdentifierNameSyntax)merge.Subject;
         return SyntaxFactory.IsPatternExpression(
-            merge.Subject.WithoutTrivia().WithLeadingTrivia(original.GetLeadingTrivia()),
+            subject.Update(subject.Identifier.WithLeadingTrivia(original.GetLeadingTrivia()).WithTrailingTrivia(default(SyntaxTriviaList))),
             Keyword(SyntaxKind.IsKeyword),
             pattern);
     }

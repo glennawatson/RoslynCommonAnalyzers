@@ -100,7 +100,10 @@ public sealed class Psh1307VolatileInterlockedFieldCodeFixProvider : CodeFixProv
                 volatileSpelling,
                 WriteMethodName,
                 usage,
-                SyntaxFactory.Argument(assignment.Right.WithoutTrivia()).WithLeadingTrivia(SyntaxFactory.Space));
+                SyntaxFactory.Argument(
+                    nameColon: null,
+                    refKindKeyword: default,
+                    assignment.Right.WithLeadingTrivia(SyntaxFactory.Space).WithoutTrailingTrivia()));
             return (assignment, write.WithTriviaFrom(assignment), "Use Volatile.Write");
         }
 

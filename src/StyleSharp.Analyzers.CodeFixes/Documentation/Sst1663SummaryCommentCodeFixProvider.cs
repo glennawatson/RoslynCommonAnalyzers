@@ -92,7 +92,7 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
         }
 
         var raw = trivia.ToString();
-        var content = Escape(raw[SingleLineCommentMarkerLength..].Trim());
+        var content = Escape(raw.AsSpan(SingleLineCommentMarkerLength).Trim());
         change = new(trivia.Span, $"/// <summary>{content}</summary>");
         return true;
     }
@@ -101,6 +101,44 @@ public sealed class Sst1663SummaryCommentCodeFixProvider : CodeFixProvider, ITex
     /// <param name="value">The comment text.</param>
     /// <returns>The XML-escaped text.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string Escape(string value) =>
-        value.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    private static string Escape(ReadOnlySpan<char> value)
+    {
+        if (value.IndexOfAny('&', '<', '>') < 0)
+        {
+            return value.ToString();
+        }
+
+        var builder = new System.Text.StringBuilder(value.Length);
+        foreach (var character in value)
+        {
+            switch (character)
+            {
+                case '&':
+                {
+                    _ = builder.Append("&amp;");
+                    break;
+                }
+
+                case '<':
+                {
+                    _ = builder.Append("&lt;");
+                    break;
+                }
+
+                case '>':
+                {
+                    _ = builder.Append("&gt;");
+                    break;
+                }
+
+                default:
+                {
+                    _ = builder.Append(character);
+                    break;
+                }
+            }
+        }
+
+        return builder.ToString();
+    }
 }

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Collections.Generic;
 
 using Microsoft.CodeAnalysis.Text;
@@ -76,9 +77,38 @@ public sealed class Sst1633FileHeaderCodeFixProvider : CodeFixProvider, ITextCha
     private static TextChange BuildChange(SourceText text, SyntaxNode? root, string header)
     {
         var newLine = DetectNewLine(text);
-        var headerBlock = header.Replace("\n", newLine) + newLine;
         var existingEnd = root is null ? 0 : ExistingHeaderEnd(root.GetLeadingTrivia());
-        return new(TextSpan.FromBounds(0, existingEnd), headerBlock);
+        var span = TextSpan.FromBounds(0, existingEnd);
+        if (newLine == "\n")
+        {
+            return new(span, header + newLine);
+        }
+
+        var buffer = ArrayPool<char>.Shared.Rent((header.Length + 1) * newLine.Length);
+        try
+        {
+            var length = 0;
+            foreach (var character in header)
+            {
+                if (character == '\n')
+                {
+                    newLine.CopyTo(0, buffer, length, newLine.Length);
+                    length += newLine.Length;
+                }
+                else
+                {
+                    buffer[length] = character;
+                    length++;
+                }
+            }
+
+            newLine.CopyTo(0, buffer, length, newLine.Length);
+            return new(span, new string(buffer, 0, length + newLine.Length));
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
     }
 
     /// <summary>

@@ -70,9 +70,13 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
             var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
             for (var index = 0; index < modifiers.Count; index++)
             {
-                replacements[modifiers[index].SpanStart] = sorted[index]
-                    .WithLeadingTrivia(modifiers[index].LeadingTrivia)
-                    .WithTrailingTrivia(modifiers[index].TrailingTrivia);
+                var token = sorted[index];
+                replacements[modifiers[index].SpanStart] = token.CopyAnnotationsTo(SyntaxFactory.Token(
+                    modifiers[index].LeadingTrivia,
+                    token.Kind(),
+                    token.Text,
+                    token.ValueText,
+                    modifiers[index].TrailingTrivia));
             }
 
             return current.ReplaceTokens(modifiers, (original, _) => replacements[original.SpanStart]);
@@ -98,9 +102,13 @@ public sealed class ModifierOrderCodeFixProvider : CodeFixProvider, IBatchFixabl
         var replacements = new Dictionary<int, SyntaxToken>(modifiers.Count);
         for (var index = 0; index < modifiers.Count; index++)
         {
-            replacements[modifiers[index].SpanStart] = sorted[index]
-                .WithLeadingTrivia(modifiers[index].LeadingTrivia)
-                .WithTrailingTrivia(modifiers[index].TrailingTrivia);
+            var token = sorted[index];
+            replacements[modifiers[index].SpanStart] = token.CopyAnnotationsTo(SyntaxFactory.Token(
+                modifiers[index].LeadingTrivia,
+                token.Kind(),
+                token.Text,
+                token.ValueText,
+                modifiers[index].TrailingTrivia));
         }
 
         var root = await document.GetSyntaxRootAsync(cancellationToken).ConfigureAwait(false);

@@ -144,10 +144,13 @@ public sealed class Sst2011RecordInstantsInUtcCodeFixProvider : CodeFixProvider,
                 // Local midnight becomes the UTC instant truncated to its date: DateTime.UtcNow.Date.
                 var utcNow = access.WithName(SyntaxFactory.IdentifierName(ClockPropertyAccess.UtcNowName));
                 return SyntaxFactory.MemberAccessExpression(
-                        SyntaxKind.SimpleMemberAccessExpression,
-                        utcNow,
-                        SyntaxFactory.IdentifierName(ClockPropertyAccess.DatePropertyName))
-                    .WithTriviaFrom(access);
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    utcNow,
+                    SyntaxFactory.Token(default, SyntaxKind.DotToken, default),
+                    SyntaxFactory.IdentifierName(SyntaxFactory.Identifier(
+                        default,
+                        ClockPropertyAccess.DatePropertyName,
+                        access.GetTrailingTrivia())));
             }
 
             case ClockPropertyAccess.LocalInstant.OffsetLocalDateTime:

@@ -124,7 +124,41 @@ public sealed class SpacingCodeFixProvider : CodeFixProvider, ITextChangeBatchab
             return new(span, " ");
         }
 
-        return id == SpacingRules.UseSpacesNotTabs.Id ? new(span, text.ToString(span).Replace("\t", new(' ', TabWidth))) : new(new(span.Start + CommentOpenerLength, 0), " ");
+        if (id != SpacingRules.UseSpacesNotTabs.Id)
+        {
+            return new(new(span.Start + CommentOpenerLength, 0), " ");
+        }
+
+        var length = span.Length;
+        for (var i = span.Start; i < span.End; i++)
+        {
+            if (text[i] == '\t')
+            {
+                length += TabWidth - 1;
+            }
+        }
+
+        var characters = new char[length];
+        var index = 0;
+        for (var i = span.Start; i < span.End; i++)
+        {
+            var character = text[i];
+            if (character == '\t')
+            {
+                for (var space = 0; space < TabWidth; space++)
+                {
+                    characters[index] = ' ';
+                    index++;
+                }
+            }
+            else
+            {
+                characters[index] = character;
+                index++;
+            }
+        }
+
+        return new(span, new string(characters));
     }
 
     /// <summary>Computes the text change for a comma/semicolon spacing diagnostic.</summary>

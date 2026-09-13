@@ -75,8 +75,11 @@ public sealed class CollectionExpressionBuilderCodeFixProvider : CodeFixProvider
             return null;
         }
 
-        var replacement = SyntaxFactory.ParseStatement($"return {CollectionExpressionText(elements)};")
-            .WithTriviaFrom(local);
+        var replacement = SyntaxFactory.ReturnStatement(
+            attributeLists: default,
+            SyntaxFactory.Token(local.GetLeadingTrivia(), SyntaxKind.ReturnKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.ParseExpression(CollectionExpressionText(elements)),
+            SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, local.GetTrailingTrivia()));
         var statements = ReplaceStatementRange(block.Statements, start, end, replacement);
         return root.ReplaceNode(block, block.WithStatements(statements));
     }

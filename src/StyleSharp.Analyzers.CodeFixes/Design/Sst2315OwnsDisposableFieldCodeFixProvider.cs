@@ -64,7 +64,7 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
     /// <param name="root">The syntax root.</param>
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>The type declaration and member names, or <see langword="null"/> when no fix is offered.</returns>
-    private static (TypeDeclarationSyntax Declaration, string[] Members)? Resolve(SyntaxNode root, Diagnostic diagnostic)
+    private static (TypeDeclarationSyntax Declaration, string Members)? Resolve(SyntaxNode root, Diagnostic diagnostic)
     {
         // The member is appended after the last one and before the closing brace, which is where the
         // directive closing a region over the tail sits — so the new member would land inside it.
@@ -73,19 +73,43 @@ public sealed class Sst2315OwnsDisposableFieldCodeFixProvider : CodeFixProvider,
             || !diagnostic.Properties.TryGetValue(Sst2315OwnsDisposableFieldAnalyzer.MembersToDisposeKey, out var members)
             || string.IsNullOrEmpty(members)
             ? null
-            : (declaration, members!.Split(','));
+            : (declaration, members!);
     }
 
     /// <summary>Adds <c>IDisposable</c> and a <c>Dispose()</c> that releases each owned member.</summary>
     /// <param name="declaration">The type declaration.</param>
     /// <param name="members">The members to release.</param>
     /// <returns>The updated declaration.</returns>
-    private static TypeDeclarationSyntax MakeDisposable(TypeDeclarationSyntax declaration, string[] members)
+    private static TypeDeclarationSyntax MakeDisposable(TypeDeclarationSyntax declaration, string members)
     {
-        var statements = new List<StatementSyntax>(members.Length);
-        for (var i = 0; i < members.Length; i++)
+        const string DisposeCall = ".Dispose();";
+        var memberCount = 1;
+        foreach (var character in members)
         {
-            statements.Add(SyntaxFactory.ParseStatement($"{members[i]}.Dispose();"));
+            if (character == ',')
+            {
+                memberCount++;
+            }
+        }
+
+        var statements = new List<StatementSyntax>(memberCount);
+        if (memberCount == 1)
+        {
+            statements.Add(SyntaxFactory.ParseStatement(members + DisposeCall));
+        }
+        else
+        {
+            var buffer = new char[members.Length + DisposeCall.Length];
+            var start = 0;
+            for (var i = 0; i < memberCount; i++)
+            {
+                var end = members.IndexOf(',', start);
+                var length = (end < 0 ? members.Length : end) - start;
+                members.CopyTo(start, buffer, 0, length);
+                DisposeCall.CopyTo(0, buffer, length, DisposeCall.Length);
+                statements.Add(SyntaxFactory.ParseStatement(new(buffer, 0, length + DisposeCall.Length)));
+                start += length + 1;
+            }
         }
 
         var dispose = SyntaxFactory.MethodDeclaration(

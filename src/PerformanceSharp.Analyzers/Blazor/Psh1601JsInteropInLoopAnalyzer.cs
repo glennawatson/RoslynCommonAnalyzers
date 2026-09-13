@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -24,18 +26,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the JavaScript-runtime interface whose presence proves a Blazor project.</summary>
-    private const string JsRuntimeMetadataName = "Microsoft.JSInterop.IJSRuntime";
-
-    /// <summary>The metadata name of the JavaScript object-reference interface whose interop calls are also watched.</summary>
-    private const string JsObjectReferenceMetadataName = "Microsoft.JSInterop.IJSObjectReference";
-
-    /// <summary>The name of the value-returning interop method.</summary>
-    private const string InvokeAsyncMethodName = "InvokeAsync";
-
-    /// <summary>The name of the void interop method.</summary>
-    private const string InvokeVoidAsyncMethodName = "InvokeVoidAsync";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(BlazorRules.JsInteropInLoop);
 
@@ -52,123 +42,151 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var gate = new Lazy<InteropGate?>(() => CreateGate(compilation));
-            start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, gate), SyntaxKind.InvocationExpression);
+            var types = new InteropTypes(start.Compilation);
+            start.RegisterSyntaxNodeAction(types.Analyze, SyntaxKind.InvocationExpression);
         });
     }
 
-    /// <summary>Reports PSH1601 when an interop call on a JavaScript-runtime receiver sits directly inside a loop.</summary>
-    /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="gate">The JavaScript-interop types resolved on first demand.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<InteropGate?> gate)
+    /// <summary>Owns the registered callback and publishes both interop types together on first demand.</summary>
+    /// <param name="compilation">The compilation whose interop types are resolved.</param>
+    private sealed class InteropTypes(Compilation compilation)
     {
-        var invocation = (InvocationExpressionSyntax)context.Node;
-        if (invocation.Expression is not MemberAccessExpressionSyntax access)
-        {
-            return;
-        }
+        /// <summary>The metadata name of the JavaScript-runtime interface whose presence proves a Blazor project.</summary>
+        private const string JsRuntimeMetadataName = "Microsoft.JSInterop.IJSRuntime";
 
-        if (access.Name.Identifier.ValueText is not (InvokeAsyncMethodName or InvokeVoidAsyncMethodName))
-        {
-            return;
-        }
+        /// <summary>The metadata name of the JavaScript object-reference interface whose interop calls are also watched.</summary>
+        private const string JsObjectReferenceMetadataName = "Microsoft.JSInterop.IJSObjectReference";
 
-        if (!IsDirectlyInsideLoop(invocation)
-            || gate.Value is not { } resolvedGate)
-        {
-            return;
-        }
+        /// <summary>The name of the value-returning interop method.</summary>
+        private const string InvokeAsyncMethodName = "InvokeAsync";
 
-        var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        if (!IsJsInteropReceiver(receiverType, resolvedGate))
-        {
-            return;
-        }
+        /// <summary>The name of the void interop method.</summary>
+        private const string InvokeVoidAsyncMethodName = "InvokeVoidAsync";
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(
-            BlazorRules.JsInteropInLoop,
-            invocation.SyntaxTree,
-            invocation.Span));
-    }
+        /// <summary>The published gate, including a missing runtime interface.</summary>
+        private InteropGate?[]? _resolved;
 
-    /// <summary>Returns whether a node sits directly in a <c>for</c>/<c>foreach</c> body without crossing a function.</summary>
-    /// <param name="node">The candidate node.</param>
-    /// <returns>
-    /// <see langword="true"/> when the nearest enclosing statement is a loop; <see langword="false"/> when a nested
-    /// function is crossed first (its body owns the per-iteration cost) or no loop encloses the node.
-    /// </returns>
-    private static bool IsDirectlyInsideLoop(SyntaxNode node)
-    {
-        for (var current = node.Parent; current is not null; current = current.Parent)
+        /// <summary>Analyzes a candidate with this compilation's lazily resolved interop types.</summary>
+        /// <param name="context">The syntax node analysis context.</param>
+        public void Analyze(SyntaxNodeAnalysisContext context)
         {
-            switch (current)
+            var invocation = (InvocationExpressionSyntax)context.Node;
+            if (invocation.Expression is not MemberAccessExpressionSyntax access)
             {
-                case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
-                    return false;
-
-                case ForStatementSyntax or CommonForEachStatementSyntax:
-                    return true;
-
-                case MemberDeclarationSyntax:
-                    return false;
+                return;
             }
+
+            if (access.Name.Identifier.ValueText is not (InvokeAsyncMethodName or InvokeVoidAsyncMethodName))
+            {
+                return;
+            }
+
+            if (!IsDirectlyInsideLoop(invocation)
+                || Get() is not { } resolvedGate)
+            {
+                return;
+            }
+
+            var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
+            if (!IsJsInteropReceiver(receiverType, resolvedGate))
+            {
+                return;
+            }
+
+            context.ReportDiagnostic(DiagnosticHelper.Create(
+                BlazorRules.JsInteropInLoop,
+                invocation.SyntaxTree,
+                invocation.Span));
         }
 
-        return false;
-    }
-
-    /// <summary>Returns whether a receiver's type is, or implements, the JavaScript-runtime or object-reference interface.</summary>
-    /// <param name="receiverType">The static type of the call's receiver.</param>
-    /// <param name="gate">The resolved JavaScript-interop types.</param>
-    /// <returns><see langword="true"/> when the receiver is a JavaScript-interop endpoint.</returns>
-    private static bool IsJsInteropReceiver(ITypeSymbol? receiverType, InteropGate gate)
-    {
-        if (receiverType is null)
+        /// <summary>Returns whether a node sits directly in a <c>for</c>/<c>foreach</c> body without crossing a function.</summary>
+        /// <param name="node">The candidate node.</param>
+        /// <returns>Whether a loop encloses the candidate without an intervening function or member.</returns>
+        private static bool IsDirectlyInsideLoop(SyntaxNode node)
         {
+            for (var current = node.Parent; current is not null; current = current.Parent)
+            {
+                switch (current)
+                {
+                    case AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax:
+                        return false;
+
+                    case ForStatementSyntax or CommonForEachStatementSyntax:
+                        return true;
+
+                    case MemberDeclarationSyntax:
+                        return false;
+                }
+            }
+
             return false;
         }
 
-        return ImplementsOrIs(receiverType, gate.JsRuntime)
-            || (gate.JsObjectReference is not null && ImplementsOrIs(receiverType, gate.JsObjectReference));
-    }
-
-    /// <summary>Returns whether a type is the interface itself or implements it.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="interfaceType">The interface to match.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or implements <paramref name="interfaceType"/>.</returns>
-    private static bool ImplementsOrIs(ITypeSymbol type, INamedTypeSymbol interfaceType)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
+        /// <summary>Returns whether a receiver's type is, or implements, a JavaScript-interop interface.</summary>
+        /// <param name="receiverType">The static type of the call's receiver.</param>
+        /// <param name="gate">The resolved JavaScript-interop types.</param>
+        /// <returns>Whether the receiver is a JavaScript-interop endpoint.</returns>
+        private static bool IsJsInteropReceiver(ITypeSymbol? receiverType, InteropGate gate)
         {
-            return true;
+            if (receiverType is null)
+            {
+                return false;
+            }
+
+            return ImplementsOrIs(receiverType, gate.JsRuntime)
+                || (gate.JsObjectReference is not null && ImplementsOrIs(receiverType, gate.JsObjectReference));
         }
 
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
+        /// <summary>Returns whether a type is the interface itself or implements it.</summary>
+        /// <param name="type">The candidate type.</param>
+        /// <param name="interfaceType">The interface to match.</param>
+        /// <returns>Whether the type is or implements the interface.</returns>
+        private static bool ImplementsOrIs(ITypeSymbol type, INamedTypeSymbol interfaceType)
         {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
+            if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
             {
                 return true;
             }
+
+            var interfaces = type.AllInterfaces;
+            for (var i = 0; i < interfaces.Length; i++)
+            {
+                if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
-        return false;
-    }
+        /// <summary>Resolves the JavaScript-interop types when a candidate first needs them.</summary>
+        /// <param name="compilation">The compilation being analyzed.</param>
+        /// <returns>The resolved types, or null when the runtime interface is absent.</returns>
+        private static InteropGate? CreateGate(Compilation compilation)
+        {
+            var jsRuntime = compilation.GetTypeByMetadataName(JsRuntimeMetadataName);
+            return jsRuntime is null
+                ? null
+                : new InteropGate(jsRuntime, compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName));
+        }
 
-    /// <summary>Resolves the JavaScript-interop types when a candidate first needs them.</summary>
-    /// <param name="compilation">The compilation being analyzed.</param>
-    /// <returns>The resolved types, or null when the runtime interface is absent.</returns>
-    private static InteropGate? CreateGate(Compilation compilation)
-    {
-        var jsRuntime = compilation.GetTypeByMetadataName(JsRuntimeMetadataName);
-        return jsRuntime is null
-            ? null
-            : new InteropGate(jsRuntime, compilation.GetTypeByMetadataName(JsObjectReferenceMetadataName));
-    }
+        /// <summary>Gets both interop types from one atomically published result.</summary>
+        /// <returns>The resolved gate, or null when the runtime interface is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private InteropGate? Get() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
 
-    /// <summary>The JavaScript-interop types resolved once per compilation.</summary>
-    /// <param name="JsRuntime">The runtime interface required to report a diagnostic.</param>
-    /// <param name="JsObjectReference">The object-reference interface, when the framework exposes one.</param>
-    private readonly record struct InteropGate(INamedTypeSymbol JsRuntime, INamedTypeSymbol? JsObjectReference);
+        /// <summary>Resolves the two metadata names and publishes their result together.</summary>
+        /// <returns>The shared result, including an unavailable gate.</returns>
+        private InteropGate?[] Resolve()
+        {
+            InteropGate?[] resolved = [CreateGate(compilation)];
+            return Interlocked.CompareExchange(ref _resolved, resolved, null) ?? resolved;
+        }
+
+        /// <summary>The JavaScript-interop types resolved once per compilation.</summary>
+        /// <param name="JsRuntime">The runtime interface required to report a diagnostic.</param>
+        /// <param name="JsObjectReference">The object-reference interface, when the framework exposes one.</param>
+        private readonly record struct InteropGate(INamedTypeSymbol JsRuntime, INamedTypeSymbol? JsObjectReference);
+    }
 }

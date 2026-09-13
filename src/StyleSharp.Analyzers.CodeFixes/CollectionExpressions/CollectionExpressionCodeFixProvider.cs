@@ -73,7 +73,7 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="expression">The expression to replace.</param>
     /// <param name="diagnosticId">The diagnostic id.</param>
     /// <returns>The collection-expression replacement, carrying the original trivia.</returns>
-    private static ExpressionSyntax BuildReplacement(ExpressionSyntax expression, string diagnosticId)
+    private static CollectionExpressionSyntax BuildReplacement(ExpressionSyntax expression, string diagnosticId)
     {
         var replacementText = "[]";
         if (diagnosticId == CollectionExpressionRules.UseExplicitCollectionExpression.Id
@@ -94,6 +94,10 @@ public sealed class CollectionExpressionCodeFixProvider : CodeFixProvider, IBatc
             replacementText = invocationText;
         }
 
-        return SyntaxFactory.ParseExpression(replacementText).WithTriviaFrom(expression);
+        var replacement = (CollectionExpressionSyntax)SyntaxFactory.ParseExpression(replacementText);
+        return replacement.Update(
+            replacement.OpenBracketToken.WithLeadingTrivia(expression.GetLeadingTrivia()),
+            replacement.Elements,
+            replacement.CloseBracketToken.WithTrailingTrivia(expression.GetTrailingTrivia()));
     }
 }

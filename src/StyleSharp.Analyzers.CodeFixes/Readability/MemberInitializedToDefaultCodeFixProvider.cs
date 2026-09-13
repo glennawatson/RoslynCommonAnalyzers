@@ -69,7 +69,12 @@ public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider,
 
         if (initializer.Parent is VariableDeclaratorSyntax declarator)
         {
-            var trimmed = declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
+            var trimmed = declarator.Update(
+                declarator.ArgumentList is null
+                    ? declarator.Identifier.WithTrailingTrivia(declarator.GetTrailingTrivia())
+                    : declarator.Identifier,
+                declarator.ArgumentList?.WithTrailingTrivia(declarator.GetTrailingTrivia()),
+                initializer: null);
             editor.ReplaceNode(declarator, trimmed);
         }
     }
@@ -101,7 +106,12 @@ public sealed class MemberInitializedToDefaultCodeFixProvider : CodeFixProvider,
 
         if (initializer.Parent is VariableDeclaratorSyntax declarator)
         {
-            var trimmed = declarator.WithInitializer(null).WithTrailingTrivia(declarator.GetTrailingTrivia());
+            var trimmed = declarator.Update(
+                declarator.ArgumentList is null
+                    ? declarator.Identifier.WithTrailingTrivia(declarator.GetTrailingTrivia())
+                    : declarator.Identifier,
+                declarator.ArgumentList?.WithTrailingTrivia(declarator.GetTrailingTrivia()),
+                initializer: null);
             return document.WithSyntaxRoot(root.ReplaceNode(declarator, trimmed));
         }
 

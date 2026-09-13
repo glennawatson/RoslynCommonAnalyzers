@@ -86,7 +86,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Reports SES1106 for a <c>HttpClient.BaseAddress = new Uri("http://…")</c> assignment.</summary>
@@ -111,7 +111,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host));
+        context.ReportDiagnostic(DiagnosticHelper.Create(SecurityRules.CleartextHttpUrl, literal.SyntaxTree, literal.Span, host.ToString()));
     }
 
     /// <summary>Returns the request URL argument, honouring an explicit <c>requestUri:</c> name.</summary>
@@ -136,7 +136,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="urlArgument">The request URL argument expression.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns>The cleartext-http string literal, or <see langword="null"/> when the argument is not one.</returns>
-    private static LiteralExpressionSyntax? GetCleartextHttpLiteral(ExpressionSyntax urlArgument, out string host)
+    private static LiteralExpressionSyntax? GetCleartextHttpLiteral(ExpressionSyntax urlArgument, out ReadOnlySpan<char> host)
     {
         if (urlArgument is LiteralExpressionSyntax stringLiteral && IsCleartextHttpLiteral(stringLiteral, out host))
         {
@@ -148,7 +148,7 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
             return GetUriCreationLiteral(objectCreation, out host);
         }
 
-        host = string.Empty;
+        host = default;
         return null;
     }
 
@@ -156,9 +156,9 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="expression">The candidate <c>new Uri(...)</c> expression.</param>
     /// <param name="host">When matched, the parsed non-loopback host of the URL.</param>
     /// <returns>The cleartext-http string literal, or <see langword="null"/> when the shape does not match.</returns>
-    private static LiteralExpressionSyntax? GetUriCreationLiteral(ExpressionSyntax expression, out string host)
+    private static LiteralExpressionSyntax? GetUriCreationLiteral(ExpressionSyntax expression, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         return expression is not ObjectCreationExpressionSyntax { ArgumentList: { } argumentList }
             || argumentList.Arguments.Count == 0
             || GetUriStringArgument(argumentList) is not LiteralExpressionSyntax stringLiteral
@@ -198,9 +198,9 @@ public sealed class Ses1106CleartextHttpUrlAnalyzer : DiagnosticAnalyzer
     /// <param name="literal">The candidate string literal.</param>
     /// <param name="host">When matched, the parsed non-loopback host.</param>
     /// <returns><see langword="true"/> for a reportable cleartext-http literal.</returns>
-    private static bool IsCleartextHttpLiteral(LiteralExpressionSyntax literal, out string host)
+    private static bool IsCleartextHttpLiteral(LiteralExpressionSyntax literal, out ReadOnlySpan<char> host)
     {
-        host = string.Empty;
+        host = default;
         if (!literal.IsKind(SyntaxKind.StringLiteralExpression))
         {
             return false;

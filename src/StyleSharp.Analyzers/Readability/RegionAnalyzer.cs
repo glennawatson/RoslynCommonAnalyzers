@@ -34,24 +34,58 @@ public sealed class RegionAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxTreeAnalysisContext context)
     {
         var root = context.Tree.GetRoot(context.CancellationToken);
-        if (!root.ContainsDirectives)
+        AnalyzeNode(root, context);
+    }
+
+    /// <summary>Visits token trivia only in subtrees that contain directives.</summary>
+    /// <param name="node">The subtree to scan.</param>
+    /// <param name="context">The syntax tree analysis context.</param>
+    private static void AnalyzeNode(SyntaxNode node, in SyntaxTreeAnalysisContext context)
+    {
+        if (!node.ContainsDirectives)
         {
             return;
         }
 
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+        var children = node.ChildNodesAndTokens();
+        for (var i = 0; i < children.Count; i++)
         {
-            if (!trivia.IsKind(SyntaxKind.RegionDirectiveTrivia))
+            var child = children[i];
+            if (child.AsNode() is { } childNode)
             {
-                continue;
+                AnalyzeNode(childNode, context);
+            }
+            else
+            {
+                var token = child.AsToken();
+                AnalyzeTrivia(token.LeadingTrivia, context);
+                AnalyzeTrivia(token.TrailingTrivia, context);
+            }
+        }
+    }
+
+    /// <summary>Reports region trivia and visits directives nested inside structured trivia.</summary>
+    /// <param name="triviaList">The token's leading or trailing trivia.</param>
+    /// <param name="context">The syntax tree analysis context.</param>
+    private static void AnalyzeTrivia(in SyntaxTriviaList triviaList, in SyntaxTreeAnalysisContext context)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
+        {
+            var trivia = triviaList[i];
+            if (trivia.IsKind(SyntaxKind.RegionDirectiveTrivia))
+            {
+                var location = Location.Create(context.Tree, trivia.Span);
+                context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.DoNotUseRegions, location));
+
+                if (IsWithinElement(trivia))
+                {
+                    context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.RegionWithinElement, location));
+                }
             }
 
-            var location = Location.Create(context.Tree, trivia.Span);
-            context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.DoNotUseRegions, location));
-
-            if (IsWithinElement(trivia))
+            if (trivia.HasStructure && trivia.GetStructure() is { } structure)
             {
-                context.ReportDiagnostic(Diagnostic.Create(ReadabilityRules.RegionWithinElement, location));
+                AnalyzeNode(structure, context);
             }
         }
     }

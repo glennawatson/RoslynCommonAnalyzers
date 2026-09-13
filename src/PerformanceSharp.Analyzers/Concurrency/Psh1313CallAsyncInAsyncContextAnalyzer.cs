@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Concurrent;
 using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
@@ -46,7 +47,7 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(static start =>
         {
             var taskSymbols = new TaskSymbols(start.Compilation);
-            var siblings = new Dictionary<ISymbol, IMethodSymbol?>(capacity: 31, SymbolEqualityComparer.Default);
+            var siblings = new ConcurrentDictionary<IMethodSymbol, IMethodSymbol?>(concurrencyLevel: 1, capacity: 31, SymbolEqualityComparer.Default);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, taskSymbols, siblings), SyntaxKind.InvocationExpression);
         });
     }
@@ -58,7 +59,7 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeInvocation(
         in SyntaxNodeAnalysisContext context,
         TaskSymbols taskSymbols,
-        Dictionary<ISymbol, IMethodSymbol?> siblings)
+        ConcurrentDictionary<IMethodSymbol, IMethodSymbol?> siblings)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(invocation)
@@ -69,16 +70,7 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        IMethodSymbol? sibling;
-        lock (siblings)
-        {
-            if (!siblings.TryGetValue(sync, out sibling))
-            {
-                sibling = AsyncSiblingResolver.TryResolveAsyncSibling(sync, tasks);
-                siblings.Add(sync, sibling);
-            }
-        }
-
+        var sibling = siblings.GetOrAdd(sync, static (key, state) => AsyncSiblingResolver.TryResolveAsyncSibling(key, state), tasks);
         if (sibling is null)
         {
             return;

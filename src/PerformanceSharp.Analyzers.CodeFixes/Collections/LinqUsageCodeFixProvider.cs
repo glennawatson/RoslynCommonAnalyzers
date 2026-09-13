@@ -121,7 +121,7 @@ public sealed class LinqUsageCodeFixProvider : CodeFixProvider, IBatchFixableCod
 
         oldNode = invocation;
         var ofTypeName = SyntaxFactory.GenericName(SyntaxFactory.Identifier("OfType"), typeArguments.WithoutTrivia());
-        var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrivia(), ofTypeName);
-        return invocation.WithExpression(memberAccess).WithTriviaFrom(invocation);
+        var memberAccess = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, receiver.WithoutTrailingTrivia(), ofTypeName);
+        return invocation.WithExpression(memberAccess);
     }
 }

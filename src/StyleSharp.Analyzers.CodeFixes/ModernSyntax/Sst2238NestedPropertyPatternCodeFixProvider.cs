@@ -57,11 +57,10 @@ public sealed class Sst2238NestedPropertyPatternCodeFixProvider : CodeFixProvide
         }
 
         var flattened = SyntaxFactory.Subpattern(
-                SyntaxFactory.ExpressionColon(
-                    path,
-                    SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))),
-                inner.Pattern.WithoutTrivia())
-            .WithTriviaFrom(outer);
+            SyntaxFactory.ExpressionColon(
+                path.WithLeadingTrivia(outer.GetLeadingTrivia()),
+                SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.ColonToken, SyntaxFactory.TriviaList(SyntaxFactory.Space))),
+            inner.Pattern.WithoutLeadingTrivia().WithTrailingTrivia(outer.GetTrailingTrivia()));
 
         return new NodeReplacement(outer, flattened);
     }

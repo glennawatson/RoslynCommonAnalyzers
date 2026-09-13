@@ -79,7 +79,7 @@ public sealed class Psh1409ThrowHelperCodeFixProvider : CodeFixProvider, IBatchF
             ? ImmutableArrays.Of(SyntaxFactory.Argument(shape.Value.WithoutTrivia()))
             : ImmutableArrays.Of(
                 SyntaxFactory.Argument(shape.Value.WithoutTrivia()),
-                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, shape.Operand.WithoutTrivia().WithLeadingTrivia(SyntaxFactory.Space)));
+                SyntaxFactory.Argument(nameColon: null, refKindKeyword: default, shape.Operand.WithoutTrailingTrivia().WithLeadingTrivia(SyntaxFactory.Space)));
     }
 
     /// <summary>Builds the disposal helper's instance argument: <c>this</c>, or <c>typeof(...)</c> in static contexts.</summary>

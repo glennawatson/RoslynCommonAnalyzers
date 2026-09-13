@@ -64,7 +64,7 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
                 SyntaxFactory.Token(SyntaxKind.OpenParenToken),
                 SyntaxFactory.SeparatedList(ImmutableArrays.Of(
                     SyntaxFactory.Argument(comparison.Left.WithoutTrivia()),
-                    SyntaxFactory.Argument(null, default, comparison.Right.WithoutTrivia().WithLeadingTrivia(SyntaxFactory.Space)))),
+                    SyntaxFactory.Argument(null, default, comparison.Right.WithoutTrailingTrivia().WithLeadingTrivia(SyntaxFactory.Space)))),
                 SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.CloseParenToken, invocation.GetTrailingTrivia())));
 
         return new NodeReplacement(invocation, replacement);

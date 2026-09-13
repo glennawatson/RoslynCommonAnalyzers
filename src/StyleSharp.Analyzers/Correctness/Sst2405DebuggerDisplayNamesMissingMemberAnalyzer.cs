@@ -43,6 +43,9 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.DebuggerDisplayNamesMissingMember);
 
+    /// <summary>The attribute syntax kind shared by every registration.</summary>
+    private static readonly SyntaxKind[] AnalyzedKinds = [SyntaxKind.Attribute];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
         SupportedDiagnosticsValue;
@@ -52,7 +55,7 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.Attribute);
+        context.RegisterSyntaxNodeAction(Analyze, AnalyzedKinds);
     }
 
     /// <summary>Analyzes one attribute.</summary>

@@ -52,7 +52,7 @@ public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider, IBatc
             return;
         }
 
-        var left = binary.Left.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space);
+        var left = binary.Left.WithoutLeadingTrivia().WithTrailingTrivia(SyntaxFactory.Space);
         var operatorToken = SyntaxFactory.Token(default, tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var right = binary.Right.WithoutTrivia();
         editor.ReplaceNode(not, SyntaxFactory.BinaryExpression(expressionKind, left, operatorToken, right).WithTriviaFrom(not));
@@ -68,7 +68,7 @@ public sealed class InvertedBooleanCheckCodeFixProvider : CodeFixProvider, IBatc
     {
         _ = ExpressionSimplificationAnalyzer.TryGetOpposite(binary.Kind(), out var expressionKind, out var tokenKind, out _);
 
-        var left = binary.Left.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space);
+        var left = binary.Left.WithoutLeadingTrivia().WithTrailingTrivia(SyntaxFactory.Space);
         var operatorToken = SyntaxFactory.Token(default, tokenKind, SyntaxFactory.TriviaList(SyntaxFactory.Space));
         var right = binary.Right.WithoutTrivia();
         var replacement = SyntaxFactory.BinaryExpression(expressionKind, left, operatorToken, right).WithTriviaFrom(not);

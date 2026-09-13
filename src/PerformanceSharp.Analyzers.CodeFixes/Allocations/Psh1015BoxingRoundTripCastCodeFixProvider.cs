@@ -48,6 +48,10 @@ public sealed class Psh1015BoxingRoundTripCastCodeFixProvider : CodeFixProvider,
     private static CastExpressionSyntax Rewrite(CastExpressionSyntax cast)
     {
         var objectCast = Psh1015BoxingRoundTripCastAnalyzer.TryGetObjectCast(cast)!;
-        return cast.WithExpression(objectCast.Expression.WithoutTrivia()).WithTriviaFrom(cast);
+        return cast.Update(
+            cast.OpenParenToken,
+            cast.Type,
+            cast.CloseParenToken,
+            objectCast.Expression.WithoutLeadingTrivia().WithTrailingTrivia(cast.GetTrailingTrivia()));
     }
 }

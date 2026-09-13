@@ -139,22 +139,43 @@ public sealed class Sst1662ThrownExceptionDocumentationCodeFixProvider : CodeFix
     /// </remarks>
     private static string BuildElements(string joined, string? joinedDescriptions, string indent, string newLine)
     {
-        var crefs = joined.Split('\n');
-        var descriptions = (joinedDescriptions ?? string.Empty).Split('\n');
-        var elementLength = indent.Length + "/// <exception cref=\"".Length + "\">".Length + "</exception>".Length + newLine.Length;
-        var capacity = joined.Length + (joinedDescriptions?.Length ?? 0) + (crefs.Length * elementLength);
-        var builder = new StringBuilder(capacity);
-        for (var i = 0; i < crefs.Length; i++)
+        var crefCount = 1;
+        foreach (var character in joined)
         {
-            var crefText = crefs[i];
-            var description = i < descriptions.Length ? descriptions[i] : string.Empty;
-            if (crefText.Length == 0 || description.Length == 0)
+            if (character == '\n')
             {
-                continue;
+                crefCount++;
+            }
+        }
+
+        var descriptions = joinedDescriptions ?? string.Empty;
+        var elementLength = indent.Length + "/// <exception cref=\"".Length + "\">".Length + "</exception>".Length + newLine.Length;
+        var capacity = joined.Length + descriptions.Length + (crefCount * elementLength);
+        var builder = new StringBuilder(capacity);
+        var crefStart = 0;
+        var descriptionStart = 0;
+        while (crefStart < joined.Length)
+        {
+            var crefEnd = joined.IndexOf('\n', crefStart);
+            if (crefEnd < 0)
+            {
+                crefEnd = joined.Length;
             }
 
-            _ = builder.Append(indent).Append("/// <exception cref=\"").Append(crefText).Append("\">")
-                .Append(description).Append("</exception>").Append(newLine);
+            var descriptionEnd = descriptions.IndexOf('\n', descriptionStart);
+            if (descriptionEnd < 0)
+            {
+                descriptionEnd = descriptions.Length;
+            }
+
+            if (crefEnd > crefStart && descriptionEnd > descriptionStart)
+            {
+                _ = builder.Append(indent).Append("/// <exception cref=\"").Append(joined, crefStart, crefEnd - crefStart).Append("\">")
+                    .Append(descriptions, descriptionStart, descriptionEnd - descriptionStart).Append("</exception>").Append(newLine);
+            }
+
+            crefStart = crefEnd + 1;
+            descriptionStart = descriptionEnd < descriptions.Length ? descriptionEnd + 1 : descriptions.Length;
         }
 
         return builder.ToString();

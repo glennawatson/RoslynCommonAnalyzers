@@ -25,6 +25,9 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
     /// <summary>The multiplier for the key hash.</summary>
     private const int HashFactor = 31;
 
+    /// <summary>The minimum number of elements that can duplicate one another.</summary>
+    private const int MinimumComparableElements = 2;
+
     /// <summary>The documentation-comment node kinds the rule inspects.</summary>
     private static readonly ImmutableArray<SyntaxKind> HandledKinds = ImmutableArrays.Of(
         SyntaxKind.SingleLineDocumentationCommentTrivia,
@@ -50,6 +53,19 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
     private static void Analyze(SyntaxNodeAnalysisContext context)
     {
         var documentation = (DocumentationCommentTriviaSyntax)context.Node;
+        var elementCount = 0;
+        foreach (var node in documentation.Content)
+        {
+            if (node is XmlElementSyntax)
+            {
+                elementCount++;
+            }
+        }
+
+        if (elementCount < MinimumComparableElements)
+        {
+            return;
+        }
 
         // The buffer is built once and cleared per element. Only the hash of each key is kept, so a
         // comment whose elements all differ - which is nearly all of them - never materialises a key
@@ -76,7 +92,8 @@ public sealed class Sst1625DuplicateDocumentationAnalyzer : DiagnosticAnalyzer
             var hash = KeyHash(builder);
             if (seen is null)
             {
-                seen = [new ElementKey(hash, element)];
+                seen = new(elementCount);
+                seen.Add(new(hash, element));
                 continue;
             }
 

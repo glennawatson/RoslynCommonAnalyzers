@@ -71,9 +71,16 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixPro
             return false;
         }
 
-        var anyAsyncCall = shape.Invocation
-            .WithExpression(memberAccess.WithName(SyntaxFactory.IdentifierName(Psh1126UseAnyAsyncOverCountAsyncAnalyzer.AnyAsyncMethodName)))
-            .WithoutTrivia();
+        var arguments = shape.Invocation.ArgumentList;
+        var anyAsyncCall = shape.Invocation.Update(
+            memberAccess.Update(
+                memberAccess.Expression.WithoutLeadingTrivia(),
+                memberAccess.OperatorToken,
+                SyntaxFactory.IdentifierName(Psh1126UseAnyAsyncOverCountAsyncAnalyzer.AnyAsyncMethodName)),
+            arguments.Update(
+                arguments.OpenParenToken,
+                arguments.Arguments,
+                arguments.CloseParenToken.WithTrailingTrivia(binary.GetTrailingTrivia())));
 
         if (!BindsToAnySibling(model, binary.SpanStart, anyAsyncCall))
         {
@@ -81,14 +88,20 @@ public sealed class Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider : CodeFixPro
         }
 
         ExpressionSyntax result = SyntaxFactory.AwaitExpression(
-            SyntaxFactory.Token(default, SyntaxKind.AwaitKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            SyntaxFactory.Token(
+                shape.HasElements ? binary.GetLeadingTrivia() : default,
+                SyntaxKind.AwaitKeyword,
+                SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             anyAsyncCall);
         if (!shape.HasElements)
         {
-            result = SyntaxFactory.PrefixUnaryExpression(SyntaxKind.LogicalNotExpression, result);
+            result = SyntaxFactory.PrefixUnaryExpression(
+                SyntaxKind.LogicalNotExpression,
+                SyntaxFactory.Token(binary.GetLeadingTrivia(), SyntaxKind.ExclamationToken, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+                result);
         }
 
-        replacement = result.WithTriviaFrom(binary).WithAdditionalAnnotations(Formatter.Annotation);
+        replacement = result.WithAdditionalAnnotations(Formatter.Annotation);
         return true;
     }
 

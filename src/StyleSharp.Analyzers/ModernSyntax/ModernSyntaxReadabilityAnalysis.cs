@@ -52,9 +52,27 @@ internal static class ModernSyntaxReadabilityAnalysis
             return false;
         }
 
-        var literalExpression = SyntaxFactory.LiteralExpression(SyntaxKind.StringLiteralExpression, SyntaxFactory.Literal(literal.Token.ValueText));
-        var suffix = target == Utf8ArrayTarget ? "u8.ToArray()" : "u8";
-        replacement = SyntaxFactory.ParseExpression(literalExpression.Token.Text + suffix).WithTriviaFrom(expression);
+        var isArray = target == Utf8ArrayTarget;
+        var valueText = literal.Token.ValueText;
+        var token = SyntaxFactory.Token(
+            expression.GetLeadingTrivia(),
+            SyntaxKind.Utf8StringLiteralToken,
+            $"{SymbolDisplay.FormatLiteral(valueText, quote: true)}u8",
+            valueText,
+            isArray ? default : expression.GetTrailingTrivia());
+        var utf8Literal = SyntaxFactory.LiteralExpression(SyntaxKind.Utf8StringLiteralExpression, token);
+        replacement = isArray
+            ? SyntaxFactory.InvocationExpression(
+                SyntaxFactory.MemberAccessExpression(
+                    SyntaxKind.SimpleMemberAccessExpression,
+                    utf8Literal,
+                    SyntaxFactory.Token(SyntaxKind.DotToken),
+                    SyntaxFactory.IdentifierName("ToArray")),
+                SyntaxFactory.ArgumentList(
+                    SyntaxFactory.Token(SyntaxKind.OpenParenToken),
+                    default,
+                    SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, expression.GetTrailingTrivia())))
+            : utf8Literal;
         return true;
     }
 

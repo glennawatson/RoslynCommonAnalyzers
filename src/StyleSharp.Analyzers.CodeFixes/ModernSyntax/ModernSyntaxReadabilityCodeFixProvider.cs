@@ -184,10 +184,10 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
 
         oldNode = isPattern;
         return SyntaxFactory.BinaryExpression(
-                SyntaxKind.IsExpression,
-                isPattern.Expression.WithoutTrivia(),
-                pattern.Type.WithTrailingTrivia())
-            .WithTriviaFrom(isPattern);
+            SyntaxKind.IsExpression,
+            isPattern.Expression.WithoutTrailingTrivia(),
+            SyntaxFactory.Token(SyntaxKind.IsKeyword),
+            pattern.Type.WithTrailingTrivia(isPattern.GetTrailingTrivia()));
     }
 
     /// <summary>Creates a tuple deconstruction declaration and removes copied element locals.</summary>
@@ -301,7 +301,11 @@ public sealed class ModernSyntaxReadabilityCodeFixProvider : CodeFixProvider, IB
             return null;
         }
 
-        return argument.WithNameColon(null).WithTriviaFrom(argument);
+        var refKeyword = argument.RefKindKeyword;
+        return argument.Update(
+            nameColon: null,
+            refKeyword.RawKind == 0 ? refKeyword : refKeyword.WithLeadingTrivia(argument.GetLeadingTrivia()),
+            refKeyword.RawKind == 0 ? argument.Expression.WithLeadingTrivia(argument.GetLeadingTrivia()) : argument.Expression);
     }
 
     /// <summary>Creates a <c>System.HashCode.Combine</c> replacement.</summary>

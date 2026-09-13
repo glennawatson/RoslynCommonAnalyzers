@@ -242,7 +242,7 @@ public sealed class Sst1467UseForeachOverManualEnumeratorCodeFixProvider : CodeF
                 SyntaxFactory.Token(declaration.GetLeadingTrivia(), SyntaxKind.ForEachKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
                 SyntaxFactory.Token(SyntaxKind.OpenParenToken),
                 type.WithoutTrivia(),
-                identifier.WithLeadingTrivia(default(SyntaxTriviaList)).WithTrailingTrivia(default(SyntaxTriviaList)),
+                identifier.WithoutTrivia(),
                 SyntaxFactory.Token(SyntaxKind.InKeyword),
                 source.WithoutTrivia(),
                 SyntaxFactory.Token(SyntaxKind.CloseParenToken),

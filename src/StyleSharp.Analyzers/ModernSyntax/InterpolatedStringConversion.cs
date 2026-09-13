@@ -5,6 +5,8 @@
 using System.Globalization;
 using System.Text;
 
+using Microsoft.CodeAnalysis.Text;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -487,13 +489,13 @@ internal static class InterpolatedStringConversion
         }
 
         SkipSpaces(format, ref position);
-        var alignment = string.Empty;
+        var alignment = default(TextSpan);
         if (position < format.Length && format[position] == ',' && !TryReadAlignment(format, ref position, out alignment))
         {
             return false;
         }
 
-        var formatSpecifier = string.Empty;
+        var formatSpecifier = default(TextSpan);
         if (position < format.Length && format[position] == ':' && !TryReadFormatSpecifier(format, ref position, out formatSpecifier))
         {
             return false;
@@ -506,9 +508,25 @@ internal static class InterpolatedStringConversion
 
         used[reference] = true;
         usedCount++;
-        _ = builder.Append('{').Append(HoleText(values[reference])).Append(alignment).Append(formatSpecifier).Append('}');
+        _ = builder.Append('{').Append(HoleText(values[reference]));
+        AppendFormatClauses(builder, format, alignment, formatSpecifier);
         index = position + 1;
         return true;
+    }
+
+    /// <summary>Appends validated clause ranges without allocating temporary strings.</summary>
+    /// <param name="builder">The interpolated-string body under construction.</param>
+    /// <param name="format">The original composite format string.</param>
+    /// <param name="alignment">The signed alignment digits, or an empty span when absent.</param>
+    /// <param name="formatSpecifier">The format clause including its colon, or an empty span when absent.</param>
+    private static void AppendFormatClauses(StringBuilder builder, string format, TextSpan alignment, TextSpan formatSpecifier)
+    {
+        if (!alignment.IsEmpty)
+        {
+            _ = builder.Append(',').Append(format, alignment.Start, alignment.Length);
+        }
+
+        _ = builder.Append(format, formatSpecifier.Start, formatSpecifier.Length).Append('}');
     }
 
     /// <summary>Reads a placeholder's numeric index and confirms it references an unused value.</summary>
@@ -543,16 +561,17 @@ internal static class InterpolatedStringConversion
         return position != start && reference < valueCount && !used[reference];
     }
 
-    /// <summary>Reads a <c>,[-]digits</c> alignment clause into its canonical spelling.</summary>
+    /// <summary>Reads the signed digits of an alignment clause without copying its text.</summary>
     /// <param name="format">The format string.</param>
     /// <param name="position">The scan position, standing on the comma and advanced past the clause.</param>
-    /// <param name="alignment">The canonical alignment, such as <c>,-5</c>.</param>
+    /// <param name="alignment">The signed digits, excluding the comma and surrounding spaces.</param>
     /// <returns><see langword="true"/> when a well-formed alignment was read.</returns>
-    private static bool TryReadAlignment(string format, ref int position, out string alignment)
+    private static bool TryReadAlignment(string format, ref int position, out TextSpan alignment)
     {
-        alignment = null!;
+        alignment = default;
         position++;
         SkipSpaces(format, ref position);
+        var alignmentStart = position;
         var negative = position < format.Length && format[position] == '-';
         if (negative)
         {
@@ -570,22 +589,21 @@ internal static class InterpolatedStringConversion
             return false;
         }
 
-        var digits = format.Substring(start, position - start);
+        alignment = TextSpan.FromBounds(alignmentStart, position);
         SkipSpaces(format, ref position);
-        alignment = negative ? $",-{digits}" : $",{digits}";
         return true;
     }
 
     /// <summary>Reads a <c>:format</c> clause, refusing anything a plain interpolated string could not carry verbatim.</summary>
     /// <param name="format">The format string.</param>
     /// <param name="position">The scan position, standing on the colon and advanced to the closing brace.</param>
-    /// <param name="formatSpecifier">The clause, such as <c>:X2</c>.</param>
+    /// <param name="formatSpecifier">The range of the clause, including its colon.</param>
     /// <returns><see langword="true"/> when the clause holds only characters valid inside a hole.</returns>
-    private static bool TryReadFormatSpecifier(string format, ref int position, out string formatSpecifier)
+    private static bool TryReadFormatSpecifier(string format, ref int position, out TextSpan formatSpecifier)
     {
-        formatSpecifier = null!;
-        position++;
+        formatSpecifier = default;
         var start = position;
+        position++;
         while (position < format.Length && format[position] != '}')
         {
             var current = format[position];
@@ -602,7 +620,7 @@ internal static class InterpolatedStringConversion
             return false;
         }
 
-        formatSpecifier = $":{format.Substring(start, position - start)}";
+        formatSpecifier = TextSpan.FromBounds(start, position);
         return true;
     }
 

@@ -75,9 +75,20 @@ public sealed class Sst1465CollapseElseIntoElseIfCodeFixProvider : CodeFixProvid
     {
         var block = (BlockSyntax)elseClause.Statement;
         var innerIf = (IfStatementSyntax)block.Statements[0];
-        var hoisted = innerIf
-            .WithLeadingTrivia(BuildLeadingTrivia(elseClause, block, innerIf))
-            .WithTrailingTrivia(BuildTrailingTrivia(block, innerIf))
+        var leading = BuildLeadingTrivia(elseClause, block, innerIf);
+        var trailing = BuildTrailingTrivia(block, innerIf);
+        var hoisted = innerIf.Update(
+                innerIf.AttributeLists.Count == 0
+                    ? innerIf.AttributeLists
+                    : innerIf.AttributeLists.Replace(
+                        innerIf.AttributeLists[0],
+                        innerIf.AttributeLists[0].WithLeadingTrivia(leading)),
+                innerIf.AttributeLists.Count == 0 ? innerIf.IfKeyword.WithLeadingTrivia(leading) : innerIf.IfKeyword,
+                innerIf.OpenParenToken,
+                innerIf.Condition,
+                innerIf.CloseParenToken,
+                innerIf.Else is null ? innerIf.Statement.WithTrailingTrivia(trailing) : innerIf.Statement,
+                innerIf.Else?.WithTrailingTrivia(trailing))
             .WithAdditionalAnnotations(Formatter.Annotation);
         return elseClause.Update(
             elseClause.ElseKeyword.WithTrailingTrivia(SyntaxFactory.Space),

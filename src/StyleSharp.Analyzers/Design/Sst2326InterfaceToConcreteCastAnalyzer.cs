@@ -48,6 +48,15 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(DesignRules.InterfaceToConcreteCast);
 
+    /// <summary>The narrowing syntax kinds shared by every compilation registration.</summary>
+    private static readonly SyntaxKind[] AnalyzedKinds =
+    [
+        SyntaxKind.CastExpression,
+        SyntaxKind.AsExpression,
+        SyntaxKind.IsExpression,
+        SyntaxKind.IsPatternExpression,
+    ];
+
     /// <inheritdoc/>
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => SupportedDiagnosticsValue;
 
@@ -61,10 +70,7 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
             var types = new AllowedTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, types),
-                SyntaxKind.CastExpression,
-                SyntaxKind.AsExpression,
-                SyntaxKind.IsExpression,
-                SyntaxKind.IsPatternExpression);
+                AnalyzedKinds);
         });
     }
 

@@ -151,8 +151,8 @@ public sealed class ModernSyntaxFlowCodeFixProvider : CodeFixProvider
 
         var declarationExpression = SyntaxFactory.DeclarationExpression(
             SyntaxFactory.IdentifierName("var"),
-            SyntaxFactory.SingleVariableDesignation(identifier.Identifier.WithoutTrivia()));
-        var replacementArgument = argument.WithExpression(declarationExpression).WithTriviaFrom(argument);
+            SyntaxFactory.SingleVariableDesignation(identifier.Identifier.WithLeadingTrivia(default(SyntaxTriviaList))));
+        var replacementArgument = argument.Update(argument.NameColon, argument.RefKindKeyword, declarationExpression);
         var updatedNext = nextStatement.ReplaceNode(argument, replacementArgument);
         var index = block.Statements.IndexOf(declaration);
         var statements = block.Statements.Replace(nextStatement, updatedNext).RemoveAt(index);

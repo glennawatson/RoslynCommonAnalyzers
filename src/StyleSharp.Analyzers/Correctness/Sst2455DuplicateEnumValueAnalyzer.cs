@@ -96,7 +96,7 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
     {
         var declaration = (EnumDeclarationSyntax)context.Node;
         var members = declaration.Members;
-        if (members.Count < 2)
+        if (members.Count < 2 || !HasExplicitValues(members))
         {
             return;
         }
@@ -128,5 +128,21 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
                 member.Identifier.ValueText,
                 first));
         }
+    }
+
+    /// <summary>Checks whether any initializer can interrupt the enum's distinct implicit sequence.</summary>
+    /// <param name="members">The enum's members in declaration order.</param>
+    /// <returns>Whether at least one member has an explicit value.</returns>
+    private static bool HasExplicitValues(SeparatedSyntaxList<EnumMemberDeclarationSyntax> members)
+    {
+        for (var i = 0; i < members.Count; i++)
+        {
+            if (members[i].EqualsValue is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -160,13 +160,38 @@ public sealed class Sst2445CultureSensitiveDateFormatCodeFixProvider : CodeFixPr
         span = default;
         var separator = text.IndexOf(':');
         if (separator < 0
-            || !int.TryParse(text[0..(0 + separator)], out var start)
-            || !int.TryParse(text.Substring(separator + 1), out var length))
+            || !TryParseComponent(text.AsSpan(0, separator), out var start)
+            || !TryParseComponent(text.AsSpan(separator + 1), out var length))
         {
             return false;
         }
 
         span = new(start, length);
         return true;
+
+        static bool TryParseComponent(ReadOnlySpan<char> segment, out int value)
+        {
+            const int DecimalRadix = 10;
+            value = 0;
+            if (System.Globalization.NumberFormatInfo.CurrentInfo is not { PositiveSign: "+", NegativeSign: "-" })
+            {
+                return int.TryParse(segment.ToString(), out value);
+            }
+
+            // netstandard2.0 has no span-based int.TryParse. Only non-canonical input needs
+            // a string to preserve its handling of signs, whitespace, overflow and culture.
+            foreach (var character in segment)
+            {
+                var digit = character - '0';
+                if (character is < '0' or > '9' || value > (int.MaxValue - digit) / DecimalRadix)
+                {
+                    return int.TryParse(segment.ToString(), out value);
+                }
+
+                value = (value * DecimalRadix) + digit;
+            }
+
+            return !segment.IsEmpty;
+        }
     }
 }

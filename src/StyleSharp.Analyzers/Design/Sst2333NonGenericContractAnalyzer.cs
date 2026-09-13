@@ -58,15 +58,15 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var contracts = new ContractTypes(start.Compilation);
-            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, contracts), SymbolKind.NamedType);
+            ContractTypes? contracts = null;
+            start.RegisterSymbolAction(symbolContext => Analyze(symbolContext, ref contracts), SymbolKind.NamedType);
         });
     }
 
     /// <summary>Reports each generic contract on a type whose non-generic counterpart is missing.</summary>
     /// <param name="context">The symbol analysis context.</param>
     /// <param name="contractTypes">The comparison contracts resolved on first demand.</param>
-    private static void Analyze(in SymbolAnalysisContext context, ContractTypes contractTypes)
+    private static void Analyze(in SymbolAnalysisContext context, ref ContractTypes? contractTypes)
     {
         var type = (INamedTypeSymbol)context.Symbol;
         if (type.TypeKind is not (TypeKind.Class or TypeKind.Struct)
@@ -74,8 +74,13 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
             || !SymbolVisibility.IsExternallyVisible(type)
             || type.Locations.IsEmpty
             || !type.Locations[0].IsInSource
-            || type.AllInterfaces.IsEmpty
-            || contractTypes.Get() is not { } contracts)
+            || !HasPossibleContract(type.AllInterfaces))
+        {
+            return;
+        }
+
+        var resolvedTypes = Volatile.Read(ref contractTypes) ?? CreateContractTypes(context.Compilation, ref contractTypes);
+        if (resolvedTypes.Get() is not { } contracts)
         {
             return;
         }
@@ -84,6 +89,33 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
         ReportForInterfaceCounterpart(context, type, contracts.ComparerOfT, contracts.Comparer, ComparerContract);
         ReportForInterfaceCounterpart(context, type, contracts.EqualityComparerOfT, contracts.EqualityComparer, EqualityComparerContract);
         ReportEquatable(context, contracts, type);
+    }
+
+    /// <summary>Rejects unrelated interfaces before creating the compilation's contract cache.</summary>
+    /// <param name="interfaces">All interfaces implemented by the candidate type.</param>
+    /// <returns>Whether an interface has the name and arity of a comparison contract.</returns>
+    private static bool HasPossibleContract(ImmutableArray<INamedTypeSymbol> interfaces)
+    {
+        for (var i = 0; i < interfaces.Length; i++)
+        {
+            var candidate = interfaces[i];
+            if (candidate.Arity == 1 && candidate.Name is "IComparable" or "IComparer" or "IEqualityComparer" or "IEquatable")
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Creates the compilation cache only after a possible contract is encountered.</summary>
+    /// <param name="compilation">The compilation whose contracts are cached.</param>
+    /// <param name="contractTypes">The lazily published cache.</param>
+    /// <returns>The single cache used by all subsequent callbacks.</returns>
+    private static ContractTypes CreateContractTypes(Compilation compilation, ref ContractTypes? contractTypes)
+    {
+        var created = new ContractTypes(compilation);
+        return Interlocked.CompareExchange(ref contractTypes, created, null) ?? created;
     }
 
     /// <summary>Reports <c>IComparable&lt;T&gt;</c> without the non-generic <c>IComparable</c>.</summary>
@@ -184,12 +216,33 @@ public sealed class Sst2333NonGenericContractAnalyzer : DiagnosticAnalyzer
     /// <param name="compilation">The compilation whose contracts are cached.</param>
     private sealed class ContractTypes(Compilation compilation)
     {
+        /// <summary>Serializes metadata resolution on concurrent first demand.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The published result, including a missing set of contracts.</summary>
         private ComparisonContractTypes?[]? _resolved;
 
         /// <summary>Gets the contracts, resolving them on first demand.</summary>
         /// <returns>The contracts, or null when the framework has none.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public ComparisonContractTypes? Get() => (_resolved ??= [ComparisonContractTypes.Create(compilation)])[0];
+        public ComparisonContractTypes? Get() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Resolves and publishes the complete contract set exactly once.</summary>
+        /// <returns>The cached result, including a missing contract set.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private ComparisonContractTypes?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [ComparisonContractTypes.Create(compilation)];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

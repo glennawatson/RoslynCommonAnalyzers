@@ -236,6 +236,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         }
 
         candidate.HasLockUse = true;
+        candidates[candidate.Variable.Identifier.ValueText] = candidate;
         return true;
     }
 
@@ -441,10 +442,13 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         if (IsLockTarget(identifier))
         {
             candidate.HasLockUse = true;
-            return true;
+        }
+        else
+        {
+            candidate.HasNonLockUse = true;
         }
 
-        candidate.HasNonLockUse = true;
+        state.Candidates[identifier.Identifier.ValueText] = candidate;
         return true;
     }
 
@@ -465,6 +469,18 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         SemanticModel Model,
         Dictionary<string, CandidateFieldState> Candidates,
         CancellationToken CancellationToken);
+
+    /// <summary>Tracks the lock-only usage state for one candidate field within the candidate dictionary.</summary>
+    /// <param name="FieldSymbol">The candidate field symbol.</param>
+    /// <param name="Variable">The candidate variable declarator.</param>
+    private record struct CandidateFieldState(IFieldSymbol FieldSymbol, VariableDeclaratorSyntax Variable)
+    {
+        /// <summary>Gets or sets a value indicating whether a qualifying lock use was found.</summary>
+        public bool HasLockUse { get; set; }
+
+        /// <summary>Gets or sets a value indicating whether a non-lock use was found.</summary>
+        public bool HasNonLockUse { get; set; }
+    }
 
     /// <summary>Defers lock availability and type tracking until the first candidate field.</summary>
     /// <param name="compilation">The compilation whose references are searched.</param>
@@ -491,30 +507,5 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryBeginAnalysis(TypeDeclarationSyntax type) =>
             _analyzedTypes.Value is { } analyzedTypes && analyzedTypes.TryAdd(type, 0);
-    }
-
-    /// <summary>Tracks the lock-only usage state for one candidate field.</summary>
-    private sealed class CandidateFieldState
-    {
-        /// <summary>Initializes a new instance of the <see cref="CandidateFieldState"/> class.</summary>
-        /// <param name="fieldSymbol">The candidate field symbol.</param>
-        /// <param name="variable">The candidate variable declarator.</param>
-        public CandidateFieldState(IFieldSymbol fieldSymbol, VariableDeclaratorSyntax variable)
-        {
-            FieldSymbol = fieldSymbol;
-            Variable = variable;
-        }
-
-        /// <summary>Gets the candidate field symbol.</summary>
-        public IFieldSymbol FieldSymbol { get; }
-
-        /// <summary>Gets the candidate variable declarator.</summary>
-        public VariableDeclaratorSyntax Variable { get; }
-
-        /// <summary>Gets or sets a value indicating whether a qualifying lock use was found.</summary>
-        public bool HasLockUse { get; set; }
-
-        /// <summary>Gets or sets a value indicating whether a non-lock use was found.</summary>
-        public bool HasNonLockUse { get; set; }
     }
 }

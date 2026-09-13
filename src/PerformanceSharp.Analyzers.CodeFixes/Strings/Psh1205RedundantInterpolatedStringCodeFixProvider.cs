@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Buffers;
 using System.Runtime.CompilerServices;
 
 namespace PerformanceSharp.Analyzers;
@@ -117,9 +118,57 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     /// <summary>Collapses the doubled braces an interpolated string uses to escape literal braces.</summary>
     /// <param name="text">The interpolated text segment value.</param>
     /// <returns>The text with <c>{{</c>/<c>}}</c> reduced to <c>{</c>/<c>}</c>.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static string UnescapeBraces(string text) =>
-        text.Replace("{{", "{").Replace("}}", "}");
+    private static string UnescapeBraces(string text)
+    {
+        var firstEscape = FindFirstEscapedBrace(text);
+        if (firstEscape < 0)
+        {
+            return text;
+        }
+
+        var buffer = ArrayPool<char>.Shared.Rent(text.Length);
+        try
+        {
+            text.CopyTo(0, buffer, 0, firstEscape);
+            var written = firstEscape;
+            for (var i = firstEscape; i < text.Length; i++)
+            {
+                var current = text[i];
+                buffer[written] = current;
+                written++;
+                if (current is not ('{' or '}') || i + 1 >= text.Length || text[i + 1] != current)
+                {
+                    continue;
+                }
+
+                i++;
+            }
+
+            return new(buffer, 0, written);
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
+        }
+    }
+
+    /// <summary>Finds the first doubled opening or closing brace in an interpolated text segment.</summary>
+    /// <param name="text">The interpolated text segment value.</param>
+    /// <returns>The first escaped brace's index, or -1 when no brace needs unescaping.</returns>
+    private static int FindFirstEscapedBrace(string text)
+    {
+        for (var i = 0; i < text.Length - 1; i++)
+        {
+            if (text[i] is not ('{' or '}') || text[i + 1] != text[i])
+            {
+                continue;
+            }
+
+            return i;
+        }
+
+        return -1;
+    }
 
     /// <summary>Returns whether a hole expression must be parenthesized once it stands alone.</summary>
     /// <param name="expression">The hole's expression.</param>

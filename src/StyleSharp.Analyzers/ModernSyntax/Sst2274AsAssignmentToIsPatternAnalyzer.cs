@@ -95,8 +95,8 @@ public sealed class Sst2274AsAssignmentToIsPatternAnalyzer : DiagnosticAnalyzer
             ? SyntaxFactory.UnaryPattern(SyntaxFactory.Token(default, SyntaxKind.NotKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)), declaration)
             : declaration;
         return SyntaxFactory.IsPatternExpression(
-            operand.WithoutTrivia().WithTrailingTrivia(SyntaxFactory.Space),
-            SyntaxFactory.Token(default, SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
+            operand.WithoutTrivia(),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.Space), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.Space)),
             pattern);
     }
 

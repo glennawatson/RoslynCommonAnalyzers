@@ -21,8 +21,8 @@ internal static class FileHeaderHelper
     /// <summary>The diagnostic property key carrying the rendered header for the code fix.</summary>
     public const string HeaderProperty = "Header";
 
-    /// <summary>The literal <c>\n</c> sequence the template uses to separate header lines.</summary>
-    private static readonly string[] LineSeparators = ["\\n"];
+    /// <summary>The placeholder replaced by the source file's name.</summary>
+    private const string FileNamePlaceholder = "{fileName}";
 
     /// <summary>Path separator characters used to extract a file name without touching the file system.</summary>
     private static readonly char[] PathSeparators = ['/', '\\'];
@@ -51,47 +51,87 @@ internal static class FileHeaderHelper
     /// <returns>The rendered <c>//</c> comment block.</returns>
     internal static string Render(string template, string? filePath)
     {
-        var lines = template.Replace("{fileName}", FileName(filePath)).Split(LineSeparators, StringSplitOptions.None);
-
-        var capacity = lines.Length - 1;
-        for (var i = 0; i < lines.Length; i++)
+        var builder = new StringBuilder(template.Length + "// ".Length);
+        _ = builder.Append("//");
+        var lineHasContent = false;
+        var pendingBackslash = false;
+        var start = 0;
+        var fileName = FileName(filePath);
+        while (template.IndexOf(FileNamePlaceholder, start, StringComparison.Ordinal) is var placeholder && placeholder >= 0)
         {
-            capacity += "//".Length;
-            if (lines[i].Length > 0)
-            {
-                capacity += lines[i].Length + 1;
-            }
+            AppendPart(builder, template.AsSpan(start, placeholder - start), ref lineHasContent, ref pendingBackslash);
+            AppendPart(builder, fileName, ref lineHasContent, ref pendingBackslash);
+            start = placeholder + FileNamePlaceholder.Length;
         }
 
-        var builder = new StringBuilder(capacity);
-        for (var i = 0; i < lines.Length; i++)
+        AppendPart(builder, template.AsSpan(start), ref lineHasContent, ref pendingBackslash);
+        if (pendingBackslash)
         {
-            if (i > 0)
-            {
-                _ = builder.Append('\n');
-            }
-
-            _ = builder.Append("//");
-            if (lines[i].Length > 0)
-            {
-                _ = builder.Append(' ').Append(lines[i]);
-            }
+            AppendContent(builder, '\\', ref lineHasContent);
         }
 
         return builder.ToString();
     }
 
+    /// <summary>Renders a template or filename slice, preserving separators that cross substitution boundaries.</summary>
+    /// <param name="builder">The rendered header.</param>
+    /// <param name="part">The next slice after filename substitution.</param>
+    /// <param name="lineHasContent">Whether the current comment already has content after its prefix.</param>
+    /// <param name="pendingBackslash">Whether the preceding slice or character ended with a possible separator.</param>
+    private static void AppendPart(StringBuilder builder, ReadOnlySpan<char> part, ref bool lineHasContent, ref bool pendingBackslash)
+    {
+        foreach (var character in part)
+        {
+            if (pendingBackslash)
+            {
+                pendingBackslash = false;
+                if (character == 'n')
+                {
+                    _ = builder.Append('\n').Append("//");
+                    lineHasContent = false;
+                    continue;
+                }
+
+                AppendContent(builder, '\\', ref lineHasContent);
+            }
+
+            if (character == '\\')
+            {
+                pendingBackslash = true;
+            }
+            else
+            {
+                AppendContent(builder, character, ref lineHasContent);
+            }
+        }
+    }
+
+    /// <summary>Appends a content character, separating the first character from the comment prefix.</summary>
+    /// <param name="builder">The rendered header.</param>
+    /// <param name="character">The content character.</param>
+    /// <param name="lineHasContent">Whether the current comment already has content after its prefix.</param>
+    private static void AppendContent(StringBuilder builder, char character, ref bool lineHasContent)
+    {
+        if (!lineHasContent)
+        {
+            _ = builder.Append(' ');
+            lineHasContent = true;
+        }
+
+        _ = builder.Append(character);
+    }
+
     /// <summary>Extracts the file name from a path without touching the file system.</summary>
     /// <param name="filePath">The file path.</param>
-    /// <returns>The file name, or an empty string.</returns>
-    private static string FileName(string? filePath)
+    /// <returns>The file name slice, or an empty span.</returns>
+    private static ReadOnlySpan<char> FileName(string? filePath)
     {
         if (string.IsNullOrEmpty(filePath))
         {
-            return string.Empty;
+            return default;
         }
 
         var index = filePath!.LastIndexOfAny(PathSeparators);
-        return index >= 0 ? filePath[(index + 1)..] : filePath;
+        return filePath.AsSpan(index + 1);
     }
 }

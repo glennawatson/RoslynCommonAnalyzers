@@ -105,11 +105,15 @@ public sealed class DeclarationPatternCodeFixProvider : CodeFixProvider, IBatchF
 
         var pattern = SyntaxFactory.DeclarationPattern(
             type.WithoutTrivia(),
-            SyntaxFactory.SingleVariableDesignation(SyntaxFactory.Identifier(identifier.ValueText)));
+            SyntaxFactory.SingleVariableDesignation(
+                SyntaxFactory.Identifier(
+                    SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker),
+                    identifier.ValueText,
+                    ifStatement.Condition.GetTrailingTrivia())));
         var condition = SyntaxFactory.IsPatternExpression(
-                isExpression.Left.WithoutTrivia(),
-                pattern)
-            .WithTriviaFrom(ifStatement.Condition);
+            isExpression.Left.WithoutTrailingTrivia().WithLeadingTrivia(ifStatement.Condition.GetLeadingTrivia()),
+            SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.IsKeyword, SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker)),
+            pattern);
         if (block.RemoveNode(local, SyntaxRemoveOptions.KeepNoTrivia) is not { } replacementBlock)
         {
             return false;

@@ -28,19 +28,19 @@ public sealed class Sst1135UsingDirectiveQualifiedCodeFixProvider : CodeFixProvi
             return;
         }
 
+        if (root.FindNode(context.Span) is not NameSyntax name)
+        {
+            return;
+        }
+
+        var symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
+        if (symbol is not (INamespaceSymbol or INamedTypeSymbol))
+        {
+            return;
+        }
+
         foreach (var diagnostic in context.Diagnostics)
         {
-            if (root.FindNode(diagnostic.Location.SourceSpan) is not NameSyntax name)
-            {
-                continue;
-            }
-
-            var symbol = model.GetSymbolInfo(name, context.CancellationToken).Symbol;
-            if (symbol is not (INamespaceSymbol or INamedTypeSymbol))
-            {
-                continue;
-            }
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     "Qualify the using directive",

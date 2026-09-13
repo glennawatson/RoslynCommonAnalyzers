@@ -70,16 +70,34 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
     /// longer in scope. Whether a using is needed is a question about the whole file, so a file that is only
     /// partly visible is left alone.
     /// </remarks>
-    private static bool HasInactiveRegion(CompilationUnitSyntax root)
-    {
-        if (!root.ContainsDirectives)
-        {
-            return false;
-        }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static bool HasInactiveRegion(CompilationUnitSyntax root) =>
+        root.ContainsDirectives && ContainsDisabledText(root);
 
-        foreach (var trivia in root.DescendantTrivia(descendIntoTrivia: true))
+    /// <summary>Scans token trivia, including structured trivia, without a descendant iterator.</summary>
+    /// <param name="node">The subtree whose trivia is inspected.</param>
+    /// <returns>True when disabled source text is found.</returns>
+    private static bool ContainsDisabledText(SyntaxNode node)
+    {
+        var found = false;
+        _ = DescendantTraversalHelper.VisitDescendantTokens(node, ref found, static (in SyntaxToken token, ref bool state) =>
         {
-            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia))
+            state = ContainsDisabledText(token.LeadingTrivia) || ContainsDisabledText(token.TrailingTrivia);
+            return !state;
+        });
+        return found;
+    }
+
+    /// <summary>Checks a trivia list and the tokens inside its structured trivia.</summary>
+    /// <param name="triviaList">The leading or trailing trivia to inspect.</param>
+    /// <returns>True when disabled source text is found.</returns>
+    private static bool ContainsDisabledText(in SyntaxTriviaList triviaList)
+    {
+        for (var i = 0; i < triviaList.Count; i++)
+        {
+            var trivia = triviaList[i];
+            if (trivia.IsKind(SyntaxKind.DisabledTextTrivia)
+                || (trivia.GetStructure() is { } structure && ContainsDisabledText(structure)))
             {
                 return true;
             }
@@ -162,6 +180,9 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
 
         /// <summary>Gets the number of directives not yet marked used.</summary>
         public int Remaining { get; private set; }
+
+        /// <summary>Gets whether namespace or static imports still need symbol binding.</summary>
+        public bool HasNonAliasRemaining => Remaining > _aliasRemaining;
 
         /// <summary>Gets the file's semantic model.</summary>
         public SemanticModel Model { get; }
@@ -662,7 +683,7 @@ public sealed class Sst1445UnnecessaryUsingDirectiveAnalyzer : DiagnosticAnalyze
                 return;
             }
 
-            if (TryMarkAlias(node, text))
+            if (TryMarkAlias(node, text) || !_tracker.HasNonAliasRemaining)
             {
                 return;
             }

@@ -41,11 +41,14 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
         context.RegisterCompilationStartAction(static start =>
         {
-            var processType = start.Compilation.GetTypeByMetadataName(ProcessMetadataName);
-            if (processType is null || processType.GetMembers(WaitForExitStatusName).IsEmpty)
-            {
-                return;
-            }
+            var compilation = start.Compilation;
+            var processType = new Lazy<INamedTypeSymbol?>(
+                () =>
+                {
+                    var type = compilation.GetTypeByMetadataName(ProcessMetadataName);
+                    return type is null || type.GetMembers(WaitForExitStatusName).IsEmpty ? null : type;
+                },
+                LazyThreadSafetyMode.ExecutionAndPublication);
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => Analyze(nodeContext, processType),
@@ -55,17 +58,17 @@ public sealed class Sst2499ProcessExitStatusAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports one ambiguous exit-code read.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="processType">The resolved process type.</param>
-    private static void Analyze(in SyntaxNodeAnalysisContext context, INamedTypeSymbol processType)
+    /// <param name="processType">The lazily resolved process type, absent when the replacement API is unavailable.</param>
+    private static void Analyze(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> processType)
     {
         var access = (MemberAccessExpressionSyntax)context.Node;
-        if (access.Name.Identifier.ValueText != ExitCodeName)
+        if (access.Name.Identifier.ValueText != ExitCodeName || processType.Value is not { } resolvedProcessType)
         {
             return;
         }
 
         var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, processType))
+        if (receiverType is null || !SymbolEqualityComparer.Default.Equals(receiverType, resolvedProcessType))
         {
             return;
         }

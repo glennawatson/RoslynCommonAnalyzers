@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 using Microsoft.CodeAnalysis.Operations;
 
@@ -29,7 +30,7 @@ namespace StyleSharp.Analyzers;
 /// <para>
 /// The clean path is a token compare and a scan for a literal argument; nothing binds until a call names the
 /// engine or one of its static query methods and passes a string literal. The whole rule is gated at
-/// compilation start on the engine type resolving.
+/// first candidate on the engine type resolving.
 /// </para>
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
@@ -76,15 +77,9 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            if (start.Compilation.GetTypeByMetadataName(RegexMetadataName) is not { } regexType)
-            {
-                return;
-            }
-
-            var optionsType = start.Compilation.GetTypeByMetadataName(RegexOptionsMetadataName);
-            var cache = new ConcurrentDictionary<(string Pattern, int Options), string?>(concurrencyLevel: 1, capacity: 4);
+            RegexAnalysis? analysis = null;
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, regexType, optionsType, cache),
+                nodeContext => Analyze(nodeContext, ref analysis),
                 CallKinds);
         });
     }
@@ -101,32 +96,43 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Analyzes one regex call for an unparseable constant pattern.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="regexType">The engine type.</param>
-    /// <param name="optionsType">The options enum, when it resolves.</param>
-    /// <param name="cache">The per-compilation validation cache.</param>
+    /// <param name="analysis">The per-compilation state published after the first candidate.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
-        INamedTypeSymbol regexType,
-        INamedTypeSymbol? optionsType,
-        ConcurrentDictionary<(string Pattern, int Options), string?> cache)
+        ref RegexAnalysis? analysis)
     {
         if (!NamesRegexApi(context.Node) || GetArgumentList(context.Node) is not { } arguments || !HasStringLiteral(arguments))
         {
             return;
         }
 
-        if (!TryReadPatternAndOptions(context, arguments, regexType, optionsType, out var pattern, out var options, out var patternLocation))
+        var resolved = Volatile.Read(ref analysis) ?? Resolve(context.Compilation, ref analysis);
+        if (resolved.RegexType is not { } regexType
+            || !TryReadPatternAndOptions(context, arguments, regexType, resolved.OptionsType, out var pattern, out var options, out var patternExpression))
         {
             return;
         }
 
-        var message = GetError(pattern!, options, cache);
+        var message = GetError(pattern!, options, resolved.GetCache());
         if (message is null)
         {
             return;
         }
 
-        context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.InvalidRegexPattern, patternLocation!, message));
+        context.ReportDiagnostic(DiagnosticHelper.Create(CorrectnessRules.InvalidRegexPattern, patternExpression!.GetLocation(), message));
+    }
+
+    /// <summary>Publishes both regex types together after the first syntactic candidate.</summary>
+    /// <param name="compilation">The compilation whose framework types are resolved.</param>
+    /// <param name="analysis">The state shared by this compilation's callbacks.</param>
+    /// <returns>The winning state, including a missing engine type.</returns>
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static RegexAnalysis Resolve(Compilation compilation, ref RegexAnalysis? analysis)
+    {
+        var resolved = new RegexAnalysis(
+            compilation.GetTypeByMetadataName(RegexMetadataName),
+            compilation.GetTypeByMetadataName(RegexOptionsMetadataName));
+        return Interlocked.CompareExchange(ref analysis, resolved, null) ?? resolved;
     }
 
     /// <summary>Reads the constant pattern and options a regex call binds, when both are constant.</summary>
@@ -136,7 +142,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <param name="optionsType">The options enum, when it resolves.</param>
     /// <param name="pattern">The bound constant pattern.</param>
     /// <param name="options">The bound constant options, or zero when the call passes none.</param>
-    /// <param name="patternLocation">The location of the pattern expression.</param>
+    /// <param name="patternExpression">The pattern expression, whose location is needed only when reporting.</param>
     /// <returns><see langword="true"/> when the call binds to the engine with a constant pattern.</returns>
     private static bool TryReadPatternAndOptions(
         in SyntaxNodeAnalysisContext context,
@@ -145,11 +151,11 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
         INamedTypeSymbol? optionsType,
         out string? pattern,
         out int options,
-        out Location? patternLocation)
+        out ExpressionSyntax? patternExpression)
     {
         pattern = null;
         options = 0;
-        patternLocation = null;
+        patternExpression = null;
         var boundToRegex = false;
 
         foreach (var argument in arguments.Arguments)
@@ -167,7 +173,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
                 }
 
                 pattern = patternValue;
-                patternLocation = argument.Expression.GetLocation();
+                patternExpression = argument.Expression;
                 boundToRegex = SymbolEqualityComparer.Default.Equals(parameter.ContainingType, regexType);
             }
             else if (IsOptionsParameter(parameter, optionsType) && !TryReadOptions(context, argument.Expression, out options))
@@ -341,4 +347,27 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
         _ => null,
     };
+
+    /// <summary>The framework symbols and validation results shared by one compilation.</summary>
+    /// <param name="RegexType">The engine type, or null when unavailable.</param>
+    /// <param name="OptionsType">The options enum, or null when unavailable.</param>
+    private sealed record RegexAnalysis(INamedTypeSymbol? RegexType, INamedTypeSymbol? OptionsType)
+    {
+        /// <summary>The validation cache, allocated only when a regex call binds.</summary>
+        private ConcurrentDictionary<(string Pattern, int Options), string?>? _cache;
+
+        /// <summary>Gets the validation results shared by concurrent callbacks.</summary>
+        /// <returns>The per-compilation cache, created on its first bound regex call.</returns>
+        public ConcurrentDictionary<(string Pattern, int Options), string?> GetCache()
+        {
+            var cache = Volatile.Read(ref _cache);
+            if (cache is not null)
+            {
+                return cache;
+            }
+
+            cache = new(concurrencyLevel: 1, capacity: 4);
+            return Interlocked.CompareExchange(ref _cache, cache, null) ?? cache;
+        }
+    }
 }

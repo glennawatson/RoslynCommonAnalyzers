@@ -132,9 +132,12 @@ public sealed class Sst2265FoldFluentCallChainCodeFixProvider : CodeFixProvider,
             accumulated = invocation.WithExpression(memberAccess.WithExpression(accumulated));
         }
 
+        var foldedInvocation = (InvocationExpressionSyntax)accumulated;
         return SyntaxFactory.ExpressionStatement(
             default,
-            accumulated.WithoutTrivia().WithLeadingTrivia(first.GetLeadingTrivia()),
+            foldedInvocation.Update(
+                foldedInvocation.Expression.WithLeadingTrivia(first.GetLeadingTrivia()),
+                foldedInvocation.ArgumentList.WithoutTrailingTrivia()),
             SyntaxFactory.Token(SyntaxFactory.TriviaList(SyntaxFactory.ElasticMarker), SyntaxKind.SemicolonToken, last.GetTrailingTrivia()));
     }
 

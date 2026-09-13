@@ -28,27 +28,27 @@ public sealed class Sst1121BuiltInTypeAliasCodeFixProvider : CodeFixProvider, IA
             return;
         }
 
+        var node = root.FindNode(context.Span);
+        var qualifiedName = node switch
+        {
+            QualifiedNameSyntax qualified => qualified.Right,
+            AliasQualifiedNameSyntax alias => alias.Name,
+            MemberAccessExpressionSyntax member => member.Name,
+            _ => null,
+        };
+        if (qualifiedName is not null && !BuiltInTypeAliases.IsAliasedName(qualifiedName.Identifier.ValueText))
+        {
+            return;
+        }
+
+        if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
+            || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
+        {
+            return;
+        }
+
         foreach (var diagnostic in context.Diagnostics)
         {
-            var node = root.FindNode(diagnostic.Location.SourceSpan);
-            var qualifiedName = node switch
-            {
-                QualifiedNameSyntax qualified => qualified.Right,
-                AliasQualifiedNameSyntax alias => alias.Name,
-                MemberAccessExpressionSyntax member => member.Name,
-                _ => null,
-            };
-            if (qualifiedName is not null && !BuiltInTypeAliases.IsAliasedName(qualifiedName.Identifier.ValueText))
-            {
-                continue;
-            }
-
-            if (model.GetSymbolInfo(node, context.CancellationToken).Symbol is not INamedTypeSymbol type
-                || BuiltInTypeAliases.Keyword(type.SpecialType) is not { } keyword)
-            {
-                continue;
-            }
-
             context.RegisterCodeFix(
                 CodeAction.Create(
                     $"Use '{keyword}'",

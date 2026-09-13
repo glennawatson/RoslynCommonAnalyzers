@@ -137,11 +137,27 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
 
         // The values stack onto one section: a section each would give the switch several bodies that do
         // the same nothing, which reads as a mistake in the mapping rather than a stub.
-        var members = missingMembers.Split(EnumSwitchCoverageAnalyzer.MissingMembersSeparator);
-        var labels = new SwitchLabelSyntax[members.Length];
-        for (var i = 0; i < members.Length; i++)
+        var memberCount = 1;
+        foreach (var character in missingMembers)
         {
-            labels[i] = SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(members[i]));
+            if (character == EnumSwitchCoverageAnalyzer.MissingMembersSeparator)
+            {
+                memberCount++;
+            }
+        }
+
+        var labels = new SwitchLabelSyntax[memberCount];
+        var start = 0;
+        for (var i = 0; i < labels.Length; i++)
+        {
+            var end = missingMembers.IndexOf(EnumSwitchCoverageAnalyzer.MissingMembersSeparator, start);
+            if (end < 0)
+            {
+                end = missingMembers.Length;
+            }
+
+            labels[i] = SyntaxFactory.CaseSwitchLabel(SyntaxFactory.ParseExpression(missingMembers.AsSpan(start, end - start).ToString()));
+            start = end + 1;
         }
 
         var updated = switchStatement.AddSections(SyntaxFactory.SwitchSection(
@@ -166,13 +182,20 @@ public sealed class EnumSwitchCoverageCodeFixProvider : CodeFixProvider
         }
 
         var updated = switchExpression;
-        var members = missingMembers.Split(EnumSwitchCoverageAnalyzer.MissingMembersSeparator);
-        for (var i = 0; i < members.Length; i++)
+        var start = 0;
+        while (start <= missingMembers.Length)
         {
+            var end = missingMembers.IndexOf(EnumSwitchCoverageAnalyzer.MissingMembersSeparator, start);
+            if (end < 0)
+            {
+                end = missingMembers.Length;
+            }
+
             var arm = SyntaxFactory.SwitchExpressionArm(
-                SyntaxFactory.ConstantPattern(SyntaxFactory.ParseExpression(members[i])),
+                SyntaxFactory.ConstantPattern(SyntaxFactory.ParseExpression(missingMembers.AsSpan(start, end - start).ToString())),
                 SyntaxFactory.ParseExpression("throw new global::System.NotImplementedException()"));
             updated = updated.AddArms(arm);
+            start = end + 1;
         }
 
         updated = updated.WithAdditionalAnnotations(Microsoft.CodeAnalysis.Formatting.Formatter.Annotation);

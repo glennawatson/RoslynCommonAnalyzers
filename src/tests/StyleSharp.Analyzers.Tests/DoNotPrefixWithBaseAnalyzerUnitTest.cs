@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyBasePrefix = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst1100DoNotPrefixWithBaseAnalyzer>;
 
@@ -13,6 +14,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the redundant-base-prefix rule (SST1100).</summary>
 public class DoNotPrefixWithBaseAnalyzerUnitTest
 {
+    /// <summary>Verifies unresolved base members do not report when a local member has the same name.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnresolvedHiddenBaseMemberIsSilentAsync()
+    {
+        const string Source = "class C { void Missing(int value) { } void M() { base.Missing(); } }";
+        var test = new VerifyBasePrefix.Test { TestCode = Source, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies field and event declarations participate in syntactic hiding checks.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <param name="expected">Whether the declaration introduces Value.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int Other, Value;", true)]
+    [Arguments("int Other;", false)]
+    [Arguments("event System.Action Other, Value;", true)]
+    [Arguments("event System.Action Other;", false)]
+    [Arguments("event System.Action Value { add { } remove { } }", true)]
+    [Arguments("event System.Action Other { add { } remove { } }", false)]
+    [Arguments("class Value { }", false)]
+    public async Task HidingCheckRecognizesFieldAndEventNamesAsync(string member, bool expected)
+    {
+        var declaration = (TypeDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration($"class C {{ {member} }}")!;
+        await Assert.That(Sst1100DoNotPrefixWithBaseAnalyzer.HasOwnMemberNamed(declaration, "Value")).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies an override of a different overload does not make a base prefix necessary.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DifferentOverloadOverrideLeavesBasePrefixRedundantAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync("class B { public virtual void M() { } public virtual void M(int x) { } } class C : B { public override void M() { {|SST1100:base|}.M(1); } }");
+
+    /// <summary>Verifies property and event overrides retain meaningful base accesses.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PropertyAndEventOverridesRetainBaseAccessAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync(
+            """
+            class B
+            {
+                public virtual int Value => 1;
+                public virtual event System.Action Changed { add { } remove { } }
+            }
+            class C : B
+            {
+                public override int Value => base.Value;
+                public override event System.Action Changed
+                {
+                    add { base.Changed += value; }
+                    remove { base.Changed -= value; }
+                }
+            }
+            """);
+
+    /// <summary>Verifies verbatim member names are compared using their decoded identifier.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task VerbatimBaseNameIsReportedAsync() =>
+        VerifyBasePrefix.VerifyAnalyzerAsync("class B { public int @event; } class C : B { int M() => {|SST1100:base|}.@event; }");
+
     /// <summary>Verifies a base call to a non-overridden member is reported (SST1100).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

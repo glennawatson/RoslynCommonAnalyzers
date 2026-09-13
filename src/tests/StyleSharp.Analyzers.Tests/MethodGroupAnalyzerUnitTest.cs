@@ -13,6 +13,64 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2239MethodGroupAnalyzer"/>.</summary>
 public class MethodGroupAnalyzerUnitTest
 {
+    /// <summary>A lambda whose declared parameter count differs from its delegate target.</summary>
+    private const string MismatchedAritySource = "class C { System.Func<int, int, int> M() => (int x) => Target(x); static int Target(int x) => x; }";
+
+    /// <summary>A forwarding lambda inside a call missing another required argument.</summary>
+    private const string UnresolvedEnclosingCallSource = """
+        class C
+        {
+            void M() => Use({|SST2239:(int x) => Target(x)|});
+            static void Use(System.Func<int, int> callback, int other) {}
+            static int Target(int x) => x;
+        }
+        """;
+
+    /// <summary>Checks forwarding syntax and delegate compatibility before suggesting a method group.</summary>
+    /// <param name="member">The delegate-producing member and any required target.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Func<int, int> M() => x => { return Target(x); }; static int Target(int x) => x;")]
+    [Arguments("Func<int> M() => () => Target(1); static int Target(int x) => x;")]
+    [Arguments("Func<int, int> M() => (x) => { return Target(x); }; static int Target(int x) => x;")]
+    [Arguments("Func<int, int> M() => x => Target(); static int Target() => 1;")]
+    [Arguments("Func<int, int> M() => (x) => Target(x, x); static int Target(int x, int y) => x;")]
+    [Arguments("Func<int, int, int> M() => (x, y) => Target(y, x); static int Target(int x, int y) => x;")]
+    [Arguments("Func<int, int> M() => x => Target(value: x); static int Target(int value) => value;")]
+    [Arguments("Func<int, int> M() => x => Target(ref x); static int Target(ref int value) => value;")]
+    [Arguments("Func<int, int> M() => x => Target(1); static int Target(int value) => value;")]
+    [Arguments("Func<int, int> M() => x => Target(other); int other; static int Target(int value) => value;")]
+    [Arguments("Func<int, int> M(Func<int, int> target) => x => target(x);")]
+    [Arguments("Func<int, object> M() => x => Target(x); static int Target(int x) => x;")]
+    [Arguments("Func<string, object> M() => {|SST2239:x => Target(x)|}; static string Target(string x) => x;")]
+    [Arguments("Action<string> M() => {|SST2239:x => Target(x)|}; static void Target(object x) {}")]
+    [Arguments("Func<int, int> M() => x => Target(x); static int Target(in int x) => x;")]
+    [Arguments("Func<int, int, int> M() => {|SST2239:(x, y) => Target(x, y)|}; static int Target(int x, int y) => x;")]
+    [Arguments("void M() => Use({|SST2239:x => Target(x)|}); static void Use(Func<int, int> f) {} static int Target(int x) => x;")]
+    public Task ForwardingRequiresCompatibleSyntaxAndTypesAsync(string member) => RunAsync($"using System; class C {{ {member} }}");
+
+    /// <summary>Checks unresolved invocation symbols are ignored without analyzer failures.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedForwardingTargetIsCleanAsync() =>
+        new VerifyMethodGroup.Test { TestCode = "class C { System.Func<int, int> M() => x => Missing(x); }", CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Checks an invalid delegate arity cannot produce a method-group suggestion.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task MismatchedDelegateArityIsCleanAsync() =>
+        new VerifyMethodGroup.Test { TestCode = MismatchedAritySource, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Checks an unresolved enclosing call does not suppress an otherwise convertible lambda.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnresolvedEnclosingCallRetainsForwardingDiagnosticAsync() =>
+        new VerifyMethodGroup.Test { TestCode = UnresolvedEnclosingCallSource, CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies a lambda that only forwards its parameter is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

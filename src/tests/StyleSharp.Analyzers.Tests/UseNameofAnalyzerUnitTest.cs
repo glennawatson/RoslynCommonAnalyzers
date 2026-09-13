@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using VerifyNameof = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1415UseNameofAnalyzer,
@@ -14,6 +15,68 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1415 (use nameof for parameter references) and its fix.</summary>
 public class UseNameofAnalyzerUnitTest
 {
+    /// <summary>Verifies the shared syntax counter counts matching literals and rejects unrelated creations.</summary>
+    /// <param name="creation">The object creation to inspect.</param>
+    /// <param name="expected">The number of parameter-name literals.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("new ArgumentException(\"first\", \"second\")", 2)]
+    [Arguments("new System.ArgumentException(\"missing\", nameof(first))", 0)]
+    [Arguments("new ArgumentException()", 0)]
+    [Arguments("new ArgumentException { }", 0)]
+    [Arguments("new Exception(\"first\")", 0)]
+    [Arguments("new global::ArgumentException(\"first\")", 0)]
+    public async Task ParameterLiteralCountMatchesSyntaxAsync(string creation, int expected)
+    {
+        var root = await CSharpSyntaxTree.ParseText($"class C {{ void M(string first, string second) {{ _ = {creation}; }} }}").GetRootAsync();
+        var expression = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Single();
+        await Assert.That(Sst1415UseNameofAnalyzer.CountParameterNameLiteralMatches(expression)).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies parameter lookup handles constructors, lambdas, local functions, and indexers.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ParameterOwnersAreRecognizedAsync() =>
+        VerifyNameof.VerifyAnalyzerAsync("""
+            using System;
+            class C
+            {
+                C(string first, string second) { throw new System.ArgumentException({|SST1415:"second"|}); }
+                int this[int index] => throw new ArgumentOutOfRangeException({|SST1415:"index"|});
+                void M(string outer)
+                {
+                    Action<string> one = value => throw new ArgumentNullException({|SST1415:"value"|});
+                    Action<string> two = (value) => throw new ArgumentNullException({|SST1415:"value"|});
+                    Action<string> capture = value => throw new ArgumentNullException({|SST1415:"outer"|});
+                    void Local(string local) { throw new ArgumentNullException({|SST1415:"local"|}); }
+                    void Boundary() { throw new ArgumentNullException("outer"); }
+                }
+            }
+            """);
+
+    /// <summary>Verifies nonmatching names and exception shapes remain untouched.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonParameterExceptionArgumentsAreCleanAsync() =>
+        VerifyNameof.VerifyAnalyzerAsync("""
+            using System;
+            class C
+            {
+                object field = new ArgumentNullException("missing");
+                void M(string value)
+                {
+                    _ = new Exception("value");
+                    _ = new ArgumentNullException();
+                    _ = new ArgumentNullException { };
+                    _ = new ArgumentException(null, value);
+                    _ = new ArgumentNullException("missing");
+                    Action<string> action = item => throw new ArgumentNullException("missing");
+                }
+            }
+            """);
+
     /// <summary>Verifies a parameter-naming string literal in an argument exception is replaced with nameof.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

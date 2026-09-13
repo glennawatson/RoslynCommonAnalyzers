@@ -4,6 +4,7 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -15,6 +16,62 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1312ReturnCompletedTaskOverNullAnalyzer"/> (PSH1312 completed task over null).</summary>
 public class ReturnCompletedTaskOverNullAnalyzerUnitTest
 {
+    /// <summary>Verifies each supported accessor and local-function body reports null task returns.</summary>
+    /// <param name="member">The declaration containing a null task.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public Task Value { get { return {|PSH1312:null|}; } }")]
+    [Arguments("public Task Value { get => {|PSH1312:default(Task)|}; }")]
+    [Arguments("public Task this[int i] => {|PSH1312:null|};")]
+    [Arguments("public Task this[int i] { get => {|PSH1312:null|}; }")]
+    [Arguments("public Task this[int i] { get { return {|PSH1312:null|}; } }")]
+    [Arguments("public Task M() { Task Local() => {|PSH1312:null|}; return Local(); }")]
+    [Arguments("public Task<T> M<T>() => {|PSH1312:default(Task<T>)|};")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AccessorAndLocalTaskReturnsAreReportedAsync(string member) =>
+        VerifyAsync($"using System.Threading.Tasks; class C {{ {member} }}");
+
+    /// <summary>Verifies unsupported return owners and non-task return symbols are ignored, even in incomplete code.</summary>
+    /// <param name="source">The complete or incomplete source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { void M() { return; } }")]
+    [Arguments("class C { public C() { return null; } }")]
+    [Arguments("class C { public C() => null; }")]
+    [Arguments("class C { object Value { set { return null; } } }")]
+    [Arguments("class C { object Value { set => null; } }")]
+    [Arguments("class C { event System.Action Changed { get { return null; } } }")]
+    [Arguments("class C { event System.Action Changed { get => null; } }")]
+    [Arguments("class C { System.Func<object> M() => () => { return null; }; }")]
+    [Arguments("class C { T M<T>() => default; }")]
+    [Arguments("class C { int[] M() => null; }")]
+    [Arguments("class C { Missing M() => null; }")]
+    [Arguments("class C { async System.Threading.Tasks.Task<object> M() => null; }")]
+    [Arguments("class C { void M() { async System.Threading.Tasks.Task<object> Local() { return null; } } }")]
+    [Arguments("class C { void M() { async System.Threading.Tasks.Task<object> Local() => null; } }")]
+    [Arguments("return null;")]
+    public async Task UnsupportedReturnOwnerIsSilentAsync(string source)
+    {
+        var test = new Verify.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies missing task APIs prevent suggestions in an incomplete framework.</summary>
+    /// <param name="taskDeclarations">The available task definitions.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("public class Task { } public class Task<T> { }")]
+    [Arguments("public class Task { public static Task CompletedTask { get; } }")]
+    public async Task MissingTaskApiPreventsDiagnosticAsync(string taskDeclarations)
+    {
+        var source = $"namespace System.Threading.Tasks {{ {taskDeclarations} }} class C {{ System.Threading.Tasks.Task M() => null; }}";
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree]);
+        var analysis = compilation.WithAnalyzers([new Psh1312ReturnCompletedTaskOverNullAnalyzer()]);
+        await Assert.That(await analysis.GetAnalyzerDiagnosticsAsync()).IsEmpty();
+    }
+
     /// <summary>Verifies a null returned from a Task method is flagged and rewritten to the completed task.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

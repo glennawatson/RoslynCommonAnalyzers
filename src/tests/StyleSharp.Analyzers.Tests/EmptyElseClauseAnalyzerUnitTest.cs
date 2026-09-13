@@ -12,6 +12,13 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1180 (empty else clause) and its fix.</summary>
 public class EmptyElseClauseAnalyzerUnitTest
 {
+    /// <summary>Verifies an else containing only a semicolon is still empty.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task EmptyStatementElseIsReportedAsync() =>
+        VerifyEmptyElse.VerifyAnalyzerAsync("class C { void M(bool flag) { if (flag) M(false); {|SST1180:else|}; } }");
+
     /// <summary>Verifies an <c>else { }</c> with an empty body is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

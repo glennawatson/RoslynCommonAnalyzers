@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyLoop = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2465LoopConditionVariableReassignedAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -364,4 +365,114 @@ public class LoopConditionVariableReassignedAnalyzerUnitTest
                 }
             }
             """);
+
+    /// <summary>Verifies counted comparisons recognize prefix, postfix, and assignment incrementers.</summary>
+    /// <param name="condition">The simple comparison in the loop header.</param>
+    /// <param name="incrementor">The counter step in the loop header.</param>
+    /// <param name="write">The unconditional write that invalidates the comparison.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("i <= n", "++i", "++n")]
+    [Arguments("i > n", "--i", "--n")]
+    [Arguments("i >= n", "i--", "n++")]
+    [Arguments("i == n", "i += 2", "n = 0")]
+    [Arguments("i != n", "i = i + 1", "n = 0")]
+    [Arguments("i < -n", "i++", "n = 0")]
+    [Arguments("i < (n + a + b)", "i++", "b = 0")]
+    public Task CountedLoopFormsReportUnconditionalWritesAsync(string condition, string incrementor, string write) =>
+        VerifyLoop.VerifyAnalyzerAsync(
+            $$"""
+            public class C
+            {
+                public void M(int n, int a, int b)
+                {
+                    for (int i = 0; {{condition}}; {{incrementor}})
+                        {|SST2465:{{write}}|};
+                }
+            }
+            """);
+
+    /// <summary>Verifies ambiguous counters and conditions are rejected before inspecting writes.</summary>
+    /// <param name="condition">The unsupported loop condition.</param>
+    /// <param name="incrementor">The incrementer whose counter may be unrecognized or unrelated.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("true", "i++")]
+    [Arguments("1 < 2", "i++")]
+    [Arguments("i < n + a + b + c", "i++")]
+    [Arguments("n < a", "i++")]
+    [Arguments("i < ++n", "i++")]
+    [Arguments("i < n++", "i++")]
+    [Arguments("i < Limit()", "i++")]
+    [Arguments("i < n", "Limit()")]
+    [Arguments("i < n", "this.Counter++")]
+    [Arguments("i < n", "++this.Counter")]
+    [Arguments("i < n", "this.Counter += 1")]
+    public Task UnsupportedCountedLoopFormsAreCleanAsync(string condition, string incrementor) =>
+        VerifyLoop.VerifyAnalyzerAsync(
+            $$"""
+            public class C
+            {
+                public int Counter;
+                public int Limit() => 10;
+                public void M(int n, int a, int b, int c)
+                {
+                    for (int i = 0; {{condition}}; {{incrementor}})
+                        n = 0;
+                }
+            }
+            """);
+
+    /// <summary>Verifies guarded writes, member writes, and non-writing statements remain silent.</summary>
+    /// <param name="body">The body that does not unconditionally assign a condition local or parameter.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("{ }")]
+    [Arguments(";")]
+    [Arguments("{ this.Counter = 0; ++this.Counter; this.Counter++; }")]
+    [Arguments("{ switch (n) { case 0: n = 1; break; } }")]
+    [Arguments("{ try { n = 0; } finally { } }")]
+    [Arguments("{ int ignored = n; }")]
+    public Task NonWritingAndGuardedBodiesAreCleanAsync(string body) =>
+        VerifyLoop.VerifyAnalyzerAsync(
+            $$"""
+            public class C
+            {
+                public int Counter;
+                public void M(int n)
+                {
+                    for (int i = 0; i < n; i++)
+                        {{body}}
+                }
+            }
+            """);
+
+    /// <summary>Verifies incomplete operators and unresolved or constant write targets remain silent.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task InvalidWritesAndIncrementersAreCleanAsync()
+    {
+        var test = new VerifyLoop.Test
+        {
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = """
+                class C
+                {
+                    void M(int n)
+                    {
+                        const int limit = 10;
+                        for (int i = 0; i < limit; i++) { limit = 0; }
+                        for (int i = 0; i < missing; i++) { missing = 0; }
+                        for (int i = 0; i < n; i++) { -n; n!; }
+                        for (int i = 0; i < n; i!) { n = 0; }
+                        for (int i = 0; i < n; -i) { n = 0; }
+                    }
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
 }

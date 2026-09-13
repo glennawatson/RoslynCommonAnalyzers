@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyNativeMethod = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -359,6 +360,172 @@ public class CollectionNativeMethodAnalyzerUnitTest
                                    """;
         await VerifyFixNet90Async(Source, FixedSource);
     }
+
+    /// <summary>Verifies complex equality operands preserve parameter dependence and support reversed membership tests.</summary>
+    /// <param name="predicate">The predicate with expected diagnostic markup on its call.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("list.{|PSH1110:Any|}(x => x == y + x)")]
+    [Arguments("list.{|PSH1111:Any|}(x => x == y + 1)")]
+    [Arguments("list.{|PSH1111:Any|}((int x) => y == x)")]
+    [Arguments("list.{|PSH1110:Any|}(x => y == 1)")]
+    [Arguments("list.{|PSH1110:Any|}(x => x != y)")]
+    public Task EqualityOperandDeterminesReplacementAsync(string predicate) =>
+        VerifyAnalyzerNet90Async($"using System.Linq; using System.Collections.Generic; class C {{ bool M(List<int> list, int y) => {predicate}; }}");
+
+    /// <summary>Verifies inherited and interface membership methods are found even when not declared by the receiver.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InheritedAndInterfaceContainsAreReportedAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+            interface IValues : ICollection<int> { }
+            class Values : List<int> { }
+            class C
+            {
+                bool Inherited(Values values) => values.{|PSH1111:Any|}(x => x == 1);
+                bool Interface(IValues values) => values.{|PSH1111:Any|}(x => x == 1);
+            }
+            """);
+
+    /// <summary>Verifies membership on a type parameter is unreported even with a collection constraint.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ConstrainedGenericReceiverIsCleanAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Collections.Generic;
+            using System.Linq;
+            class C { bool M<T>(T values) where T : ICollection<int> => values.Any(x => x == 1); }
+            """);
+
+    /// <summary>Verifies a same-named member must have the public instance Boolean membership signature.</summary>
+    /// <param name="member">The nonqualifying member declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("public bool Contains;")]
+    [Arguments("public static bool Contains(int value) => false;")]
+    [Arguments("private bool Contains(int value) => false;")]
+    [Arguments("public int Contains(int value) => 0;")]
+    [Arguments("public bool Contains() => false;")]
+    [Arguments("public bool Contains(string value) => false;")]
+    public Task IncompatibleContainsMemberIsCleanAsync(string member) =>
+        VerifyAnalyzerNet90Async(
+            $$"""
+            using System.Collections;
+            using System.Collections.Generic;
+            using System.Linq;
+            class Values : IEnumerable<int>
+            {
+                {{member}}
+                public IEnumerator<int> GetEnumerator() => throw new System.NotImplementedException();
+                IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+            }
+            class C { bool M(Values values) => values.Any(x => x == 1); }
+            """);
+
+    /// <summary>Verifies collection names are matched by their entire namespace.</summary>
+    /// <param name="container">The namespace that contains the lookalike collection.</param>
+    /// <param name="typeName">The native collection name being imitated.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("Other", "List")]
+    [Arguments("Other.Generic", "List")]
+    [Arguments("Other.Collections.Generic", "List")]
+    [Arguments("Other.System.Collections.Generic", "List")]
+    [Arguments("Other", "ImmutableList")]
+    [Arguments("Other.Immutable", "ImmutableList")]
+    [Arguments("Other.Collections.Immutable", "ImmutableList")]
+    [Arguments("Other.System.Collections.Immutable", "ImmutableList")]
+    public Task CollectionNamespaceLookalikesAreCleanAsync(string container, string typeName) =>
+        VerifyAnalyzerNet90Async(
+            $$"""
+            using System.Linq;
+            namespace {{container}}
+            {
+                class {{typeName}}<T> : global::System.Collections.Generic.List<T> { }
+                class C { bool M({{typeName}}<int> values) => values.Any(x => x > 1); }
+            }
+            """);
+
+    /// <summary>Verifies immutable lists expose the same predicate replacements as mutable lists.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ImmutableListPredicateIsReportedAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Linq;
+            using System.Collections.Immutable;
+            class C { bool M(ImmutableList<int> values) => values.{|PSH1110:Any|}(x => x > 1); }
+            """);
+
+    /// <summary>Verifies an array accessed through a member chain can use the static universal predicate helper.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ArrayMemberAllBecomesTrueForAllAsync() =>
+        VerifyFixNet90Async(
+            "using System.Linq; class C { int[] values; bool M() => this.values.{|PSH1110:All|}(x => x > 0); }",
+            "using System.Linq; class C { int[] values; bool M() => System.Array.TrueForAll(this.values, x => x > 0); }");
+
+    /// <summary>Verifies invocations outside the supported extension-lambda shape stay unchanged.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnsupportedInvocationShapesHaveNoFixAsync() =>
+        VerifyNativeMethod.VerifyAnalyzerAsync(
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                bool M(List<int> values, Func<int, bool> predicate)
+                {
+                    _ = values.Any<int>(x => x > 0);
+                    _ = values.Any(predicate);
+                    _ = values?.Any(x => x > 0);
+                    _ = Enumerable.Any(values, x => x > 0);
+                    _ = values.Count(x => x > 0);
+                    return Any(x => x > 0);
+                }
+                bool Any(Func<int, bool> predicate) => false;
+                bool N(C other) => other.Any(x => x > 0);
+            }
+            """);
+
+    /// <summary>Verifies unusual Enumerable overloads do not imply unsupported array or membership replacements.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NonGenericAndMultidimensionalEnumerableOverloadsAreCleanAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System;
+            using System.Collections.Generic;
+            using System.Linq;
+            namespace System.Linq
+            {
+                static class Enumerable
+                {
+                    public static bool Any(this int[,] values, Func<int, bool> predicate) => false;
+                    public static bool Any(this HashSet<int> values, Func<int, bool> predicate) => false;
+                }
+            }
+            class C
+            {
+                bool Array(int[,] values) => values.Any(x => x > 0);
+                bool Set(HashSet<int> values) => values.Any(x => x == 1);
+            }
+            """);
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies.</summary>
     /// <param name="source">The source with diagnostic markup.</param>

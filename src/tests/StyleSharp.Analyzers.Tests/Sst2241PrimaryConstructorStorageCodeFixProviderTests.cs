@@ -147,4 +147,11 @@ public class Sst2241PrimaryConstructorStorageCodeFixProviderTests
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
         await Assert.That(editor.GetChangedRoot().NormalizeWhitespace().ToFullString()).IsEqualTo(expectedRoot);
     }
+
+    /// <summary>Verifies a stale record diagnostic currently removes the constructor without promoting its parameter.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+    public Task StaleRecordDiagnosticDoesNotPromoteParameterAsync() =>
+        StorageRewritePreservesOtherMembersAsync("record C { int field; public C(int value) { field = value; } }", "record C { int field = value; }");
 }

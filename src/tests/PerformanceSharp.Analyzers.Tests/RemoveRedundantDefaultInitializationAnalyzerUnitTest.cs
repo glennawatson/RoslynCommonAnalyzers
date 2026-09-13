@@ -12,6 +12,71 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1403 (remove redundant default initialization) and its fix.</summary>
 public class RemoveRedundantDefaultInitializationAnalyzerUnitTest
 {
+    /// <summary>Verifies the current rule retains character constants converted to numeric fields.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConvertedCharacterZeroIsCurrentlyRetainedAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync("""
+            class C
+            {
+                public int Integral = '\0';
+                public float Floating = '\0';
+                public decimal Decimal = '\0';
+            }
+            """);
+
+    /// <summary>Verifies typed zero constants and their nonzero neighbours are classified by value.</summary>
+    /// <param name="type">The field's primitive type.</param>
+    /// <param name="zero">A default constant.</param>
+    /// <param name="other">A nondefault constant.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("sbyte", "(sbyte)0", "(sbyte)1")]
+    [Arguments("byte", "(byte)0", "(byte)1")]
+    [Arguments("short", "(short)0", "(short)1")]
+    [Arguments("ushort", "(ushort)0", "(ushort)1")]
+    [Arguments("uint", "0U", "1U")]
+    [Arguments("long", "0L", "1L")]
+    [Arguments("ulong", "0UL", "1UL")]
+    [Arguments("char", "'\\0'", "'x'")]
+    [Arguments("float", "0F", "1F")]
+    [Arguments("float", "0", "-0F")]
+    [Arguments("double", "0", "1D")]
+    [Arguments("decimal", "0M", "1M")]
+    [Arguments("decimal", "0", "1")]
+    [Arguments("bool", "false", "true")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task TypedDefaultsAreDistinguishedAsync(string type, string zero, string other) =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync($$"""
+            class C { public {{type}} Zero {|PSH1403:= {{zero}}|}, Other = {{other}}; }
+            """);
+
+    /// <summary>Verifies boxed constants, nullable values, and nonconstant initializers keep their meaning.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ReferenceNullableAndCreationShapesAsync() =>
+        VerifyRedundantDefault.VerifyAnalyzerAsync("""
+            class C<T>
+            {
+                public object Boxed = 0;
+                public object Converted = default(int);
+                public int? Missing {|PSH1403:= null|};
+                public int? Present = 0;
+                public T Generic {|PSH1403:= default(T)|};
+                public object Suppressed = ((null!));
+                public object Created = new object();
+                public int[] Array = new int[0];
+                public int[] InferredArray = new[] { 1 };
+                public int[] Collection = [];
+                public int Computed = Next();
+                public string Text = "";
+                public int Uninitialized;
+                static int Next() => 0;
+            }
+            """);
+
     /// <summary>Verifies an int field initialized to zero has its initializer removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

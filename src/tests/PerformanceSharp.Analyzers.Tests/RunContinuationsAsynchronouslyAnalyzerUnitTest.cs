@@ -3,7 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1302RunContinuationsAsynchronouslyAnalyzer,
@@ -238,6 +243,89 @@ public class RunContinuationsAsynchronouslyAnalyzerUnitTest
                                    }
                                    """;
         await VerifyNet90Async(Source, FixedSource);
+    }
+
+    /// <summary>Verifies namespace qualification and reordered named arguments preserve option binding.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task QualifiedAndNamedConstructorArgumentsAreBoundAsync() =>
+        VerifyNet90Async("""
+            using System.Threading.Tasks;
+            class C
+            {
+                object M(object state)
+                {
+                    _ = {|PSH1302:new System.Threading.Tasks.TaskCompletionSource<int>()|};
+                    _ = {|PSH1302:new TaskCompletionSource<int>(state: state, creationOptions: TaskCreationOptions.None)|};
+                    _ = {|PSH1302:new TaskCompletionSource<int>(creationOptions: TaskCreationOptions.None, state: state)|};
+                    _ = new TaskCompletionSource<int>(state: state, creationOptions: TaskCreationOptions.RunContinuationsAsynchronously | TaskCreationOptions.AttachedToParent);
+                    return new object();
+                }
+            }
+            """);
+
+    /// <summary>Verifies syntax lookalikes and unresolved constructors are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnrelatedAndUnresolvedCreationsAreIgnoredAsync()
+    {
+        const string Source = """
+            class TaskCompletionSource { }
+            class TaskCompletionSource<T> { }
+            class C
+            {
+                object M()
+                {
+                    _ = new global::TaskCompletionSource();
+                    _ = new TaskCompletionSource<int>();
+                    _ = new System.Threading.Tasks.TaskCompletionSource<int>(missing: true);
+                    object other = new();
+                    return new int();
+                }
+            }
+            """;
+        var compilation = CSharpCompilation.Create(nameof(Test), [CSharpSyntaxTree.ParseText(Source)], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1302RunContinuationsAsynchronouslyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies missing framework types and omitted optional arguments are conservatively ignored.</summary>
+    /// <param name="declarations">The minimal completion-source API present in the compilation.</param>
+    /// <param name="creation">The constructor invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class TaskCompletionSource { }", "new TaskCompletionSource()")]
+    [Arguments("class TaskCompletionSource<T> { }", "new TaskCompletionSource<int>()")]
+    [Arguments("enum TaskCreationOptions { None = 0 } class TaskCompletionSource<T> { public TaskCompletionSource(TaskCreationOptions options = 0) { } }", "new TaskCompletionSource<int>()")]
+    [Arguments("enum TaskCreationOptions { None = 0 } class TaskCompletionSource<T> { public TaskCompletionSource(TaskCreationOptions options = 0) { } }", "new TaskCompletionSource<int> { }")]
+    [Arguments(
+        "enum TaskCreationOptions { None = 0 } class TaskCompletionSource<T> { public TaskCompletionSource(int state = 0, TaskCreationOptions options = 0) { } }",
+        "new TaskCompletionSource<int>(state: 1)")]
+    public async Task MissingFrameworkOrOmittedOptionsAreIgnoredAsync(string declarations, string creation)
+    {
+        var tree = CSharpSyntaxTree.ParseText($$"""
+            namespace System { public class Object { } public class ValueType { } public class Enum { } public struct Void { } public struct Int32 { } }
+            namespace System.Threading.Tasks
+            {
+                {{declarations}}
+                class C { object M() => {{creation}}; }
+            }
+            """);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree]);
+        var expression = (await tree.GetRootAsync()).DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Single();
+        await Assert.That(compilation.GetSemanticModel(tree).GetSymbolInfo(expression).Symbol).IsNotNull();
+        var diagnostics = await compilation.WithAnalyzers([new Psh1302RunContinuationsAsynchronouslyAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies a lookalike is ignored on frameworks without nongeneric completion sources.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task LookalikeOnOlderFrameworkIsIgnoredAsync()
+    {
+        var test = new Verify.Test { ReferenceAssemblies = AnalyzerFrameworks.NetStandard20, TestCode = "class TaskCompletionSource { } class C { object M() => new TaskCompletionSource(); }" };
+        await test.RunAsync(CancellationToken.None);
     }
 
     /// <summary>Runs a verification against the .NET 9 reference assemblies.</summary>

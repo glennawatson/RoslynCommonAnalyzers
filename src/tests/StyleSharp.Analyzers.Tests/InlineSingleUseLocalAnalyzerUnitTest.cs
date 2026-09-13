@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
 using VerifyInlineSingleUseLocal = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2266InlineSingleUseLocalAnalyzer,
     StyleSharp.Analyzers.Sst2266InlineSingleUseLocalCodeFixProvider>;
@@ -15,6 +16,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class InlineSingleUseLocalAnalyzerUnitTest
 {
+    /// <summary>The analyzer configuration document in each test workspace.</summary>
+    private const string EditorConfigPath = "/.editorconfig";
+
     /// <summary>A declaration whose initializer is wider than the default threshold.</summary>
     private const string LongInitializerSource = """
                                                  public sealed class C
@@ -700,6 +704,117 @@ public class InlineSingleUseLocalAnalyzerUnitTest
         await RunAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies operators are pure only when every operand is pure and no mutation occurs.</summary>
+    /// <param name="expression">The initializer expression.</param>
+    /// <param name="expected">Whether duplicating its syntax is considered pure.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("this", true)]
+    [Arguments("default(int)", true)]
+    [Arguments("typeof(int)", true)]
+    [Arguments("sizeof(int)", true)]
+    [Arguments("(value)", true)]
+    [Arguments("(int)value", true)]
+    [Arguments("-value", true)]
+    [Arguments("!value", true)]
+    [Arguments("~value", true)]
+    [Arguments("++value", false)]
+    [Arguments("--value", false)]
+    [Arguments("&value", false)]
+    [Arguments("*value", false)]
+    [Arguments("-M()", false)]
+    [Arguments("value.Member", true)]
+    [Arguments("M().Member", false)]
+    [Arguments("value->Member", false)]
+    [Arguments("value + M()", false)]
+    [Arguments("M() + value", false)]
+    [Arguments("flag ? value : other", true)]
+    [Arguments("M() ? value : other", false)]
+    [Arguments("flag ? M() : other", false)]
+    [Arguments("flag ? value : M()", false)]
+    [Arguments("new object()", false)]
+    public async Task InitializerPurityRequiresPureOperandsAsync(string expression, bool expected)
+    {
+        var syntax = SyntaxFactory.ParseExpression(expression);
+        await Assert.That(Sst2266InlineSingleUseLocalAnalyzer.IsPureInlinable(syntax)).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies writes and aliases preserve the local declaration.</summary>
+    /// <param name="statement">The sole use of the initialized local.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value = 2;")]
+    [Arguments("value++;")]
+    [Arguments("value--;")]
+    [Arguments("++value;")]
+    [Arguments("--value;")]
+    [Arguments("Read(ref value);")]
+    [Arguments("Write(out value);")]
+    [Arguments("ref int alias = ref value;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task WrittenOrAliasedLocalIsKeptAsync(string statement) =>
+        VerifyCleanAsync($$"""
+            class C
+            {
+                void M() { int value = 1; {{statement}} }
+                void Read(ref int value) { }
+                void Write(out int value) { value = 0; }
+            }
+            """);
+
+    /// <summary>Verifies declarations that cannot be removed are ignored.</summary>
+    /// <param name="body">The method body containing an unsuitable local.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("const int value = 1; return value;")]
+    [Arguments("int value; value = 1; return value;")]
+    [Arguments("int value = 1, other = 2; return value + other;")]
+    [Arguments("ref int value = ref input; return value;")]
+    [Arguments("switch (input) { case 0: int value = 1; return value; default: return 0; }")]
+    [Arguments("int value = 1; System.Func<int> read = delegate { return value; }; return read();")]
+    [Arguments("int value = 1; int Read() => value; return Read();")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsuitableLocalDeclarationIsKeptAsync(string body) =>
+        VerifyCleanAsync($"class C {{ int M(int input) {{ {body} }} }}");
+
+    /// <summary>Verifies a unary read does not get mistaken for a mutating unary operator.</summary>
+    /// <param name="expression">The nonmutating use of the local.</param>
+    /// <param name="expected">The unary expression after inlining the initializer.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("-value", "-1")]
+    [Arguments("+value", "+1")]
+    [Arguments("~value", "~1")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnaryReadAllowsInliningAsync(string expression, string expected) =>
+        RunAsync(
+            $$"""class C { int M() { int {|SST2266:value|} = 1; return {{expression}}; } }""",
+            $$"""class C { int M() { return {{expected}}; } }""");
+
+    /// <summary>Verifies active directive trivia does not hide the sole read.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task ActiveRegionStillAllowsSingleUseAsync()
+    {
+        var test = new CSharpAnalyzerVerifier<Sst2266InlineSingleUseLocalAnalyzer>.Test
+        {
+            TestCode = """
+            class C
+            {
+                int M()
+                {
+            #if true
+                    int {|SST2266:value|} = 1;
+                    return value;
+            #endif
+                }
+            }
+            """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, "root = true\n[*.cs]\ndotnet_diagnostic.SST2266.severity = warning\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Runs a code-fix verification with the disabled rule enabled.</summary>
     /// <param name="source">The markup source.</param>
     /// <param name="fixedSource">The expected fixed source.</param>
@@ -738,8 +853,8 @@ public class InlineSingleUseLocalAnalyzerUnitTest
                       {options}
                       """;
 
-        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
-        test.FixedState.AnalyzerConfigFiles.Add(("/.editorconfig", config));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
+        test.FixedState.AnalyzerConfigFiles.Add((EditorConfigPath, config));
         return test;
     }
 }

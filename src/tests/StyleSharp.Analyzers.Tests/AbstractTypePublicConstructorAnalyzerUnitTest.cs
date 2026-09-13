@@ -12,6 +12,19 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1428 (public constructor on an abstract type) and its fix.</summary>
 public class AbstractTypePublicConstructorAnalyzerUnitTest
 {
+    /// <summary>Checks static constructors and constructors with implicit private accessibility are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task StaticAndImplicitPrivateConstructorsAreCleanAsync() =>
+        VerifyAbstractCtor.VerifyAnalyzerAsync("""
+            public abstract class Owner
+            {
+                static Owner() { }
+                Owner() { }
+            }
+            """);
+
     /// <summary>Verifies a public constructor on an abstract class is reported and made protected.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

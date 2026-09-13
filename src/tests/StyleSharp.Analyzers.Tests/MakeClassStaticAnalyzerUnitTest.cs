@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.Testing;
 using VerifyMakeStatic = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.TypeDesignAnalyzer,
     StyleSharp.Analyzers.MakeClassStaticCodeFixProvider>;
@@ -25,6 +26,55 @@ public class MakeClassStaticAnalyzerUnitTest
             internal static int Zero() => 0;
         }
         """;
+
+    /// <summary>Checks constants, nested types, delegates, and a static constructor allow a static class.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task StaticCompatibleMemberKindsAreReportedAsync() =>
+        VerifyMakeStatic.VerifyAnalyzerAsync("""
+            public class {|SST1432:Container|}
+            {
+                static Container() { }
+                public const int Value = 1;
+                public class Nested { }
+                public delegate void Callback();
+            }
+            """);
+
+    /// <summary>Checks empty partial types and primary constructors do not qualify for conversion.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task EmptyPartialAndPrimaryConstructorClassesAreCleanAsync() =>
+        VerifyMakeStatic.VerifyAnalyzerAsync("""
+            public partial class Empty { }
+            public partial class Empty { }
+            public class Primary() { public static int Value; }
+            public class Constructed { public Constructed() { } public static int Value; }
+            """);
+
+    /// <summary>Checks duplicate partial declarations within one tree report only the first declaration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SameTreePartialClassIsReportedOnceAsync() =>
+        VerifyMakeStatic.VerifyAnalyzerAsync("""
+            public partial class {|SST1432:Helpers|} { }
+            public partial class Helpers { public static int Value; }
+            """);
+
+    /// <summary>Checks a conflicting struct declaration does not hide the class's static-only diagnostic.</summary>
+    /// <param name="source">The conflicting partial declarations.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("partial struct Helpers { } partial class {|SST1432:Helpers|} { public static int Value; }")]
+    [Arguments("partial class {|SST1432:Helpers|} { public static int Value; } partial struct Helpers { }")]
+    public async Task ConflictingPartialKindsKeepClassDiagnosticAsync(string source)
+    {
+        var test = new CSharpAnalyzerVerifier<TypeDesignAnalyzer>.Test { TestCode = source, CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
 
     /// <summary>Verifies an all-static class is reported and marked static.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

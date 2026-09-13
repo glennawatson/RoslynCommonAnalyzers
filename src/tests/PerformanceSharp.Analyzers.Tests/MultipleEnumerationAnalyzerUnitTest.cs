@@ -2,8 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+
+using RoslynCommon.Analyzers.Tests;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1125MultipleEnumerationAnalyzer>;
@@ -13,6 +19,139 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1125MultipleEnumerationAnalyzer"/> (PSH1125 multiple enumeration).</summary>
 public class MultipleEnumerationAnalyzerUnitTest
 {
+    /// <summary>The cached primitive reference set for compilations without LINQ.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
+    /// <summary>Checks foreach reporting does not depend on LINQ being present in the target framework.</summary>
+    /// <param name="body">The candidate sequence uses.</param>
+    /// <param name="expectedCount">The expected number of repeated-enumeration diagnostics.</param>
+    /// <returns>The assertion task.</returns>
+    [Test]
+    [Arguments("foreach (var x in source) {} foreach (var x in source) {}", 1)]
+    [Arguments("_ = source.Count(); _ = source.Count();", 0)]
+    public async Task MissingLinqStillRecognizesForeachAsync(string body, int expectedCount)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ void M(System.Collections.Generic.IEnumerable<int> source) {{ {body} }} }}");
+        var compilation = CSharpCompilation.Create("WithoutLinq", [tree], CoreReferences);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1125MultipleEnumerationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expectedCount);
+        if (expectedCount > 0)
+        {
+            await Assert.That(diagnostics[0].Id).IsEqualTo("PSH1125");
+        }
+    }
+
+    /// <summary>Checks unsupported type syntax is rejected before semantic binding.</summary>
+    /// <param name="source">The type spelling.</param>
+    /// <param name="expected">Whether the spelling names an enumerable contract.</param>
+    /// <returns>The assertion task.</returns>
+    [Test]
+    [Arguments("int", false)]
+    [Arguments("IEnumerable<int>[]", false)]
+    [Arguments("global::IEnumerable", false)]
+    [Arguments("IEnumerable", true)]
+    [Arguments("System.Collections.Generic.IEnumerable<int>?", true)]
+    public async Task EnumerableTypeSyntaxIsConservativeAsync(string source, bool expected)
+    {
+        var type = SyntaxFactory.ParseTypeName(source);
+        await Assert.That(Psh1125MultipleEnumerationAnalyzer.IsEnumerableTypeSyntax(type)).IsEqualTo(expected);
+    }
+
+    /// <summary>Checks alternative execution paths and writes do not count as repeated enumeration.</summary>
+    /// <param name="body">The sequence uses in the method body.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("return flag ? source.Count() : source.First();")]
+    [Arguments("return flag switch { true => source.Count(), false => source.First() };")]
+    [Arguments("try { return source.Count(); } catch { return source.First(); }")]
+    [Arguments("return source.GetHashCode();")]
+    [Arguments("var deferred = source.Where(x => x > 0); return 0;")]
+    [Arguments("IEnumerable<int> unused; return 0;")]
+    [Arguments("IEnumerable<int> items = new int[1]; return items.Count() + items.First();")]
+    [Arguments("IEnumerable<int> items = new[] { 1 }; return items.Count() + items.First();")]
+    [Arguments("IEnumerable<int> items = new List<int>(); return items.Count() + items.First();")]
+    [Arguments("IEnumerable<int> items = [1]; return items.Count() + items.First();")]
+    [Arguments("IEnumerable<int> items = source.ToArray(); return items.Count() + items.First();")]
+    [Arguments("Reset(ref source); return source.Count() + source.First();")]
+    [Arguments("Reset(out source, 1); return source.Count() + source.First();")]
+    public Task NonRepeatedWalkShapesAreIgnoredAsync(string body) =>
+        VerifyAsync($$"""
+            using System.Collections.Generic;
+            using System.Linq;
+            class C
+            {
+                int M(IEnumerable<int> source, bool flag) { {{body}} }
+                static void Reset(ref IEnumerable<int> value) { }
+                static void Reset(out IEnumerable<int> value, int unused) { value = new int[0]; }
+            }
+            """);
+
+    /// <summary>Checks deferred foreach chains and sequential exception paths still count as repeated walks.</summary>
+    /// <param name="body">The sequence uses with the repeated walk marked.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("foreach (var x in source.Where(x => x > 0)) { } foreach (var x in {|PSH1125:source|}.Where(x => x > 1)) { }")]
+    [Arguments("try { _ = source.Count(); } finally { _ = {|PSH1125:source|}.Count(); }")]
+    [Arguments("if (source.Any()) { _ = {|PSH1125:source|}.First(); }")]
+    [Arguments("_ = source.Any() ? {|PSH1125:source|}.First() : 0;")]
+    [Arguments("_ = source.Count() switch { _ => {|PSH1125:source|}.First() };")]
+    [Arguments("switch (source.Count()) { default: _ = {|PSH1125:source|}.First(); break; }")]
+    public Task SequentialWalkShapesAreReportedAsync(string body) =>
+        VerifyAsync($$"""
+            using System.Collections.Generic;
+            using System.Linq;
+            class C { void M(IEnumerable<int> source) { {{body}} } }
+            """);
+
+    /// <summary>Checks nullable and non-generic sequence contracts are recognized while ref parameters are exempt.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SequenceTypeSyntaxRetainsItsContractAsync() =>
+        VerifyAsync("""
+            #nullable enable
+            class C
+            {
+                void M(System.Collections.IEnumerable source)
+                {
+                    foreach (var item in source) { }
+                    foreach (var item in {|PSH1125:source|}) { }
+                }
+                void N(System.Collections.Generic.IEnumerable<int>? source)
+                {
+                    if (source == null) return;
+                    foreach (var item in source) { }
+                    foreach (var item in {|PSH1125:source|}) { }
+                }
+                void R(ref System.Collections.IEnumerable source)
+                {
+                    foreach (var item in source) { }
+                    foreach (var item in source) { }
+                }
+            }
+            """);
+
+    /// <summary>Checks user types named IEnumerable and unrelated eager-looking methods are not mistaken for LINQ.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SimilarTypeAndMethodNamesAreIgnoredAsync() =>
+        VerifyAsync("""
+            class IEnumerable { public int Count() => 0; }
+            class C
+            {
+                int M(IEnumerable source) => source.Count() + source.Count();
+                int N()
+                {
+                    IEnumerable source = Make();
+                    return source.Count() + source.Count();
+                }
+                IEnumerable Make() => new IEnumerable();
+            }
+            """);
+
     /// <summary>Verifies two foreach loops over an IEnumerable parameter are reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

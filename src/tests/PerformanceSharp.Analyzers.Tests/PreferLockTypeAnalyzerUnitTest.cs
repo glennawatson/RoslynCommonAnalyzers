@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using TUnit.Assertions;
 
@@ -382,6 +383,117 @@ public class PreferLockTypeAnalyzerUnitTest
         });
 
         await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies semantic binding distinguishes ambiguous object names, shadowing, and multiple lock fields.</summary>
+    /// <param name="source">The declarations and expected diagnostics.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("using System; class C { private readonly Object {|PSH1300:_gate|} = new Object(); void M() { lock (_gate) { } } }")]
+    [Arguments("class Object { } class C { private readonly Object _gate = new Object(); void M() { lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object {|PSH1300:_gate|} = new(); private readonly object {|PSH1300:_other|} = new(); void M() { lock (this._gate) { } lock (_other) { } } }")]
+    [Arguments("class C { private readonly object {|PSH1300:_gate|} = new(); private readonly object _other = new(); void M() { lock (_gate) { } _other.ToString(); } }")]
+    [Arguments("class C { private readonly object _gate = new(); void M(object _gate) { lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object {|PSH1300:_gate|} = new(); void M(object _gate) { lock (this._gate) { } lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object _gate = new(); }")]
+    [Arguments("partial class C { private readonly object _gate = new(); void M() { lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object _gate = new object { }; void M() { lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object _gate = null; void M() { lock (_gate) { } } }")]
+    [Arguments("class C { private static readonly global::System.Object {|PSH1300:_gate|} = new global::System.Object(); void M() { lock (_gate) { } } }")]
+    [Arguments("class C { private readonly object _gate = new(), _other = new(); void M() { lock (_gate) { } lock (_other) { } } }")]
+    public async Task CandidateBindingRespectsFieldIdentityAsync(string source)
+    {
+        var test = new CSharpAnalyzerVerifier<Psh1300PreferLockTypeAnalyzer>.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = source };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies every declaration shape that prevents a unique syntactic lock candidate.</summary>
+    /// <param name="members">The candidate declarations.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("private readonly object _gate = new(); private readonly object _other = new();")]
+    [Arguments("private readonly object _gate;")]
+    [Arguments("private readonly object _gate = new(), _other = new();")]
+    [Arguments("private readonly object _gate = new object { };")]
+    [Arguments("private readonly object _gate = new() { };")]
+    [Arguments("private readonly object _gate = new Different();")]
+    [Arguments("private readonly object _gate = new(1);")]
+    [Arguments("private readonly object _gate = new object(1);")]
+    [Arguments("private readonly object _gate = null;")]
+    [Arguments("private object _gate = new();")]
+    [Arguments("public readonly object _gate = new();")]
+    [Arguments("private readonly int _gate = 1;")]
+    [Arguments("private readonly Other.Object _gate = new();")]
+    public async Task NonUniqueOrInvalidCandidateIsRejectedAsync(string members)
+    {
+        var type = ParseType($"class C {{ {members} }}");
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out var variable)).IsFalse();
+        await Assert.That(variable).IsNull();
+    }
+
+    /// <summary>Verifies a partial type cannot be classified as a complete syntax-only candidate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PartialTypeHasNoSingleSyntaxCandidateAsync()
+    {
+        var type = ParseType("partial class C { private readonly object _gate = new(); }");
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.TryGetSingleSyntaxOnlyCandidate(type, out var variable)).IsFalse();
+        await Assert.That(variable).IsNull();
+    }
+
+    /// <summary>Verifies local declarations conflict while nested declarations and unrelated tokens are ignored.</summary>
+    /// <param name="members">The declarations surrounding the field reference.</param>
+    /// <param name="expected">Whether the syntactic scan can prove lock-only use.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("void M() { object _gate = new(); lock (_gate) { } }", false)]
+    [Arguments("void M(object value) { if (value is object _gate) { lock (_gate) { } } }", false)]
+    [Arguments("void M() { try { } catch (System.Exception _gate) { } }", false)]
+    [Arguments("void M(object[] items) { foreach (var _gate in items) { } }", false)]
+    [Arguments("class Nested { object _gate; } void M() { lock (this._gate) { } }", true)]
+    [Arguments("void _gate() { }", false)]
+    public async Task ShadowingDeclarationsPreventSyntaxProofAsync(string members, bool expected)
+    {
+        var type = ParseType($"class C {{ private readonly object _gate = new(); {members} }}");
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.HasOnlyUnshadowedLockUses(type, GateFieldName)).IsEqualTo(expected);
+    }
+
+    /// <summary>Verifies detached and differently named tokens do not identify a field reference.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task UnrelatedFieldNameTokensAreIgnoredAsync()
+    {
+        var type = ParseType(LockOnlyObjectFieldType);
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, SyntaxFactory.Identifier(GateFieldName), GateFieldName))
+            .IsEqualTo(Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.ClassifyFieldNameToken(type, type.Identifier, GateFieldName))
+            .IsEqualTo(Psh1300PreferLockTypeAnalyzer.FieldNameTokenKind.Ignore);
+    }
+
+    /// <summary>Verifies incomplete, nullable, and non-private fields are rejected before semantic binding.</summary>
+    /// <param name="declaration">The field declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("private object _gate = new();")]
+    [Arguments("public readonly object _gate = new();")]
+    [Arguments("private readonly object _gate;")]
+    [Arguments("private readonly object _gate = new(), _other = new();")]
+    [Arguments("private readonly object? _gate = new();")]
+    [Arguments("private readonly int _gate = 1;")]
+    [Arguments("private readonly Other.Object _gate = new();")]
+    public async Task IneligibleFieldSyntaxIsRejectedAsync(string declaration)
+    {
+        var field = ParseField(declaration);
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
+    }
+
+    /// <summary>Verifies a field without a containing type cannot be a candidate.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DetachedFieldHasNoContainingTypeAsync()
+    {
+        var field = (FieldDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration("private readonly object _gate = new();")!;
+        await Assert.That(Psh1300PreferLockTypeAnalyzer.CouldBeCandidateLockField(field)).IsFalse();
     }
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies (where the Lock type exists).</summary>

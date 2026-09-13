@@ -3,6 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+
+using RoslynCommon.Analyzers.Tests;
+
 using VerifyAccessor = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1504AccessorConsistencyAnalyzer,
     StyleSharp.Analyzers.Sst1504AccessorConsistencyCodeFixProvider>;
@@ -77,6 +82,62 @@ public class LayoutSingleLineUnitTest
             }
         }
         """;
+
+    /// <summary>Checks named bodies and operator bodies are all recognized as single-line elements.</summary>
+    /// <param name="member">The member containing the collapsed body.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("C() {|SST1502:{|} M(); }")]
+    [Arguments("~C() {|SST1502:{|} M(); }")]
+    [Arguments("public static C operator +(C a, C b) {|SST1502:{|} return a; }")]
+    [Arguments("public static implicit operator int(C value) {|SST1502:{|} return 1; }")]
+    [Arguments("void N()\n{\nvoid Local() {|SST1502:{|} M(); }\nLocal();\n}")]
+    public Task SingleLineMemberKindsAreReportedAsync(string member) =>
+        VerifyElement.VerifyAnalyzerAsync($"class C\n{{\nstatic void M() {{ }}\n{member}\n}}");
+
+    /// <summary>Checks type and enum bodies are reported only when they contain members on one line.</summary>
+    /// <param name="source">The declaration source with its expected diagnostic.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("class C {|SST1502:{|} int value; }")]
+    [Arguments("struct C {|SST1502:{|} int value; }")]
+    [Arguments("interface C {|SST1502:{|} void M(); }")]
+    [Arguments("record C {|SST1502:{|} int value; }")]
+    [Arguments("record struct C {|SST1502:{|} int value; }")]
+    [Arguments("enum C {|SST1502:{|} A }")]
+    [Arguments("enum C {}")]
+    [Arguments("class C {}")]
+    [Arguments("record C;")]
+    [Arguments("class C\n{\nint M() => 1;\nvoid N()\n{\nint Local() => 1;\n}\n}")]
+    public Task TypeBodyContentControlsReportingAsync(string source) => VerifyElement.VerifyAnalyzerAsync(source);
+
+    /// <summary>Checks incomplete type and enum declarations do not report missing braces.</summary>
+    /// <param name="source">An unfinished declaration.</param>
+    /// <returns>The verification task.</returns>
+    [Test]
+    [Arguments("class C")]
+    [Arguments("enum C A }")]
+    public async Task MissingOpeningBraceIsIgnoredAsync(string source)
+    {
+        var test = new VerifyElement.Test { TestCode = source, CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks an enum created without an opening brace is ignored by the layout rule.</summary>
+    /// <returns>The assertion task.</returns>
+    [Test]
+    public async Task SynthesizedEnumWithoutBraceIsIgnoredAsync()
+    {
+        var declaration = SyntaxFactory.EnumDeclaration("E")
+            .AddMembers(SyntaxFactory.EnumMemberDeclaration("A"))
+            .WithOpenBraceToken(default);
+        var tree = CSharpSyntaxTree.Create(SyntaxFactory.CompilationUnit().AddMembers(declaration));
+        var compilation = CSharpCompilation.Create("IncompleteEnum", [tree], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst1502SingleLineElementAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
 
     /// <summary>Verifies a single-line embedded block is reported (SST1501) and expanded.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

@@ -3,8 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 
 using VerifyLockTarget = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.LockTargetAnalyzer>;
@@ -14,6 +16,80 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the lock-target rules: SST1901 (accessible member), SST1902 (weak identity), and SST1903 (new object).</summary>
 public class LockTargetAnalyzerUnitTest
 {
+    /// <summary>Checks absent reflection metadata and unresolved lock targets do not crash analysis.</summary>
+    /// <param name="expression">The lock expression.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("gate")]
+    [Arguments("missing")]
+    public async Task MissingLockMetadataIsCleanAsync(string expression)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class Gate {{}} class C {{ void M(Gate gate) {{ lock ({expression}) {{}} }} }}");
+        var compilation = CSharpCompilation.Create("MissingLockMetadata", [tree]);
+        var diagnostics = await compilation.WithAnalyzers([new LockTargetAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Checks wrapper casts and semantic member types preserve the lock diagnostics.</summary>
+    /// <param name="expression">The lock target, including expected diagnostics.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("((System.Object){|SST1901:Gate|})")]
+    [Arguments("((global::System.Object){|SST1901:Gate|})")]
+    [Arguments("(C)this")]
+    [Arguments("{|SST1902:Name|}")]
+    [Arguments("{|SST1902:Reflection|}")]
+    [Arguments("{|SST1902:DerivedReflection|}")]
+    [Arguments("{|SST1901:PublicProperty|}")]
+    [Arguments("{|SST1901:ProtectedProperty|}")]
+    [Arguments("{|SST1901:ProtectedInternalProperty|}")]
+    [Arguments("other.InternalGate")]
+    public Task WrappedAndSemanticLockTargetsAreClassifiedAsync(string expression) =>
+        VerifyLockTarget.VerifyAnalyzerAsync($$"""
+            class C
+            {
+                public readonly object Gate = new();
+                private string Name => "gate";
+                private System.Type Reflection => typeof(C);
+                private System.Reflection.TypeDelegator DerivedReflection => new(typeof(C));
+                public object PublicProperty => Gate;
+                protected object ProtectedProperty => Gate;
+                protected internal object ProtectedInternalProperty => Gate;
+                internal object InternalGate = new();
+                void M(Other other) { lock ({{expression}}) {} }
+            }
+            class Other { internal object InternalGate = new(); }
+            """);
+
+    /// <summary>Checks fresh locals escape through captures and arguments but not ordinary member reads.</summary>
+    /// <param name="body">The method body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("object gate = new(); gate.ToString(); lock ({|SST1903:gate|}) {}")]
+    [Arguments("object gate = new(); System.Action use = () => gate.ToString(); lock (gate) {}")]
+    [Arguments("object gate = new(); void Use() { gate.ToString(); } lock (gate) {} Use();")]
+    [Arguments("object gate = new(); Use(gate); lock (gate) {}")]
+    [Arguments("object gate = new(); gate = shared; lock (gate) {}")]
+    [Arguments("switch (flag) { case true: object gate = new(); lock ({|SST1903:gate|}) {} break; }")]
+    [Arguments("for (object gate = new(); flag;) { lock ({|SST1903:gate|}) {} }")]
+    [Arguments("object gate; gate = shared; lock (gate) {}")]
+    [Arguments("foreach (object gate in new object[] { shared }) { lock (gate) {} }")]
+    [Arguments("if (shared is object gate) { lock (gate) {} }")]
+    public Task FreshLocalPublicationControlsDiagnosticAsync(string body) =>
+        VerifyLockTarget.VerifyAnalyzerAsync($"class C {{ void M(bool flag, object shared) {{ {body} }} static void Use(object value) {{}} }}");
+
+    /// <summary>Checks top-level local scopes are not treated as method-local fresh locks.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelLocalIsOutsideFreshLocalScopeAsync()
+    {
+        var test = new VerifyLockTarget.Test { TestCode = "object gate = new(); lock (gate) {}" };
+        test.TestState.OutputKind = OutputKind.ConsoleApplication;
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies locking on a public field is reported (SST1901).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

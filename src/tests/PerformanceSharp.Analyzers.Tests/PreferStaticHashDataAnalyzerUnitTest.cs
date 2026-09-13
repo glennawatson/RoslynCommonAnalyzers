@@ -3,7 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeHashData = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1400PreferStaticHashDataAnalyzer>;
@@ -210,10 +212,199 @@ public class PreferStaticHashDataAnalyzerUnitTest
                               }
                               """;
 
-        var test = new AnalyzeHashData.Test { ReferenceAssemblies = ReferenceAssemblies.NetFramework.Net472.Default, TestCode = Source };
+        var test = new AnalyzeHashData.Test { ReferenceAssemblies = AnalyzerFrameworks.Net472, TestCode = Source };
 
         await test.RunAsync(CancellationToken.None);
     }
+
+    /// <summary>Verifies the chained syntax gate rejects each near miss and clears its factory result.</summary>
+    /// <param name="expression">The candidate invocation.</param>
+    /// <param name="matches">Whether the chained shape is eligible.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("SHA256.Create().ComputeHash(bytes)", true)]
+    [Arguments("SHA256.Create().ComputeHash()", false)]
+    [Arguments("SHA256.Create().ComputeHash(bytes, 0, 1)", false)]
+    [Arguments("ComputeHash(bytes)", false)]
+    [Arguments("SHA256.Create().Other(bytes)", false)]
+    [Arguments("sha.ComputeHash(bytes)", false)]
+    [Arguments("SHA256.Create(1).ComputeHash(bytes)", false)]
+    [Arguments("Create().ComputeHash(bytes)", false)]
+    [Arguments("SHA256.Other().ComputeHash(bytes)", false)]
+    public async Task ChainedSyntaxRequiresParameterlessMemberFactoryAsync(string expression, bool matches)
+    {
+        var invocation = (InvocationExpressionSyntax)SyntaxFactory.ParseExpression(expression);
+        var actual = Psh1400PreferStaticHashDataAnalyzer.IsChainedComputeHashShape(invocation, out var factory);
+        await Assert.That(actual).IsEqualTo(matches);
+        await Assert.That(factory is not null).IsEqualTo(matches);
+    }
+
+    /// <summary>Verifies using statements identify each hash-only declarator independently.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UsingStatementReportsHashOnlyDeclaratorsAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Security.Cryptography;
+            class C
+            {
+                byte[] M(byte[] bytes)
+                {
+                    using (SHA256 {|PSH1400:first|} = SHA256.Create(), {|PSH1400:second|} = SHA256.Create())
+                    {
+                        return second.ComputeHash(first.ComputeHash(bytes));
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Verifies syntax near misses and non-hash local uses do not suggest replacing the algorithm.</summary>
+    /// <param name="statement">The using or hashing statements under analysis.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("using (SHA256.Create()) { }")]
+    [Arguments("using SHA256 sha = null;")]
+    [Arguments("using var sha = Make();")]
+    [Arguments("using var sha = SHA256.Create();")]
+    [Arguments("using var sha = SHA256.Create(); _ = sha.HashSize;")]
+    [Arguments("using var sha = SHA256.Create(); _ = sha.ComputeHash(stream);")]
+    [Arguments("using var sha = SHA256.Create(); System.Func<byte[], byte[]> hash = sha.ComputeHash;")]
+    [Arguments("using var sha = SHA256.Create(); _ = (sha).ComputeHash(bytes);")]
+    [Arguments("using var sha = SHA256.Create(); _ = sha.ComputeHash(bytes); _ = sha.HashSize;")]
+    [Arguments("_ = SHA256.Create().ComputeHash(stream);")]
+    [Arguments("var sha = SHA256.Create(); _ = sha.ComputeHash(bytes);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonHashOnlyScopesAreCleanAsync(string statement) =>
+        VerifyAnalyzerNet90Async(
+            $$"""
+            using System.Security.Cryptography;
+            class C
+            {
+                static SHA256 Make() => SHA256.Create();
+                void M(byte[] bytes, System.IO.Stream stream)
+                {
+                    {{statement}}
+                }
+            }
+            """);
+
+    /// <summary>Verifies identical identifier spelling on another symbol does not count as a local use.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task SameNamedFieldDoesNotEscapeAlgorithmLocalAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Security.Cryptography;
+            class C
+            {
+                int sha;
+                byte[] M(byte[] bytes)
+                {
+                    using var {|PSH1400:sha|} = SHA256.Create();
+                    this.sha = 1;
+                    return sha.ComputeHash(bytes);
+                }
+            }
+            """);
+
+    /// <summary>Verifies the runtime gate requires a static method taking a single byte vector.</summary>
+    /// <param name="member">The available HashData member.</param>
+    /// <param name="reports">Whether the static API is supported.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("", false)]
+    [Arguments("public byte[] HashData(byte[] bytes) => bytes;", false)]
+    [Arguments("public static byte[] HashData(byte[] bytes, int count) => bytes;", false)]
+    [Arguments("public static byte[] HashData(int[] bytes) => null;", false)]
+    [Arguments("public static byte[] HashData(byte[,] bytes) => null;", false)]
+    [Arguments("public static byte[] HashData(byte[][] bytes) => null;", false)]
+    [Arguments("public static byte[] HashData(int bytes) => null;", false)]
+    [Arguments("public static byte[] HashData;", false)]
+    [Arguments("public static byte[] HashData(byte[] bytes) => bytes;", true)]
+    [Arguments("public static byte[] HashData(int bytes) => null; public static byte[] HashData(byte[] bytes) => bytes;", true)]
+    public Task HashDataSurfaceControlsReportingAsync(string member, bool reports)
+    {
+        var invocation = reports ? "{|PSH1400:SHA256.Create().ComputeHash(bytes)|}" : "SHA256.Create().ComputeHash(bytes)";
+        var local = reports ? "{|PSH1400:sha|}" : "sha";
+        var test = new AnalyzeHashData.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.Net90,
+            TestCode = $$"""
+                using System.Security.Cryptography;
+                namespace System.Security.Cryptography
+                {
+                    public sealed class SHA256 : System.IDisposable
+                    {
+                        public static SHA256 Create() => new SHA256();
+                        public byte[] ComputeHash(byte[] bytes) => bytes;
+                        public void Dispose() { }
+                        {{member}}
+                    }
+                }
+                class C
+                {
+                    byte[] M(byte[] bytes) => {{invocation}};
+                    byte[] N(byte[] bytes)
+                    {
+                        using var {{local}} = SHA256.Create();
+                        return sha.ComputeHash(bytes);
+                    }
+                }
+                """,
+        };
+        test.SolutionTransforms.Add(static (solution, projectId) => solution.WithProjectMetadataReferences(projectId, [RuntimeMetadataReferences.CoreLibrary]));
+        return test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies bound methods that only resemble a parameterless static factory stay clean.</summary>
+    /// <param name="factory">The factory declaration.</param>
+    /// <param name="receiver">The factory receiver.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public Factory Create() => this;", "new Factory()")]
+    [Arguments("public static Factory Create(int count = 0) => new Factory();", "Factory")]
+    [Arguments("public static Factory Create() => new Factory();", "Factory")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedFactorySymbolsAreCleanAsync(string factory, string receiver) =>
+        VerifyAnalyzerNet90Async(
+            $$"""
+            class Factory : System.IDisposable
+            {
+                {{factory}}
+                public byte[] ComputeHash(byte[] bytes) => bytes;
+                public void Dispose() { }
+            }
+            class C
+            {
+                byte[] M(byte[] bytes) => {{receiver}}.Create().ComputeHash(bytes);
+                byte[] N(byte[] bytes)
+                {
+                    using var sha = {{receiver}}.Create();
+                    return sha.ComputeHash(bytes);
+                }
+            }
+            """);
+
+    /// <summary>Verifies unresolved factory and hashing overloads are ignored.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnresolvedHashingCallsAreCleanAsync() =>
+        VerifyAnalyzerNet90Async(
+            """
+            using System.Security.Cryptography;
+            class C
+            {
+                byte[] M() => SHA256.Create().ComputeHash({|CS1503:42|});
+                void N()
+                {
+                    using var sha = SHA256.Create();
+                    _ = sha.ComputeHash({|CS1503:42|});
+                }
+            }
+            """);
 
     /// <summary>Runs a code-fix verification against the .NET 9 reference assemblies (where the HashData methods exist).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
@@ -221,7 +412,7 @@ public class PreferStaticHashDataAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyNet90Async(string source, string fixedSource)
     {
-        var test = new VerifyHashData.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source, FixedCode = fixedSource };
+        var test = new VerifyHashData.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = source, FixedCode = fixedSource };
 
         await test.RunAsync(CancellationToken.None);
     }
@@ -231,7 +422,7 @@ public class PreferStaticHashDataAnalyzerUnitTest
     /// <returns>A task that represents the asynchronous test operation.</returns>
     private static async Task VerifyAnalyzerNet90Async(string source)
     {
-        var test = new AnalyzeHashData.Test { ReferenceAssemblies = ReferenceAssemblies.Net.Net90, TestCode = source };
+        var test = new AnalyzeHashData.Test { ReferenceAssemblies = AnalyzerFrameworks.Net90, TestCode = source };
 
         await test.RunAsync(CancellationToken.None);
     }

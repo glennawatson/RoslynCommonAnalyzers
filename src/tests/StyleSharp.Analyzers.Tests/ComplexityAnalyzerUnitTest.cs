@@ -350,6 +350,39 @@ public class ComplexityAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies each terminating jump and loop syntax is recognized.</summary>
+    /// <param name="loop">The single-iteration loop.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("for (;;) { break; }")]
+    [Arguments("while (true) { continue; }")]
+    [Arguments("do { throw new System.Exception(); } while (true);")]
+    [Arguments("foreach (int value in new int[0]) { return; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnconditionalLoopJumpsAreReportedAsync(string loop) =>
+        VerifySingleIterationLoop.VerifyAnalyzerAsync($$"""class C { void M() { {|SST1444:{{loop}}|} } }""");
+
+    /// <summary>Verifies conditional jumps and nested function jumps do not terminate the enclosing loop.</summary>
+    /// <param name="body">The loop body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("if (flag) return;")]
+    [Arguments("if (flag) { } else return;")]
+    [Arguments("if (flag) throw new System.Exception();")]
+    [Arguments("switch (value) { case 0: break; default: return; }")]
+    [Arguments("try { if (flag) throw new System.Exception(); } catch { return; }")]
+    [Arguments("try { continue; } finally { }")]
+    [Arguments("System.Action action = () => { return; };")]
+    [Arguments("System.Action<int> action = x => { throw new System.Exception(); };")]
+    [Arguments("System.Action action = delegate { return; };")]
+    [Arguments("void Local() { return; }")]
+    [Arguments("for (; flag;) { if (flag) break; }")]
+    [Arguments("do { if (flag) break; } while (flag);")]
+    [Arguments("foreach (var item in new int[0]) { if (flag) break; }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConditionalAndNestedJumpsAreIgnoredAsync(string body) =>
+        VerifySingleIterationLoop.VerifyAnalyzerAsync($$"""class C { void M(bool flag, int value) { while (flag) { {{body}} } } }""");
+
     /// <summary>Verifies SST1444 ignores conditional continues and does not report the outer loop for nested-loop jumps.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

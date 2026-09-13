@@ -11,6 +11,107 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1431 (static member of a generic type ignoring its type parameters).</summary>
 public class StaticMemberInGenericTypeAnalyzerUnitTest
 {
+    /// <summary>Checks each named member shape and unnamed multi-variable declarations.</summary>
+    /// <param name="member">The member declaration and expected diagnostic markup.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("public static int {|SST1431:Value|} => 1;")]
+    [Arguments("internal static int {|SST1431:Value|};")]
+    [Arguments("protected static int {|SST1431:Value|};")]
+    [Arguments("static int Value;")]
+    [Arguments("public static int First, Second;")]
+    [Arguments("public static event System.Action {|SST1431:Changed|};")]
+    [Arguments("public static event System.Action First, Second;")]
+    [Arguments("public static int[] {|SST1431:Values|};")]
+    [Arguments("public static dynamic {|SST1431:Value|};")]
+    [Arguments("public static T Value;")]
+    public Task StaticMemberShapesAreClassifiedAsync(string member) =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync($"public class Owner<T> {{ private int instance; {member} }}");
+
+    /// <summary>Checks registration fields and properties use their declared type and its inheritance chain.</summary>
+    /// <param name="member">The registration declaration.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("public static System.Windows.DependencyProperty Key;")]
+    [Arguments("public static System.Windows.DependencyProperty Key => null;")]
+    [Arguments("public static Derived Key;")]
+    public Task RegistrationTypeWithoutNestedTypeReferenceIsCleanAsync(string member) =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync($$"""
+            namespace System.Windows { public class DependencyProperty { } }
+            public class Derived : System.Windows.DependencyProperty { }
+            public class Owner<T> { private int instance; {{member}} }
+            """);
+
+    /// <summary>Checks both additional-owner options, matching and nonmatching names, and empty lists.</summary>
+    /// <param name="key">The configuration key.</param>
+    /// <param name="value">The configured owner names.</param>
+    /// <param name="memberName">The member name with diagnostic markup where required.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("stylesharp.SST1431.additional_per_owner_types", "Custom.PropertyKey", "Key")]
+    [Arguments("stylesharp.additional_per_owner_types", "Other.Key, Custom.PropertyKey", "Key")]
+    [Arguments("stylesharp.SST1431.additional_per_owner_types", "Other.PropertyKey", "{|SST1431:Key|}")]
+    [Arguments("stylesharp.additional_per_owner_types", "", "{|SST1431:Key|}")]
+    public async Task ConfiguredOwnerNamesAreMatchedAsync(string key, string value, string memberName)
+    {
+        var test = new VerifyStaticGeneric.Test
+        {
+            TestCode = $$"""
+                namespace Custom { public class PropertyKey { } }
+                public class Owner<T> { private int instance; public static Custom.PropertyKey {{memberName}}; }
+                """,
+        };
+        test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $"root = true\n[*.cs]\n{key} = {value}\n"));
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks enclosing type parameters remain visible across a nongeneric intermediate type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task OuterTypeParameterThroughNongenericOwnerIsCleanAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync("""
+            public class Outer<T>
+            {
+                private int instance;
+                public class Middle
+                {
+                    private int instance;
+                    public class Inner<U>
+                    {
+                        private int instance;
+                        public static T Value;
+                    }
+                }
+            }
+            """);
+
+    /// <summary>Checks deeper nested types count as owner usage while unrelated nested types do not.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NestedTypeOwnershipIsComparedAsync() =>
+        VerifyStaticGeneric.VerifyAnalyzerAsync("""
+            public class Other
+            {
+                private int instance;
+                public class Entry { }
+            }
+            public class Owner<T>
+            {
+                private int instance;
+                public static Other.Entry {|SST1431:Foreign|} => null;
+                public static Middle.Entry Local => null;
+                public class Middle
+                {
+                    private int instance;
+                    public class Entry { }
+                }
+            }
+            """);
+
     /// <summary>Verifies a static method on a generic type that ignores the type parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

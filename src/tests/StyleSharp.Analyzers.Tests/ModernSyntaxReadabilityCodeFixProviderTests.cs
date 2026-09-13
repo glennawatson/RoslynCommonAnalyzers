@@ -15,6 +15,78 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests rejected modern readability edits when diagnostics outlive their original syntax.</summary>
 public class ModernSyntaxReadabilityCodeFixProviderTests
 {
+    /// <summary>Checks hash-code registration rejects incomplete multiplication and hash-input shapes.</summary>
+    /// <param name="expression">The expression carrying the stale hash diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("a.GetHashCode() ^ b.GetHashCode()")]
+    [Arguments("(a.GetHashCode() - 397) ^ b.GetHashCode()")]
+    [Arguments("(a.GetHashCode() * 2) ^ b.GetHashCode()")]
+    [Arguments("(31 * a.GetHashCode()) ^ b")]
+    [Arguments("(31L * a.GetHashCode()) ^ b.GetHashCode()")]
+    [Arguments("(31 * a.GetHashCode(1)) ^ b.GetHashCode()")]
+    [Arguments("(31 * F().GetHashCode()) ^ b.GetHashCode()")]
+    [Arguments("(31 * a.ToString()) ^ b.GetHashCode()")]
+    [Arguments("(31 * a.GetHashCode()) - b.GetHashCode()")]
+    public async Task IncompleteHashExpressionIsNotOfferedAsync(string expression)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("IncompleteHash", LanguageNames.CSharp).AddDocument("IncompleteHash.cs", $"class C {{ int M() => {expression}; }}");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = LanguageStyleCodeFixProviderTests.CreateDiagnostic(root, "SST2217", expression);
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxReadabilityCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        await Assert.That(ModernSyntaxReadabilityCodeFixProvider.Apply(document, root, diagnostic)).IsSameReferenceAs(document);
+    }
+
+    /// <summary>Checks a multiplier on the left still permits a hash-combine action.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task LeftHandHashMultiplierRegistersTheFixAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        const string Expression = "(31 * a.GetHashCode()) ^ b.GetHashCode()";
+        var document = workspace.AddProject("LeftHashMultiplier", LanguageNames.CSharp).AddDocument("LeftHashMultiplier.cs", $"class C {{ int M() => {Expression}; }}");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = LanguageStyleCodeFixProviderTests.CreateDiagnostic(root, "SST2217", Expression);
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxReadabilityCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(1);
+        var changed = ModernSyntaxReadabilityCodeFixProvider.Apply(document, root, diagnostic);
+        await Assert.That((await changed.GetSyntaxRootAsync())!.ToFullString()).Contains("System.HashCode.Combine(a, b)");
+    }
+
+    /// <summary>Checks statement rewrites find a temporary after unrelated preceding statements.</summary>
+    /// <param name="id">The diagnostic identifier.</param>
+    /// <param name="body">The original method body.</param>
+    /// <param name="target">The temporary declaration carrying the diagnostic.</param>
+    /// <param name="expected">The rewritten body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("SST2214", "Log(); var tuple = F(); var a = tuple.Item1; var b = tuple.Item2; Log();", "var tuple = F();", "Log(); var (a, b) = F(); Log();")]
+    [Arguments("SST2215", "Log(); var temp = left; left = right; right = temp; Log();", "var temp = left;", "Log(); (left, right) = (right, left); Log();")]
+    public async Task TemporaryAfterAnotherStatementIsRewrittenAsync(string id, string body, string target, string expected)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("TemporaryStatements", LanguageNames.CSharp).AddDocument("TemporaryStatements.cs", $"class C {{ void M() {{ {body} }} }}");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = LanguageStyleCodeFixProviderTests.CreateDiagnostic(root, id, target);
+        var changed = ModernSyntaxReadabilityCodeFixProvider.Apply(document, root, diagnostic);
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        var expectedRoot = Microsoft.CodeAnalysis.CSharp.SyntaxFactory.ParseCompilationUnit($"class C {{ void M() {{ {expected} }} }}");
+        await Assert.That(Microsoft.CodeAnalysis.CSharp.SyntaxFactory.AreEquivalent(changedRoot, expectedRoot)).IsTrue();
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxReadabilityCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(Microsoft.CodeAnalysis.CSharp.SyntaxFactory.AreEquivalent(editor.GetChangedRoot(), expectedRoot)).IsTrue();
+    }
+
     /// <summary>Checks registration, single application, and batch editing all reject stale syntax.</summary>
     /// <param name="id">The diagnostic identifier.</param>
     /// <param name="body">The method body.</param>

@@ -13,6 +13,74 @@ public class SuspiciousShiftCountAnalyzerUnitTest
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
 
+    /// <summary>Checks implicitly convertible count types retain their constant values.</summary>
+    /// <param name="count">The typed constant count.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("(short)32")]
+    [Arguments("(ushort)32")]
+    [Arguments("(byte)32")]
+    [Arguments("(sbyte)32")]
+    [Arguments("' '")]
+    [Arguments("0x20")]
+    [Arguments("3_2")]
+    [Arguments("032")]
+    public Task TypedConstantAtWidthIsReportedAsync(string count) =>
+        VerifyShift.VerifyAnalyzerAsync($$"""class C { int M(int value) => {|SST1478:value << {{count}}|}; }""");
+
+    /// <summary>Checks suffixed counts and operators accepting non-integer constants are ignored.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task UnsupportedCountTypesAreIgnoredAsync() =>
+        VerifyShift.VerifyAnalyzerAsync("""
+            class C
+            {
+                public static C operator <<(C value, double count) => value;
+                public static C operator >>(C value, long count) => value;
+                C M(C value) => value << 0d;
+                C N(C value) => value >> 0L;
+                C Fraction(C value) => value << .5;
+            }
+            """);
+
+    /// <summary>Checks lifted shifts use the underlying integer width.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NullableOperandsKeepUnderlyingWidthAsync() =>
+        VerifyShift.VerifyAnalyzerAsync("""
+            class C
+            {
+                int? M(int? value) => {|SST1478:value << 32|};
+                long? N(long? value) => {|SST1478:value >> 64|};
+                long? Safe(long? value) => value << 32;
+            }
+            """);
+
+    /// <summary>Checks a zero shift in an assembly attribute is reported without a containing member.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task AssemblyAttributeZeroShiftIsReportedAsync() =>
+        VerifyShift.VerifyAnalyzerAsync("""
+            [assembly: Count({|SST1478:1 << 0|})]
+            class CountAttribute : System.Attribute
+            {
+                public CountAttribute(int count) { }
+            }
+            """);
+
+    /// <summary>Checks an untyped invalid left operand is ignored without a width to measure.</summary>
+    /// <returns>The verification task.</returns>
+    [Test]
+    public async Task UntypedOperandIsIgnoredAsync()
+    {
+        var test = new VerifyShift.Test { TestCode = "class C { object M() => null << 32; }", CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a count at or beyond a 32-bit operand's width is reported and one inside it is not.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

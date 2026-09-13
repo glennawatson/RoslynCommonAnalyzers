@@ -12,6 +12,19 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1174 (redundant jump statements) and its fix.</summary>
 public class RedundantJumpAnalyzerUnitTest
 {
+    /// <summary>Verifies jumps before another statement are not treated as block tails.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task JumpsBeforeAnotherStatementAreCleanAsync() =>
+        VerifyRedundantJump.VerifyAnalyzerAsync("""
+            class C
+            {
+                void M() { return; M(); }
+                void N(bool flag) { while (flag) { continue; M(); } }
+            }
+            """);
+
     /// <summary>Verifies a trailing <c>return;</c> in a void method is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

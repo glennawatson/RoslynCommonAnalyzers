@@ -11,6 +11,49 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2455DuplicateEnumValueAnalyzer"/> (SST2455).</summary>
 public class DuplicateEnumValueAnalyzerUnitTest
 {
+    /// <summary>Checks integer literal representations preserve duplicate detection and increasing sequences.</summary>
+    /// <param name="type">The enum underlying type.</param>
+    /// <param name="first">The first value.</param>
+    /// <param name="second">A distinct following value.</param>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("uint", "1U", "2U")]
+    [Arguments("long", "1L", "2L")]
+    [Arguments("ulong", "1UL", "2UL")]
+    [Arguments("ulong", "9223372036854775808UL", "9223372036854775809UL")]
+    [Arguments("int", "-2", "-1")]
+    [Arguments("int", "+1", "+2")]
+    [Arguments("int", "~2", "~1")]
+    public Task IntegerLiteralFormsRetainDuplicateSemanticsAsync(string type, string first, string second) =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync($$"""
+            enum Distinct : {{type}} { A = {{first}}, B = {{second}} }
+            enum Duplicate : {{type}} { A = {{first}}, {|SST2455:B|} = {{first}} }
+            """);
+
+    /// <summary>Checks invalid declarations retain the compiler's recovered constant semantics for later members.</summary>
+    /// <param name="members">The malformed enum members.</param>
+    /// <returns>The verification task.</returns>
+    [Test]
+    [Arguments("Broken = Missing, A = 1, {|SST2455:B|} = 1")]
+    [Arguments("Broken = 1.0, {|SST2455:A|} = 1, {|SST2455:B|} = 1")]
+    [Arguments("A = 9223372036854775807L, Overflow, {|SST2455:B|} = 9223372036854775807L")]
+    public async Task InvalidDeclarationsRetainCompilerConstantSemanticsAsync(string members)
+    {
+        var test = new VerifyDuplicateEnumValue.Test { TestCode = $"enum E : long {{ {members} }}", CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks external names in a constant expression are not mistaken for explicit sibling aliases.</summary>
+    /// <returns>The verification task.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ExternalConstantExpressionStillReportsDuplicatesAsync() =>
+        VerifyDuplicateEnumValue.VerifyAnalyzerAsync("""
+            static class Constants { public const int Value = 1; }
+            enum E { A = 1, {|SST2455:B|} = Constants.Value, Alias = E.A }
+            """);
+
     /// <summary>Verifies a repeated literal value is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

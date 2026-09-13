@@ -4,7 +4,9 @@
 
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyModifier = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1491RedundantModifierAnalyzer,
@@ -325,6 +327,60 @@ public class Sst1491RedundantModifierAnalyzerUnitTest
                 abstract int IFoo.Bar();
             }
             """);
+
+    /// <summary>Checks accessor bodies and expression bodies determine interface abstractness and virtualness.</summary>
+    /// <param name="member">The interface member with its expected diagnostics.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    [Arguments("{|SST1491:abstract|} int P { get; }")]
+    [Arguments("{|SST1491:virtual|} int P { get => 1; }")]
+    [Arguments("{|SST1491:virtual|} int P { get { return 1; } }")]
+    [Arguments("{|SST1491:virtual|} int P => 1;")]
+    [Arguments("{|SST1491:abstract|} int this[int i] { get; }")]
+    [Arguments("{|SST1491:virtual|} int this[int i] { get => i; }")]
+    [Arguments("{|SST1491:virtual|} int this[int i] => i;")]
+    [Arguments("{|SST1491:abstract|} event System.Action E;")]
+    [Arguments("{|SST1491:virtual|} event System.Action E { add { } remove { } }")]
+    [Arguments("{|SST1491:virtual|} void M() { }")]
+    public Task InterfaceBodyShapesAreMeasuredAsync(string member) => RunAsync($"interface I {{ {member} }}");
+
+    /// <summary>Checks explicit reimplementations retain their modifiers for every accessor-bearing shape.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ExplicitInterfaceAccessorMembersAreCleanAsync() => RunAsync("""
+        interface I
+        {
+            int P { get; }
+            int this[int i] { get; }
+            event System.Action E;
+        }
+        interface J : I
+        {
+            abstract int I.P { get; }
+            abstract int I.this[int i] { get; }
+            abstract event System.Action I.E;
+        }
+        """);
+
+    /// <summary>Checks readonly modifiers are evaluated against the containing type and static context.</summary>
+    /// <param name="source">The valid or incomplete declaration.</param>
+    /// <param name="expectedCount">The expected number of redundant modifiers.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("readonly record struct C { public readonly int M() => 1; }", 1)]
+    [Arguments("record struct C { public readonly int M() => 1; }", 0)]
+    [Arguments("readonly struct C { public static readonly int M() => 1; }", 0)]
+    [Arguments("class C { public readonly int M() => 1; }", 0)]
+    [Arguments("namespace N { readonly int M() => 1; }", 0)]
+    public async Task ReadonlyMembersRespectTheirContainingTypeAsync(string source, int expectedCount)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create("ReadonlyMembers", [tree], RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst1491RedundantModifierAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(expectedCount);
+    }
 
     /// <summary>Runs the analyzer, and its fix when one is expected.</summary>
     /// <param name="source">The test source, with its expected diagnostics marked up.</param>

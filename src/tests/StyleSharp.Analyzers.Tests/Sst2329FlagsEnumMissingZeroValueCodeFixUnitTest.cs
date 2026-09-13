@@ -2,7 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using Microsoft.CodeAnalysis.Text;
 using VerifyZero = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2329FlagsEnumMissingZeroValueAnalyzer,
     StyleSharp.Analyzers.Sst2329FlagsEnumMissingZeroValueCodeFixProvider>;
@@ -63,6 +70,94 @@ public class Sst2329FlagsEnumMissingZeroValueCodeFixUnitTest
             Execute = 4,
         }
         """;
+
+    /// <summary>Verifies an empty enum receives a zero member and retains its nesting indentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task EmptyNestedEnumGetsNoneAsync()
+    {
+        const string Source = """
+            using System;
+            class C
+            {
+                [Flags]
+                public enum {|SST2329:Access|} { }
+            }
+            """;
+        const string FixedSource = """
+            using System;
+            class C
+            {
+                [Flags]
+                public enum Access {
+                    None = 0
+                }
+            }
+            """;
+        await VerifyZero.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies an empty enum retains documentation without treating it as indentation.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task EmptyDocumentedEnumGetsNoneAsync()
+    {
+        const string Source = """
+            /// <summary>Permission flags.</summary>
+            [System.Flags]
+            public enum {|SST2329:Access|}
+            {
+            }
+            """;
+        const string FixedSource = """
+            /// <summary>Permission flags.</summary>
+            [System.Flags]
+            public enum Access
+            {
+
+                None = 0
+            }
+            """;
+        await VerifyZero.VerifyCodeFixAsync(Source, FixedSource);
+    }
+
+    /// <summary>Verifies empty and inline enums at column zero receive the conventional member.</summary>
+    /// <param name="body">The original enum body.</param>
+    /// <param name="fixedBody">The expected body, including its braces and line breaks.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("", "{\n    None = 0\n}")]
+    [Arguments("Read = 1", "{ None = 0, Read = 1 }")]
+    public async Task InlineEnumGetsNoneAsync(string body, string fixedBody)
+    {
+        var source = $"[System.Flags] public enum {{|SST2329:Access|}} {{ {body} }}";
+        var fixedSource = $"[System.Flags] public enum Access {fixedBody}";
+        await VerifyZero.VerifyCodeFixAsync(source, fixedSource);
+    }
+
+    /// <summary>Verifies stale and directive-separated declarations remain unchanged in both entry points.</summary>
+    /// <param name="source">The declaration receiving a stale diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { }")]
+    [Arguments("enum E {\n#if ACTIVE\n A = 1\n#endif\n}")]
+    public async Task UneditableDeclarationIsIgnoredAsync(string source)
+    {
+        using var workspace = new AdhocWorkspace();
+        var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp);
+        var document = workspace.AddDocument(project.Id, "Test.cs", SourceText.From(source));
+        var root = (await document.GetSyntaxRootAsync())!;
+        var declaration = root.DescendantNodes().OfType<BaseTypeDeclarationSyntax>().Single();
+        var diagnostic = Diagnostic.Create(DesignRules.FlagsEnumMissingZeroValue, declaration.Identifier.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst2329FlagsEnumMissingZeroValueCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
 
     /// <summary>Verifies the fix inserts <c>None = 0</c> as the first member.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>

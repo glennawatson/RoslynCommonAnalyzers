@@ -68,44 +68,15 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
 
 - **Performance / allocations first.** Analyzer callbacks run on every keystroke.
   Keep the no-diagnostic path allocation-free; compute suggested names only after
-  a violation is found. See **[docs/PERFORMANCE.md](docs/PERFORMANCE.md)**.
+  a violation is found. The full doctrine, with the measurements behind it, is in
+  **[Performance](#performance--the-doctrine-not-a-link)** below — read it before
+  touching an analyzer, code fix or shared helper.
 
-- **No LINQ in production code.** Do not use LINQ anywhere under
-  `src/StyleSharp.Analyzers/`, `src/StyleSharp.Analyzers.CodeFixes/`,
-  `src/PerformanceSharp.Analyzers/`, or `src/PerformanceSharp.Analyzers.CodeFixes/`.
-  Even seemingly small query expressions add iterator, closure, and collection
-  overhead that is too expensive on analyzer hot paths. Use explicit `for` /
-  `foreach` loops and a few locals instead.
-
-- **Keep the LINQ guardrail in place.** Production analyzer/code-fix projects remove
-  the implicit `System.Linq` global using via `<Using Remove="System.Linq" />`.
-  Preserve that guardrail so accidental LINQ usage fails at compile time.
-
-- **Prefer concrete allocation shapes.** If the final size is known, prefer arrays
-  over `List<T>`. If a mutable buffer is still required, give `List<T>`,
-  `Dictionary<TKey, TValue>`, and `HashSet<T>` a sensible initial capacity instead
-  of relying on default zero-capacity growth.
-
-- **Avoid incidental materialization.** Do not introduce `ToList()`/`ToArray()` just
-  to continue processing. Prefer a single-pass loop, or copy once into the exact
-  concrete collection needed by the downstream API.
-
-- **Hot path scans should be single-pass when practical.** Prefer one indexed scan
-  over repeated rescans when the same syntax/token collection is being queried for
-  multiple facts.
-
-- **Avoid `DescendantNodes()` on analyzer/code-fix hot paths.** We have measured
-  Roslyn's iterator-based descendant walks as a recurring perf problem in this
-  repo. When a rule needs preorder descendant traversal, prefer a shared static
-  helper over `ChildNodesAndTokens()` or a direct-member scan that avoids walking
-  into irrelevant subtrees. Keep `DescendantNodes()` only when a benchmark shows
-  no better alternative for that site; use
-  `DescendantTraversalBenchmarks` in `StyleSharp.Analyzers.Benchmarks` when
-  evaluating rewrites.
-
-- **Roslyn syntax-list helpers are allowed.** `SyntaxTokenList.Any(SyntaxKind.X)` and
-  similar Roslyn helpers are not LINQ. Do not rewrite them solely to satisfy the
-  no-LINQ rule; only replace them when a real repeated-scan perf win is justified.
+- **No LINQ in production analyzer or code-fix code**, and keep the guardrail that
+  enforces it: those projects remove the implicit `System.Linq` global using via
+  `<Using Remove="System.Linq" />`, so accidental LINQ fails at compile time.
+  Use explicit `for`/`foreach` loops and a few locals. See
+  [Performance](#performance--the-doctrine-not-a-link).
 
 - **Static helpers, not base classes.** Shared logic lives in `internal static`
   helper classes operating on the passed-in model (`NamingHelper`,
@@ -160,6 +131,217 @@ Tests use **TUnit** (Microsoft Testing Platform) and the
   `AddPackages`/`AddAssemblies` in a test body — each call returns a **new**
   `ReferenceAssemblies` whose NuGet resolution is then redone per test. Where a test
   genuinely needs an extra package, cache the composed instance in a static.
+
+## `docs/` is written for the user, never for us
+
+Everything under `docs/` is consumer documentation. The reader is a developer who just saw one of
+our diagnostics in their editor and wants to get on with their day. They do not work on this
+repository and never will.
+
+A rule page answers four questions:
+
+1. **What does the analyzer fire on?** The shape in their code that triggers it.
+2. **What does good and bad code look like?** A short bad example and the corrected version.
+3. **What can be configured?** The `.editorconfig` keys, their values and defaults.
+4. **When should it be suppressed?** The cases where the rule is not worth following.
+
+Where a code fix exists, say what it does to their code — that is the thing they are about to accept
+in the editor, so it matters more than anything about the analyzer.
+
+Those four are the backbone. **Other consumer information is allowed, but only where it earns its
+place** — a trap the reader will hit, a related rule that interacts with this one, a language-version
+or framework limit that changes whether the rule applies. The test is whether it changes what the
+reader does. If it does not, cut it. Never add a section merely because another page has one.
+
+**Never put implementation detail on a rule page.** No syntactic fast paths, no semantic model, no
+allocation counts for the analyzer, no benchmark figures, no description of how a lookup is cached or
+gated. If a sentence would still be true had we implemented the rule a completely different way, it
+is probably about the user's code and belongs. If it describes what our analyzer touches, when, or
+how cheaply, it does not.
+
+The one exception that is easy to get backwards: a `PSH` rule exists *because* something costs the
+user time or memory. "Each call allocates a closure" describes **their** code and is the whole point
+of the page. "The clean path is syntactic" describes **ours** and must go.
+
+Design and performance doctrine lives in this file. Do not link `docs/` pages to it.
+
+Write plainly: short sentences, one idea each, active voice. Assume basic C# and nothing about
+Roslyn.
+
+## Performance — the doctrine, not a link
+
+Analyzer callbacks run on **every keystroke** and on every build. A wasteful pattern multiplied
+across 637 analyzers and millions of syntax nodes is the whole difference between this package set
+and the sluggish third-party analyzers it exists to beat. Everything below is measured on this
+repository, not inherited wisdom.
+
+### The number that matters is the clean path
+
+The overwhelming majority of callbacks see code that does **not** violate the rule. That path is the
+headline figure: **healthy is 0.00–0.57% of sampled bytes; 1% or more is a defect.**
+
+Measure on three corpora, never two:
+
+| Path | Corpus | What it isolates |
+| --- | --- | --- |
+| `startup` | one empty class | the fixed cost every compilation pays before the rule can have anything to say |
+| `clean` | non-violating sources | `startup` plus the per-node cost of deciding "nothing to report" |
+| `violating` | sources that trip the rule | the above plus the diagnostics the rule exists to produce |
+
+**Measure `startup` or the other two lie.** A short corpus is mostly compilation, so a rule that
+resolves ten metadata types at compilation start looks like a per-node defect when it is a fixed
+cost paid once. `clean - startup` is the genuine per-node cost.
+
+A code fix has two paths instead, and they differ by ~150x, so never merge them:
+`register` (`RegisterCodeFixesAsync`, run whenever the IDE populates the lightbulb — hot, must decide
+cheaply) and `apply` (resolving the action, which exists to produce syntax — allocation here is
+output, not waste).
+
+### Resolve metadata lazily, and cache it — both properties, or it is worse
+
+This is the single largest defect the traces found: resolving well-known symbols eagerly in
+`RegisterCompilationStartAction` cost **71 MB across 276 analyzers on an empty file**. Deferring it
+cut the set to 36.5 MB. It looks like the textbook Roslyn idiom, which is exactly why it survived so
+long — do not restore it.
+
+A first-demand holder must be **resolved at most once per compilation** *and* **not at all when
+nothing needs it**. Moving `GetTypeByMetadataName` into a per-node callback satisfies the second and
+breaks the first, which is worse than what it replaced.
+
+Keep the `lock`, but off the fast path — measured cold at 8 threads / warm at 1 thread:
+no synchronisation 25,392 us / 3,842 us and the builder runs **8 times**; `lock` inside the queried
+method 3,951 us / 3,435 us; **fast path inlined with the lock in its own method 4,067 us / 1,266 us
+and the builder runs once.** A `lock` in the method body blocks inlining, so the warm path pays for
+a slow path it never takes.
+
+```csharp
+[MethodImpl(MethodImplOptions.AggressiveInlining)]
+internal bool Contains(ISymbol symbol, CancellationToken cancellationToken) =>
+    (Volatile.Read(ref _targets) ?? Resolve(cancellationToken)).Contains(symbol);
+
+[MethodImpl(MethodImplOptions.NoInlining)]
+private HashSet<ISymbol> Resolve(CancellationToken cancellationToken)
+{
+    lock (_gate)
+    {
+        var targets = _targets;
+        if (targets is null)
+        {
+            targets = Collect(compilation, cancellationToken);
+            Volatile.Write(ref _targets, targets);
+        }
+
+        return targets;
+    }
+}
+```
+
+Where the cached value is cheap (two or three metadata lookups), a race is harmless: use
+`Interlocked.CompareExchange` over **one immutable record holding every resolved value**. Never
+publish the fields one at a time. And gate the rule on the probe — a project whose framework lacks
+the suggested API must pay nothing and must never be told to use it.
+
+### Concurrency: lock-free only where it measures
+
+`ConcurrentDictionary.GetOrAdd` needs a factory that **captures nothing**, passed state through the
+`TArg` overload. Measured on a read-heavy 256-key cache at 1 thread / 8 threads: `lock` +
+`Dictionary` 8.93 / 266.08 us; static factory **4.04 / 34.81 us (2.21x, 7.64x faster)**; a
+**capturing lambda 14.25 us — 1.60x *slower* than the lock it replaced** at one thread, which is the
+common case for a single file. Removing a lock is a means, not the goal: if a site cannot use a
+non-capturing factory, keep the lock.
+
+A container only needs to be concurrent if two callbacks can reach it at once. Written from a
+per-node or per-symbol callback → concurrent is required (`EnableConcurrentExecution` is on). Built
+in a compilation-start body and then only read, or a per-invocation local → use the plain type.
+
+### Build syntax with the full factory overload, never a mutator chain
+
+Every `WithX(...)` returns a brand new node, so a chain of three allocates three and discards two.
+`SyntaxFactory` and every node's `Update(...)` take all children at once — use them. `Token(kind)`
+also seeds elastic-marker trivia a later formatting pass must reconcile.
+
+```csharp
+SyntaxFactory.Token(default, SyntaxKind.SemicolonToken, closeBrace.TrailingTrivia);  // one allocation
+SyntaxFactory.Token(SyntaxKind.SemicolonToken).WithTrailingTrivia(...);              // two, one discarded
+```
+
+A single `WithX(...)` on an existing node is already one allocation — leave it. Only collapse one
+when its receiver is a `SyntaxFactory.` call whose full overload absorbs it.
+
+### Inside the callback
+
+- **Syntax before semantics.** Decide with syntax alone wherever possible; `GetSymbolInfo` /
+  `GetTypeInfo` / `GetDeclaredSymbol` bind, and binding is the expensive thing. Order guards cheap to
+  expensive and return the moment the verdict is decided.
+- **`GetDeclaredSymbol` over per-entry `GetSymbolInfo`** when a loop walks *declarations*. When it
+  resolves *references* to symbols declared elsewhere, `GetSymbolInfo` is the only API that answers
+  it — that residual is irreducible, record it as such.
+- **No per-node collections.** No `HashSet`, `List`, array or `StringBuilder` per node; a few locals
+  and a single pass. Where a buffer is genuinely needed, pre-size it; prefer an array when the final
+  size is known.
+- **Struct enumerators.** `SeparatedSyntaxList<T>`, `SyntaxList<T>`, `ChildSyntaxList` and
+  `SyntaxTriviaList` enumerate without allocating — `foreach` them, never `.ToList()`. Never
+  `ToList()`/`ToArray()` just to keep processing.
+- **`GetLocation()` only on the report path.** It allocates; prefer `node.Span` +
+  `tree.GetLineSpan(span)` and materialise a `Location` only when reporting.
+- **No `DescendantNodes()` on a hot path.** It allocates an iterator per call. Use the shared
+  `DescendantTraversalHelper` with a `static` visitor, or index `ChildNodesAndTokens()`, so an early
+  exit costs nothing.
+- **Descriptors are `static readonly`**, built once, never per invocation.
+- **Never cache an `ISymbol`, `SyntaxNode` or `Location`** in long-lived state — they root large
+  graphs. Extract the small value and keep that.
+- **Register the narrowest action** for the exact `SyntaxKind`s, with `EnableConcurrentExecution()`
+  and `ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None)`.
+
+### No LINQ in production code
+
+`System.Linq` is removed from the global usings in `src/StyleSharp.Analyzers*`,
+`src/PerformanceSharp.Analyzers*` and `src/SecuritySharp.Analyzers*`, so a query or a
+`Select`/`Where`/`ToList` will not compile. **Keep that guardrail.** Iterator state machines,
+closures and convenience materialization are too easy to miss in review and too expensive here.
+Roslyn's own syntax-list helpers (`SyntaxTokenList.Any(SyntaxKind.X)` and friends) are **not** LINQ
+and are fine.
+
+### Two shapes that look like defects and are not
+
+- **A closure captured at registration time is free.** `Initialize` and a compilation-start body run
+  once per compilation, so a lambda capturing per-compilation state costs one display class per
+  compilation and hands it to a node action that runs millions of times. There is no cheaper form.
+  Across 637 analyzers, **no** startup row had a real `<>c__DisplayClass` as its heaviest allocating
+  frame — the category was 288 audit findings and zero measured bytes. What looks like a closure in
+  a trace is usually `+<>c.`, the compiler's cached singleton for a lambda that captures nothing.
+- **A helper that produces a suggestion is producing output.** `NamingHelper.SuggestPascalCase` and
+  friends run only after a rule has decided the name is wrong. Find every caller before "fixing" a
+  string allocation: if the caller computes the suggestion *before* deciding, the caller is the
+  defect, not the helper. Of 21 flagged utility sites, 19 were correctly not defects.
+
+### Never accept or reject a shape by inspection
+
+A syntax audit finds *candidates*; only the trace says which cost anything, and this repository has
+been burned in both directions — eager metadata dismissed as idiom was the biggest defect in the
+set, and closure-capture treated as a backlog was worth nothing. Join the audit to the sweep and let
+the bytes decide. One `GCAllocationTick` samples roughly every 100 KB, so under about five ticks a
+"share of allocation" resolves nothing; fix that with more iterations inside the same window, not a
+bigger corpus.
+
+Tooling and the reproducible commands live outside the repo in
+`~/source/glennawatson/benchmarking`; the in-repo harnesses are
+`benchmarks/{StyleSharp,PerformanceSharp,SecuritySharp}.Analyzers.Benchmarks` (BenchmarkDotNet,
+`[MemoryDiagnoser]`). Pin any run whose timing matters: `taskset -c 0-6 nice -n -20`.
+
+### Checklist for a new or reviewed rule
+
+- [ ] Narrowest action for the exact `SyntaxKind`(s); concurrency and generated-code flags set.
+- [ ] No LINQ, no per-node collections, no instance helper state in the callback.
+- [ ] `foreach` over struct enumerators; no `.ToList()`.
+- [ ] `GetLocation()` only on the report path.
+- [ ] Semantic work gated behind a syntactic fast path.
+- [ ] Any metadata lookup resolved lazily **and** cached per compilation, and the rule silent when
+      the API is absent.
+- [ ] Syntax built with full factory / `Update(...)` overloads, not `WithX()` chains.
+- [ ] Descriptors `static readonly`.
+- [ ] The clean path measured at under 1% of sampled bytes, or its residual named: output the method
+      must produce, a framework call, or a forced box.
 
 ## Multi-Roslyn targeting
 

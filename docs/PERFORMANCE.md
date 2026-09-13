@@ -1,325 +1,61 @@
 # Performance guide
 
-This is the performance doctrine for every analyzer and code fix in this
-repository — both StyleSharp.Analyzers and PerformanceSharp.Analyzers. Analyzers
-run on **every keystroke** in the IDE and on **every build**; a wasteful pattern
-multiplied across dozens of rules and millions of syntax nodes is the difference
-between a snappy and a sluggish editing experience. Beating the sluggishness
-common to third-party analyzers is exactly what this project sets out to do, so
-performance is a first-class requirement here, not an afterthought.
+The performance doctrine for every analyzer, code fix and shared helper in this repository lives in
+**[CLAUDE.md](../CLAUDE.md#performance--the-doctrine-not-a-link)**, in the repository root.
 
-This document describes *approaches*. Concrete measurements are not pinned here
-(they go stale); produce them on demand with the benchmark harnesses under
-`StyleSharp.Analyzers.Benchmarks` and `PerformanceSharp.Analyzers.Benchmarks`
-(see [Measure first](#measure-first)).
+It is kept there, inline, rather than here: it is the guidance that has to be in front of anyone
+changing a hot path, and a linked document is a document that gets skipped. There is one copy so the
+two cannot drift.
 
-## Guiding principles
+It covers:
 
-1. **The analyzer callback is a hot path.** Treat every line inside a
-   `Register…Action` callback as if it runs millions of times, because it does.
-2. **Zero allocations on the common path.** The common case is code that is
-   already correct and produces *no* diagnostic. That path must not allocate.
-3. **Prefer fast static helpers.** Shared logic lives in `static` helper classes
-   operating on the syntax/semantic model passed in — no per-call object state,
-   no instance allocation. This is the default paradigm for the library.
-4. **Syntax before semantics.** A syntactic check is far cheaper than a semantic
-   one. Decide with syntax alone whenever possible; reach for the semantic model
-   only when syntax genuinely cannot answer the question.
-5. **No LINQ in production code.** Treat LINQ as banned in the analyzer and
-   code-fix projects of both packages (`src/StyleSharp.Analyzers*`,
-   `src/PerformanceSharp.Analyzers*`).
-   Iterator state machines, delegate captures, and convenience materialization
-   are too easy to hide in code review and too expensive to pay on hot paths.
-6. **Measure, don't guess.** Every performance claim is backed by a benchmark.
+- the three-corpus measurement (`startup` / `clean` / `violating`), and why omitting `startup` makes
+  the other two numbers lie
+- the healthy threshold for the no-diagnostic path, which is the number that matters
+- the two paths a code fix has, and why they are judged differently
+- lazy metadata resolution done right, and the cached first-demand holder shape
+- lock-free concurrency where it measures, and where keeping the lock is faster
+- building syntax with full factory and `Update(...)` overloads instead of `WithX()` chains
+- allocation discipline inside a callback
+- the two shapes that look like defects and are not
+- the checklist for a new or reviewed rule
 
-## Measure first
-
-The harness is `src/benchmarks/StyleSharp.Analyzers.Benchmarks`
-(BenchmarkDotNet, `[MemoryDiagnoser]`, `ShortRun`, default out-of-process toolchain).
+## Benchmarks
 
 ```bash
 # Run from src/
-
-# Everything
 dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*"
-
-# Just the core line-scan micro-benchmark, or just the end-to-end throughput
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*LineScan*"
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Throughput*"
-
-# Hot-path micro-benchmarks for the most common analyzer pipelines
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
-
-# Descendant traversal rewrites (`DescendantNodes()` vs helper/direct-member scans)
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*DescendantTraversalBenchmarks*"
-
-# Opt-in EventPipe profiling for allocation and CPU hot spots
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledAllocBenchmarks*"
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathProfiledCpuBenchmarks*"
-
-# Target a single hot path when you want one trace per analyzer/path
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementName_Clean*"
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Spacing_Violating*"
-
-# Isolate one analyzer family end-to-end when the combined hot-path suite is too broad
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*TupleElementNameBenchmarks*"
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofBenchmarks*"
-
-# Run all direct code-fix benchmarks
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
-
-# Narrow to one code-fix provider or one family
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofCodeFixBenchmarks*"
-dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Sst11*CodeFixBenchmarks*"
+dotnet run -c Release --project benchmarks/PerformanceSharp.Analyzers.Benchmarks -- --filter "*"
+dotnet run -c Release --project benchmarks/SecuritySharp.Analyzers.Benchmarks -- --filter "*"
 ```
 
-Two complementary lenses:
-
-- **Micro** (`LineScanBenchmarks`) — the decision logic in isolation. Use it to
-  prove a rewrite is allocation-free and faster than what it replaced.
-- **Traversal micro** (`DescendantTraversalBenchmarks`) — compares iterator-based
-  `DescendantNodes()` walks against helper/direct-member scans for the remaining
-  syntax-navigation hot paths. The current benchmark suite shows the helper-based
-  rewrites winning across all measured sites, so prefer this shape when a rule
-  needs preorder descendant traversal with early exit.
-- **Hot-path micro** (`HotPathBenchmarks`) — focused clean/violating corpora for
-  the hottest analyzer pipelines (`SpacingAnalyzer`, tuple element access,
-  `Sst1415UseNameofAnalyzer`, `ArgumentGuardAnalyzer`, and the shared jagged-list helper).
-- **Single-analyzer hot suites** (`TupleElementNameBenchmarks`,
-  `UseNameofBenchmarks`, `NameSimplificationBenchmarks`,
-  `LanguageStyleBenchmarks`, `ModernSyntaxStyleBenchmarks`, and
-  `PreferSwitchExpressionBenchmarks`) plus the discrete conditional-operator
-  layout suite (`ConditionalOperatorPlacementBenchmarks`) — full
-  `CompilationWithAnalyzers` runs for
-  the specific hot analyzer families whose internal fast paths are already
-  covered by `HotPathBenchmarks` or by dedicated clean/violating corpora.
-- **End-to-end** (`AnalyzerThroughputBenchmarks`) — the analyzers run over a real
-  compilation through `CompilationWithAnalyzers`. This is the realistic
-  "what the IDE/build pays" figure and the surface for hunting bottlenecks.
-- **EventPipe** (`HotPathProfiledAllocBenchmarks` / `HotPathProfiledCpuBenchmarks`,
-  plus analyzer-specific `*ProfiledAllocBenchmarks` / `*ProfiledCpuBenchmarks`
-  suites) — opt-in allocation and CPU sampling runs for terminal-driven hotspot hunting.
-  Each hot analyzer family exposes both clean and violating paths so you can
-  profile the common path first, then isolate the report path separately.
-
-### EventPipe workflow
-
-Use the profiled hot-path suites when a rule is known to do semantic work,
-token scans, or other non-trivial analysis:
-
-- `LineScan_*` — shared jagged-list helper used by the SST115x family.
-- `TupleElementName_*` — `Sst1142TupleElementNameAnalyzer` name-rewrite detection.
-- `UseNameof_*` — `Sst1415UseNameofAnalyzer` constructor-argument scanning.
-- `ArgumentGuard_*` — `ArgumentGuardAnalyzer` throw-helper matching.
-- `Spacing_*` — `SpacingAnalyzer` token-walk over a synthetic compilation.
-
-Recommended loop:
-
-1. Run `HotPathBenchmarks` first to see which hot path is slow or allocates.
-2. Re-run the matching `HotPathProfiledAllocBenchmarks` or
-   `HotPathProfiledCpuBenchmarks` method with a narrow `--filter`.
-3. Open the exported `.speedscope.json` trace from `BenchmarkDotNet.Artifacts/`
-   and inspect the hottest frames before changing code.
-4. Make the smallest change that removes work from the clean path.
-5. Re-run the same benchmark/filter to confirm the improvement.
-
-A trace summarizer that reads BenchmarkDotNet's `*.speedscope.json` output
-directly, filters out the BenchmarkDotNet / threading / analyzer-driver noise,
-and prints the remaining hot frames plus the hottest analyzer-visible stacks is
-a quicker read than opening Speedscope by hand.
-
-Code-fix suites do not have dedicated profiled benchmark classes, so collect
-EventPipe traces by wrapping the benchmark runner directly. Useful command lines
-to keep around:
+Narrow with a filter (`--filter "*DescendantTraversalBenchmarks*"`, `--filter "*CodeFixBenchmarks*"`),
+and pin any run whose timing matters:
 
 ```bash
-# CPU sampling across the whole direct code-fix suite
-dotnet-trace collect --profile cpu-sampling --output BenchmarkDotNet.Artifacts/CodeFixBenchmarks.cpu.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
-
-# GC/alloc trace across the whole direct code-fix suite
-dotnet-trace collect --profile gc-verbose --output BenchmarkDotNet.Artifacts/CodeFixBenchmarks.alloc.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*CodeFixBenchmarks*"
-
-# CPU sampling for one provider after the suite identifies a hotspot
-dotnet-trace collect --profile cpu-sampling --output BenchmarkDotNet.Artifacts/UseNameofCodeFixBenchmarks.cpu.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*UseNameofCodeFixBenchmarks*"
-
-# GC/alloc trace for the unique-lines family when one of the SST1150-SST1171 fixes stands out
-dotnet-trace collect --profile gc-verbose --output BenchmarkDotNet.Artifacts/UniqueLinesCodeFixBenchmarks.alloc.nettrace -- dotnet run -c Release --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*Sst11*CodeFixBenchmarks*"
+taskset -c 0-6 nice -n -20 dotnet run -c Release \
+  --project benchmarks/StyleSharp.Analyzers.Benchmarks -- --filter "*HotPathBenchmarks*"
 ```
 
-When a benchmark isn't granular enough, ask the compiler itself:
+## Rules with a deliberate cost
 
-```bash
-dotnet build -c Release /p:ReportAnalyzer=true   # per-analyzer wall-clock in the build log
-```
-
-Always quote the hardware and runtime alongside any number you record (CPU, OS,
-.NET version, BenchmarkDotNet version, job config) — a number without its
-environment is meaningless.
-
-## Registration discipline
-
-- **Register the narrowest action that works.** Prefer
-  `RegisterSyntaxNodeAction` constrained to the exact `SyntaxKind`s you handle.
-  Avoid `RegisterSyntaxTreeAction` / whole-tree walks when a node action covers
-  the case.
-- **Enable concurrency and skip generated code.** In `Initialize`:
-
-  ```csharp
-  context.EnableConcurrentExecution();
-  context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-  context.RegisterSyntaxNodeAction(Analyze, SyntaxKind.InvocationExpression);
-  ```
-
-  `GeneratedCodeAnalysisFlags.None` skips generated files entirely — free
-  savings on the common case where a project has generated code you don't want
-  to lint.
-- **Resolve per-compilation state once.** If a rule needs well-known symbols,
-  resolve them in a `RegisterCompilationStartAction` and cache them, rather than
-  calling `GetTypeByMetadataName` per node. Cache keyed on `Compilation` via a
-  `ConditionalWeakTable<Compilation, T>` so it's collected with the compilation.
-- **Descriptors are static.** Build each `DiagnosticDescriptor` once as
-  `static readonly`; never per invocation.
-- **Don't over-consolidate for perf.** Splitting one rule per analyzer class is
-  fine: the analysis driver's overhead is dominated by parsing and the
-  compilation walk, not by the number of *our* analyzers registered. Merge
-  classes only when it improves clarity, not as a performance tactic.
-
-## Allocation discipline (the callback hot path)
-
-This is where rules are won or lost. Inside a callback:
-
-- **No LINQ in production analyzer/code-fix code.** `Select`/`Where`/`ToList` and
-  similar operators are banned in `src/StyleSharp.Analyzers/` and
-  `src/StyleSharp.Analyzers.CodeFixes/`. Use a manual `for`/`foreach`.
-- **No per-node collections.** No `HashSet`, `List`, arrays, or `StringBuilder`
-  allocated per node. Decide with a couple of locals.
-- **Use struct enumerators.** `SeparatedSyntaxList<T>`, `SyntaxList<T>`,
-  `ChildSyntaxList`, and `SyntaxTriviaList` all enumerate without allocating —
-  `foreach` directly, never `.ToList()`.
-- **Minimize `GetLocation()` / `GetLineSpan()`.** `GetLocation()` allocates a
-  `Location` object; prefer `SyntaxNode.Span` + `tree.GetLineSpan(span)` (a
-  struct result over the tree's cached line table) and only materialize a
-  `Location` when you actually report.
-- **Cheapest checks first; bail early.** Order guards from cheap to expensive
-  (e.g. `list.Count <= 1`) and return the moment the verdict is decided.
-
-### Worked example
-
-The shared list-layout check used by all the `SST00xx` rules went from this
-allocating shape:
-
-```csharp
-// Before: a HashSet, a LINQ closure, a List, and a Location per item —
-// on every parameter/argument list node in the compilation.
-var diffChecker = new HashSet<int> { parameterLine };
-var lineNumbers = list.Select(x => x.GetLocation().GetLineSpan().StartLinePosition.Line).ToList();
-diffChecker.UnionWith(lineNumbers);
-var allDifferent = diffChecker.Count == list.Count + 1;
-```
-
-to an allocation-free single pass:
-
-```csharp
-// After: zero heap allocations, early exit. Exploits that item start lines are
-// monotonically non-decreasing — a list is "jagged" precisely when some adjacent
-// pair shares a line AND some adjacent pair is separated.
-var previousLine = tree.GetLineSpan(listNode.Span).StartLinePosition.Line;
-var sawShared = false;
-var sawSeparated = false;
-
-foreach (var item in list)
-{
-    var line = tree.GetLineSpan(item.Span).StartLinePosition.Line;
-    if (line == previousLine) sawShared = true;
-    else sawSeparated = true;
-
-    if (sawShared && sawSeparated)
-    {
-        context.ReportDiagnostic(Diagnostic.Create(rule, context.Node.GetLocation()));
-        return;
-    }
-
-    previousLine = line;
-}
-```
-
-The lesson generalizes: look for a property of the input (here, monotonic line
-numbers) that lets a single pass with a few locals replace a set/collection.
-
-## Symbol & semantic-model discipline
-
-- **Syntactic fast-path first.** Only call `GetSymbolInfo` / `GetTypeInfo` /
-  `GetDeclaredSymbol` after syntax has failed to decide. These bind, which is
-  expensive.
-- **Cache well-known symbols** per compilation (see registration discipline);
-  never repeat `GetTypeByMetadataName`.
-- **Compare symbols with `SymbolEqualityComparer.Default`.**
-- **Never put `ISymbol`, `SyntaxNode`, or `Location` into long-lived/cached
-  state.** They root large object graphs (and, for incremental scenarios, defeat
-  caching). Extract the small value you need (a string, a flag) and keep that.
-
-## Code-fix & FixAll performance
-
-Code fixes run on demand, so they're far less hot than analyzers — but still:
-
-- Provide a `FixAllProvider` (`WellKnownFixAllProviders.BatchFixer` when it fits)
-  so bulk fixes batch instead of re-running per occurrence.
-- Compute the minimal rewrite; don't re-walk the whole document.
-- Don't do semantic work in the fix that the analyzer already proved.
-
-## Anti-patterns
-
-| Anti-pattern | Why it hurts | Do instead |
-|---|---|---|
-| LINQ in production code | Iterator/closure/materialization overhead hidden in hot paths | Manual `for`/`foreach` |
-| `HashSet`/`List` per node | Heap allocation per node | A few local variables / single pass |
-| `.ToList()` on a `SeparatedSyntaxList` | Throws away the struct enumerator | `foreach` the list directly |
-| `GetLocation()` per item | Allocates a `Location` each call | `tree.GetLineSpan(node.Span)`; locate only when reporting |
-| `GetTypeByMetadataName` per node | Re-resolves symbols repeatedly | Resolve once in `CompilationStartAction`, cache per `Compilation` |
-| Semantic query when syntax suffices | Binding is expensive | Syntactic fast-path; semantics only as fallback |
-| `ISymbol`/`SyntaxNode` in cached state | Roots large graphs | Extract and cache the small value |
-| Instance state on a helper | Per-call allocation | `static` helpers over the passed-in model |
-
-## Checklist for a new (or reviewed) rule
-
-- [ ] Registered the narrowest action for the exact `SyntaxKind`(s).
-- [ ] `EnableConcurrentExecution` + `ConfigureGeneratedCodeAnalysis`.
-- [ ] No LINQ, no per-node collections, no instance helper state in the callback.
-- [ ] `foreach` over struct enumerators; no `.ToList()`.
-- [ ] `GetLocation()` only on the report path.
-- [ ] Any semantic work is gated behind a syntactic fast-path and uses cached
-      well-known symbols.
-- [ ] Descriptors are `static readonly`.
-- [ ] A benchmark exists (micro and/or end-to-end) and shows zero/near-zero
-      allocation on the no-diagnostic path.
-
-## Performance-sensitive rules
-
-Most StyleSharp rules are narrow `RegisterSyntaxNodeAction` checks over a single
-`SyntaxKind` and are effectively free. A few carry a higher cost or are heuristic; the
-table records them so the cost is a deliberate choice, not a surprise. Where a rule is
-**off by default**, enable it in `.editorconfig` only when you want it.
+Most rules are narrow `RegisterSyntaxNodeAction` checks over a single `SyntaxKind` and are
+effectively free. These carry a higher cost or are heuristic, recorded so the cost stays a deliberate
+choice. Where a rule is **off by default**, enable it in `.editorconfig` only when you want it.
 
 | Rule(s) | Cost | Default | Notes |
 | --- | --- | --- | --- |
-| SST1305 (Hungarian notation) | Heuristic + per-name `string` slicing | **Off** | Pattern-matches name prefixes against an allow-list; inherently fuzzy. Opt-in. |
-| SST1306 / SST1308 / SST1310 (field-name styles) | Cheap | **Off** | Conflict with the runtime `_camelCase` convention (SST1309); shipped for consumers who want the alternative field-name style. |
+| SST1305 (Hungarian notation) | Heuristic + per-name `string` slicing | **Off** | Pattern-matches name prefixes against an allow-list; inherently fuzzy. |
+| SST1306 / SST1308 / SST1310 (field-name styles) | Cheap | **Off** | Conflict with the runtime `_camelCase` convention (SST1309); shipped for consumers who want the alternative. |
 | SST1507, SST1517, SST1518 (blank-line / file-boundary) | One `RegisterSyntaxTreeAction` line-table scan per file | On | Scans the cached line table once; no per-node cost. |
-| SST1512 / SST1515 (single-line comment spacing) | `RegisterSyntaxTreeAction` + a `FindTrivia` per candidate line | On | Heaviest of the layout rules — still once per file, not per node. |
+| SST1512 / SST1515 (single-line comment spacing) | `RegisterSyntaxTreeAction` + a `FindTrivia` per candidate line | On | Heaviest of the layout rules — still once per file. |
 | SST1626 (misplaced `///`) | `FirstAncestorOrSelf` walk per doc comment | On | Only runs on documentation trivia, which is sparse. |
 | SST1516 / SST1201–SST1217 (ordering) | Pairwise scan of a member / using list | On | Lists are short; single pass, no allocations on the clean path. |
+| SST1503 (require braces) | Cheap | **Off** | Enforcing braces is opt-in, so the rule only runs where it is wanted. |
 
-### Rules intentionally omitted or off for performance reasons
+Spelling checks are intentionally not shipped: an embedded dictionary with per-word lookups over all
+documentation text is too heavy for an always-on analyzer. Built-in type alias enforcement is left to
+other tooling.
 
-- **Spelling checks** — would need an embedded dictionary and per-word lookups over all
-  documentation text. Too heavy for an always-on analyzer, so StyleSharp ships no
-  spelling rule.
-- **[SST1503](rules/SST1503.md)** (require braces) ships but is **off by default**:
-  enforcing braces is left as an opt-in so the rule only runs where it is wanted. Enable
-  `SST1503` in `.editorconfig` if you want it on.
-- **Built-in type alias** enforcement is intentionally not included; StyleSharp leaves
-  that check to other tooling rather than duplicating it.
-
-When adding a rule that must walk the whole tree (a `RegisterSyntaxTreeAction`), prefer a
-single pass over the cached line table or token stream, and add it to the table above so
-the cost stays visible.
+A rule that must walk the whole tree (`RegisterSyntaxTreeAction`) should make a single pass over the
+cached line table or token stream, and be added to the table above so the cost stays visible.

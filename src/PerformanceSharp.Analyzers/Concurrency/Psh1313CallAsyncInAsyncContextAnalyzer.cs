@@ -88,12 +88,35 @@ public sealed class Psh1313CallAsyncInAsyncContextAnalyzer : DiagnosticAnalyzer
     /// <param name="compilation">The compilation whose task types are resolved.</param>
     private sealed class TaskSymbols(Compilation compilation)
     {
-        /// <summary>The resolved task types, including a null element when Task is unavailable.</summary>
-        private AsyncSiblingResolver.TaskTypes?[]? _resolved;
+        /// <summary>Serializes the first task-type resolution.</summary>
+        private readonly object _gate = new();
 
-        /// <summary>Gets task types, allowing equivalent concurrent first resolutions.</summary>
+        /// <summary>The task types stored directly, including a missing Task result.</summary>
+        private AsyncSiblingResolver.TaskTypes? _types;
+
+        /// <summary>Publishes the completed value after all task types have been resolved.</summary>
+        private bool _resolved;
+
+        /// <summary>Reads the published task types without entering the resolution gate.</summary>
         /// <returns>The resolved task types, or null when Task is unavailable.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public AsyncSiblingResolver.TaskTypes? Get() => (_resolved ??= [AsyncSiblingResolver.TaskTypes.Create(compilation)])[0];
+        public AsyncSiblingResolver.TaskTypes? Get() => Volatile.Read(ref _resolved) ? _types : Resolve();
+
+        /// <summary>Resolves the task types once, including when Task is unavailable.</summary>
+        /// <returns>The resolved task types, or null when Task is unavailable.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private AsyncSiblingResolver.TaskTypes? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _types = AsyncSiblingResolver.TaskTypes.Create(compilation);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _types;
+            }
+        }
     }
 }

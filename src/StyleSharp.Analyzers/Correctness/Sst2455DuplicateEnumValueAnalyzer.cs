@@ -12,8 +12,8 @@ namespace StyleSharp.Analyzers;
 /// happens to collide is reported.
 /// </summary>
 /// <remarks>
-/// One pass over the members collects the declared constant values, so the enum is walked once however many
-/// members it has. An enum whose members are all distinct allocates only the lookup that pass needs.
+/// Increasing integer literals and implicit successors need no binding. Other initializers use one pass
+/// over declared constant values so aliases, expressions, and overflow retain the compiler's semantics.
 /// </remarks>
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
@@ -96,7 +96,7 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
     {
         var declaration = (EnumDeclarationSyntax)context.Node;
         var members = declaration.Members;
-        if (members.Count < 2 || !HasExplicitValues(members))
+        if (members.Count < 2 || !MayHaveDuplicateValues(members))
         {
             return;
         }
@@ -130,19 +130,90 @@ public sealed class Sst2455DuplicateEnumValueAnalyzer : DiagnosticAnalyzer
         }
     }
 
-    /// <summary>Checks whether any initializer can interrupt the enum's distinct implicit sequence.</summary>
+    /// <summary>Checks whether syntax leaves a possible collision in the enum's value sequence.</summary>
     /// <param name="members">The enum's members in declaration order.</param>
-    /// <returns>Whether at least one member has an explicit value.</returns>
-    private static bool HasExplicitValues(SeparatedSyntaxList<EnumMemberDeclarationSyntax> members)
+    /// <returns>Whether semantic constant evaluation is needed to rule out duplicate values.</returns>
+    private static bool MayHaveDuplicateValues(SeparatedSyntaxList<EnumMemberDeclarationSyntax> members)
     {
+        long previous = -1;
         for (var i = 0; i < members.Count; i++)
         {
-            if (members[i].EqualsValue is not null)
+            if (members[i].EqualsValue is { Value: var expression })
             {
-                return true;
+                if (!TryGetLiteralValue(expression, out var value) || (i > 0 && value <= previous))
+                {
+                    return true;
+                }
+
+                previous = value;
+            }
+            else
+            {
+                if (previous == long.MaxValue)
+                {
+                    return true;
+                }
+
+                previous++;
             }
         }
 
+        return false;
+    }
+
+    /// <summary>Reads an integer literal without asking the semantic model to evaluate constants.</summary>
+    /// <param name="expression">The initializer to inspect.</param>
+    /// <param name="value">The literal value when its syntax is supported.</param>
+    /// <returns>Whether the initializer is a directly representable integer literal.</returns>
+    private static bool TryGetLiteralValue(ExpressionSyntax expression, out long value)
+    {
+        var negative = expression.IsKind(SyntaxKind.UnaryMinusExpression);
+        if (expression is PrefixUnaryExpressionSyntax unary
+            && (negative || unary.IsKind(SyntaxKind.UnaryPlusExpression)))
+        {
+            expression = unary.Operand;
+        }
+
+        if (expression is LiteralExpressionSyntax literal)
+        {
+            switch (literal.Token.Value)
+            {
+                case int signed:
+                {
+                    value = signed;
+                    break;
+                }
+
+                case uint unsigned:
+                {
+                    value = unsigned;
+                    break;
+                }
+
+                case long wide:
+                {
+                    value = wide;
+                    break;
+                }
+
+                case ulong wideUnsigned when wideUnsigned <= long.MaxValue:
+                {
+                    value = (long)wideUnsigned;
+                    break;
+                }
+
+                default:
+                {
+                    value = 0;
+                    return false;
+                }
+            }
+
+            value = negative ? -value : value;
+            return true;
+        }
+
+        value = 0;
         return false;
     }
 }

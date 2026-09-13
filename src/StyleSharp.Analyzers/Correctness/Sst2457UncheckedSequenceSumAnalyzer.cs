@@ -33,9 +33,6 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <summary>The invoked name the syntax gate accepts.</summary>
     private const string SumMethodName = "Sum";
 
-    /// <summary>The metadata name of the LINQ extension-method host type.</summary>
-    private const string EnumerableMetadataName = "System.Linq.Enumerable";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(CorrectnessRules.UncheckedSequenceSum);
 
@@ -51,10 +48,7 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var enumerableType = new Lazy<INamedTypeSymbol?>(
-                () => compilation.GetTypeByMetadataName(EnumerableMetadataName),
-                LazyThreadSafetyMode.ExecutionAndPublication);
+            var enumerableType = new EnumerableType(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeInvocation(nodeContext, enumerableType),
@@ -65,14 +59,13 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports one invocation when it is an integral sequence Sum wrapped in unchecked.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="enumerableType">The lazily resolved <c>System.Linq.Enumerable</c> type.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> enumerableType)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, EnumerableType enumerableType)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count > 2
             || GetInvokedName(invocation.Expression) != SumMethodName
             || !IsInsideUnchecked(invocation)
-            || enumerableType.Value is not { } enumerable
-            || !IsIntegralEnumerableSum(context, invocation, enumerable))
+            || !IsIntegralEnumerableSum(context, invocation, enumerableType))
         {
             return;
         }
@@ -126,15 +119,17 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether an invocation binds to an int or long overload of the sequence Sum operator.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="invocation">The invocation to bind.</param>
-    /// <param name="enumerableType">The <c>System.Linq.Enumerable</c> type in the current compilation.</param>
+    /// <param name="enumerableType">The sequence host type, resolved only after the bound method passes the filters.</param>
     /// <returns><see langword="true"/> when the call is a Sum overload that accumulates with checked arithmetic.</returns>
     private static bool IsIntegralEnumerableSum(
         in SyntaxNodeAnalysisContext context,
         InvocationExpressionSyntax invocation,
-        INamedTypeSymbol enumerableType) =>
+        EnumerableType enumerableType) =>
         context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is IMethodSymbol method
-            && SymbolEqualityComparer.Default.Equals((method.ReducedFrom ?? method).ContainingType, enumerableType)
-            && IsIntegralSumResult(method.ReturnType);
+            && IsIntegralSumResult(method.ReturnType)
+            && (method.ReducedFrom ?? method).ContainingType is { MetadataName: "Enumerable" } containingType
+            && enumerableType.Get() is { } resolvedType
+            && SymbolEqualityComparer.Default.Equals(containingType, resolvedType);
 
     /// <summary>Returns whether a Sum overload's result type is one the operator accumulates with checked arithmetic.</summary>
     /// <param name="returnType">The bound Sum overload's return type.</param>
@@ -147,5 +142,44 @@ public sealed class Sst2457UncheckedSequenceSumAnalyzer : DiagnosticAnalyzer
         }
 
         return returnType.SpecialType is SpecialType.System_Int32 or SpecialType.System_Int64;
+    }
+
+    /// <summary>Resolves the sequence host type once per compilation, only on demand.</summary>
+    /// <param name="compilation">The compilation whose metadata is resolved.</param>
+    private sealed class EnumerableType(Compilation compilation)
+    {
+        /// <summary>The metadata name of the LINQ extension-method host type.</summary>
+        private const string EnumerableMetadataName = "System.Linq.Enumerable";
+
+        /// <summary>Serializes the first lookup across concurrent callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The resolved type, or null when it is absent.</summary>
+        private INamedTypeSymbol? _type;
+
+        /// <summary>Distinguishes an absent type from a lookup that has not run.</summary>
+        private bool _resolved;
+
+        /// <summary>Returns the cached type without locking after the first lookup.</summary>
+        /// <returns>The sequence host type, or null when it is unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _type : Resolve();
+
+        /// <summary>Publishes the metadata result, including absence, once per compilation.</summary>
+        /// <returns>The sequence host type, or null when it is unavailable.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _type = compilation.GetTypeByMetadataName(EnumerableMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _type;
+            }
+        }
     }
 }

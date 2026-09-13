@@ -301,21 +301,41 @@ public sealed class Psh1506SynchronousBodyIoAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the response type whose <c>Body</c> the rule watches.</summary>
         private const string HttpResponseMetadataName = "Microsoft.AspNetCore.Http.HttpResponse";
 
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The body type gate, or an empty array when the request type is absent.</summary>
         private BodyGate[]? _resolved;
 
         /// <summary>Gets the body type gate, resolving it on first demand.</summary>
         /// <returns>A single gate, or an empty array when the request type is absent.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public BodyGate[] Get() => _resolved ??= Resolve(compilation);
+        public BodyGate[] Get() => Volatile.Read(ref _resolved) ?? Resolve();
 
         /// <summary>Resolves the HTTP request and optional response types.</summary>
         /// <param name="compilation">The compilation whose types are resolved.</param>
         /// <returns>A single gate, or an empty array when the request type is absent.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static BodyGate[] Resolve(Compilation compilation) =>
+        private static BodyGate[] Collect(Compilation compilation) =>
             compilation.GetTypeByMetadataName(HttpRequestMetadataName) is { } httpRequest
                 ? [new BodyGate(httpRequest, compilation.GetTypeByMetadataName(HttpResponseMetadataName))]
                 : [];
+
+        /// <summary>Resolves and publishes the HTTP body types once.</summary>
+        /// <returns>The cached body type gate, or an empty array when the request type is absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private BodyGate[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = Collect(compilation);
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

@@ -1087,6 +1087,11 @@ public sealed class ModernSyntaxValueAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the pattern is a broad object type pattern.</returns>
     private static bool IsObjectTypePattern(PatternSyntax pattern)
     {
+        if (pattern is TypePatternSyntax { Type: { } type } && IsObjectType(type))
+        {
+            return true;
+        }
+
         if (pattern is DeclarationPatternSyntax { Type: { } declarationType } && IsObjectType(declarationType))
         {
             return true;

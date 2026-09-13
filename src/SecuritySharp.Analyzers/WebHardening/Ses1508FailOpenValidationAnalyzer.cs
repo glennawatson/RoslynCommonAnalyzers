@@ -284,25 +284,55 @@ public sealed class Ses1508FailOpenValidationAnalyzer : DiagnosticAnalyzer
         /// <summary>The suffix that identifies a security-token exception type by its unqualified name.</summary>
         private const string SecurityTokenExceptionSuffix = "SecurityTokenException";
 
+        /// <summary>Serializes the first lookup across concurrent catch callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The cached exception types, including null slots for missing types.</summary>
         private INamedTypeSymbol?[]? _resolved;
 
         /// <summary>Returns whether a caught type is <c>System.Exception</c> or a security-relevant exception.</summary>
         /// <param name="caughtType">The declared caught exception type.</param>
         /// <returns><see langword="true"/> for a broad or security-relevant exception.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
         public bool IsBroadOrSecurityRelevant(INamedTypeSymbol caughtType)
         {
-            var resolved = _resolved ??=
-            [
-                compilation.GetTypeByMetadataName("System.Exception"),
-                compilation.GetTypeByMetadataName("System.Security.Cryptography.CryptographicException"),
-                compilation.GetTypeByMetadataName("System.Security.Authentication.AuthenticationException"),
-            ];
+            if (caughtType.Name.EndsWith(SecurityTokenExceptionSuffix, StringComparison.Ordinal))
+            {
+                return true;
+            }
 
+            if (caughtType.MetadataName is not ("Exception" or "CryptographicException" or "AuthenticationException"))
+            {
+                return false;
+            }
+
+            var resolved = Volatile.Read(ref _resolved) ?? Resolve();
             return SymbolEqualityComparer.Default.Equals(caughtType, resolved[0])
                 || SymbolEqualityComparer.Default.Equals(caughtType, resolved[1])
-                || SymbolEqualityComparer.Default.Equals(caughtType, resolved[2])
-                || caughtType.Name.EndsWith(SecurityTokenExceptionSuffix, StringComparison.Ordinal);
+                || SymbolEqualityComparer.Default.Equals(caughtType, resolved[2]);
+        }
+
+        /// <summary>Publishes the exception types once per compilation, including missing types.</summary>
+        /// <returns>The broad and security-relevant exception types.</returns>
+        [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved =
+                    [
+                        compilation.GetTypeByMetadataName("System.Exception"),
+                        compilation.GetTypeByMetadataName("System.Security.Cryptography.CryptographicException"),
+                        compilation.GetTypeByMetadataName("System.Security.Authentication.AuthenticationException"),
+                    ];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
         }
     }
 }

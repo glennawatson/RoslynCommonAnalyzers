@@ -185,13 +185,34 @@ public sealed class Psh1013Utf8SpanPropertyAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the span type the property returns.</summary>
         private const string ReadOnlySpanMetadataName = "System.ReadOnlySpan`1";
 
+        /// <summary>Serializes the first availability check across field callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The cached availability result, including an absent span type.</summary>
         private bool[]? _resolved;
 
         /// <summary>Gets whether the compilation exposes the span type.</summary>
         /// <returns>True when the span type resolves.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public bool IsAvailable() => (_resolved ??= [compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null])[0];
+        public bool IsAvailable() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Publishes one availability result, including a missing span type.</summary>
+        /// <returns>The cached availability result.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [compilation.GetTypeByMetadataName(ReadOnlySpanMetadataName) is not null];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 
     /// <summary>Token-visitor state that whitelists span-compatible reads of one field name.</summary>

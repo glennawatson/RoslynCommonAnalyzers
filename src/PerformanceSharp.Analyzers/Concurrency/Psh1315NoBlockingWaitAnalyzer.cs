@@ -36,9 +36,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the interface every awaiter implements.</summary>
-    private const string NotifyCompletionMetadataName = "System.Runtime.CompilerServices.INotifyCompletion";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(ConcurrencyRules.NoBlockingWait);
 
@@ -57,12 +54,10 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
 
             // Only a violation ever needs these, and binding an entry point is not free: a clean
             // file must not pay for either.
-            var compilation = start.Compilation;
-            var notifyCompletion = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(NotifyCompletionMetadataName));
-            var entryPoint = new Lazy<IMethodSymbol?>(() => compilation.GetEntryPoint(CancellationToken.None));
+            var exemptions = new ExemptionSymbols(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, taskSymbols, notifyCompletion, entryPoint),
+                nodeContext => Analyze(nodeContext, taskSymbols, exemptions),
                 SyntaxKind.SimpleMemberAccessExpression,
                 SyntaxKind.InvocationExpression);
         });
@@ -71,20 +66,18 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1315 for a blocking wait the code has not proved complete and the author can act on.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="taskSymbols">The task types resolved on demand for the compilation.</param>
-    /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
-    /// <param name="entryPoint">The lazily resolved entry point.</param>
+    /// <param name="exemptions">The awaiter marker and entry point resolved only for a possible violation.</param>
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
         TaskSymbols taskSymbols,
-        Lazy<INamedTypeSymbol?> notifyCompletion,
-        Lazy<IMethodSymbol?> entryPoint)
+        ExemptionSymbols exemptions)
     {
         var node = context.Node;
         if (!IsBlockingWaitShape(node)
             || taskSymbols.Get() is not { } tasks
             || BlockingWait.TryMatch(node, context.SemanticModel, tasks, context.CancellationToken) is not { } site
             || IsProvablyComplete(node, site)
-            || IsUnactionable(context, node, notifyCompletion, entryPoint))
+            || IsUnactionable(context, node, exemptions))
         {
             return;
         }
@@ -161,8 +154,7 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the author could not act on the wait even if it were reported.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="node">The blocking expression.</param>
-    /// <param name="notifyCompletion">The lazily resolved awaiter marker interface.</param>
-    /// <param name="entryPoint">The lazily resolved entry point.</param>
+    /// <param name="exemptions">The awaiter marker and entry point resolved only for a possible violation.</param>
     /// <returns><see langword="true"/> when the enclosing member cannot await.</returns>
     /// <remarks>
     /// Inside an <c>async</c> function the fix is an <c>await</c> and no signature moves, so the
@@ -171,21 +163,86 @@ public sealed class Psh1315NoBlockingWaitAnalyzer : DiagnosticAnalyzer
     private static bool IsUnactionable(
         in SyntaxNodeAnalysisContext context,
         SyntaxNode node,
-        Lazy<INamedTypeSymbol?> notifyCompletion,
-        Lazy<IMethodSymbol?> entryPoint) =>
-        !Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node)
-            && BlockingWaitExemption.IsExempt(context, node, notifyCompletion.Value, entryPoint.Value);
+        ExemptionSymbols exemptions)
+    {
+        if (Psh1303NoThreadSleepInAsyncAnalyzer.IsInAsyncFunction(node))
+        {
+            return false;
+        }
+
+        var symbols = exemptions.Get();
+        return BlockingWaitExemption.IsExempt(context, node, symbols.NotifyCompletion, symbols.EntryPoint);
+    }
 
     /// <summary>Resolves task types only after a blocking-wait shape is found.</summary>
     /// <param name="compilation">The compilation whose task types are resolved.</param>
     private sealed class TaskSymbols(Compilation compilation)
     {
+        /// <summary>Serializes the first task-type lookup across node callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The resolved task types, including a null element when Task is unavailable.</summary>
         private AsyncSiblingResolver.TaskTypes?[]? _resolved;
 
-        /// <summary>Gets task types, allowing equivalent concurrent first resolutions.</summary>
+        /// <summary>Gets task types resolved once for this compilation.</summary>
         /// <returns>The resolved task types, or null when Task is unavailable.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public AsyncSiblingResolver.TaskTypes? Get() => (_resolved ??= [AsyncSiblingResolver.TaskTypes.Create(compilation)])[0];
+        public AsyncSiblingResolver.TaskTypes? Get() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Publishes the task types once, including a missing Task type.</summary>
+        /// <returns>The cached task types.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private AsyncSiblingResolver.TaskTypes?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [AsyncSiblingResolver.TaskTypes.Create(compilation)];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
+    }
+
+    /// <summary>Resolves exemption metadata once, only for a possible violation in a synchronous member.</summary>
+    /// <param name="compilation">The compilation whose exemption symbols are resolved.</param>
+    private sealed class ExemptionSymbols(Compilation compilation)
+    {
+        /// <summary>The metadata name of the interface every awaiter implements.</summary>
+        private const string NotifyCompletionMetadataName = "System.Runtime.CompilerServices.INotifyCompletion";
+
+        /// <summary>Serializes the first exemption lookup across node callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The cached symbols, including absent marker and entry-point results.</summary>
+        private (INamedTypeSymbol? NotifyCompletion, IMethodSymbol? EntryPoint)[]? _resolved;
+
+        /// <summary>Gets the exemption symbols on first demand.</summary>
+        /// <returns>The marker interface and entry point, either of which can be absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public (INamedTypeSymbol? NotifyCompletion, IMethodSymbol? EntryPoint) Get() =>
+            (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Publishes one exemption result without allocating lazy factories at registration.</summary>
+        /// <returns>The cached exemption symbols.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private (INamedTypeSymbol? NotifyCompletion, IMethodSymbol? EntryPoint)[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = [(compilation.GetTypeByMetadataName(NotifyCompletionMetadataName), compilation.GetEntryPoint(CancellationToken.None))];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

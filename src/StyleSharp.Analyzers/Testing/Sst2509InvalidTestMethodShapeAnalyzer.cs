@@ -216,11 +216,11 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
     /// <summary>Returns whether the method's shape is syntactically already runnable, so binding can be skipped.</summary>
     /// <param name="method">The method declaration.</param>
     /// <returns>
-    /// <see langword="true"/> when the method is written with a <c>public</c> modifier, no type parameters, and a
-    /// <c>void</c> return — the shape every framework runs, which needs no further checking.
+    /// <see langword="true"/> when the method is written with a <c>public</c> modifier and a <c>void</c> return,
+    /// and is either non-generic or declares parameters — shapes every framework accepts without further checking.
     /// </returns>
     private static bool IsSyntacticallyRunnableShape(MethodDeclarationSyntax method) =>
-        method.TypeParameterList is null
+        (method.TypeParameterList is null || method.ParameterList.Parameters.Count != 0)
             && method.Modifiers.Any(SyntaxKind.PublicKeyword)
             && method.ReturnType is PredefinedTypeSyntax predefined
             && predefined.Keyword.IsKind(SyntaxKind.VoidKeyword);

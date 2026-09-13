@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -18,12 +20,6 @@ namespace StyleSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the attribute that carries an explicit route template.</summary>
-    private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Mvc.RouteAttribute";
-
-    /// <summary>The metadata name of the base attribute the HTTP-verb attributes derive from.</summary>
-    private const string HttpMethodAttributeMetadataName = "Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute";
-
     /// <summary>The constructor parameter name that carries the route template on the routing attributes.</summary>
     private const string TemplateParameterName = "template";
 
@@ -41,20 +37,17 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var routeAttribute = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(RouteAttributeMetadataName));
-            var httpMethodAttribute = new Lazy<INamedTypeSymbol?>(() => compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName));
+            var routingTypes = new RoutingTypes(start.Compilation);
             start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeAttribute(nodeContext, routeAttribute, httpMethodAttribute),
+                nodeContext => AnalyzeAttribute(nodeContext, routingTypes),
                 SyntaxKind.Attribute);
         });
     }
 
     /// <summary>Reports SST2700 for a routing attribute whose route-template argument contains a backslash.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="routeAttribute">The route type, resolved only for a backslash-bearing literal.</param>
-    /// <param name="httpMethodAttribute">The HTTP-method base type, resolved only for a bound attribute.</param>
-    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> routeAttribute, Lazy<INamedTypeSymbol?> httpMethodAttribute)
+    /// <param name="routingTypes">The routing types, each resolved once on first demand.</param>
+    private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, RoutingTypes routingTypes)
     {
         var attribute = (AttributeSyntax)context.Node;
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
@@ -63,9 +56,9 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (routeAttribute.Value is not { } resolvedRoute
+        if (routingTypes.GetRouteAttribute() is not { } resolvedRoute
             || context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is not IMethodSymbol constructor
-            || !IsRoutingAttribute(constructor.ContainingType, resolvedRoute, httpMethodAttribute.Value))
+            || !IsRoutingAttribute(constructor.ContainingType, resolvedRoute, routingTypes.GetHttpMethodAttribute()))
         {
             return;
         }
@@ -82,14 +75,17 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
             literal.Token.ValueText));
     }
 
-    /// <summary>Returns whether any constructor string-literal argument's decoded value contains a backslash.</summary>
+    /// <summary>Returns whether a possible template argument's decoded string literal contains a backslash.</summary>
     /// <param name="argumentList">The attribute's argument list.</param>
-    /// <returns><see langword="true"/> when a backslash-bearing string literal is present, so binding is worthwhile.</returns>
+    /// <returns>True when a positional or explicitly named template argument needs binding.</returns>
     private static bool HasBackslashStringArgument(AttributeArgumentListSyntax argumentList)
     {
         foreach (var argument in argumentList.Arguments)
         {
-            if (argument.NameEquals is null && IsBackslashStringLiteral(argument.Expression))
+            if (argument.NameEquals is null
+                && (argument.NameColon is null
+                    || string.Equals(argument.NameColon.Name.Identifier.ValueText, TemplateParameterName, StringComparison.Ordinal))
+                && IsBackslashStringLiteral(argument.Expression))
             {
                 return true;
             }
@@ -160,5 +156,75 @@ public sealed class Sst2700RouteTemplateBackslashAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Resolves each routing marker once on demand, including a missing marker.</summary>
+    /// <param name="compilation">The compilation whose routing markers are cached.</param>
+    private sealed class RoutingTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the attribute that carries an explicit route template.</summary>
+        private const string RouteAttributeMetadataName = "Microsoft.AspNetCore.Mvc.RouteAttribute";
+
+        /// <summary>The metadata name of the base attribute the HTTP-verb attributes derive from.</summary>
+        private const string HttpMethodAttributeMetadataName = "Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute";
+
+        /// <summary>Serializes the first lookup of each marker across attribute callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The route marker, or null when absent or not yet resolved.</summary>
+        private INamedTypeSymbol? _routeAttribute;
+
+        /// <summary>The HTTP-method marker, or null when absent or not yet resolved.</summary>
+        private INamedTypeSymbol? _httpMethodAttribute;
+
+        /// <summary>Distinguishes a missing route marker from an unperformed lookup.</summary>
+        private bool _routeResolved;
+
+        /// <summary>Distinguishes a missing HTTP-method marker from an unperformed lookup.</summary>
+        private bool _httpMethodResolved;
+
+        /// <summary>Gets the route marker without locking after its first lookup.</summary>
+        /// <returns>The route marker, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetRouteAttribute() => Volatile.Read(ref _routeResolved) ? _routeAttribute : ResolveRouteAttribute();
+
+        /// <summary>Gets the HTTP-method marker without locking after its first lookup.</summary>
+        /// <returns>The HTTP-method marker, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? GetHttpMethodAttribute() => Volatile.Read(ref _httpMethodResolved) ? _httpMethodAttribute : ResolveHttpMethodAttribute();
+
+        /// <summary>Publishes the route marker once under the first-demand gate.</summary>
+        /// <returns>The route marker, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? ResolveRouteAttribute()
+        {
+            lock (_gate)
+            {
+                if (!_routeResolved)
+                {
+                    _routeAttribute = compilation.GetTypeByMetadataName(RouteAttributeMetadataName);
+                    Volatile.Write(ref _routeResolved, true);
+                }
+
+                return _routeAttribute;
+            }
+        }
+
+        /// <summary>Publishes the HTTP-method marker once under the first-demand gate.</summary>
+        /// <returns>The HTTP-method marker, or null when it is absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? ResolveHttpMethodAttribute()
+        {
+            lock (_gate)
+            {
+                if (!_httpMethodResolved)
+                {
+                    _httpMethodAttribute = compilation.GetTypeByMetadataName(HttpMethodAttributeMetadataName);
+                    Volatile.Write(ref _httpMethodResolved, true);
+                }
+
+                return _httpMethodAttribute;
+            }
+        }
     }
 }

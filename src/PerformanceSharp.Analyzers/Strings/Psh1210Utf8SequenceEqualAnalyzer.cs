@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -22,15 +24,6 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
     /// <summary>The UTF-8 encoding property name the syntax gate requires.</summary>
     internal const string Utf8PropertyName = "UTF8";
 
-    /// <summary>The metadata name of the encoding type.</summary>
-    private const string EncodingMetadataName = "System.Text.Encoding";
-
-    /// <summary>The metadata name of the span extensions type providing SequenceEqual.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
-    /// <summary>The replacement method name.</summary>
-    private const string SequenceEqualMethodName = "SequenceEqual";
-
     /// <summary>The replacement character invalid UTF-8 decodes to.</summary>
     private const char ReplacementCharacter = '�';
 
@@ -48,17 +41,7 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var encodingType = new Lazy<INamedTypeSymbol?>(() =>
-            {
-                var type = compilation.GetTypeByMetadataName(EncodingMetadataName);
-                return type is not null
-                    && compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensionsType
-                    && !extensionsType.GetMembers(SequenceEqualMethodName).IsEmpty
-                    ? type
-                    : null;
-            });
-
+            var encodingType = new EncodingSymbol(start.Compilation);
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeComparison(nodeContext, encodingType),
                 SyntaxKind.EqualsExpression,
@@ -113,17 +96,12 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
 
     /// <summary>Reports PSH1210 for a decode-then-compare against a representable constant.</summary>
     /// <param name="context">The syntax node analysis context.</param>
-    /// <param name="encodingType">The lazily resolved encoding type, absent when SequenceEqual is unavailable.</param>
-    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> encodingType)
+    /// <param name="encodingType">The encoding type resolved on demand, absent when SequenceEqual is unavailable.</param>
+    private static void AnalyzeComparison(in SyntaxNodeAnalysisContext context, EncodingSymbol encodingType)
     {
         var binary = (BinaryExpressionSyntax)context.Node;
         if (TryGetComparisonParts(binary) is not { } parts
             || binary.SyntaxTree.Options is not CSharpParseOptions { LanguageVersion: >= LanguageVersion.CSharp11 })
-        {
-            return;
-        }
-
-        if (encodingType.Value is not { } resolvedEncodingType)
         {
             return;
         }
@@ -133,6 +111,7 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
             || !CanCompareAsUtf8Literal(value)
             || context.SemanticModel.GetSymbolInfo(encodingName, context.CancellationToken).Symbol is not IPropertySymbol property
             || property.Name != Utf8PropertyName
+            || encodingType.Get() is not { } resolvedEncodingType
             || !SymbolEqualityComparer.Default.Equals(property.ContainingType, resolvedEncodingType))
         {
             return;
@@ -143,5 +122,53 @@ public sealed class Psh1210Utf8SequenceEqualAnalyzer : DiagnosticAnalyzer
             binary.SyntaxTree,
             binary.Span,
             GetStringMethodName));
+    }
+
+    /// <summary>Checks the replacement API only after a constant decode comparison survives analysis.</summary>
+    /// <param name="compilation">The compilation whose API symbols are cached.</param>
+    private sealed class EncodingSymbol(Compilation compilation)
+    {
+        /// <summary>The metadata name of the encoding type.</summary>
+        private const string EncodingMetadataName = "System.Text.Encoding";
+
+        /// <summary>The metadata name of the span extensions type providing SequenceEqual.</summary>
+        private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
+
+        /// <summary>The replacement method name.</summary>
+        private const string SequenceEqualMethodName = "SequenceEqual";
+
+        /// <summary>Serializes the first metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The published encoding symbol, including an unavailable replacement API.</summary>
+        private INamedTypeSymbol?[]? _resolved;
+
+        /// <summary>Gets the encoding type when the replacement API is available.</summary>
+        /// <returns>The encoding symbol, or null when the required APIs cannot be resolved.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => (Volatile.Read(ref _resolved) ?? Resolve())[0];
+
+        /// <summary>Resolves and publishes the API symbols once per compilation.</summary>
+        /// <returns>The cached availability result.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    var type = compilation.GetTypeByMetadataName(EncodingMetadataName);
+                    resolved = [type is not null
+                        && compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensionsType
+                        && !extensionsType.GetMembers(SequenceEqualMethodName).IsEmpty
+                        ? type
+                        : null];
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
+        }
     }
 }

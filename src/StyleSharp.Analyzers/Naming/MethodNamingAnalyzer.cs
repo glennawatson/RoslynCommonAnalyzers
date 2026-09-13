@@ -116,7 +116,8 @@ public sealed class MethodNamingAnalyzer : DiagnosticAnalyzer
             return false;
         }
 
-        return ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword) || LooksTaskLike(method.ReturnType);
+        return method.ReturnType is not PredefinedTypeSyntax
+            && (ModifierListHelper.Contains(method.Modifiers, SyntaxKind.AsyncKeyword) || LooksTaskLike(method.ReturnType));
     }
 
     /// <summary>Returns whether the async-suffix-mismatch rule could fire, based on name and return type alone.</summary>

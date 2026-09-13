@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -16,12 +18,6 @@ namespace PerformanceSharp.Analyzers;
 [DiagnosticAnalyzer(LanguageNames.CSharp)]
 public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
 {
-    /// <summary>The metadata name of the search values factory the rule is gated on.</summary>
-    private const string SearchValuesMetadataName = "System.Buffers.SearchValues";
-
-    /// <summary>The metadata name of the span extensions type.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(StringRules.UseSearchValues);
 
@@ -36,11 +32,7 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var extensions = new Lazy<INamedTypeSymbol?>(() =>
-                compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
-                    ? null
-                    : compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName));
+            var extensions = new SearchTypes(start.Compilation);
 
             start.RegisterSyntaxNodeAction(
                 nodeContext => AnalyzeInvocation(nodeContext, extensions),
@@ -113,7 +105,7 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1213 for an any-of search over an inline constant set.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="extensions">The span extensions type resolved on first demand when <c>SearchValues</c> exists.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<INamedTypeSymbol?> extensions)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, SearchTypes extensions)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (invocation.ArgumentList.Arguments.Count != 1
@@ -124,7 +116,7 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (extensions.Value is not { } extensionsType
+        if (extensions.Get() is not { } extensionsType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !IsSearchApi(method, extensionsType))
         {
@@ -146,5 +138,49 @@ public sealed class Psh1213UseSearchValuesAnalyzer : DiagnosticAnalyzer
         var containingType = (method.ReducedFrom ?? method).ContainingType;
         return containingType.SpecialType == SpecialType.System_String
             || SymbolEqualityComparer.Default.Equals(containingType, extensions);
+    }
+
+    /// <summary>Resolves search API metadata once, only after a syntax candidate needs it.</summary>
+    /// <param name="compilation">The compilation whose search APIs are inspected.</param>
+    private sealed class SearchTypes(Compilation compilation)
+    {
+        /// <summary>The metadata name of the search values factory the rule is gated on.</summary>
+        private const string SearchValuesMetadataName = "System.Buffers.SearchValues";
+
+        /// <summary>The metadata name of the span extensions type.</summary>
+        private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
+
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The span extensions type when both required APIs exist.</summary>
+        private INamedTypeSymbol? _extensions;
+
+        /// <summary>Publishes completion of the lookup, including missing APIs.</summary>
+        private bool _resolved;
+
+        /// <summary>Gets the span extensions type after a call passes the syntax filter.</summary>
+        /// <returns>The extensions type, or null when required APIs are absent.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public INamedTypeSymbol? Get() => Volatile.Read(ref _resolved) ? _extensions : Resolve();
+
+        /// <summary>Resolves and publishes the search API gate once.</summary>
+        /// <returns>The extensions type, or null when required APIs are absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol? Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _extensions = compilation.GetTypeByMetadataName(SearchValuesMetadataName) is null
+                        ? null
+                        : compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _extensions;
+            }
+        }
     }
 }

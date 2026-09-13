@@ -135,18 +135,21 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the asynchronous MVC exception filter interface.</summary>
         private const string AsyncExceptionFilterMetadataName = "Microsoft.AspNetCore.Mvc.Filters.IAsyncExceptionFilter";
 
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
+
         /// <summary>The resolved filter interfaces, or an empty array when required APIs are absent.</summary>
         private INamedTypeSymbol?[]? _resolved;
 
         /// <summary>Gets the filter interfaces after a base type passes the syntax filter.</summary>
         /// <returns>The two optional filter interfaces, or an empty array when required APIs are absent.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public INamedTypeSymbol?[] Get() => _resolved ??= Resolve(compilation);
+        public INamedTypeSymbol?[] Get() => Volatile.Read(ref _resolved) ?? Resolve();
 
         /// <summary>Resolves the filter interfaces only when the modern replacement exists.</summary>
         /// <param name="compilation">The compilation to probe.</param>
         /// <returns>The two optional filter interfaces, or an empty array when required APIs are absent.</returns>
-        private static INamedTypeSymbol?[] Resolve(Compilation compilation)
+        private static INamedTypeSymbol?[] Collect(Compilation compilation)
         {
             if (compilation.GetTypeByMetadataName(ExceptionHandlerMetadataName) is null)
             {
@@ -158,6 +161,24 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
             return exceptionFilter is null && asyncExceptionFilter is null
                 ? []
                 : [exceptionFilter, asyncExceptionFilter];
+        }
+
+        /// <summary>Resolves and publishes the exception-handling types once.</summary>
+        /// <returns>The cached filter interfaces, or an empty array when required APIs are absent.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private INamedTypeSymbol?[] Resolve()
+        {
+            lock (_gate)
+            {
+                var resolved = _resolved;
+                if (resolved is null)
+                {
+                    resolved = Collect(compilation);
+                    Volatile.Write(ref _resolved, resolved);
+                }
+
+                return resolved;
+            }
         }
     }
 }

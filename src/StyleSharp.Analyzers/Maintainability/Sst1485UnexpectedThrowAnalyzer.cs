@@ -3,6 +3,7 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace StyleSharp.Analyzers;
 
@@ -50,6 +51,16 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     /// <summary>The number of parameters an equality method declares.</summary>
     private const int OneParameter = 1;
 
+    /// <summary>The body-bearing member kinds shared by every compilation.</summary>
+    private static readonly SyntaxKind[] MemberKinds =
+    [
+        SyntaxKind.MethodDeclaration,
+        SyntaxKind.ConstructorDeclaration,
+        SyntaxKind.DestructorDeclaration,
+        SyntaxKind.OperatorDeclaration,
+        SyntaxKind.ConversionOperatorDeclaration,
+    ];
+
     /// <summary>The descriptors this analyzer reports, built once rather than on every access.</summary>
     private static readonly ImmutableArray<DiagnosticDescriptor> SupportedDiagnosticsValue = ImmutableArrays.Of(MaintainabilityRules.UnexpectedThrow);
 
@@ -73,9 +84,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static void OnCompilationStart(CompilationStartAnalysisContext context)
     {
         var compilation = context.Compilation;
-        var allowed = new Lazy<AllowedThrowTypes>(
-            () => AllowedThrowTypes.Create(compilation),
-            LazyThreadSafetyMode.ExecutionAndPublication);
+        var allowed = new AllowedThrowSymbols(compilation);
         var treeCount = 0;
         foreach (var tree in compilation.SyntaxTrees)
         {
@@ -87,11 +96,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
             capacity: treeCount);
         context.RegisterSyntaxNodeAction(
             nodeContext => Analyze(nodeContext, optionsByTree, allowed),
-            SyntaxKind.MethodDeclaration,
-            SyntaxKind.ConstructorDeclaration,
-            SyntaxKind.DestructorDeclaration,
-            SyntaxKind.OperatorDeclaration,
-            SyntaxKind.ConversionOperatorDeclaration);
+            MemberKinds);
     }
 
     /// <summary>Walks the body of a member that must not throw and reports the throws it originates.</summary>
@@ -101,7 +106,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static void Analyze(
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree,
-        Lazy<AllowedThrowTypes> allowed)
+        AllowedThrowSymbols allowed)
     {
         var member = (BaseMethodDeclarationSyntax)context.Node;
         if (!MustNotThrow(member, context, optionsByTree))
@@ -181,7 +186,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         or SyntaxKind.LessThanEqualsToken
         or SyntaxKind.GreaterThanEqualsToken;
 
-    /// <summary>Reads the settings for the member's tree, parsing each tree's options at most once.</summary>
+    /// <summary>Reads the settings for the member's tree without allocating a factory on a cache miss.</summary>
     /// <param name="context">The syntax node context.</param>
     /// <param name="optionsByTree">The per-tree settings cache.</param>
     /// <returns>The resolved settings.</returns>
@@ -214,7 +219,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
-        Lazy<AllowedThrowTypes> allowed)
+        AllowedThrowSymbols allowed)
     {
         var children = node.ChildNodesAndTokens();
         for (var i = 0; i < children.Count; i++)
@@ -249,7 +254,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         in SyntaxNodeAnalysisContext context,
         BaseMethodDeclarationSyntax member,
-        Lazy<AllowedThrowTypes> allowed)
+        AllowedThrowSymbols allowed)
     {
         SyntaxToken keyword;
         ExpressionSyntax thrown;
@@ -297,7 +302,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
     private static bool IsDeliberateAbsence(
         ExpressionSyntax thrown,
         in SyntaxNodeAnalysisContext context,
-        Lazy<AllowedThrowTypes> allowed)
+        AllowedThrowSymbols allowed)
     {
         if (thrown is ObjectCreationExpressionSyntax creation
             && GetSimpleName(creation.Type) is AllowedThrowTypes.NotImplementedName or AllowedThrowTypes.NotSupportedName)
@@ -305,7 +310,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
             return true;
         }
 
-        return allowed.Value.Contains(context.SemanticModel.GetTypeInfo(thrown, context.CancellationToken).Type);
+        return allowed.Contains(context.SemanticModel.GetTypeInfo(thrown, context.CancellationToken).Type);
     }
 
     /// <summary>Gets the name the diagnostic uses for the member.</summary>
@@ -331,4 +336,41 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
         _ => string.Empty,
     };
+
+    /// <summary>Resolves the exception exemptions only when a throw needs semantic classification.</summary>
+    /// <param name="compilation">The compilation whose exception types are resolved.</param>
+    private sealed class AllowedThrowSymbols(Compilation compilation)
+    {
+        /// <summary>Serializes the first exception-type resolution.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The exception types stored directly in the holder.</summary>
+        private AllowedThrowTypes _types;
+
+        /// <summary>Publishes both exception types together, including missing types.</summary>
+        private bool _resolved;
+
+        /// <summary>Reads the published exception types without entering the resolution gate.</summary>
+        /// <param name="type">The thrown type, or null when binding failed.</param>
+        /// <returns>Whether the thrown type is an allowed exception or derives from one.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool Contains(ITypeSymbol? type) => (Volatile.Read(ref _resolved) ? _types : Resolve()).Contains(type);
+
+        /// <summary>Resolves and publishes the exception types once per compilation.</summary>
+        /// <returns>The exception types, including missing results.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private AllowedThrowTypes Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _types = AllowedThrowTypes.Create(compilation);
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _types;
+            }
+        }
+    }
 }

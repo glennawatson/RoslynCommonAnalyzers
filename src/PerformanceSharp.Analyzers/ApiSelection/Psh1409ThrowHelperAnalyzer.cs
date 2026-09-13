@@ -483,7 +483,7 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
 
         return shape.Kind switch
         {
-            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true } valueType
+            GuardKind.NullCheck => model.GetTypeInfo(shape.Value, context.CancellationToken).Type is { IsReferenceType: true, TypeKind: not TypeKind.Error } valueType
                 && !IsSystemThreadingLock(types, valueType),
             GuardKind.Comparison => IsNumericType(model.GetTypeInfo(shape.Value, context.CancellationToken).Type),
             _ => true,

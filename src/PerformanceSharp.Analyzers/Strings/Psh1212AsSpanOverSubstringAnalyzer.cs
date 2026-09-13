@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>
@@ -20,9 +22,6 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <summary>The replacement member name.</summary>
     internal const string AsSpanMethodName = "AsSpan";
 
-    /// <summary>The metadata name of the extensions type providing AsSpan.</summary>
-    private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
-
     /// <summary>The most arguments a Substring call carries (start and length).</summary>
     private const int MaxSliceArgumentCount = 2;
 
@@ -40,11 +39,7 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
 
         context.RegisterCompilationStartAction(static start =>
         {
-            var compilation = start.Compilation;
-            var hasAsSpan = new Lazy<bool>(() =>
-                compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
-                    && !extensions.GetMembers(AsSpanMethodName).IsEmpty);
-
+            var hasAsSpan = new AsSpanSymbols(start.Compilation);
             start.RegisterSyntaxNodeAction(nodeContext => AnalyzeInvocation(nodeContext, hasAsSpan), SyntaxKind.InvocationExpression);
         });
     }
@@ -61,12 +56,12 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
     /// <summary>Reports PSH1212 for a Substring argument the consumer can take as a span.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="hasAsSpan">Whether the compilation provides <c>AsSpan</c>, resolved on first demand.</param>
-    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, Lazy<bool> hasAsSpan)
+    private static void AnalyzeInvocation(in SyntaxNodeAnalysisContext context, AsSpanSymbols hasAsSpan)
     {
         var invocation = (InvocationExpressionSyntax)context.Node;
         if (!IsSubstringArgumentShape(invocation)
             || invocation.Parent!.Parent is not ArgumentListSyntax { Parent: InvocationExpressionSyntax outer } argumentList
-            || !hasAsSpan.Value
+            || !hasAsSpan.IsAvailable()
             || TryBindConsumer(context, invocation, outer) is not { } method)
         {
             return;
@@ -171,5 +166,45 @@ public sealed class Psh1212AsSpanOverSubstringAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
+    }
+
+    /// <summary>Checks AsSpan availability only after a Substring argument passes the syntax gate.</summary>
+    /// <param name="compilation">The compilation whose extension methods are checked.</param>
+    private sealed class AsSpanSymbols(Compilation compilation)
+    {
+        /// <summary>The metadata name of the extensions type providing AsSpan.</summary>
+        private const string MemoryExtensionsMetadataName = "System.MemoryExtensions";
+
+        /// <summary>Serializes the first metadata lookup.</summary>
+        private readonly object _gate = new();
+
+        /// <summary>The availability result, including a missing extension method.</summary>
+        private bool _available;
+
+        /// <summary>Publishes the completed availability result.</summary>
+        private bool _resolved;
+
+        /// <summary>Reads the published result without entering the metadata lookup gate.</summary>
+        /// <returns>Whether the compilation provides an AsSpan member.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public bool IsAvailable() => Volatile.Read(ref _resolved) ? _available : Resolve();
+
+        /// <summary>Resolves and publishes AsSpan availability once per compilation.</summary>
+        /// <returns>Whether the compilation provides an AsSpan member.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _available = compilation.GetTypeByMetadataName(MemoryExtensionsMetadataName) is { } extensions
+                        && !extensions.GetMembers(AsSpanMethodName).IsEmpty;
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _available;
+            }
+        }
     }
 }

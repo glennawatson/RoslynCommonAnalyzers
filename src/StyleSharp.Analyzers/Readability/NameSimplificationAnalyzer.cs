@@ -323,8 +323,7 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
                     && ParameterListHasName(anonymousMethod.ParameterList, name):
                 case ForEachStatementSyntax forEachStatement when forEachStatement.Identifier.ValueText == name
                     && forEachStatement.SpanStart < position:
-                case CatchDeclarationSyntax catchDeclaration when catchDeclaration.Identifier.ValueText == name
-                    && catchDeclaration.SpanStart < position:
+                case CatchClauseSyntax { Declaration: { } catchDeclaration } when catchDeclaration.Identifier.ValueText == name:
                     return true;
                 case TypeDeclarationSyntax:
                     return false;

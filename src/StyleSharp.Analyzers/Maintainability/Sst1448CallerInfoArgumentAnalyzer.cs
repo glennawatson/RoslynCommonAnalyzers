@@ -75,10 +75,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (attributeTypes.Get() is not { } attributes)
-            {
-                return;
-            }
+            var attributes = attributeTypes;
 
             if (attributes.Classify(parameter) is not { } description)
             {
@@ -107,7 +104,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     private static bool IsRedundant(
         ExpressionSyntax expression,
         string description,
-        CallerInfoAttributes attributes,
+        CallerInfoTypes attributes,
         in SyntaxNodeAnalysisContext context) =>
         !IsCallerInfoForwarding(expression, attributes, context)
         && (description != MemberNameDescription || SuppliesTheSameMemberName(expression, context));
@@ -179,7 +176,7 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
     /// <param name="attributes">The compilation's caller-info attribute symbols.</param>
     /// <param name="context">The syntax node analysis context.</param>
     /// <returns><see langword="true"/> when the argument forwards a caller-info parameter.</returns>
-    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, CallerInfoAttributes attributes, in SyntaxNodeAnalysisContext context) =>
+    private static bool IsCallerInfoForwarding(ExpressionSyntax expression, CallerInfoTypes attributes, in SyntaxNodeAnalysisContext context) =>
         expression is IdentifierNameSyntax
             && context.SemanticModel.GetSymbolInfo(expression, context.CancellationToken).Symbol is IParameterSymbol forwarded
             && attributes.Classify(forwarded) is not null;
@@ -197,41 +194,20 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         /// <summary>The metadata name of the caller-line-number attribute.</summary>
         private const string CallerLineNumberMetadataName = "System.Runtime.CompilerServices.CallerLineNumberAttribute";
 
-        /// <summary>Stores the resolved attributes, including a missing result, in an atomically assigned array.</summary>
-        private CallerInfoAttributes?[]? _resolved;
+        /// <summary>Serializes the initial metadata lookups across callbacks.</summary>
+        private readonly object _gate = new();
 
-        /// <summary>Gets the caller-info attributes, resolving them on first demand.</summary>
-        /// <returns>The attributes, or null when the required member-name attribute is absent.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public CallerInfoAttributes? Get() => (_resolved ??= [Resolve(compilation)])[0];
-
-        /// <summary>Resolves the optional caller-info attributes only when the required member-name attribute exists.</summary>
-        /// <param name="compilation">The compilation whose references are searched.</param>
-        /// <returns>The attributes, or null when the required member-name attribute is absent.</returns>
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        private static CallerInfoAttributes? Resolve(Compilation compilation) =>
-            compilation.GetTypeByMetadataName(CallerMemberNameMetadataName) is { } memberName
-                ? new(
-                    memberName,
-                    compilation.GetTypeByMetadataName(CallerFilePathMetadataName),
-                    compilation.GetTypeByMetadataName(CallerLineNumberMetadataName))
-                : null;
-    }
-
-    /// <summary>The compilation's caller-info attribute symbols.</summary>
-    /// <param name="memberName">The caller-member-name attribute symbol.</param>
-    /// <param name="filePath">The caller-file-path attribute symbol.</param>
-    /// <param name="lineNumber">The caller-line-number attribute symbol.</param>
-    private sealed class CallerInfoAttributes(INamedTypeSymbol memberName, INamedTypeSymbol? filePath, INamedTypeSymbol? lineNumber)
-    {
-        /// <summary>The caller-member-name attribute symbol.</summary>
-        private readonly INamedTypeSymbol _memberName = memberName;
+        /// <summary>The caller-member-name attribute symbol, or null when it is absent.</summary>
+        private INamedTypeSymbol? _memberName;
 
         /// <summary>The caller-file-path attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _filePath = filePath;
+        private INamedTypeSymbol? _filePath;
 
         /// <summary>The caller-line-number attribute symbol.</summary>
-        private readonly INamedTypeSymbol? _lineNumber = lineNumber;
+        private INamedTypeSymbol? _lineNumber;
+
+        /// <summary>Publishes completion of all attribute lookups, including missing symbols.</summary>
+        private bool _resolved;
 
         /// <summary>Describes the caller-info attribute a parameter carries, if any.</summary>
         /// <param name="parameter">The parameter to classify.</param>
@@ -239,6 +215,11 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
         public string? Classify(IParameterSymbol parameter)
         {
             var parameterAttributes = parameter.GetAttributes();
+            if (parameterAttributes.IsEmpty || !IsAvailable())
+            {
+                return null;
+            }
+
             for (var i = 0; i < parameterAttributes.Length; i++)
             {
                 var attributeClass = parameterAttributes[i].AttributeClass;
@@ -259,6 +240,34 @@ public sealed class Sst1448CallerInfoArgumentAnalyzer : DiagnosticAnalyzer
             }
 
             return null;
+        }
+
+        /// <summary>Gets whether the required caller-member-name attribute exists.</summary>
+        /// <returns>Whether caller-info classification is available.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private bool IsAvailable() => Volatile.Read(ref _resolved) ? _memberName is not null : Resolve();
+
+        /// <summary>Resolves and publishes the caller-info attribute symbols once.</summary>
+        /// <returns>Whether the required caller-member-name attribute exists.</returns>
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private bool Resolve()
+        {
+            lock (_gate)
+            {
+                if (!_resolved)
+                {
+                    _memberName = compilation.GetTypeByMetadataName(CallerMemberNameMetadataName);
+                    if (_memberName is not null)
+                    {
+                        _filePath = compilation.GetTypeByMetadataName(CallerFilePathMetadataName);
+                        _lineNumber = compilation.GetTypeByMetadataName(CallerLineNumberMetadataName);
+                    }
+
+                    Volatile.Write(ref _resolved, true);
+                }
+
+                return _memberName is not null;
+            }
         }
     }
 }

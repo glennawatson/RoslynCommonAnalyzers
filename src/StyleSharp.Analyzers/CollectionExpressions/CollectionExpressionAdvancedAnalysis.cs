@@ -31,7 +31,7 @@ internal static class CollectionExpressionAdvancedAnalysis
             _ => null!
         };
 
-        return initializer is not null;
+        return initializer is not null && !expression.ContainsDiagnostics;
     }
 
     /// <summary>Returns whether an expression is a stackalloc initializer.</summary>
@@ -47,7 +47,7 @@ internal static class CollectionExpressionAdvancedAnalysis
             _ => null!
         };
 
-        return initializer is not null;
+        return initializer is not null && !expression.ContainsDiagnostics;
     }
 
     /// <summary>Gets a collection-expression replacement for an inline initializer.</summary>
@@ -76,7 +76,8 @@ internal static class CollectionExpressionAdvancedAnalysis
     internal static bool TryBuildInvocationCollectionExpression(InvocationExpressionSyntax invocation, out string text)
     {
         text = string.Empty;
-        if (invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } access)
+        if (invocation.ContainsDiagnostics
+            || invocation.Expression is not MemberAccessExpressionSyntax { Name.Identifier.ValueText: var name } access)
         {
             return false;
         }
@@ -214,7 +215,8 @@ internal static class CollectionExpressionAdvancedAnalysis
     /// <param name="invocation">The invocation.</param>
     /// <returns><see langword="true"/> for narrow ImmutableArray and ArrayBuilder creation calls.</returns>
     internal static bool IsBuilderCreation(InvocationExpressionSyntax invocation) =>
-        invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" or "GetInstance" };
+        invocation.Expression is MemberAccessExpressionSyntax { Name.Identifier.ValueText: "CreateBuilder" or "GetInstance" }
+        && !invocation.ContainsDiagnostics;
 
     /// <summary>Returns whether a type has a collection builder attribute.</summary>
     /// <param name="named">The named type.</param>
@@ -258,7 +260,8 @@ internal static class CollectionExpressionAdvancedAnalysis
         builderName = string.Empty;
         block = null!;
         index = -1;
-        if (local.Declaration.Variables.Count != 1
+        if (local.ContainsDiagnostics
+            || local.Declaration.Variables.Count != 1
             || local.Declaration.Variables[0] is not { Identifier.ValueText: { Length: > 0 } name, Initializer.Value: InvocationExpressionSyntax initializer }
             || !IsBuilderCreation(initializer)
             || local.Parent is not BlockSyntax parentBlock
@@ -287,40 +290,41 @@ internal static class CollectionExpressionAdvancedAnalysis
         out ExpressionSyntax[] elements,
         out ReturnStatementSyntax returnStatement)
     {
-        // The builder declaration and the terminal return statement are the two statements in the block
-        // that are not Add calls, so the rest bound how many elements the sequence can hold.
-        const int BuilderDeclarationAndReturnStatementCount = 2;
-
         elements = [];
         returnStatement = null!;
-        var maxElements = block.Statements.Count - index - BuilderDeclarationAndReturnStatementCount;
-        if (maxElements <= 0)
-        {
-            return false;
-        }
-
-        var collected = new ExpressionSyntax[maxElements];
         var count = 0;
         for (var i = index + 1; i < block.Statements.Count; i++)
         {
-            if (block.Statements[i] is ReturnStatementSyntax candidateReturn)
+            var statement = block.Statements[i];
+            if (statement.ContainsDiagnostics)
+            {
+                return false;
+            }
+
+            if (statement is ReturnStatementSyntax candidateReturn)
             {
                 if (count == 0 || !IsBuilderMaterialization(candidateReturn.Expression, builderName))
                 {
                     return false;
                 }
 
-                elements = Resize(collected, count);
+                // Allocate only after a complete sequence has been validated. An unfinished sequence
+                // can use every remaining statement for Add calls, without a slot left for return.
+                elements = new ExpressionSyntax[count];
+                for (var elementIndex = 0; elementIndex < count; elementIndex++)
+                {
+                    _ = TryGetBuilderAdd(block.Statements[index + elementIndex + 1], builderName, out elements[elementIndex]);
+                }
+
                 returnStatement = candidateReturn;
                 return true;
             }
 
-            if (!TryGetBuilderAdd(block.Statements[i], builderName, out var element))
+            if (!TryGetBuilderAdd(statement, builderName, out _))
             {
                 return false;
             }
 
-            collected[count] = element;
             count++;
         }
 
@@ -523,21 +527,5 @@ internal static class CollectionExpressionAdvancedAnalysis
 
         index = -1;
         return false;
-    }
-
-    /// <summary>Trims a collected expression array to the populated length.</summary>
-    /// <param name="source">The source array.</param>
-    /// <param name="count">The populated count.</param>
-    /// <returns>The trimmed array.</returns>
-    private static ExpressionSyntax[] Resize(ExpressionSyntax[] source, int count)
-    {
-        if (source.Length == count)
-        {
-            return source;
-        }
-
-        var resized = new ExpressionSyntax[count];
-        Array.Copy(source, resized, count);
-        return resized;
     }
 }

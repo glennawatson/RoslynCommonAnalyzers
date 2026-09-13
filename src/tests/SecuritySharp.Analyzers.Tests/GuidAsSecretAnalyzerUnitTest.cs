@@ -558,6 +558,28 @@ public class GuidAsSecretAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies consecutive secret words survive separators and a preceding partial vocabulary match.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task SecretWordRunsRemainConsecutiveAsync() =>
+        VerifyNet90Async(
+            """
+            using System;
+
+            public class C
+            {
+                public void M()
+                {
+                    var api_api__key = {|SES1004:Guid.NewGuid()|};
+                    var prefix1Session__ID = {|SES1004:Guid.NewGuid()|};
+                    var api_value_key = Guid.NewGuid();
+                    var api2key = Guid.NewGuid();
+                    _ = (api_api__key, prefix1Session__ID, api_value_key, api2key);
+                }
+            }
+            """);
+
     /// <summary>Runs an analyzer-only verification against the .NET 9 reference assemblies (where RandomNumberGenerator exists).</summary>
     /// <param name="source">The source with diagnostic markup.</param>
     /// <returns>A task that represents the asynchronous test operation.</returns>

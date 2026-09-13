@@ -10,6 +10,21 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2333 (provide the non-generic form of a generic comparison contract).</summary>
 public class Sst2333NonGenericContractAnalyzerUnitTest
 {
+    /// <summary>Verifies an interface inherited through a differently named contract still triggers the rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task InheritedComparableContractIsReportedAsync() =>
+        VerifyContract.VerifyAnalyzerAsync(
+            """
+            public interface ISortable : System.IComparable<int> { }
+
+            public class {|SST2333:Sortable|} : ISortable
+            {
+                public int CompareTo(int value) => 0;
+            }
+            """);
+
     /// <summary>Verifies a type implementing <c>IComparable&lt;T&gt;</c> without <c>IComparable</c> is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -309,6 +309,32 @@ public class PropertyCopiesCollectionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies a numeric literal converted to a collection source still reports a copying constructor.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task NumericLiteralConvertedToCollectionIsReportedAsync() =>
+        VerifyAsync(
+            """
+            namespace System.Collections.Generic
+            {
+                public sealed class Copy : List<int>
+                {
+                    public Copy(Source source) : base(source) { }
+                }
+
+                public sealed class Source : List<int>
+                {
+                    public static implicit operator Source(int value) => new Source();
+                }
+            }
+
+            public class C
+            {
+                public System.Collections.Generic.Copy {|PSH1017:Items|} => new System.Collections.Generic.Copy(8);
+            }
+            """);
+
     /// <summary>Verifies a read-only wrapper stays clean; it wraps the list instead of copying it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

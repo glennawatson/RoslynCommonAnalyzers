@@ -13,6 +13,36 @@ public class MagicNumberAnalyzerUnitTest
     /// <summary>The path the analyzer config file is added at in the test workspace.</summary>
     private const string EditorConfigPath = "/.editorconfig";
 
+    /// <summary>Verifies settings initialized for one tree do not leak into another tree's slot.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task SeparateTreesKeepTheirOwnAllowedValuesAsync()
+    {
+        var test = new VerifyMagicNumber.Test();
+        test.TestState.Sources.Add(("/Allowed.cs", """
+            public class Allowed
+            {
+                public int First(int value) => value + 2;
+                public int Second(int value) => value * 2;
+            }
+            """));
+        test.TestState.Sources.Add(("/Default.cs", """
+            public class Default
+            {
+                public int First(int value) => value + {|SST1471:2|};
+                public int Second(int value) => value * {|SST1471:2|};
+            }
+            """));
+        test.TestState.AnalyzerConfigFiles.Add((EditorConfigPath, """
+            root = true
+            [Allowed.cs]
+            stylesharp.SST1471.magic_number_allowed_values = -1, 0, 1, 2
+
+            """));
+
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies a bare literal in an expression is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

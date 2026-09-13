@@ -81,6 +81,44 @@ public class VolatileInterlockedFieldAnalyzerUnitTest
         await VerifyAsync(Source, FixedSource);
     }
 
+    /// <summary>Verifies fields declared in another partial declaration retain their diagnostic and fix.</summary>
+    /// <returns>A task that represents the asynchronous test operation.</returns>
+    [Test]
+    public async Task FieldInOtherPartialDeclarationIsFlaggedAsync()
+    {
+        const string Source = """
+                              using System.Threading;
+
+                              public partial class C
+                              {
+                                  private int _count;
+                              }
+
+                              public partial class C
+                              {
+                                  public void Add() => Interlocked.Increment(ref _count);
+
+                                  public int Count => {|PSH1307:_count|};
+                              }
+                              """;
+        const string FixedSource = """
+                                   using System.Threading;
+
+                                   public partial class C
+                                   {
+                                       private int _count;
+                                   }
+
+                                   public partial class C
+                                   {
+                                       public void Add() => Interlocked.Increment(ref _count);
+
+                                       public int Count => Volatile.Read(ref _count);
+                                   }
+                                   """;
+        await VerifyAsync(Source, FixedSource);
+    }
+
     /// <summary>Verifies a plain write of an interlocked field is flagged and wrapped in Volatile.Write.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

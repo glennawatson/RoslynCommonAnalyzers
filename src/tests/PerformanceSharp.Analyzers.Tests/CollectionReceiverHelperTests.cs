@@ -37,6 +37,8 @@ public class CollectionReceiverHelperTests
     [Arguments("T", "", "")]
     [Arguments("T", "where T : ICollection<int>", "Count")]
     [Arguments("T", "where T : IReadOnlyCollection<int>", "Count")]
+    [Arguments("T", "where T : IList<int>", "Count")]
+    [Arguments("T", "where T : IReadOnlyList<int>", "Count")]
     [Arguments("T", "where T : IEnumerable<int>", "")]
     public async Task CountLookupUsesAccessibleStaticTypeMembersAsync(string type, string declarations, string expected)
     {

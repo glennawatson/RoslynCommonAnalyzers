@@ -115,6 +115,19 @@ internal static class CollectionReceiverHelper
             return true;
         }
 
+        // Type-parameter AllInterfaces can be empty even when a constraint exposes Count.
+        if (type is ITypeParameterSymbol parameter)
+        {
+            var constraints = parameter.ConstraintTypes;
+            for (var i = 0; i < constraints.Length; i++)
+            {
+                if (constraints[i] is INamedTypeSymbol constraint && IsOrImplementsCountInterface(constraint))
+                {
+                    return true;
+                }
+            }
+        }
+
         var interfaces = type.AllInterfaces;
         for (var i = 0; i < interfaces.Length; i++)
         {

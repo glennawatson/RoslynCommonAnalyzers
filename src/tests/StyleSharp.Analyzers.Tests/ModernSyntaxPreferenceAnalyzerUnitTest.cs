@@ -164,10 +164,10 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies function-pointer invocations expose no selected method symbol and stay unsimplified.</summary>
+    /// <summary>Verifies function-pointer type symbols reach the non-method guard and leave lambda types explicit.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
-    public async Task FunctionPointerInvocationHasNoMethodSymbolAsync()
+    public async Task FunctionPointerInvocationHasATypeSymbolAsync()
     {
         var tree = CSharpSyntaxTree.ParseText("""
             using System;
@@ -185,9 +185,11 @@ public class ModernSyntaxPreferenceAnalyzerUnitTest
             RuntimeMetadataReferences.Platform,
             new(OutputKind.DynamicallyLinkedLibrary, allowUnsafe: true));
         var invocation = (await tree.GetRootAsync()).DescendantNodes().OfType<InvocationExpressionSyntax>().Single();
+        var symbol = compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol;
 
         await Assert.That(compilation.GetDiagnostics()).IsEmpty();
-        await Assert.That(compilation.GetSemanticModel(tree).GetSymbolInfo(invocation).Symbol).IsNull();
+        await Assert.That(symbol is IFunctionPointerTypeSymbol).IsTrue();
+        await Assert.That(symbol is IMethodSymbol).IsFalse();
 
         var diagnostics = await compilation.WithAnalyzers([new ModernSyntaxPreferenceAnalyzer()]).GetAnalyzerDiagnosticsAsync();
 

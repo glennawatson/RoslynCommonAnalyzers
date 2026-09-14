@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>
@@ -51,18 +53,8 @@ internal readonly record struct BlazorComponentModel(INamedTypeSymbol ComponentB
     /// <summary>Returns whether a type is, or derives from, <c>ComponentBase</c>.</summary>
     /// <param name="type">The type to test.</param>
     /// <returns><see langword="true"/> when the type is a rendered component.</returns>
-    internal bool DerivesFromComponentBase(INamedTypeSymbol? type)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, ComponentBase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool DerivesFromComponentBase(INamedTypeSymbol? type) => TypeRelations.IsOrDerivesFrom(type, ComponentBase);
 
     /// <summary>Returns whether a resolved method is <c>ComponentBase.StateHasChanged</c>.</summary>
     /// <param name="method">The method symbol to test.</param>

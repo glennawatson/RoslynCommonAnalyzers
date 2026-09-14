@@ -235,7 +235,7 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (TestAttributeSimpleNames.Contains(GetSimpleName(attributes[j].Name)))
+                if (TestAttributeSimpleNames.Contains(SyntaxNames.GetSimpleName(attributes[j].Name)))
                 {
                     return true;
                 }
@@ -244,17 +244,6 @@ public sealed class Sst2509InvalidTestMethodShapeAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>Caches the awaitable return definitions only after a matching type name is encountered.</summary>
     /// <param name="compilation">The compilation whose return types are cached.</param>

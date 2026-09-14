@@ -155,7 +155,7 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
 
         // Syntactic prefilter: the attribute is spelled 'GeneratedRegex' or 'GeneratedRegexAttribute' and carries a pattern.
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
-            || GetAttributeSimpleName(attribute.Name) is not (GeneratedRegexShortName or GeneratedRegexLongName))
+            || SyntaxNames.GetSimpleName(attribute.Name) is not (GeneratedRegexShortName or GeneratedRegexLongName))
         {
             return;
         }
@@ -340,18 +340,6 @@ public sealed class Ses1509BacktrackingRegexWithoutTimeoutAnalyzer : DiagnosticA
         {
             IdentifierNameSyntax { Identifier.ValueText: RegexTypeName } or QualifiedNameSyntax { Right.Identifier.ValueText: RegexTypeName } => true,
             _ => false,
-        };
-
-    /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
-    /// <param name="name">The attribute's name syntax.</param>
-    /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name) =>
-        name switch
-        {
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-            _ => null,
         };
 
     /// <summary>Returns whether a name is one of the guarded static <c>Regex</c> methods.</summary>

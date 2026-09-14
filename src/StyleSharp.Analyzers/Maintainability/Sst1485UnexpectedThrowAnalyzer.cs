@@ -286,7 +286,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         AllowedThrowSymbols allowed)
     {
         if (thrown is ObjectCreationExpressionSyntax creation
-            && GetSimpleName(creation.Type) is AllowedThrowTypes.NotImplementedName or AllowedThrowTypes.NotSupportedName)
+            && SyntaxNames.GetSimpleName(creation.Type) is AllowedThrowTypes.NotImplementedName or AllowedThrowTypes.NotSupportedName)
         {
             return true;
         }
@@ -304,17 +304,6 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         DestructorDeclarationSyntax destructor => $"~{destructor.Identifier.ValueText}",
         OperatorDeclarationSyntax @operator => $"operator {@operator.OperatorToken.ValueText}",
         ConversionOperatorDeclarationSyntax conversion => $"implicit operator {conversion.Type}",
-        _ => string.Empty,
-    };
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased type name.</summary>
-    /// <param name="type">The constructed type.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
         _ => string.Empty,
     };
 

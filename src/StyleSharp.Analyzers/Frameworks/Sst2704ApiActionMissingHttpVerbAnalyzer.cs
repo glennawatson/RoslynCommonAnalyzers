@@ -81,7 +81,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
             || !HasActionCandidate(type)
             || markerCache.Value is not { } markers
             || !HasApiControllerAttribute(type, markers.ApiControllerAttribute)
-            || !IsOrDerivesFrom(type, markers.ControllerBase))
+            || !TypeRelations.IsOrDerivesFrom(type, markers.ControllerBase))
         {
             return;
         }
@@ -147,7 +147,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
             }
 
             if (SuppliesHttpVerb(attributeClass, markers)
-                || (markers.NonActionAttribute is not null && IsOrDerivesFrom(attributeClass, markers.NonActionAttribute)))
+                || (markers.NonActionAttribute is not null && TypeRelations.IsOrDerivesFrom(attributeClass, markers.NonActionAttribute)))
             {
                 return true;
             }
@@ -162,7 +162,7 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the attribute derives from the verb base or implements the verb-provider interface.</returns>
     private static bool SuppliesHttpVerb(INamedTypeSymbol attributeClass, in MvcMarkers markers)
     {
-        if (IsOrDerivesFrom(attributeClass, markers.HttpMethodAttribute))
+        if (TypeRelations.IsOrDerivesFrom(attributeClass, markers.HttpMethodAttribute))
         {
             return true;
         }
@@ -212,27 +212,10 @@ public sealed class Sst2704ApiActionMissingHttpVerbAnalyzer : DiagnosticAnalyzer
         {
             foreach (var attribute in current.GetAttributes())
             {
-                if (attribute.AttributeClass is { } attributeClass && IsOrDerivesFrom(attributeClass, apiControllerAttribute))
+                if (attribute.AttributeClass is { } attributeClass && TypeRelations.IsOrDerivesFrom(attributeClass, apiControllerAttribute))
                 {
                     return true;
                 }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the supplied base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to test against.</param>
-    /// <returns><see langword="true"/> when the type is the base type or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
-            {
-                return true;
             }
         }
 

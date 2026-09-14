@@ -139,7 +139,7 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
         }
 
         return eventArgs.Get() is { } resolvedEventArgs
-            && DerivesFrom(method.Parameters[1].Type, resolvedEventArgs);
+            && TypeRelations.IsOrDerivesFrom(method.Parameters[1].Type, resolvedEventArgs);
     }
 
     /// <summary>Returns whether a method overrides or implements a signature its author cannot change.</summary>
@@ -170,23 +170,6 @@ public sealed class Sst1905AsyncVoidAnalyzer : DiagnosticAnalyzer
                 {
                     return true;
                 }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, a base type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool DerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
             }
         }
 

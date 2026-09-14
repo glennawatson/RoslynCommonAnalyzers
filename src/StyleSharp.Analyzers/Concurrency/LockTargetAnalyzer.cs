@@ -287,24 +287,7 @@ public sealed class LockTargetAnalyzer : DiagnosticAnalyzer
 
         return type is not null
                && (type.SpecialType == SpecialType.System_String
-                   || (typeSymbol.Get() is { } resolved && IsOrDerivesFrom(type, resolved)));
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the target type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The target base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
+                   || (typeSymbol.Get() is { } resolved && TypeRelations.IsOrDerivesFrom(type, resolved)));
     }
 
     /// <summary>Returns whether an accessibility is reachable from outside the declaring assembly.</summary>

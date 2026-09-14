@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace RoslynCommon.Analyzers;
 
 /// <summary>
@@ -67,26 +69,10 @@ internal static class DescendantTraversalHelper
     /// <param name="state">The caller state.</param>
     /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
     /// <returns><see langword="true"/> when the full traversal completed.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static bool VisitDescendants<TNode, TState>(SyntaxNode root, ref TState state, DescendantVisitor<TNode, TState> visitor)
-        where TNode : SyntaxNode
-    {
-        var children = root.ChildNodesAndTokens();
-        for (var i = 0; i < children.Count; i++)
-        {
-            var child = children[i];
-            if (!child.IsNode || child.AsNode() is not { } childNode)
-            {
-                continue;
-            }
-
-            if (!Visit(childNode, ref state, visitor))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+        where TNode : SyntaxNode =>
+        VisitChildren(root, ref state, visitor);
 
     /// <summary>Visits one node, then its descendants, in preorder.</summary>
     /// <typeparam name="TNode">The descendant node type to surface to the visitor.</typeparam>
@@ -96,13 +82,19 @@ internal static class DescendantTraversalHelper
     /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
     /// <returns><see langword="true"/> when the subtree traversal completed.</returns>
     private static bool Visit<TNode, TState>(SyntaxNode node, ref TState state, DescendantVisitor<TNode, TState> visitor)
+        where TNode : SyntaxNode =>
+        (node is not TNode match || visitor(match, ref state)) && VisitChildren(node, ref state, visitor);
+
+    /// <summary>Visits a node's child nodes, and each one's descendants, in preorder.</summary>
+    /// <typeparam name="TNode">The descendant node type to surface to the visitor.</typeparam>
+    /// <typeparam name="TState">The caller state threaded through the traversal.</typeparam>
+    /// <param name="node">The node whose children to visit; the node itself is not visited.</param>
+    /// <param name="state">The caller state.</param>
+    /// <param name="visitor">Returns <see langword="true"/> to continue, or <see langword="false"/> to stop.</param>
+    /// <returns><see langword="true"/> when every child subtree completed.</returns>
+    private static bool VisitChildren<TNode, TState>(SyntaxNode node, ref TState state, DescendantVisitor<TNode, TState> visitor)
         where TNode : SyntaxNode
     {
-        if (node is TNode match && !visitor(match, ref state))
-        {
-            return false;
-        }
-
         var children = node.ChildNodesAndTokens();
         for (var i = 0; i < children.Count; i++)
         {

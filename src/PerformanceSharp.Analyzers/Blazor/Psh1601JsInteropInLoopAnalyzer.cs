@@ -133,31 +133,8 @@ public sealed class Psh1601JsInteropInLoopAnalyzer : DiagnosticAnalyzer
                 return false;
             }
 
-            return ImplementsOrIs(receiverType, gate.JsRuntime)
-                || (gate.JsObjectReference is not null && ImplementsOrIs(receiverType, gate.JsObjectReference));
-        }
-
-        /// <summary>Returns whether a type is the interface itself or implements it.</summary>
-        /// <param name="type">The candidate type.</param>
-        /// <param name="interfaceType">The interface to match.</param>
-        /// <returns>Whether the type is or implements the interface.</returns>
-        private static bool ImplementsOrIs(ITypeSymbol type, INamedTypeSymbol interfaceType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(type, interfaceType))
-            {
-                return true;
-            }
-
-            var interfaces = type.AllInterfaces;
-            for (var i = 0; i < interfaces.Length; i++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return TypeRelations.IsOrImplements(receiverType, gate.JsRuntime)
+                || (gate.JsObjectReference is not null && TypeRelations.IsOrImplements(receiverType, gate.JsObjectReference));
         }
 
         /// <summary>Resolves the JavaScript-interop types when a candidate first needs them.</summary>

@@ -161,24 +161,7 @@ public sealed class Sst2436NullEventRaiseAnalyzer : DiagnosticAnalyzer
         var parameters = invoke.Parameters;
         return parameters.Length == 2
             && parameters[0].Type.SpecialType == SpecialType.System_Object
-            && IsOrDerivesFrom(parameters[1].Type, eventArgsType);
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the target type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The target base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or inherits <paramref name="target"/>.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol type, INamedTypeSymbol target)
-    {
-        for (ITypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
+            && TypeRelations.IsOrDerivesFrom(parameters[1].Type, eventArgsType);
     }
 
     /// <summary>Reads the invoked member's simple name without binding.</summary>

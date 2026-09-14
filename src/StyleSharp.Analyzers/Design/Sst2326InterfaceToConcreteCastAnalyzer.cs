@@ -95,7 +95,7 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
         // Reject owned implementations before constructing their substituted interface lists.
         if (SymbolEqualityComparer.Default.Equals(concreteType.ContainingAssembly, semanticModel.Compilation.Assembly)
             || IsAllowedType(context, concreteType, types)
-            || !ImplementsInterface(concreteType, interfaceType))
+            || !TypeRelations.Implements(concreteType, interfaceType))
         {
             return;
         }
@@ -163,24 +163,6 @@ public sealed class Sst2326InterfaceToConcreteCastAnalyzer : DiagnosticAnalyzer
                 return false;
             }
         }
-    }
-
-    /// <summary>Returns whether a concrete type implements a specific interface.</summary>
-    /// <param name="concreteType">The concrete class.</param>
-    /// <param name="interfaceType">The interface the operand is statically typed as.</param>
-    /// <returns><see langword="true"/> when the interface is among the concrete type's implemented interfaces.</returns>
-    private static bool ImplementsInterface(INamedTypeSymbol concreteType, INamedTypeSymbol interfaceType)
-    {
-        var interfaces = concreteType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Rejects target syntax that cannot denote a concrete implementing class.</summary>

@@ -390,7 +390,7 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
         }
 
         comparison = binary;
-        canonical = counterLeft ? binary.Kind() : Mirror(binary.Kind());
+        canonical = counterLeft ? binary.Kind() : ComparisonKinds.Mirror(binary.Kind());
         return true;
     }
 
@@ -520,18 +520,6 @@ public sealed class LoopConditionAnalyzer : DiagnosticAnalyzer
             or SyntaxKind.LessThanOrEqualExpression
             or SyntaxKind.GreaterThanExpression
             or SyntaxKind.GreaterThanOrEqualExpression;
-
-    /// <summary>Mirrors a relational comparison as if its operands were swapped.</summary>
-    /// <param name="kind">The comparison kind.</param>
-    /// <returns>The mirrored comparison kind.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind,
-    };
 
     /// <summary>Returns whether anything in the loop can change what the condition reads, or leave early.</summary>
     /// <param name="loop">The loop statement.</param>

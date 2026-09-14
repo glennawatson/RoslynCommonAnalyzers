@@ -97,7 +97,7 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
 
         if (frameworkType.Get() is not { } browserFile
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: OpenReadStreamMethodName } method
-            || !IsOrImplements(method.ContainingType, browserFile))
+            || !TypeRelations.IsOrImplements(method.ContainingType, browserFile))
         {
             return;
         }
@@ -146,7 +146,7 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the argument binds to the <c>Size</c> property of an <c>IBrowserFile</c>.</returns>
     private static bool IsClientReportedSize(in SyntaxNodeAnalysisContext context, ExpressionSyntax sizeArgument, INamedTypeSymbol browserFile) =>
         context.SemanticModel.GetSymbolInfo(sizeArgument, context.CancellationToken).Symbol is IPropertySymbol { Name: SizePropertyName } property
-            && IsOrImplements(property.ContainingType, browserFile);
+            && TypeRelations.IsOrImplements(property.ContainingType, browserFile);
 
     /// <summary>Reads the byte ceiling, preferring the rule-specific key over the project-wide key.</summary>
     /// <param name="options">The analyzer config options for the argument's tree.</param>
@@ -186,29 +186,6 @@ public sealed class Ses1706UnboundedBrowserFileReadAnalyzer : DiagnosticAnalyzer
         }
 
         size = 0;
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or implements, the gated <c>IBrowserFile</c> interface.</summary>
-    /// <param name="type">The bound member's containing type.</param>
-    /// <param name="browserFile">The resolved <c>IBrowserFile</c> type.</param>
-    /// <returns><see langword="true"/> when the type is <c>IBrowserFile</c> or implements it.</returns>
-    private static bool IsOrImplements(INamedTypeSymbol type, INamedTypeSymbol browserFile)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, browserFile))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], browserFile))
-            {
-                return true;
-            }
-        }
-
         return false;
     }
 

@@ -74,7 +74,7 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
 
         if (navigationTypes.Get() is not { } navigationManager
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: NavigateToMethodName } method
-            || !IsOrDerivesFrom(method.ContainingType, navigationManager))
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, navigationManager))
         {
             return;
         }
@@ -193,23 +193,6 @@ public sealed class Ses1705NavigationOpenRedirectAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < validators.Length; i++)
         {
             if (string.Equals(validators[i], validatorName, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the gated <c>NavigationManager</c> type.</summary>
-    /// <param name="type">The bound method's containing type.</param>
-    /// <param name="navigationManager">The resolved <c>NavigationManager</c> type.</param>
-    /// <returns><see langword="true"/> when the type is <c>NavigationManager</c> or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol navigationManager)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, navigationManager))
             {
                 return true;
             }

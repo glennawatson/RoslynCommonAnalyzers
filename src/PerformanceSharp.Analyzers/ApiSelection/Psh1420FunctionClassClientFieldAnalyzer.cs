@@ -153,7 +153,7 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the name is <c>Function</c> or <c>FunctionAttribute</c>.</returns>
     private static bool IsFunctionAttributeName(NameSyntax name) =>
-        GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
+        SyntaxNames.GetSimpleName(name) is FunctionAttributeShortName or FunctionAttributeTypeName;
 
     /// <summary>Confirms the class declares a method whose function-named attribute binds to the worker attribute.</summary>
     /// <param name="model">The semantic model.</param>
@@ -301,17 +301,6 @@ public sealed class Psh1420FunctionClassClientFieldAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the field is static or const.</returns>
     private static bool IsStaticOrConst(in SyntaxTokenList modifiers) =>
         modifiers.Any(SyntaxKind.StaticKeyword) || modifiers.Any(SyntaxKind.ConstKeyword);
-
-    /// <summary>Returns the rightmost identifier of a written name, without binding it.</summary>
-    /// <param name="name">The written name syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple identifier.</returns>
-    private static string? GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 
     /// <summary>Rejects types whose syntax cannot denote a shareable client, while retaining aliases.</summary>
     /// <param name="type">The written field or property type.</param>

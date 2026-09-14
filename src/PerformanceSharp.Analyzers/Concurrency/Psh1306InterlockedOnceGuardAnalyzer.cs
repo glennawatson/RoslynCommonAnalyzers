@@ -60,23 +60,6 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
     private static bool IsReturnStatement(StatementSyntax statement) =>
         statement is ReturnStatementSyntax or BlockSyntax { Statements: [ReturnStatementSyntax] };
 
-    /// <summary>Returns whether a node sits inside a lock statement below a limit node.</summary>
-    /// <param name="node">The node to test.</param>
-    /// <param name="limit">The enclosing function that bounds the walk.</param>
-    /// <returns><see langword="true"/> when a lock statement is between the node and the limit.</returns>
-    private static bool IsInsideLock(SyntaxNode node, SyntaxNode limit)
-    {
-        for (var current = node.Parent; current is not null && current != limit; current = current.Parent)
-        {
-            if (current is LockStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns the nearest enclosing function-like body owner of a node.</summary>
     /// <param name="node">The node whose owner is sought.</param>
     /// <returns>The owner, or <see langword="null"/> at type scope.</returns>
@@ -106,7 +89,7 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
         var ifStatement = (IfStatementSyntax)context.Node;
         if (TryGetGuardFlag(ifStatement) is not { } flag
             || FindBodyOwner(ifStatement) is not { } owner
-            || IsInsideLock(ifStatement, owner))
+            || SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(ifStatement, owner))
         {
             return;
         }
@@ -165,7 +148,7 @@ public sealed class Psh1306InterlockedOnceGuardAnalyzer : DiagnosticAnalyzer
                 || token.ValueText != _name
                 || token.Parent is not IdentifierNameSyntax identifier
                 || TryGetTrueAssignment(identifier) is not { } assignment
-                || IsInsideLock(assignment, _owner))
+                || SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(assignment, _owner))
             {
                 return true;
             }

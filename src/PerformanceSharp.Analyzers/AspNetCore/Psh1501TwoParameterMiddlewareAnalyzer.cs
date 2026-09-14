@@ -116,7 +116,7 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
 
         var symbol = context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol;
         if (symbol is not IMethodSymbol { Name: UseMethodName, Parameters.Length: 1, ContainingType: { } containingType } method
-            || !ImplementsApplicationBuilder(containingType, applicationBuilderType)
+            || !TypeRelations.IsOrImplements(containingType, applicationBuilderType)
             || !IsLegacyMiddlewareParameter(method.Parameters[0].Type, requestDelegateType))
         {
             return;
@@ -170,29 +170,6 @@ public sealed class Psh1501TwoParameterMiddlewareAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression is a freshly written delegate.</returns>
     private static bool IsDelegateExpression(ExpressionSyntax expression) =>
         Unwrap(expression) is LambdaExpressionSyntax or AnonymousMethodExpressionSyntax;
-
-    /// <summary>Returns whether a type is, or implements, the middleware builder interface.</summary>
-    /// <param name="type">The method's containing type.</param>
-    /// <param name="applicationBuilderType">The gated middleware builder interface.</param>
-    /// <returns><see langword="true"/> when the call sits on an <c>IApplicationBuilder</c>.</returns>
-    private static bool ImplementsApplicationBuilder(INamedTypeSymbol type, INamedTypeSymbol applicationBuilderType)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, applicationBuilderType))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], applicationBuilderType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a parameter type is the legacy <c>Func&lt;RequestDelegate, RequestDelegate&gt;</c>.</summary>
     /// <param name="parameterType">The single parameter type of the bound <c>Use</c> overload.</param>

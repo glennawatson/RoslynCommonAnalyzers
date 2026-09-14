@@ -129,25 +129,8 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
         {
             var attributeClass = attributes[i].AttributeClass;
             if (attributeClass is not null
-                && DerivesFrom(attributeClass, renderModeAttribute)
+                && TypeRelations.IsOrDerivesFrom(attributeClass, renderModeAttribute)
                 && RenderModeSelectsWebAssembly(attributeClass, cancellationToken))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type derives from (or is) a given base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to look for.</param>
-    /// <returns><see langword="true"/> when <paramref name="baseType"/> is in the type's base chain.</returns>
-    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
             {
                 return true;
             }
@@ -178,7 +161,7 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
                 ref found,
                 static (in SyntaxToken token, ref bool matched) =>
                 {
-                    if (!token.IsKind(SyntaxKind.IdentifierToken) || !IsWebAssemblyRenderModeMarker(token.ValueText))
+                    if (!token.IsKind(SyntaxKind.IdentifierToken) || !StringArrays.ContainsOrdinal(WebAssemblyRenderModeMarkers, token.ValueText))
                     {
                         return true;
                     }
@@ -188,22 +171,6 @@ public sealed class Ses1707WebAssemblySecretDisclosureAnalyzer : DiagnosticAnaly
                 });
 
             if (found)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether an identifier is one of the WebAssembly/Auto render-mode marker names.</summary>
-    /// <param name="identifier">The identifier text to test.</param>
-    /// <returns><see langword="true"/> for a WebAssembly or Auto render-mode marker.</returns>
-    private static bool IsWebAssemblyRenderModeMarker(string identifier)
-    {
-        for (var i = 0; i < WebAssemblyRenderModeMarkers.Length; i++)
-        {
-            if (string.Equals(identifier, WebAssemblyRenderModeMarkers[i], StringComparison.Ordinal))
             {
                 return true;
             }

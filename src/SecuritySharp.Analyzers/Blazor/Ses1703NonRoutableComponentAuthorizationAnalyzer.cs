@@ -107,12 +107,12 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, route))
+                if (TypeRelations.IsOrDerivesFrom(attributeType, route))
                 {
                     return null;
                 }
 
-                if (authorizeAttribute is null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, authorize))
+                if (authorizeAttribute is null && TypeRelations.IsOrDerivesFrom(attributeType, authorize))
                 {
                     authorizeAttribute = attributes[j];
                 }
@@ -135,9 +135,9 @@ public sealed class Ses1703NonRoutableComponentAuthorizationAnalyzer : Diagnosti
         INamedTypeSymbol layout)
     {
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } typeSymbol
-            || !BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, componentBase)
+            || !TypeRelations.IsOrDerivesFrom(typeSymbol, componentBase)
             || typeSymbol.IsAbstract
-            || BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, layout))
+            || TypeRelations.IsOrDerivesFrom(typeSymbol, layout))
         {
             return false;
         }

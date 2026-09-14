@@ -160,7 +160,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (IsKnownTestAttributeName(GetAttributeSimpleName(attributes[j].Name)))
+                if (IsKnownTestAttributeName(SyntaxNames.GetSimpleName(attributes[j].Name)))
                 {
                     return true;
                 }
@@ -184,7 +184,7 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attribute = attributes[j];
-                if (!IsKnownTestAttributeName(GetAttributeSimpleName(attribute.Name)))
+                if (!IsKnownTestAttributeName(SyntaxNames.GetSimpleName(attribute.Name)))
                 {
                     continue;
                 }
@@ -240,17 +240,6 @@ public sealed class Sst2506ThreadSleepInTestAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> for the suffixed spelling.</returns>
     private static bool IsTestAttributeSuffixedName(string name) =>
         name is "FactAttribute" or "TheoryAttribute" or "TestAttribute" or "TestCaseAttribute" or "TestCaseSourceAttribute" or "TestMethodAttribute" or "DataTestMethodAttribute";
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetAttributeSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>The state threaded through one method body's sleep walk.</summary>
     private record struct SleepScan

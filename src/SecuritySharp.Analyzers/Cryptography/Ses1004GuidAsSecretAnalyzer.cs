@@ -284,7 +284,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             var word = ReadWord(name, ref position);
             for (var t = 0; t < SecretWords.Length; t++)
             {
-                if (WordEquals(word, SecretWords[t]))
+                if (InvariantText.EqualsLowercase(word, SecretWords[t]))
                 {
                     return true;
                 }
@@ -293,7 +293,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
             for (var r = 0; r < SecretWordRuns.Length; r++)
             {
                 var run = SecretWordRuns[r];
-                if (WordEquals(word, run[0]) && MatchesWordRun(name, position, run))
+                if (InvariantText.EqualsLowercase(word, run[0]) && MatchesWordRun(name, position, run))
                 {
                     return true;
                 }
@@ -312,7 +312,7 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
     {
         for (var offset = 1; offset < run.Length; offset++)
         {
-            if (!WordEquals(ReadWord(name, ref position), run[offset]))
+            if (!InvariantText.EqualsLowercase(ReadWord(name, ref position), run[offset]))
             {
                 return false;
             }
@@ -368,28 +368,6 @@ public sealed class Ses1004GuidAsSecretAnalyzer : DiagnosticAnalyzer
 
         // letter/digit transition either way: 'otp2' / '2fa'.
         return char.IsDigit(current) != char.IsDigit(previous);
-    }
-
-    /// <summary>Compares a word to the lowercase vocabulary using the original invariant lowercase mapping.</summary>
-    /// <param name="word">The identifier word.</param>
-    /// <param name="expected">The lowercase vocabulary entry.</param>
-    /// <returns>Whether the word's invariant lowercase spelling equals the entry.</returns>
-    private static bool WordEquals(ReadOnlySpan<char> word, string expected)
-    {
-        if (word.Length != expected.Length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < word.Length; i++)
-        {
-            if (char.ToLowerInvariant(word[i]) != expected[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>Resolves the actionable GUID type only after a secret target passes the candidate checks.</summary>

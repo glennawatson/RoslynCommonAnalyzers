@@ -80,7 +80,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
         var typeDeclaration = invocation.FirstAncestorOrSelf<TypeDeclarationSyntax>();
         if (typeDeclaration is null
             || frameworkTypes.Get() is not [var httpContextType, var controllerBaseType, var taskType]
-            || !IsOrDerivesFrom(context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken), controllerBaseType))
+            || !TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetDeclaredSymbol(typeDeclaration, context.CancellationToken), controllerBaseType))
         {
             return;
         }
@@ -175,24 +175,7 @@ public sealed class Sst2707FireAndForgetHttpContextAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the expression is <c>HttpContext</c>-typed.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static bool IsHttpContextTyped(ExpressionSyntax expression, SemanticModel model, INamedTypeSymbol httpContextType, CancellationToken cancellationToken) =>
-        IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
-
-    /// <summary>Returns whether a type is, or derives from, a given base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to test against.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is <paramref name="baseType"/> or a subtype of it.</returns>
-    private static bool IsOrDerivesFrom(ITypeSymbol? type, INamedTypeSymbol baseType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        TypeRelations.IsOrDerivesFrom(model.GetTypeInfo(expression, cancellationToken).Type, httpContextType);
 
     /// <summary>Resolves the framework types only when a discarded delegate call needs them.</summary>
     /// <param name="compilation">The compilation whose framework types are cached.</param>

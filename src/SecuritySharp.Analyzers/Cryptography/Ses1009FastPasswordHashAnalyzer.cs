@@ -108,7 +108,7 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
             ? method.ContainingType
             : context.SemanticModel.GetTypeInfo(member.Expression, context.CancellationToken).Type;
 
-        if (!IsFastHashType(hashType, fastHashTypes))
+        if (!TypeRelations.IsOneOf(hashType, fastHashTypes))
         {
             return;
         }
@@ -176,23 +176,6 @@ public sealed class Ses1009FastPasswordHashAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < PasswordNameFragments.Length; i++)
         {
             if (name.IndexOf(PasswordNameFragments[i], StringComparison.OrdinalIgnoreCase) >= 0)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is exactly one of the gated fast-hash types.</summary>
-    /// <param name="type">The candidate algorithm type.</param>
-    /// <param name="fastHashTypes">The gated fast-hash types.</param>
-    /// <returns><see langword="true"/> when the type is a fast, general-purpose hash.</returns>
-    private static bool IsFastHashType(ITypeSymbol? type, INamedTypeSymbol[] fastHashTypes)
-    {
-        for (var i = 0; i < fastHashTypes.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(type, fastHashTypes[i]))
             {
                 return true;
             }

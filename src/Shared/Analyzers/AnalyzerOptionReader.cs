@@ -21,51 +21,47 @@ internal static class AnalyzerOptionReader
     /// <returns>The parsed values, or an empty array when neither key is set.</returns>
     internal static string[] ReadCommaSeparatedList(AnalyzerConfigOptions options, string ruleKey, string generalKey)
     {
-        if (!options.TryGetValue(ruleKey, out var value) && !options.TryGetValue(generalKey, out value))
+        if (!TryGetValue(options, ruleKey, generalKey, out var value))
         {
             return [];
         }
 
-        var capacity = 1;
-        foreach (var character in value)
-        {
-            if (character == ',')
-            {
-                capacity++;
-            }
-        }
-
-        var parsed = new string[capacity];
+        var parsed = new string[CommaSeparatedEntries.MaxCount(value)];
         var count = 0;
-        var start = 0;
-        while (start < value.Length)
+        var entries = new CommaSeparatedEntries(value);
+        while (entries.MoveNext())
         {
-            var end = value.IndexOf(',', start);
-            if (end < 0)
-            {
-                end = value.Length;
-            }
-
-            var trimmed = TrimSegment(value, start, end);
-            start = end + 1;
-            if (trimmed.IsEmpty)
-            {
-                continue;
-            }
-
-            parsed[count] = trimmed.Length == value.Length ? value : trimmed.ToString();
+            var entry = entries.Current;
+            parsed[count] = entry.Length == value.Length ? value : entry.ToString();
             count++;
         }
 
-        if (count == parsed.Length)
-        {
-            return parsed;
-        }
-
-        var result = new string[count];
-        Array.Copy(parsed, result, count);
-        return result;
+        return ArrayBuffers.RightSize(parsed, count);
     }
+
+    /// <summary>Reads the raw value of the first key that is set, preferring the rule-specific key.</summary>
+    /// <param name="options">The analyzer config options.</param>
+    /// <param name="ruleKey">The rule-specific key.</param>
+    /// <param name="generalKey">The project-wide key.</param>
+    /// <param name="value">The raw value, or <see langword="null"/> when neither key is set.</param>
+    /// <returns><see langword="true"/> when either key is set.</returns>
+    /// <remarks>A set rule-specific key wins even when its value does not parse; the project-wide key is not consulted.</remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool TryGetValue(AnalyzerConfigOptions options, string ruleKey, string generalKey, [NotNullWhen(true)] out string? value) =>
+        options.TryGetValue(ruleKey, out value) || options.TryGetValue(generalKey, out value);
+
+    /// <summary>Reads a boolean that is on only when the first set key parses as true, preferring the rule-specific key.</summary>
+    /// <param name="options">The analyzer config options.</param>
+    /// <param name="ruleKey">The rule-specific key.</param>
+    /// <param name="generalKey">The project-wide key.</param>
+    /// <returns><see langword="true"/> only when the first set key holds <c>true</c>.</returns>
+    /// <remarks>
+    /// Unlike <see cref="ReadBool(AnalyzerConfigOptions, string, string)"/>, an unparsable rule-specific value
+    /// switches the setting off instead of falling through to the project-wide key.
+    /// </remarks>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static bool ReadFirstSetBool(AnalyzerConfigOptions options, string ruleKey, string generalKey) =>
+        TryGetValue(options, ruleKey, generalKey, out var value) && bool.TryParse(value, out var parsed) && parsed;
 
     /// <summary>Reads a boolean setting that defaults to false, preferring the rule-specific key.</summary>
     /// <param name="options">The analyzer config options.</param>

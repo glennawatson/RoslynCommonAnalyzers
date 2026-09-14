@@ -107,7 +107,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(property, context.CancellationToken) is not { Type: { } propertyType }
-            || !IsCollectionType(propertyType)
+            || !CollectionTypeClassification.IsCollection(propertyType)
             || !IsCollectionAllocation(context, copy))
         {
             return;
@@ -281,12 +281,12 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         var access = (MemberAccessExpressionSyntax)invocation.Expression;
         if (access.Name.Identifier.ValueText != CloneMethodName)
         {
-            return IsCollectionType(method.ReturnType);
+            return CollectionTypeClassification.IsCollection(method.ReturnType);
         }
 
         // Array.Clone is declared to return object, so the receiver is what says this is a collection.
         var receiverType = context.SemanticModel.GetTypeInfo(access.Expression, context.CancellationToken).Type;
-        return receiverType is not null && IsCollectionType(receiverType);
+        return receiverType is not null && CollectionTypeClassification.IsCollection(receiverType);
     }
 
     /// <summary>Returns whether an object creation seeds a copying collection from a source sequence.</summary>
@@ -306,7 +306,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         return context.SemanticModel.GetSymbolInfo(creation, context.CancellationToken).Symbol is IMethodSymbol { Parameters.Length: > 0 } constructor
-            && IsCollectionType(constructor.Parameters[0].Type)
+            && CollectionTypeClassification.IsCollection(constructor.Parameters[0].Type)
             && constructor.ContainingType is { } created
             && IsCopyingCollectionType(created);
     }
@@ -333,7 +333,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         {
             if (constructors[i].Parameters is [{ Type: { } parameterType }, ..]
                 && (parameterType.TypeKind == TypeKind.TypeParameter
-                    || (parameterType.TypeKind != TypeKind.Interface && IsCollectionType(parameterType))))
+                    || (parameterType.TypeKind != TypeKind.Interface && CollectionTypeClassification.IsCollection(parameterType))))
             {
                 return true;
             }
@@ -368,39 +368,4 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
                 ContainingNamespace: { Name: "System", ContainingNamespace.IsGlobalNamespace: true },
             },
         };
-
-    /// <summary>Returns whether a type is a collection whose copy costs one allocation per element.</summary>
-    /// <param name="type">The type to classify.</param>
-    /// <returns><see langword="true"/> for arrays and non-string, non-ref-struct enumerables.</returns>
-    private static bool IsCollectionType(ITypeSymbol type)
-    {
-        if (type is IArrayTypeSymbol)
-        {
-            return true;
-        }
-
-        // A span or a memory is a view, and a constant collection built into one lives in the
-        // assembly's data section rather than on the heap.
-        if (type.SpecialType == SpecialType.System_String || type.IsRefLikeType)
-        {
-            return false;
-        }
-
-        if (type.OriginalDefinition.SpecialType is SpecialType.System_Collections_IEnumerable
-            or SpecialType.System_Collections_Generic_IEnumerable_T)
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (interfaces[i].SpecialType == SpecialType.System_Collections_IEnumerable)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

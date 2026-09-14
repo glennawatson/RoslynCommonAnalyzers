@@ -244,7 +244,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         for (var i = call.ParamsIndex; i < arguments.Count; i++)
         {
             var argument = arguments[i];
-            if (!DerivesFromException(context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).Type, state.ExceptionType))
+            if (!TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetTypeInfo(argument.Expression, context.CancellationToken).Type, state.ExceptionType))
             {
                 continue;
             }
@@ -666,30 +666,13 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < templateIndex; i++)
         {
-            if (DerivesFromException(parameters[i].Type, exceptionType))
+            if (TypeRelations.IsOrDerivesFrom(parameters[i].Type, exceptionType))
             {
                 return i;
             }
         }
 
         return -1;
-    }
-
-    /// <summary>Returns whether a type is the exception base type or derives from it.</summary>
-    /// <param name="type">The type, if resolved.</param>
-    /// <param name="exceptionType">The exception base type.</param>
-    /// <returns><see langword="true"/> when the type is an exception.</returns>
-    private static bool DerivesFromException(ITypeSymbol? type, INamedTypeSymbol exceptionType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, exceptionType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether an argument list carries a string literal in any position.</summary>
@@ -909,7 +892,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
             var parameters = method.Parameters;
             for (var i = 0; i < parameters.Length; i++)
             {
-                if (DerivesFromException(parameters[i].Type, exceptionType))
+                if (TypeRelations.IsOrDerivesFrom(parameters[i].Type, exceptionType))
                 {
                     return true;
                 }

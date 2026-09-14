@@ -78,7 +78,7 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
             .WithLeadingTrivia(comparison.Right.GetLeadingTrivia())
             .WithTrailingTrivia(comparison.Right.GetTrailingTrivia());
 
-        var flipped = Flip(comparison.Kind());
+        var flipped = ComparisonKinds.Mirror(comparison.Kind());
         var operatorToken = SyntaxFactory.Token(
             comparison.OperatorToken.LeadingTrivia,
             OperatorTokenKind(flipped),
@@ -86,18 +86,6 @@ public sealed class Sst1131UseReadableConditionsCodeFixProvider : CodeFixProvide
 
         return SyntaxFactory.BinaryExpression(flipped, newLeft, operatorToken, newRight);
     }
-
-    /// <summary>Returns the comparison kind that reads the same after the operands are swapped.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The flipped comparison kind.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind
-    };
 
     /// <summary>Returns the operator token kind for a comparison expression kind.</summary>
     /// <param name="kind">The comparison expression kind.</param>

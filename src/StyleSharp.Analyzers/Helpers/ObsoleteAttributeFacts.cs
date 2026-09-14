@@ -35,7 +35,7 @@ internal static class ObsoleteAttributeFacts
     /// <summary>Returns whether an attribute's written name is the obsolete attribute's.</summary>
     /// <param name="name">The attribute name as written.</param>
     /// <returns><see langword="true"/> for <c>Obsolete</c> and <c>ObsoleteAttribute</c>, qualified or not.</returns>
-    internal static bool IsObsoleteName(NameSyntax name) => GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
+    internal static bool IsObsoleteName(NameSyntax name) => SyntaxNames.GetSimpleName(name) is "Obsolete" or ObsoleteAttributeMetadataName;
 
     /// <summary>Returns whether the attribute binds to the framework's obsolete attribute.</summary>
     /// <param name="semanticModel">The semantic model for the attribute's tree.</param>
@@ -152,17 +152,6 @@ internal static class ObsoleteAttributeFacts
 
         return null;
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>Returns whether a message says anything at all.</summary>
     /// <param name="text">The message text.</param>

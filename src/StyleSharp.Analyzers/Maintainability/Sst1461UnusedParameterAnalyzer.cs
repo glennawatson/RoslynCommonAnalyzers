@@ -91,7 +91,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.ContainingSymbol is not IMethodSymbol method
-            || (!TreeOptionsCache.GetOrRead(optionsByTree, context, UnreadParameterOptions.Read).IncludePublicApi && IsExternallyVisible(method))
+            || (!TreeOptionsCache.GetOrRead(optionsByTree, context, UnreadParameterOptions.Read).IncludePublicApi && SymbolVisibility.IsExternallyVisible(method))
             || IsEventHandler(member, context))
         {
             return;
@@ -201,7 +201,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         SyntaxNode node,
         IMethodSymbol? member,
         ConcurrentDictionary<TypeDeclarationSyntax, HashSet<string>>? cache) =>
-        member is not null && (IsBoundByAContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
+        member is not null && (TypeRelations.IsSignatureBoundByContract(member) || IsUsedAsAMethodGroup(node, member.Name, cache));
 
     /// <summary>Returns whether a method shape should not have parameters removed locally.</summary>
     /// <param name="modifiers">The declaration modifiers.</param>
@@ -327,79 +327,6 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         return false;
-    }
-
-    /// <summary>Returns whether an interface or an attribute's usage fixes the declaring member's signature.</summary>
-    /// <param name="method">The declaring method.</param>
-    /// <returns><see langword="true"/> when the signature answers to something outside the member.</returns>
-    private static bool IsBoundByAContract(IMethodSymbol method)
-    {
-        var containingType = method.ContainingType;
-        if (containingType is null)
-        {
-            return false;
-        }
-
-        return IsAttributeType(containingType) || ImplementsInterfaceMember(method, containingType);
-    }
-
-    /// <summary>Returns whether a type derives from <see cref="Attribute"/>.</summary>
-    /// <param name="type">The containing type.</param>
-    /// <returns><see langword="true"/> for an attribute class.</returns>
-    private static bool IsAttributeType(INamedTypeSymbol type)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (current is { Name: "Attribute", ContainingNamespace.Name: "System" })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a method implicitly implements an interface member.</summary>
-    /// <param name="method">The declaring method.</param>
-    /// <param name="containingType">The method's containing type.</param>
-    /// <returns><see langword="true"/> when an interface dictates the signature.</returns>
-    private static bool ImplementsInterfaceMember(IMethodSymbol method, INamedTypeSymbol containingType)
-    {
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The member that declares the parameter.</param>
-    /// <returns><see langword="true"/> when removing a parameter is a break for consumers.</returns>
-    private static bool IsExternallyVisible(ISymbol? symbol)
-    {
-        for (var current = symbol; current is not null; current = current.ContainingType)
-        {
-            if (current is INamespaceSymbol)
-            {
-                break;
-            }
-
-            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// <summary>Returns whether the declaring member's name is handed on as a method group.</summary>

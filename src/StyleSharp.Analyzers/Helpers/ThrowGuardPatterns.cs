@@ -61,7 +61,7 @@ internal static class ThrowGuardPatterns
 
         var value = leftMatches ? binary.Left : binary.Right;
         var bound = leftMatches ? binary.Right : binary.Left;
-        var kind = leftMatches ? binary.Kind() : Reverse(binary.Kind());
+        var kind = leftMatches ? binary.Kind() : ComparisonKinds.Mirror(binary.Kind());
         var helper = RangeHelper(kind, bound);
         if (helper is null)
         {
@@ -310,18 +310,6 @@ internal static class ThrowGuardPatterns
     /// <returns><see langword="true"/> when the expression is that identifier.</returns>
     private static bool IsIdentifier(ExpressionSyntax expression, string name) =>
         expression is IdentifierNameSyntax identifier && identifier.Identifier.ValueText == name;
-
-    /// <summary>Reverses a comparison kind when the guarded value is on the right.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The reversed comparison kind.</returns>
-    private static SyntaxKind Reverse(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        _ => kind
-    };
 
     /// <summary>Maps a comparison kind and zero bound to the corresponding helper.</summary>
     /// <param name="kind">The normalized comparison kind.</param>

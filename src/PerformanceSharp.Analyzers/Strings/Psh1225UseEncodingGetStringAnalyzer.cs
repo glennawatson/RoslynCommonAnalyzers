@@ -159,24 +159,7 @@ public sealed class Psh1225UseEncodingGetStringAnalyzer : DiagnosticAnalyzer
             return null;
         }
 
-        return DerivesFrom(decode.ContainingType, encoding) ? decode : null;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the encoding base type.</summary>
-    /// <param name="type">The candidate receiver type.</param>
-    /// <param name="encoding">The encoding base type.</param>
-    /// <returns><see langword="true"/> when the type is an encoding.</returns>
-    private static bool DerivesFrom(INamedTypeSymbol type, INamedTypeSymbol encoding)
-    {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, encoding))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return TypeRelations.IsOrDerivesFrom(decode.ContainingType, encoding) ? decode : null;
     }
 
     /// <summary>Returns whether the creation really is the <c>string(char[])</c> constructor.</summary>

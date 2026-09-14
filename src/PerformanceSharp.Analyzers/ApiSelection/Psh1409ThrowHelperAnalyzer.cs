@@ -310,21 +310,8 @@ public sealed class Psh1409ThrowHelperAnalyzer : DiagnosticAnalyzer
             { Left: IdentifierNameSyntax left } when left.Identifier.ValueText == paramName
                 => (left, binary.Right, binary.Kind()),
             { Right: IdentifierNameSyntax right } when right.Identifier.ValueText == paramName
-                => (right, binary.Left, Mirror(binary.Kind())),
+                => (right, binary.Left, ComparisonKinds.Mirror(binary.Kind())),
             _ => null,
-        };
-
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the value on the left.</returns>
-    private static SyntaxKind Mirror(SyntaxKind kind) =>
-        kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
         };
 
     /// <summary>Maps a value-on-the-left comparison to its throw helper.</summary>

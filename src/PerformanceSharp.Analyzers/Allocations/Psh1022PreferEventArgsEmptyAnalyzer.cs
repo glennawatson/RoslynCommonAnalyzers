@@ -101,7 +101,7 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsNamedEventArgsOrImplicit(BaseObjectCreationExpressionSyntax creation) =>
         creation is not ObjectCreationExpressionSyntax explicitCreation
-            || GetSimpleName(explicitCreation.Type) == EventArgsTypeName;
+            || SyntaxNames.GetSimpleName(explicitCreation.Type) == EventArgsTypeName;
 
     /// <summary>Returns whether the fix can name <c>EventArgs</c> at the allocation's position.</summary>
     /// <param name="creation">The allocation being reported.</param>
@@ -143,17 +143,6 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 
     /// <summary>Resolves the singleton-bearing type only when a candidate construction needs it.</summary>
     /// <param name="compilation">The compilation whose type is resolved.</param>

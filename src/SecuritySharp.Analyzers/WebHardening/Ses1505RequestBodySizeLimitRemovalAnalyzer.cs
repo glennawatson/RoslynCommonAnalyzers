@@ -65,7 +65,7 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
         var attribute = (AttributeSyntax)context.Node;
 
         // Syntactic prefilter: the attribute is spelled 'DisableRequestSizeLimit' or 'DisableRequestSizeLimitAttribute'.
-        if (GetAttributeSimpleName(attribute.Name) is not (DisableAttributeShortName or DisableAttributeLongName))
+        if (SyntaxNames.GetSimpleName(attribute.Name) is not (DisableAttributeShortName or DisableAttributeLongName))
         {
             return;
         }
@@ -112,18 +112,6 @@ public sealed class Ses1505RequestBodySizeLimitRemovalAnalyzer : DiagnosticAnaly
             assignment.Span,
             NullAssignmentDisplay));
     }
-
-    /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
-    /// <param name="name">The attribute's name syntax.</param>
-    /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name) =>
-        name switch
-        {
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Returns the assignment's left expression when it names <c>MaxRequestBodySize</c>.</summary>
     /// <param name="left">The assignment's left-hand expression.</param>

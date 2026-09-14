@@ -158,7 +158,7 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
             || !IsDirectlyAwaited(invocation)
             || gate.Value is not { } resolvedGate
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsStreamType(method.ContainingType, resolvedGate.StreamType)
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, resolvedGate.StreamType)
             || !TakesArrayOffsetCount(method.Parameters, resolvedGate.CancellationTokenType))
         {
             return;
@@ -175,23 +175,6 @@ public sealed class Psh1314UseMemoryBasedStreamOverloadsAnalyzer : DiagnosticAna
             invocation.SyntaxTree,
             invocation.Span,
             method.Name));
-    }
-
-    /// <summary>Returns whether a type is <c>System.IO.Stream</c> or derives from it.</summary>
-    /// <param name="type">The type declaring the called overload.</param>
-    /// <param name="streamType">The stream type in the current compilation.</param>
-    /// <returns><see langword="true"/> when the call really is a stream call.</returns>
-    private static bool IsStreamType(INamedTypeSymbol type, INamedTypeSymbol streamType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, streamType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a bound method takes the array, offset and count the rule replaces.</summary>

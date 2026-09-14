@@ -55,7 +55,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
         if (!HasPotentialAction(members)
             || resolver.Get() is not [var markers]
             || !HasApiControllerAttribute(type, markers.ApiControllerAttribute)
-            || !IsOrDerivesFrom(type, markers.ControllerBase))
+            || !TypeRelations.IsOrDerivesFrom(type, markers.ControllerBase))
         {
             return;
         }
@@ -186,7 +186,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
 
         foreach (var attribute in method.GetAttributes())
         {
-            if (attribute.AttributeClass is { } attributeClass && IsOrDerivesFrom(attributeClass, nonActionAttribute))
+            if (attribute.AttributeClass is { } attributeClass && TypeRelations.IsOrDerivesFrom(attributeClass, nonActionAttribute))
             {
                 return true;
             }
@@ -210,7 +210,7 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
 
             for (var i = 0; i < nonBodySources.Length; i++)
             {
-                if (IsOrDerivesFrom(attributeClass, nonBodySources[i]))
+                if (TypeRelations.IsOrDerivesFrom(attributeClass, nonBodySources[i]))
                 {
                     return true;
                 }
@@ -233,8 +233,8 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if ((markers.RequiredAttribute is not null && IsOrDerivesFrom(attributeClass, markers.RequiredAttribute))
-                || (markers.BindRequiredAttribute is not null && IsOrDerivesFrom(attributeClass, markers.BindRequiredAttribute)))
+            if ((markers.RequiredAttribute is not null && TypeRelations.IsOrDerivesFrom(attributeClass, markers.RequiredAttribute))
+                || (markers.BindRequiredAttribute is not null && TypeRelations.IsOrDerivesFrom(attributeClass, markers.BindRequiredAttribute)))
             {
                 return true;
             }
@@ -296,27 +296,10 @@ public sealed class Sst2705BoundModelUnderpostingAnalyzer : DiagnosticAnalyzer
         {
             foreach (var attribute in current.GetAttributes())
             {
-                if (attribute.AttributeClass is { } attributeClass && IsOrDerivesFrom(attributeClass, apiControllerAttribute))
+                if (attribute.AttributeClass is { } attributeClass && TypeRelations.IsOrDerivesFrom(attributeClass, apiControllerAttribute))
                 {
                     return true;
                 }
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the supplied base type.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="baseType">The base type to test against.</param>
-    /// <returns><see langword="true"/> when the type is the base type or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol baseType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, baseType))
-            {
-                return true;
             }
         }
 

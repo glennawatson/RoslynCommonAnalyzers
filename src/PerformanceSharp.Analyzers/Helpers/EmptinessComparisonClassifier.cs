@@ -30,7 +30,7 @@ internal static class EmptinessComparisonClassifier
 
         if (rightCount is not null && TryGetZeroOrOneLiteral(binary.Left) is { } leftLiteral)
         {
-            return ClassifyHasElements(MirrorComparison(binary.Kind()), leftLiteral) is { } hasElements ? (rightCount, hasElements) : null;
+            return ClassifyHasElements(ComparisonKinds.Mirror(binary.Kind()), leftLiteral) is { } hasElements ? (rightCount, hasElements) : null;
         }
 
         return null;
@@ -46,19 +46,6 @@ internal static class EmptinessComparisonClassifier
             "0" => 0,
             "1" => 1,
             _ => null,
-        };
-
-    /// <summary>Mirrors a comparison kind for reversed operand order.</summary>
-    /// <param name="kind">The original comparison kind.</param>
-    /// <returns>The kind with the counting operand on the left.</returns>
-    internal static SyntaxKind MirrorComparison(SyntaxKind kind) =>
-        kind switch
-        {
-            SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-            SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-            SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-            SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-            _ => kind,
         };
 
     /// <summary>Maps a count-on-the-left comparison to whether it means the sequence has elements.</summary>

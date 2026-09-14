@@ -157,7 +157,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return StructSizeEstimator.Unknown;
         }
 
-        if (!options.IncludePublicApi && IsExternallyVisible(symbol.ContainingSymbol))
+        if (!options.IncludePublicApi && SymbolVisibility.IsExternallyVisible(symbol.ContainingSymbol))
         {
             return StructSizeEstimator.Unknown;
         }
@@ -247,27 +247,6 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
     private static bool IsLargeReadonlyStruct(INamedTypeSymbol type) =>
         type is { TypeKind: TypeKind.Struct, SpecialType: SpecialType.None, IsReadOnly: true, IsRefLikeType: false };
 
-    /// <summary>Returns whether a symbol can be seen from outside the assembly that declares it.</summary>
-    /// <param name="symbol">The member that declares the parameter.</param>
-    /// <returns><see langword="true"/> when changing its signature is a binary break for consumers.</returns>
-    private static bool IsExternallyVisible(ISymbol? symbol)
-    {
-        for (var current = symbol; current is not null; current = current.ContainingType)
-        {
-            if (current is INamespaceSymbol)
-            {
-                break;
-            }
-
-            if (current.DeclaredAccessibility is not (Accessibility.Public or Accessibility.Protected or Accessibility.ProtectedOrInternal))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     /// <summary>Returns whether the declaring member's signature is free of an inherited contract.</summary>
     /// <param name="parameter">The parameter symbol.</param>
     /// <param name="caches">The per-compilation caches.</param>
@@ -283,51 +262,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return false;
         }
 
-        if (method.ContainingType is { } containingType
-            && (IsAttributeType(containingType) || ImplementsInterfaceMember(method, containingType)))
-        {
-            return false;
-        }
-
-        return !HasUnmanagedCallersOnlyAttribute(method, caches);
-    }
-
-    /// <summary>Returns whether a type derives from <see cref="Attribute"/>.</summary>
-    /// <param name="type">The containing type.</param>
-    /// <returns><see langword="true"/> for an attribute class.</returns>
-    private static bool IsAttributeType(INamedTypeSymbol type)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (current is { Name: "Attribute", ContainingNamespace.Name: "System" })
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a method implicitly implements an interface member.</summary>
-    /// <param name="method">The declaring method.</param>
-    /// <param name="containingType">The method's containing type.</param>
-    /// <returns><see langword="true"/> when an interface dictates the signature.</returns>
-    private static bool ImplementsInterfaceMember(IMethodSymbol method, INamedTypeSymbol containingType)
-    {
-        var interfaces = containingType.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            var candidates = interfaces[i].GetMembers(method.Name);
-            for (var j = 0; j < candidates.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(containingType.FindImplementationForInterfaceMember(candidates[j]), method))
-                {
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return !TypeRelations.IsSignatureBoundByContract(method) && !HasUnmanagedCallersOnlyAttribute(method, caches);
     }
 
     /// <summary>Returns whether a method is a native callback whose signature the runtime fixes.</summary>
@@ -342,21 +277,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
             return false;
         }
 
-        var marker = caches.GetUnmanagedCallersOnlyAttribute();
-        if (marker is null)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, marker))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return caches.GetUnmanagedCallersOnlyAttribute() is { } marker && SymbolFacts.HasAttribute(attributes, marker);
     }
 
     /// <summary>Returns whether the member's body would still compile with an <c>in</c> parameter.</summary>

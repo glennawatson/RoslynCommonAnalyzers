@@ -99,7 +99,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         // containers, and only a class that survives both pays for the member scan — and only one that
         // survives all three ever forces the whole-compilation index to be built.
         if (!IsSealableShape(symbol)
-            || !IsWrittenAsTypeDeclaration(symbol, context.CancellationToken)
+            || !SymbolFacts.IsDeclaredAs<TypeDeclarationSyntax>(symbol, context.CancellationToken)
             || !IsReportableAccessibility(symbol, context, index)
             || DeclaresMemberSealingWouldReject(symbol)
             || index.IsBlocked(symbol, context.CancellationToken))
@@ -131,30 +131,6 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
             IsImplicitlyDeclared: false,
             DeclaringSyntaxReferences.Length: > 0,
         };
-
-    /// <summary>Returns whether a class is written as a declaration the modifier could go on.</summary>
-    /// <param name="symbol">The declared type.</param>
-    /// <param name="cancellationToken">A token that cancels the lookup.</param>
-    /// <returns><see langword="true"/> when source declares the type in the usual way.</returns>
-    /// <remarks>
-    /// A file of top-level statements gets a <c>Program</c> class the compiler writes for it. That symbol
-    /// is not marked implicit and does carry a declaring reference, so the shape checks let it through,
-    /// but the reference is the compilation unit rather than a type declaration — there is nowhere to put
-    /// <c>sealed</c>, and a fix has nothing to rewrite.
-    /// </remarks>
-    private static bool IsWrittenAsTypeDeclaration(INamedTypeSymbol symbol, CancellationToken cancellationToken)
-    {
-        var references = symbol.DeclaringSyntaxReferences;
-        for (var i = 0; i < references.Length; i++)
-        {
-            if (references[i].GetSyntax(cancellationToken) is TypeDeclarationSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a class declares a member a sealed class may not have.</summary>
     /// <param name="symbol">The declared type.</param>
@@ -303,7 +279,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
                 var constraints = clauses[i].Constraints;
                 for (var j = 0; j < constraints.Count; j++)
                 {
-                    if (constraints[j] is TypeConstraintSyntax typeConstraint && GetSimpleName(typeConstraint.Type) is { } name)
+                    if (constraints[j] is TypeConstraintSyntax typeConstraint && SyntaxNames.GetSimpleName(typeConstraint.Type) is { } name)
                     {
                         blocked.BlockName(name);
                     }
@@ -312,17 +288,6 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
 
             return true;
         }
-
-        /// <summary>Gets the rightmost identifier of a written type name.</summary>
-        /// <param name="type">The constraint's type syntax.</param>
-        /// <returns>The simple name, or <see langword="null"/> when the syntax names no type.</returns>
-        private static string? GetSimpleName(TypeSyntax type) => type switch
-        {
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-            AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-            _ => null,
-        };
 
         /// <summary>Records the base types and constraint targets of every class under one namespace.</summary>
         /// <param name="namespaceSymbol">The namespace to walk.</param>

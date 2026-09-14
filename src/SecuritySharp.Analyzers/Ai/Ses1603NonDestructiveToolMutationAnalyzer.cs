@@ -127,7 +127,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
     /// <returns>Whether the bound tool attribute promises safe behaviour.</returns>
     private static bool IsSafeToolAttribute(in SyntaxNodeAnalysisContext context, AttributeSyntax attribute, INamedTypeSymbol toolAttribute) =>
         context.SemanticModel.GetSymbolInfo(attribute, context.CancellationToken).Symbol is IMethodSymbol { ContainingType: { } attributeType }
-        && IsOrDerivesFrom(attributeType, toolAttribute)
+        && TypeRelations.IsOrDerivesFrom(attributeType, toolAttribute)
         && PromisesSafety(context, attribute);
 
     /// <summary>Finds a safety-hint argument without excluding aliased or derived tool attributes.</summary>
@@ -211,23 +211,6 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
 
         scan.Found = invocation;
         scan.Callee = method;
-        return false;
-    }
-
-    /// <summary>Returns whether an attribute class is, or derives from, a marker attribute type.</summary>
-    /// <param name="attributeType">The bound attribute class.</param>
-    /// <param name="marker">The marker attribute type to match.</param>
-    /// <returns><see langword="true"/> when the attribute is the marker or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol attributeType, INamedTypeSymbol marker)
-    {
-        for (var current = attributeType; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, marker))
-            {
-                return true;
-            }
-        }
-
         return false;
     }
 
@@ -398,7 +381,7 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
         {
             if (_dbCommand is { } dbCommand && name is "ExecuteNonQuery" or "ExecuteNonQueryAsync")
             {
-                return IsOrDerivesFrom(containingType, dbCommand);
+                return TypeRelations.IsOrDerivesFrom(containingType, dbCommand);
             }
 
             if (_dbContext is not { } dbContext)
@@ -406,7 +389,9 @@ public sealed class Ses1603NonDestructiveToolMutationAnalyzer : DiagnosticAnalyz
                 return false;
             }
 
-            return name is "SaveChanges" or "SaveChangesAsync" ? IsOrDerivesFrom(containingType, dbContext) : IsEntityFrameworkBulkMutation(name) && IsEntityFrameworkMember(containingType);
+            return name is "SaveChanges" or "SaveChangesAsync"
+                ? TypeRelations.IsOrDerivesFrom(containingType, dbContext)
+                : IsEntityFrameworkBulkMutation(name) && IsEntityFrameworkMember(containingType);
         }
     }
 }

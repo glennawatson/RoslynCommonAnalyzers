@@ -60,7 +60,7 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The attribute's name.</param>
     /// <returns><see langword="true"/> when the rightmost name matches, with or without the suffix.</returns>
     internal static bool IsPureAttributeName(NameSyntax name) =>
-        GetSimpleName(name) is "Pure" or PureAttributeTypeName;
+        SyntaxNames.GetSimpleName(name) is "Pure" or PureAttributeTypeName;
 
     /// <summary>Analyzes one method declaration.</summary>
     /// <param name="context">The syntax node context.</param>
@@ -189,15 +189,4 @@ public sealed class Sst2452PureVoidMethodAnalyzer : DiagnosticAnalyzer
             && middle == outerName
             && outer.ContainingNamespace is { Name: "System" } system
             && system.ContainingNamespace is { IsGlobalNamespace: true };
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 }

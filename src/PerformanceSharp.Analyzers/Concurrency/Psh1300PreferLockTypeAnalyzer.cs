@@ -69,7 +69,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         {
             if (type.Members[i] is not FieldDeclarationSyntax field
                 || !HasPrivateReadonlyModifiers(field.Modifiers)
-                || !IsUnambiguousObjectType(field.Declaration.Type)
+                || !ObjectTypeSyntax.IsUnambiguousObjectType(field.Declaration.Type)
                 || field.Declaration.Variables is not [var candidate]
                 || candidate.Initializer is null
                 || !IsParameterlessNew(candidate.Initializer.Value))
@@ -281,7 +281,7 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
         {
             PredefinedTypeSyntax predefined when predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword) => true,
             IdentifierNameSyntax { Identifier.ValueText: "Object" } => true,
-            QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => IsSystemNamespace(left),
+            QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } => ObjectTypeSyntax.IsSystemNamespace(left),
             _ => false
         };
 
@@ -322,13 +322,6 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
             _ => FieldNameTokenKind.Ignore
         };
 
-    /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
-    private static bool IsUnambiguousObjectType(TypeSyntax type) =>
-        (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
-            || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
-
     /// <summary>Returns whether a modifier list contains both <c>private</c> and <c>readonly</c>.</summary>
     /// <param name="modifiers">The modifier list to inspect.</param>
     /// <returns><see langword="true"/> when both required modifiers are present.</returns>
@@ -359,13 +352,6 @@ public sealed class Psh1300PreferLockTypeAnalyzer : DiagnosticAnalyzer
 
         return hasPrivate && hasReadonly;
     }
-
-    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
-    /// <param name="name">The syntax to inspect.</param>
-    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
-    private static bool IsSystemNamespace(NameSyntax name) =>
-        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
-            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Returns whether every reference to the field within the type is a lock target (and there is at least one).</summary>
     /// <param name="model">The semantic model.</param>

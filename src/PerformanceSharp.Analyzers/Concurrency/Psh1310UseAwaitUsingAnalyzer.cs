@@ -161,30 +161,7 @@ public sealed class Psh1310UseAwaitUsingAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         INamedTypeSymbol asyncDisposableType) =>
         context.SemanticModel.GetTypeInfo(expression, context.CancellationToken).Type is { } type
-            && ImplementsAsyncDisposable(type, asyncDisposableType);
-
-    /// <summary>Returns whether a type is or implements the async disposable interface.</summary>
-    /// <param name="type">The resource type to inspect.</param>
-    /// <param name="asyncDisposableType">The async disposable interface.</param>
-    /// <returns><see langword="true"/> when the type qualifies.</returns>
-    private static bool ImplementsAsyncDisposable(ITypeSymbol type, INamedTypeSymbol asyncDisposableType)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, asyncDisposableType))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], asyncDisposableType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+            && TypeRelations.IsOrImplements(type, asyncDisposableType);
 
     /// <summary>Returns whether the syntax tree uses at least the supplied language version.</summary>
     /// <param name="node">The syntax node.</param>

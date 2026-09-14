@@ -80,7 +80,7 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
             && invocation.Expression is MemberAccessExpressionSyntax { RawKind: (int)SyntaxKind.SimpleMemberAccessExpression } access
             && access.Name.Identifier.ValueText == ConcatMethodName
             && HasSubstringArgument(invocation)
-            && !HasNamedOrModifiedArgument(invocation);
+            && !ArgumentListFacts.HasNonPositionalArgument(invocation);
 
     /// <summary>Returns the first argument that is a <c>Substring</c> call, or <see langword="null"/>.</summary>
     /// <param name="invocation">The concatenation.</param>
@@ -168,23 +168,6 @@ public sealed class Psh1222UseSpanBasedConcatAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < arguments.Count; i++)
         {
             if (IsSubstringCall(arguments[i].Expression))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether any argument carries a name colon or a ref-kind keyword.</summary>
-    /// <param name="invocation">The concatenation.</param>
-    /// <returns><see langword="true"/> when an argument cannot be moved positionally.</returns>
-    private static bool HasNamedOrModifiedArgument(InvocationExpressionSyntax invocation)
-    {
-        var arguments = invocation.ArgumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is not null || !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.None))
             {
                 return true;
             }

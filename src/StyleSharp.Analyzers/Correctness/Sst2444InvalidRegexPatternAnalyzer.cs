@@ -89,7 +89,7 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     /// <returns><see langword="true"/> when the callee is worth binding.</returns>
     internal static bool NamesRegexApi(SyntaxNode node) => node switch
     {
-        ObjectCreationExpressionSyntax creation => GetSimpleName(creation.Type) == RegexTypeName,
+        ObjectCreationExpressionSyntax creation => SyntaxNames.GetSimpleName(creation.Type) == RegexTypeName,
         InvocationExpressionSyntax invocation => IsQueryMethod(GetInvokedName(invocation)),
         _ => false,
     };
@@ -334,17 +334,6 @@ public sealed class Sst2444InvalidRegexPatternAnalyzer : DiagnosticAnalyzer
     {
         InvocationExpressionSyntax invocation => invocation.ArgumentList,
         ObjectCreationExpressionSyntax creation => creation.ArgumentList,
-        _ => null,
-    };
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
         _ => null,
     };
 

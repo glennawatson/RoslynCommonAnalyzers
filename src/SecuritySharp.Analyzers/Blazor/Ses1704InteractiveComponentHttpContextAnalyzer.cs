@@ -89,7 +89,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } typeSymbol
-            || !BlazorComponentHelper.IsOrDerivesFrom(typeSymbol, markers.ComponentBase))
+            || !TypeRelations.IsOrDerivesFrom(typeSymbol, markers.ComponentBase))
         {
             return;
         }
@@ -145,7 +145,7 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (attributeType is not null && BlazorComponentHelper.IsOrDerivesFrom(attributeType, renderMode))
+                if (attributeType is not null && TypeRelations.IsOrDerivesFrom(attributeType, renderMode))
                 {
                     return true;
                 }
@@ -248,11 +248,11 @@ public sealed class Ses1704InteractiveComponentHttpContextAnalyzer : DiagnosticA
             for (var j = 0; j < attributes.Count; j++)
             {
                 var attributeType = BlazorComponentHelper.GetAttributeType(context.SemanticModel, attributes[j], context.CancellationToken);
-                if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, inject))
+                if (TypeRelations.IsOrDerivesFrom(attributeType, inject))
                 {
                     injected = true;
                 }
-                else if (BlazorComponentHelper.IsOrDerivesFrom(attributeType, cascading))
+                else if (TypeRelations.IsOrDerivesFrom(attributeType, cascading))
                 {
                     cascaded = true;
                 }

@@ -74,17 +74,6 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     internal static bool IsParameterlessCreationShape(BaseObjectCreationExpressionSyntax creation) =>
         creation is { Initializer: null, ArgumentList.Arguments.Count: 0 };
 
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
-
     /// <summary>Reports PSH1412 for an allocation of a <c>Random</c> the shared instance could serve.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     /// <param name="frameworkTypes">The compilation's deferred framework type cache.</param>
@@ -122,7 +111,7 @@ public sealed class Psh1412UseSharedRandomAnalyzer : DiagnosticAnalyzer
     /// </remarks>
     private static bool IsNamedRandomOrImplicit(BaseObjectCreationExpressionSyntax creation) =>
         creation is not ObjectCreationExpressionSyntax explicitCreation
-            || GetSimpleName(explicitCreation.Type) == RandomTypeName;
+            || SyntaxNames.GetSimpleName(explicitCreation.Type) == RandomTypeName;
 
     /// <summary>Returns whether the fix can name <c>Random</c> at the allocation's position.</summary>
     /// <param name="creation">The allocation being reported.</param>

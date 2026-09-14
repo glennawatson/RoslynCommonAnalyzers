@@ -159,18 +159,7 @@ public sealed class Sst2460DefaultValueOnParameterAnalyzer : DiagnosticAnalyzer
     /// <param name="name">The attribute name syntax.</param>
     /// <returns><see langword="true"/> when the simple name matches either spelling.</returns>
     private static bool IsDefaultValueName(NameSyntax name) =>
-        GetSimpleName(name) is DefaultValueName or DefaultValueSuffixedName;
-
-    /// <summary>Reduces an attribute name to its rightmost identifier text.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple identifier text, or <see langword="null"/> for an unexpected shape.</returns>
-    private static string? GetSimpleName(NameSyntax name) => name switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
+        SyntaxNames.GetIdentifierName(name) is DefaultValueName or DefaultValueSuffixedName;
 
     /// <summary>Resolves the designer attribute only when a parameter attribute is a candidate.</summary>
     /// <param name="compilation">The compilation whose designer attribute is resolved.</param>

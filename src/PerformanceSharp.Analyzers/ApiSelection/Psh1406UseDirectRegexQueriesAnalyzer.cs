@@ -91,7 +91,7 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
         var access = (MemberAccessExpressionSyntax)context.Node;
         if (!TryGetQueryShape(access, out var materializingInvocation, out var replacementName)
             || types.Get() is not { } regexType
-            || (replacementName == CountMethodName && !HasCountMethod(regexType)))
+            || (replacementName == CountMethodName && !SymbolFacts.HasMethodNamed(regexType, CountMethodName)))
         {
             return;
         }
@@ -119,23 +119,6 @@ public sealed class Psh1406UseDirectRegexQueriesAnalyzer : DiagnosticAnalyzer
             SimpleNameSyntax simpleName => simpleName.Identifier.ValueText,
             _ => null
         };
-
-    /// <summary>Returns whether the regex type exposes a <c>Count</c> method (instance or static).</summary>
-    /// <param name="regexType">The regex type to probe.</param>
-    /// <returns><see langword="true"/> when the direct count query exists (.NET 7+).</returns>
-    private static bool HasCountMethod(INamedTypeSymbol regexType)
-    {
-        var members = regexType.GetMembers(CountMethodName);
-        for (var i = 0; i < members.Length; i++)
-        {
-            if (members[i] is IMethodSymbol)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Resolves the regex type once per compilation, on first demand.</summary>
     /// <param name="compilation">The compilation whose type is resolved.</param>

@@ -100,7 +100,7 @@ internal static class InterpolatedStringConversion
     /// <returns>The interpolated string, or <see langword="null"/> when the call must be left alone.</returns>
     internal static InterpolatedStringExpressionSyntax? TryConvertFormat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
     {
-        if (!IsFormatShape(invocation) || HasNonPositionalArgument(invocation) || BindStringFormat(model, invocation, cancellationToken) is not { } method)
+        if (!IsFormatShape(invocation) || ArgumentListFacts.HasNonPositionalArgument(invocation) || BindStringFormat(model, invocation, cancellationToken) is not { } method)
         {
             return null;
         }
@@ -188,7 +188,7 @@ internal static class InterpolatedStringConversion
     internal static InterpolatedStringExpressionSyntax? TryConvertConcat(SemanticModel model, InvocationExpressionSyntax invocation, CancellationToken cancellationToken)
     {
         if (!IsConcatShape(invocation)
-            || HasNonPositionalArgument(invocation)
+            || ArgumentListFacts.HasNonPositionalArgument(invocation)
             || model.GetSymbolInfo(invocation, cancellationToken).Symbol is not IMethodSymbol method
             || !IsAllStringConcat(method))
         {
@@ -294,23 +294,6 @@ internal static class InterpolatedStringConversion
                 or MemberAccessExpressionSyntax { Name.Identifier.ValueText: "String" } => true,
             _ => false
         };
-
-    /// <summary>Returns whether any argument is named or passed by reference.</summary>
-    /// <param name="invocation">The invocation to inspect.</param>
-    /// <returns><see langword="true"/> when an argument is not a plain positional value.</returns>
-    private static bool HasNonPositionalArgument(InvocationExpressionSyntax invocation)
-    {
-        var arguments = invocation.ArgumentList.Arguments;
-        for (var i = 0; i < arguments.Count; i++)
-        {
-            if (arguments[i].NameColon is not null || !arguments[i].RefOrOutKeyword.IsKind(SyntaxKind.None))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Binds a call and keeps it only when it is the framework's own <c>string.Format</c>.</summary>
     /// <param name="model">The semantic model.</param>

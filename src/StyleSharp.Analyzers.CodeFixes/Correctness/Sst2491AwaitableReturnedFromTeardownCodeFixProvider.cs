@@ -70,7 +70,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
         for (var i = 0; i < returns.Count; i++)
         {
-            if (IsInsideLock(returns[i], function))
+            if (SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(returns[i], function))
             {
                 return false;
             }
@@ -103,7 +103,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
         for (var i = 0; i < returns.Count; i++)
         {
-            if (IsInsideLock(returns[i], function))
+            if (SyntaxAncestry.HasAncestorBefore<LockStatementSyntax>(returns[i], function))
             {
                 return null;
             }
@@ -176,23 +176,6 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
 
             CollectOwnedReturns(child, returns);
         }
-    }
-
-    /// <summary>Returns whether a return sits inside a <c>lock</c> body within its function.</summary>
-    /// <param name="returnStatement">The return statement.</param>
-    /// <param name="function">The owning function.</param>
-    /// <returns><see langword="true"/> when awaiting the return would not compile.</returns>
-    private static bool IsInsideLock(ReturnStatementSyntax returnStatement, SyntaxNode function)
-    {
-        for (var node = returnStatement.Parent; node is not null && node != function; node = node.Parent)
-        {
-            if (node is LockStatementSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Rewrites one return so its task is awaited.</summary>

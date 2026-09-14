@@ -59,7 +59,7 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (creation is ObjectCreationExpressionSyntax explicitCreation && GetSimpleName(explicitCreation.Type) != GuidTypeName)
+        if (creation is ObjectCreationExpressionSyntax explicitCreation && SyntaxNames.GetIdentifierName(explicitCreation.Type) != GuidTypeName)
         {
             return;
         }
@@ -74,17 +74,6 @@ public sealed class Sst2012UseGuidEmptyAnalyzer : DiagnosticAnalyzer
 
         context.ReportDiagnostic(DiagnosticHelper.Create(ModernizationRules.UseGuidEmpty, creation.GetLocation()));
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased type name.</summary>
-    /// <param name="type">The constructed type's syntax.</param>
-    /// <returns>The simple name, or an empty string when the type is not a name.</returns>
-    private static string GetSimpleName(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>Binds a directly declared target type before falling back to binding the construction.</summary>
     /// <param name="context">The syntax node analysis context.</param>

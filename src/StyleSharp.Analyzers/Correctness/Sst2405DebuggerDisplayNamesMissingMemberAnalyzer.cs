@@ -270,16 +270,5 @@ public sealed class Sst2405DebuggerDisplayNamesMissingMemberAnalyzer : Diagnosti
     /// <param name="name">The attribute's name.</param>
     /// <returns><see langword="true"/> when the rightmost name matches, with or without the suffix.</returns>
     private static bool IsDebuggerDisplayName(NameSyntax name) =>
-        GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
+        SyntaxNames.GetSimpleName(name) is DebuggerDisplayName or DebuggerDisplayAttributeName;
 }

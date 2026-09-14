@@ -61,8 +61,8 @@ internal static class ModernSyntaxStyleOptions
     internal static InfiniteLoopStyle ReadInfiniteLoopStyle(AnalyzerConfigOptions options) =>
         Read(options, InfiniteLoopStyleSpecificKey, InfiniteLoopStyleGeneralKey) switch
         {
-            var value when IsValue(value, "for") => InfiniteLoopStyle.For,
-            var value when IsValue(value, "while") => InfiniteLoopStyle.While,
+            var value when InvariantText.EqualsLowercase(value, "for") => InfiniteLoopStyle.For,
+            var value when InvariantText.EqualsLowercase(value, "while") => InfiniteLoopStyle.While,
             _ => InfiniteLoopStyle.While,
         };
 
@@ -72,8 +72,8 @@ internal static class ModernSyntaxStyleOptions
     internal static ObjectCreationParenthesesStyle ReadObjectCreationParentheses(AnalyzerConfigOptions options) =>
         Read(options, ObjectCreationParenthesesSpecificKey, ObjectCreationParenthesesGeneralKey) switch
         {
-            var value when IsValue(value, "include") => ObjectCreationParenthesesStyle.Include,
-            var value when IsValue(value, "omit") => ObjectCreationParenthesesStyle.Omit,
+            var value when InvariantText.EqualsLowercase(value, "include") => ObjectCreationParenthesesStyle.Include,
+            var value when InvariantText.EqualsLowercase(value, "omit") => ObjectCreationParenthesesStyle.Omit,
             _ => ObjectCreationParenthesesStyle.Omit,
         };
 
@@ -83,8 +83,8 @@ internal static class ModernSyntaxStyleOptions
     internal static ConditionalConditionParenthesesStyle ReadConditionalConditionParentheses(AnalyzerConfigOptions options) =>
         Read(options, ConditionalConditionParenthesesSpecificKey, ConditionalConditionParenthesesGeneralKey) switch
         {
-            var value when IsValue(value, "include") => ConditionalConditionParenthesesStyle.Include,
-            var value when IsValue(value, "omit_when_single_token") => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
+            var value when InvariantText.EqualsLowercase(value, "include") => ConditionalConditionParenthesesStyle.Include,
+            var value when InvariantText.EqualsLowercase(value, "omit_when_single_token") => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
             _ => ConditionalConditionParenthesesStyle.OmitWhenSingleToken,
         };
 
@@ -94,9 +94,9 @@ internal static class ModernSyntaxStyleOptions
     internal static ArrayCreationTypeStyle ReadArrayCreationTypeStyle(AnalyzerConfigOptions options) =>
         Read(options, ArrayCreationTypeStyleSpecificKey, ArrayCreationTypeStyleGeneralKey) switch
         {
-            var value when IsValue(value, "explicit") => ArrayCreationTypeStyle.Explicit,
-            var value when IsValue(value, "implicit") => ArrayCreationTypeStyle.Implicit,
-            var value when IsValue(value, "implicit_when_obvious") => ArrayCreationTypeStyle.ImplicitWhenObvious,
+            var value when InvariantText.EqualsLowercase(value, "explicit") => ArrayCreationTypeStyle.Explicit,
+            var value when InvariantText.EqualsLowercase(value, "implicit") => ArrayCreationTypeStyle.Implicit,
+            var value when InvariantText.EqualsLowercase(value, "implicit_when_obvious") => ArrayCreationTypeStyle.ImplicitWhenObvious,
             _ => ArrayCreationTypeStyle.ImplicitWhenObvious,
         };
 
@@ -106,9 +106,9 @@ internal static class ModernSyntaxStyleOptions
     internal static UseVarStyle ReadUseVar(AnalyzerConfigOptions options) =>
         Read(options, UseVarSpecificKey, UseVarGeneralKey) switch
         {
-            var value when IsValue(value, "always") => UseVarStyle.Always,
-            var value when IsValue(value, "never") => UseVarStyle.Never,
-            var value when IsValue(value, "when_obvious") => UseVarStyle.WhenObvious,
+            var value when InvariantText.EqualsLowercase(value, "always") => UseVarStyle.Always,
+            var value when InvariantText.EqualsLowercase(value, "never") => UseVarStyle.Never,
+            var value when InvariantText.EqualsLowercase(value, "when_obvious") => UseVarStyle.WhenObvious,
             _ => UseVarStyle.WhenObvious,
         };
 
@@ -118,8 +118,8 @@ internal static class ModernSyntaxStyleOptions
     internal static EnumFlagValueStyle ReadEnumFlagValueStyle(AnalyzerConfigOptions options) =>
         Read(options, EnumFlagValueStyleSpecificKey, EnumFlagValueStyleGeneralKey) switch
         {
-            var value when IsValue(value, "decimal") => EnumFlagValueStyle.Decimal,
-            var value when IsValue(value, "shift") => EnumFlagValueStyle.Shift,
+            var value when InvariantText.EqualsLowercase(value, "decimal") => EnumFlagValueStyle.Decimal,
+            var value when InvariantText.EqualsLowercase(value, "shift") => EnumFlagValueStyle.Shift,
             _ => EnumFlagValueStyle.Shift,
         };
 
@@ -129,8 +129,8 @@ internal static class ModernSyntaxStyleOptions
     internal static NamespaceDeclarationStyle ReadNamespaceDeclarationStyle(AnalyzerConfigOptions options) =>
         Read(options, NamespaceDeclarationStyleSpecificKey, NamespaceDeclarationStyleGeneralKey) switch
         {
-            var value when IsValue(value, "block_scoped") => NamespaceDeclarationStyle.BlockScoped,
-            var value when IsValue(value, "file_scoped") => NamespaceDeclarationStyle.FileScoped,
+            var value when InvariantText.EqualsLowercase(value, "block_scoped") => NamespaceDeclarationStyle.BlockScoped,
+            var value when InvariantText.EqualsLowercase(value, "file_scoped") => NamespaceDeclarationStyle.FileScoped,
             _ => NamespaceDeclarationStyle.FileScoped,
         };
 
@@ -139,48 +139,9 @@ internal static class ModernSyntaxStyleOptions
     /// <param name="specificKey">The rule-specific key.</param>
     /// <param name="generalKey">The project-wide key.</param>
     /// <returns>The trimmed value, or an empty span when neither key carries one.</returns>
-    private static ReadOnlySpan<char> Read(AnalyzerConfigOptions options, string specificKey, string generalKey)
-    {
-        if ((!options.TryGetValue(specificKey, out var value) || value.Length == 0)
-            && (!options.TryGetValue(generalKey, out value) || value.Length == 0))
-        {
-            return default;
-        }
-
-        var start = 0;
-        var end = value.Length;
-        while (start < end && char.IsWhiteSpace(value[start]))
-        {
-            start++;
-        }
-
-        while (end > start && char.IsWhiteSpace(value[end - 1]))
-        {
-            end--;
-        }
-
-        return value.AsSpan(start, end - start);
-    }
-
-    /// <summary>Compares an option with a lowercase ASCII keyword using the original invariant-lowercase semantics.</summary>
-    /// <param name="value">The trimmed option value.</param>
-    /// <param name="keyword">The lowercase ASCII keyword.</param>
-    /// <returns>Whether invariant lowercasing would produce the keyword.</returns>
-    private static bool IsValue(ReadOnlySpan<char> value, string keyword)
-    {
-        if (value.Length != keyword.Length)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            if (char.ToLowerInvariant(value[i]) != keyword[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    private static ReadOnlySpan<char> Read(AnalyzerConfigOptions options, string specificKey, string generalKey) =>
+        (options.TryGetValue(specificKey, out var value) && value.Length != 0)
+            || (options.TryGetValue(generalKey, out value) && value.Length != 0)
+            ? AnalyzerOptionReader.TrimSegment(value, 0, value.Length)
+            : default;
 }

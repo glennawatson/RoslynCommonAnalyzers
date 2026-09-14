@@ -259,7 +259,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         for (var i = 0; i < sections.Count; i++)
         {
-            if (sections[i].Statements.Count == 0 || HasDefaultOrGotoLabel(sections[i]) || BindsANameOrGuards(sections[i]))
+            if (sections[i].Statements.Count == 0 || sections[i].Labels.Any(SyntaxKind.DefaultSwitchLabel) || BindsANameOrGuards(sections[i]))
             {
                 continue;
             }
@@ -373,7 +373,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     /// <param name="second">The later section's position.</param>
     /// <returns><see langword="true"/> when merging them is legal and changes nothing.</returns>
     private static bool CanMergeSections(SwitchStatementSyntax switchStatement, SyntaxList<SwitchSectionSyntax> sections, int first, int second) =>
-        !HasDefaultOrGotoLabel(sections[second])
+        !sections[second].Labels.Any(SyntaxKind.DefaultSwitchLabel)
             && !BindsANameOrGuards(sections[second])
             && !MergeWouldReorderPatterns(sections, first, second)
             && AreEquivalentStatements(sections[first].Statements, sections[second].Statements)
@@ -435,23 +435,6 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a switch section carries a <c>default</c> label.</summary>
-    /// <param name="section">The switch section.</param>
-    /// <returns><see langword="true"/> for a section that includes <c>default</c>.</returns>
-    private static bool HasDefaultOrGotoLabel(SwitchSectionSyntax section)
-    {
-        var labels = section.Labels;
-        for (var i = 0; i < labels.Count; i++)
-        {
-            if (labels[i].IsKind(SyntaxKind.DefaultSwitchLabel))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Returns whether a switch statement contains a <c>goto case</c> / <c>goto default</c>.</summary>
     /// <param name="switchStatement">The switch statement.</param>
     /// <returns><see langword="true"/> when a jump could target a section by label.</returns>
@@ -484,7 +467,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
     {
         for (var sectionIndex = 0; sectionIndex < sections.Count; sectionIndex++)
         {
-            if (HasDefaultOrGotoLabel(sections[sectionIndex]))
+            if (sections[sectionIndex].Labels.Any(SyntaxKind.DefaultSwitchLabel))
             {
                 return true;
             }

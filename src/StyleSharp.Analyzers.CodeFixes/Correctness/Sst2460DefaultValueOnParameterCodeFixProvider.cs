@@ -111,7 +111,7 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
     /// <returns>The replacement name syntax.</returns>
     private static NameSyntax BuildName(NameSyntax originalName, INamedTypeSymbol interopAttribute, SemanticModel model, int position)
     {
-        var suffixed = SimpleName(originalName)?.EndsWith(AttributeSuffix, StringComparison.Ordinal) == true;
+        var suffixed = SyntaxNames.GetIdentifierName(originalName)?.EndsWith(AttributeSuffix, StringComparison.Ordinal) == true;
         var baseName = suffixed ? DefaultParameterValueSuffixedName : DefaultParameterValueName;
 
         // ToMinimalDisplayString drops the namespace only when it is already imported; a remaining dot means
@@ -122,15 +122,4 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
 
         return SyntaxFactory.ParseName(text).WithTriviaFrom(originalName);
     }
-
-    /// <summary>Reduces an attribute name to its rightmost identifier text.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple identifier text, or <see langword="null"/> for an unexpected shape.</returns>
-    private static string? SimpleName(NameSyntax name) => name switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
 }

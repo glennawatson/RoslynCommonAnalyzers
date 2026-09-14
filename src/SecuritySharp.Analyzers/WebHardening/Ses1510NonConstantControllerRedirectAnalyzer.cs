@@ -81,7 +81,7 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
         if (controllerBase.Get() is not { } controllerBaseType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
             || !IsRedirectHelperName(method.Name)
-            || !IsOrDerivesFrom(method.ContainingType, controllerBaseType))
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, controllerBaseType))
         {
             return;
         }
@@ -117,23 +117,6 @@ public sealed class Ses1510NonConstantControllerRedirectAnalyzer : DiagnosticAna
         for (var i = 0; i < RedirectMethodNames.Length; i++)
         {
             if (string.Equals(RedirectMethodNames[i], name, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, the gated <c>ControllerBase</c> type.</summary>
-    /// <param name="type">The bound method's containing type.</param>
-    /// <param name="controllerBase">The resolved <c>ControllerBase</c> type.</param>
-    /// <returns><see langword="true"/> when the type is <c>ControllerBase</c> or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol type, INamedTypeSymbol controllerBase)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, controllerBase))
             {
                 return true;
             }

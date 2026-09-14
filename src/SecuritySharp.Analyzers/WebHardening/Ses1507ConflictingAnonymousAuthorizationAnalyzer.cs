@@ -115,11 +115,11 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
                     continue;
                 }
 
-                if (IsOrDerivesFrom(attributeType, allowAnonymous))
+                if (TypeRelations.IsOrDerivesFrom(attributeType, allowAnonymous))
                 {
                     sawAllowAnonymous = true;
                 }
-                else if (authorizeAttribute is null && IsOrDerivesFrom(attributeType, authorize))
+                else if (authorizeAttribute is null && TypeRelations.IsOrDerivesFrom(attributeType, authorize))
                 {
                     authorizeAttribute = attribute;
                 }
@@ -163,23 +163,6 @@ public sealed class Ses1507ConflictingAnonymousAuthorizationAnalyzer : Diagnosti
         {
             count += attributeLists[i].Attributes.Count;
             if (count >= MinimumConflictingAttributeCount)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether an attribute class is, or derives from, a marker attribute type.</summary>
-    /// <param name="attributeType">The bound attribute class.</param>
-    /// <param name="marker">The marker attribute type to match.</param>
-    /// <returns><see langword="true"/> when the attribute is the marker or a subclass of it.</returns>
-    private static bool IsOrDerivesFrom(INamedTypeSymbol attributeType, INamedTypeSymbol marker)
-    {
-        for (var current = attributeType; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, marker))
             {
                 return true;
             }

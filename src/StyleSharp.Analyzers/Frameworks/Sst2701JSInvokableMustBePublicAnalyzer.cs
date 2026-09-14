@@ -60,20 +60,8 @@ public sealed class Sst2701JSInvokableMustBePublicAnalyzer : DiagnosticAnalyzer
     private static bool HasMarker(IMethodSymbol method, Compilation compilation)
     {
         var attributes = method.GetAttributes();
-        if (attributes.IsEmpty
-            || compilation.GetTypeByMetadataName(JSInvokableAttributeMetadataName) is not { } marker)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(attributes[i].AttributeClass, marker))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return !attributes.IsEmpty
+            && compilation.GetTypeByMetadataName(JSInvokableAttributeMetadataName) is { } marker
+            && SymbolFacts.HasAttribute(attributes, marker);
     }
 }

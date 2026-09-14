@@ -75,7 +75,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
         // Syntactic prefilter: a member-access persistence call. The builder receiver is required, so
         // an unqualified identifier can never reach the extension method and is ignored.
         if (GetCalleeName(invocation.Expression) is not { } persistName
-            || !NameMatches(persistName.Identifier.ValueText, PersistMethodNames)
+            || !StringArrays.ContainsOrdinal(PersistMethodNames, persistName.Identifier.ValueText)
             || GetChainScope(invocation) is not { } scope)
         {
             return;
@@ -166,7 +166,7 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
     /// <returns><see langword="true"/> for a <c>ProtectKeysWith*</c> call on the gated builder.</returns>
     private static bool IsProtectKeysCall(InvocationExpressionSyntax invocation, SemanticModel model, INamedTypeSymbol builderType, CancellationToken cancellationToken) =>
         GetCalleeName(invocation.Expression) is { } calleeName
-            && NameMatches(calleeName.Identifier.ValueText, ProtectMethodNames)
+            && StringArrays.ContainsOrdinal(ProtectMethodNames, calleeName.Identifier.ValueText)
             && model.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && IsBuilderExtension(method, builderType);
 
@@ -182,23 +182,6 @@ public sealed class Ses1006UnprotectedDataProtectionKeysAnalyzer : DiagnosticAna
         return definition.IsExtensionMethod
             && !definition.Parameters.IsEmpty
             && SymbolEqualityComparer.Default.Equals(definition.Parameters[0].Type, builderType);
-    }
-
-    /// <summary>Returns whether a simple name's text matches one of a curated method-name set.</summary>
-    /// <param name="text">The invoked member's simple name text.</param>
-    /// <param name="names">The curated set to match against.</param>
-    /// <returns><see langword="true"/> when the name is in the set.</returns>
-    private static bool NameMatches(string text, string[] names)
-    {
-        for (var i = 0; i < names.Length; i++)
-        {
-            if (string.Equals(text, names[i], StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns the simple name a member invocation targets, or <see langword="null"/> when there is no receiver.</summary>

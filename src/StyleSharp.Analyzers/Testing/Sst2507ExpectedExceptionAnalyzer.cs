@@ -176,12 +176,12 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < attributes.Length; i++)
         {
             var attributeClass = attributes[i].AttributeClass;
-            if (!hasExpectedException && MatchesAny(attributeClass, facts.ExpectedExceptionMarkers))
+            if (!hasExpectedException && TypeRelations.IsOrDerivesFromAny(attributeClass, facts.ExpectedExceptionMarkers.AsSpan()))
             {
                 hasExpectedException = true;
             }
 
-            if (!hasTestMarker && MatchesAny(attributeClass, facts.TestMarkers))
+            if (!hasTestMarker && TypeRelations.IsOrDerivesFromAny(attributeClass, facts.TestMarkers.AsSpan()))
             {
                 hasTestMarker = true;
             }
@@ -189,26 +189,6 @@ public sealed class Sst2507ExpectedExceptionAnalyzer : DiagnosticAnalyzer
             if (hasExpectedException && hasTestMarker)
             {
                 return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type is, or derives from, one of the marker types.</summary>
-    /// <param name="type">The attribute type to test.</param>
-    /// <param name="markers">The resolved marker types.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> matches or derives from a marker.</returns>
-    private static bool MatchesAny(INamedTypeSymbol? type, ImmutableArray<INamedTypeSymbol> markers)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            for (var j = 0; j < markers.Length; j++)
-            {
-                if (SymbolEqualityComparer.Default.Equals(current, markers[j]))
-                {
-                    return true;
-                }
             }
         }
 

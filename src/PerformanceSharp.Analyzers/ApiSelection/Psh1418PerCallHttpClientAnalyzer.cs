@@ -187,9 +187,9 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
     /// <returns>The written type's simple name, or <see langword="null"/> when nothing spells one.</returns>
     private static string? GetWrittenTypeName(BaseObjectCreationExpressionSyntax creation) => creation switch
     {
-        ObjectCreationExpressionSyntax explicitCreation => GetSimpleName(explicitCreation.Type),
+        ObjectCreationExpressionSyntax explicitCreation => SyntaxNames.GetSimpleName(explicitCreation.Type),
         _ => creation.Parent is EqualsValueClauseSyntax { Parent: VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax declaration } }
-            ? GetSimpleName(declaration.Type)
+            ? SyntaxNames.GetSimpleName(declaration.Type)
             : null,
     };
 
@@ -216,17 +216,6 @@ public sealed class Psh1418PerCallHttpClientAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 
     /// <summary>Lazily resolves and caches the known client types for one compilation.</summary>
     /// <remarks>

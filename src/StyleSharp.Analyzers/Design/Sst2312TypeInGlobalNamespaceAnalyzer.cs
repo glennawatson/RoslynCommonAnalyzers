@@ -61,7 +61,7 @@ public sealed class Sst2312TypeInGlobalNamespaceAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetDeclaredSymbol(declaration, context.CancellationToken) is not { } type
-            || IsTopLevelStatementsProgram(type, context.CancellationToken))
+            || SymbolFacts.IsDeclaredAs<CompilationUnitSyntax>(type, context.CancellationToken))
         {
             return;
         }
@@ -70,29 +70,5 @@ public sealed class Sst2312TypeInGlobalNamespaceAnalyzer : DiagnosticAnalyzer
             DesignRules.TypeInGlobalNamespace,
             declaration.Identifier.GetLocation(),
             type.Name));
-    }
-
-    /// <summary>Returns whether a type is the one top-level statements generate.</summary>
-    /// <param name="type">The global-namespace type.</param>
-    /// <param name="cancellationToken">The cancellation token.</param>
-    /// <returns><see langword="true"/> when part of the type is declared by a compilation unit's statements.</returns>
-    /// <remarks>
-    /// The synthesized entry-point type declares itself at the compilation unit that holds the statements, so a
-    /// declaring reference to a <see cref="CompilationUnitSyntax"/> is what identifies it — including when the
-    /// project also writes an explicit <c>partial class Program</c>, whose symbol merges with it and inherits
-    /// that reference.
-    /// </remarks>
-    private static bool IsTopLevelStatementsProgram(INamedTypeSymbol type, CancellationToken cancellationToken)
-    {
-        var declarations = type.DeclaringSyntaxReferences;
-        for (var i = 0; i < declarations.Length; i++)
-        {
-            if (declarations[i].GetSyntax(cancellationToken) is CompilationUnitSyntax)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

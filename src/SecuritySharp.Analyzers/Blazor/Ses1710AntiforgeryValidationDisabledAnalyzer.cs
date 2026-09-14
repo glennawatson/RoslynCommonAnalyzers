@@ -57,7 +57,7 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
         // Syntactic prefilter: the attribute is spelled 'RequireAntiforgeryToken' or 'RequireAntiforgeryTokenAttribute'
         // and carries at least one argument (with none, 'required' keeps its protective default and is not reported).
         if (attribute.ArgumentList is not { Arguments.Count: > 0 } argumentList
-            || GetAttributeSimpleName(attribute.Name) is not (AttributeShortName or AttributeLongName))
+            || SyntaxNames.GetSimpleName(attribute.Name) is not (AttributeShortName or AttributeLongName))
         {
             return;
         }
@@ -120,18 +120,6 @@ public sealed class Ses1710AntiforgeryValidationDisabledAnalyzer : DiagnosticAna
 
         return false;
     }
-
-    /// <summary>Returns the simple identifier text of an attribute name, ignoring any qualifier or alias.</summary>
-    /// <param name="name">The attribute's name syntax.</param>
-    /// <returns>The rightmost simple name, or <see langword="null"/> when it cannot be read syntactically.</returns>
-    private static string? GetAttributeSimpleName(NameSyntax name) =>
-        name switch
-        {
-            SimpleNameSyntax simple => simple.Identifier.ValueText,
-            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-            AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-            _ => null,
-        };
 
     /// <summary>Resolves the antiforgery attribute on first demand, including missing results.</summary>
     /// <param name="compilation">The compilation being analyzed.</param>

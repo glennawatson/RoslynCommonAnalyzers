@@ -69,7 +69,7 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        if (!InheritsFromType(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type, systemType))
+        if (!TypeRelations.IsOrDerivesFrom(context.SemanticModel.GetTypeInfo(memberAccess.Expression, context.CancellationToken).Type, systemType))
         {
             return;
         }
@@ -78,23 +78,6 @@ public sealed class Sst2432RedundantGetTypeAnalyzer : DiagnosticAnalyzer
             CorrectnessRules.RedundantGetType,
             invocation.GetLocation(),
             memberAccess.Expression.ToString()));
-    }
-
-    /// <summary>Returns whether a type is <see cref="System.Type"/> or derives from it.</summary>
-    /// <param name="candidate">The receiver's type.</param>
-    /// <param name="systemType">The resolved <see cref="System.Type"/> symbol.</param>
-    /// <returns><see langword="true"/> when the receiver is already a Type.</returns>
-    private static bool InheritsFromType(ITypeSymbol? candidate, INamedTypeSymbol systemType)
-    {
-        for (var current = candidate; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, systemType))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Resolves System.Type on first demand within one compilation.</summary>

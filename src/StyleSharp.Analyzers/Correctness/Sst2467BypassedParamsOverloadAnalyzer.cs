@@ -172,24 +172,6 @@ public sealed class Sst2467BypassedParamsOverloadAnalyzer : DiagnosticAnalyzer
             }
         }
 
-        return general.TypeKind == TypeKind.Interface && Implements(derived, general);
-    }
-
-    /// <summary>Returns whether a type implements a given interface directly or transitively.</summary>
-    /// <param name="type">The implementing type.</param>
-    /// <param name="interfaceType">The interface to look for.</param>
-    /// <returns><see langword="true"/> when the interface is in the type's implemented set.</returns>
-    private static bool Implements(ITypeSymbol type, ITypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return general.TypeKind == TypeKind.Interface && TypeRelations.Implements(derived, general);
     }
 }

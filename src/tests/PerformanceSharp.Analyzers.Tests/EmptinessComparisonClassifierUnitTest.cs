@@ -22,17 +22,6 @@ public class EmptinessComparisonClassifierUnitTest
         await Assert.That(EmptinessComparisonClassifier.TryGetZeroOrOneLiteral(Expr("count"))).IsNull();
     }
 
-    /// <summary>Verifies the comparison kind is mirrored for reversed operand order and left untouched otherwise.</summary>
-    /// <returns>A task that represents the asynchronous test operation.</returns>
-    [Test]
-    public async Task MirrorComparisonSwapsRelationalOperatorsOnlyAsync()
-    {
-        await Assert.That(EmptinessComparisonClassifier.MirrorComparison(SyntaxKind.LessThanExpression)).IsEqualTo(SyntaxKind.GreaterThanExpression);
-        await Assert.That(EmptinessComparisonClassifier.MirrorComparison(SyntaxKind.GreaterThanOrEqualExpression)).IsEqualTo(SyntaxKind.LessThanOrEqualExpression);
-        await Assert.That(EmptinessComparisonClassifier.MirrorComparison(SyntaxKind.EqualsExpression)).IsEqualTo(SyntaxKind.EqualsExpression);
-        await Assert.That(EmptinessComparisonClassifier.MirrorComparison(SyntaxKind.NotEqualsExpression)).IsEqualTo(SyntaxKind.NotEqualsExpression);
-    }
-
     /// <summary>Verifies each recognized count-on-the-left shape maps to the right emptiness meaning.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

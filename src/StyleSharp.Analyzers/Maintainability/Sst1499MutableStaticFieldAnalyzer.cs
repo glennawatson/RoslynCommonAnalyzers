@@ -161,7 +161,7 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
             var attributes = lists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (GetSimpleName(attributes[j].Name) is "ThreadStatic" or "ThreadStaticAttribute")
+                if (SyntaxNames.GetSimpleName(attributes[j].Name) is "ThreadStatic" or "ThreadStaticAttribute")
                 {
                     return true;
                 }
@@ -170,17 +170,6 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>Creates compilation-scoped state only after a visible static field is found.</summary>
     /// <param name="compilation">The compilation whose collection types are resolved.</param>

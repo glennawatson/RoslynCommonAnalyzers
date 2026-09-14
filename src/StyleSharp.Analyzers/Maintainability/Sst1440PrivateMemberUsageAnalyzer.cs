@@ -162,7 +162,7 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(field.Modifiers)
-            || HasModifier(field.Modifiers, SyntaxKind.ConstKeyword)
+            || ModifierListHelper.Contains(field.Modifiers, SyntaxKind.ConstKeyword)
             || HasAttributes(field))
         {
             return;
@@ -215,8 +215,8 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
         CancellationToken cancellationToken)
     {
         if (!IsPrivate(method.Modifiers)
-            || HasModifier(method.Modifiers, SyntaxKind.PartialKeyword)
-            || HasModifier(method.Modifiers, SyntaxKind.ExternKeyword)
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.PartialKeyword)
+            || ModifierListHelper.Contains(method.Modifiers, SyntaxKind.ExternKeyword)
             || HasAttributes(method)
             || model.GetDeclaredSymbol(method, cancellationToken) is not IMethodSymbol symbol)
         {
@@ -450,27 +450,10 @@ public sealed class Sst1440PrivateMemberUsageAnalyzer : DiagnosticAnalyzer
     /// <param name="modifiers">The modifiers.</param>
     /// <returns><see langword="true"/> when the declaration is private.</returns>
     private static bool IsPrivate(in SyntaxTokenList modifiers) =>
-        HasModifier(modifiers, SyntaxKind.PrivateKeyword)
-            && !HasModifier(modifiers, SyntaxKind.ProtectedKeyword)
-            && !HasModifier(modifiers, SyntaxKind.InternalKeyword)
-            && !HasModifier(modifiers, SyntaxKind.PublicKeyword);
-
-    /// <summary>Returns whether a modifier list contains a specific modifier kind.</summary>
-    /// <param name="modifiers">The modifiers.</param>
-    /// <param name="kind">The modifier kind.</param>
-    /// <returns><see langword="true"/> when the modifier is present.</returns>
-    private static bool HasModifier(in SyntaxTokenList modifiers, SyntaxKind kind)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].IsKind(kind))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
+        ModifierListHelper.Contains(modifiers, SyntaxKind.PrivateKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.ProtectedKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.InternalKeyword)
+            && !ModifierListHelper.Contains(modifiers, SyntaxKind.PublicKeyword);
 
     /// <summary>Returns whether a member has attributes.</summary>
     /// <param name="member">The member declaration.</param>

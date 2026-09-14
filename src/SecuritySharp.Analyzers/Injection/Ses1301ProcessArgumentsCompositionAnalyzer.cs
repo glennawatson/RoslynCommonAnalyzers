@@ -165,27 +165,10 @@ public sealed class Ses1301ProcessArgumentsCompositionAnalyzer : DiagnosticAnaly
     private static bool IsCompositionShape(ExpressionSyntax expression) =>
         expression switch
         {
-            InterpolatedStringExpressionSyntax interpolated => HasInterpolation(interpolated),
+            InterpolatedStringExpressionSyntax interpolated => interpolated.Contents.Any(SyntaxKind.Interpolation),
             BinaryExpressionSyntax binary => binary.IsKind(SyntaxKind.AddExpression),
             _ => false,
         };
-
-    /// <summary>Returns whether an interpolated string contains at least one interpolation hole.</summary>
-    /// <param name="interpolated">The interpolated string expression.</param>
-    /// <returns><see langword="true"/> when at least one content item is an interpolation.</returns>
-    private static bool HasInterpolation(InterpolatedStringExpressionSyntax interpolated)
-    {
-        var contents = interpolated.Contents;
-        for (var i = 0; i < contents.Count; i++)
-        {
-            if (contents[i].IsKind(SyntaxKind.Interpolation))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a bound method is the <c>Start(string fileName, string arguments)</c> overload.</summary>
     /// <param name="method">The bound <c>Start</c> method.</param>

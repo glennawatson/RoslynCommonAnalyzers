@@ -84,7 +84,7 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
     private static void AnalyzeAttribute(in SyntaxNodeAnalysisContext context, MefContractMarkers markers)
     {
         var attribute = (AttributeSyntax)context.Node;
-        var kind = ClassifyAttributeName(GetSimpleName(attribute.Name));
+        var kind = ClassifyAttributeName(SyntaxNames.GetSimpleName(attribute.Name));
         if (kind == MefAttributeKind.None)
         {
             return;
@@ -284,17 +284,6 @@ public sealed class MefContractAnalyzer : DiagnosticAnalyzer
         "Export" or "ExportAttribute" => MefAttributeKind.Export,
         "PartCreationPolicy" or "PartCreationPolicyAttribute" or "Shared" or "SharedAttribute" => MefAttributeKind.CreationPolicy,
         _ => MefAttributeKind.None,
-    };
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
-    /// <param name="name">The attribute name as written.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
     };
 
     /// <summary>Resolves MEF markers on first demand and caches missing markers too.</summary>

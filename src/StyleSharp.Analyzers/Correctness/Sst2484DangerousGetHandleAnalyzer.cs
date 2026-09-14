@@ -65,7 +65,7 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
 
         if (safeHandleType.Get() is not { } resolvedSafeHandleType
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: DangerousGetHandleName } method
-            || !IsSafeHandleOrDerived(method.ContainingType, resolvedSafeHandleType))
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, resolvedSafeHandleType))
         {
             return;
         }
@@ -85,23 +85,6 @@ public sealed class Sst2484DangerousGetHandleAnalyzer : DiagnosticAnalyzer
         SimpleNameSyntax simple => simple.Identifier.ValueText,
         _ => null,
     };
-
-    /// <summary>Returns whether a type is the safe-handle type or derives from it.</summary>
-    /// <param name="type">The method's containing type.</param>
-    /// <param name="safeHandleType">The compilation's safe-handle type.</param>
-    /// <returns><see langword="true"/> when the call belongs to a safe handle.</returns>
-    private static bool IsSafeHandleOrDerived(INamedTypeSymbol? type, INamedTypeSymbol safeHandleType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, safeHandleType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Resolves the metadata type once, only after a candidate needs it.</summary>
     /// <param name="compilation">The compilation whose type is cached.</param>

@@ -253,7 +253,7 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
         StringBuilder? reasons = null;
         foreach (var exception in thrown)
         {
-            var simpleName = SimpleName(exception.Type);
+            var simpleName = SyntaxNames.GetSimpleName(exception.Type) ?? string.Empty;
             if (simpleName.Length == 0 || IsDocumented(documented, simpleName))
             {
                 continue;
@@ -309,18 +309,6 @@ public sealed class Sst1662ThrownExceptionDocumentationAnalyzer : DiagnosticAnal
 
         return false;
     }
-
-    /// <summary>Returns the simple (rightmost, non-generic) name of a type as written.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns>The simple name, or an empty string when the type is not a plain name.</returns>
-    private static string SimpleName(TypeSyntax type) => type switch
-    {
-        IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
-        GenericNameSyntax generic => generic.Identifier.ValueText,
-        QualifiedNameSyntax qualified => SimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => SimpleName(alias.Name),
-        _ => string.Empty,
-    };
 
     /// <summary>Appends a thrown type as cref text, converting generic angle brackets to braces.</summary>
     /// <param name="builder">The diagnostic property builder receiving the type text.</param>

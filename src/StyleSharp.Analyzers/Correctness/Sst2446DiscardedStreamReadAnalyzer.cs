@@ -113,7 +113,7 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.SemanticModel.GetSymbolInfo(readInvocation, context.CancellationToken).Symbol is not IMethodSymbol { Name: ReadAsyncName } method
-            || !IsStreamOrDerived(method.ContainingType, streamType))
+            || !TypeRelations.IsOrDerivesFrom(method.ContainingType, streamType))
         {
             return;
         }
@@ -183,23 +183,6 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
         return false;
     }
 
-    /// <summary>Returns whether a type is the stream type or derives from it.</summary>
-    /// <param name="type">The method's containing type.</param>
-    /// <param name="streamType">The compilation's stream type.</param>
-    /// <returns><see langword="true"/> when the read belongs to a stream.</returns>
-    private static bool IsStreamOrDerived(INamedTypeSymbol type, INamedTypeSymbol streamType)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, streamType))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /// <summary>Resolves stream metadata only after a discarded-read candidate is found.</summary>
     /// <param name="compilation">The compilation whose references are searched.</param>
     private sealed class StreamTypes(Compilation compilation)
@@ -228,23 +211,6 @@ public sealed class Sst2446DiscardedStreamReadAnalyzer : DiagnosticAnalyzer
         /// <param name="streamType">The resolved stream type.</param>
         /// <returns>The cached replacement advice.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public string GetSuggestion(INamedTypeSymbol streamType) => _suggestion ??= HasReadExactly(streamType) ? ReadExactlySuggestion : LoopSuggestion;
-
-        /// <summary>Returns whether the stream type exposes the read-exactly API (.NET 7 and later).</summary>
-        /// <param name="streamType">The compilation's stream type.</param>
-        /// <returns><see langword="true"/> when the read-exactly method exists.</returns>
-        private static bool HasReadExactly(INamedTypeSymbol streamType)
-        {
-            var members = streamType.GetMembers(ReadExactlyAsyncName);
-            for (var i = 0; i < members.Length; i++)
-            {
-                if (members[i] is IMethodSymbol)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
+        public string GetSuggestion(INamedTypeSymbol streamType) => _suggestion ??= SymbolFacts.HasMethodNamed(streamType, ReadExactlyAsyncName) ? ReadExactlySuggestion : LoopSuggestion;
     }
 }

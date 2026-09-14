@@ -68,7 +68,7 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
         for (var i = 0; i < baseTypes.Count; i++)
         {
             // Free syntactic prefilter: only bind a base type whose written name is one of the filter interfaces.
-            if (baseTypes[i].Type is not NameSyntax name || !IsFilterInterfaceName(GetSimpleName(name)))
+            if (baseTypes[i].Type is not NameSyntax name || !IsFilterInterfaceName(SyntaxNames.GetSimpleName(name)))
             {
                 continue;
             }
@@ -110,17 +110,6 @@ public sealed class Psh1505PreferExceptionHandlerAnalyzer : DiagnosticAnalyzer
     private static bool MatchesFilterInterface(INamedTypeSymbol bound, INamedTypeSymbol? exceptionFilter, INamedTypeSymbol? asyncExceptionFilter) =>
         (exceptionFilter is not null && SymbolEqualityComparer.Default.Equals(bound, exceptionFilter))
             || (asyncExceptionFilter is not null && SymbolEqualityComparer.Default.Equals(bound, asyncExceptionFilter));
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased base type name.</summary>
-    /// <param name="name">The base type name as written.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>Resolves the exception-handling types once per compilation, on first demand.</summary>
     /// <param name="compilation">The compilation whose exception-handling types are resolved.</param>

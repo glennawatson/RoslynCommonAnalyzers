@@ -79,7 +79,7 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
     private static bool IsSingleLiteralConstruction(ObjectCreationExpressionSyntax creation, out LiteralExpressionSyntax? patternLiteral)
     {
         patternLiteral = null;
-        if (GetSimpleName(creation.Type) != RegexTypeName
+        if (SyntaxNames.GetSimpleName(creation.Type) != RegexTypeName
             || creation.Initializer is not null
             || creation.ArgumentList is not { Arguments.Count: 1 } arguments
             || arguments.Arguments[0].Expression is not LiteralExpressionSyntax { RawKind: (int)SyntaxKind.StringLiteralExpression } literal)
@@ -376,15 +376,4 @@ public sealed class Sst2444GeneratedRegexRefactoringProvider : CodeRefactoringPr
             _ = names.Add(variable.Identifier.ValueText);
         }
     }
-
-    /// <summary>Returns the rightmost identifier of a written type name.</summary>
-    /// <param name="type">The written type syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple type.</returns>
-    private static string? GetSimpleName(TypeSyntax type) => type switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleName(alias.Name),
-        _ => null,
-    };
 }

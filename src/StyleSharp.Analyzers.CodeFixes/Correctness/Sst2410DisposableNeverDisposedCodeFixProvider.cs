@@ -90,31 +90,13 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
         }
 
         var asyncDisposable = model.Compilation.GetTypeByMetadataName("System.IAsyncDisposable");
-        if (asyncDisposable is not null && Implements(created, asyncDisposable) && IsInAsyncBody(statement))
+        if (asyncDisposable is not null && TypeRelations.Implements(created, asyncDisposable) && IsInAsyncBody(statement))
         {
             return true;
         }
 
         var disposable = model.Compilation.GetTypeByMetadataName("System.IDisposable");
-        return disposable is not null && Implements(created, disposable) ? false : null;
-    }
-
-    /// <summary>Returns whether a type implements the given interface.</summary>
-    /// <param name="type">The created type.</param>
-    /// <param name="interfaceType">The disposal interface.</param>
-    /// <returns><see langword="true"/> when the type implements it.</returns>
-    private static bool Implements(ITypeSymbol type, INamedTypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return disposable is not null && TypeRelations.Implements(created, disposable) ? false : null;
     }
 
     /// <summary>Returns whether the statement sits in a body where <c>await</c> compiles.</summary>

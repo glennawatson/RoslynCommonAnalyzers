@@ -147,7 +147,7 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
         // `0 <= count` states the same thing as `count >= 0`, so a literal on the left flips the operator.
         counted = leftIsBound ? binary.Right : binary.Left;
         var bound = leftIsBound ? left : right;
-        var kind = leftIsBound ? Flip(binary.Kind()) : binary.Kind();
+        var kind = leftIsBound ? ComparisonKinds.Mirror(binary.Kind()) : binary.Kind();
 
         return bound == CountBound.Zero
             ? TryFoldAgainstZero(kind, out result)
@@ -194,18 +194,6 @@ public sealed class Sst1479MeaninglessCountComparisonAnalyzer : DiagnosticAnalyz
             or SyntaxKind.GreaterThanOrEqualExpression;
         return true;
     }
-
-    /// <summary>Mirrors a comparison so the counted operand can always be read as the left one.</summary>
-    /// <param name="kind">The comparison as written.</param>
-    /// <returns>The comparison with its operands swapped.</returns>
-    private static SyntaxKind Flip(SyntaxKind kind) => kind switch
-    {
-        SyntaxKind.GreaterThanExpression => SyntaxKind.LessThanExpression,
-        SyntaxKind.GreaterThanOrEqualExpression => SyntaxKind.LessThanOrEqualExpression,
-        SyntaxKind.LessThanExpression => SyntaxKind.GreaterThanExpression,
-        SyntaxKind.LessThanOrEqualExpression => SyntaxKind.GreaterThanOrEqualExpression,
-        _ => kind,
-    };
 
     /// <summary>Classifies an operand as the zero or negative bound a count can never fail.</summary>
     /// <param name="expression">The operand.</param>

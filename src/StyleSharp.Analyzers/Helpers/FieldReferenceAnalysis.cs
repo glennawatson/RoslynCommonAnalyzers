@@ -488,7 +488,7 @@ internal static class FieldReferenceAnalysis
     /// <returns><see langword="true"/> when the field matches the private object pattern.</returns>
     private static bool IsPrivateObjectField(FieldDeclarationSyntax field, string name)
     {
-        if (!IsUnambiguousObjectType(field.Declaration.Type) || !HasPrivateModifier(field.Modifiers))
+        if (!ObjectTypeSyntax.IsUnambiguousObjectType(field.Declaration.Type) || !ModifierListHelper.Contains(field.Modifiers, SyntaxKind.PrivateKeyword))
         {
             return false;
         }
@@ -574,13 +574,6 @@ internal static class FieldReferenceAnalysis
         return state.Found;
     }
 
-    /// <summary>Returns whether a type syntax unambiguously denotes <c>System.Object</c> without semantic binding.</summary>
-    /// <param name="type">The type syntax.</param>
-    /// <returns><see langword="true"/> for unambiguous object spellings.</returns>
-    private static bool IsUnambiguousObjectType(TypeSyntax type) =>
-        (type is PredefinedTypeSyntax predefined && predefined.Keyword.IsKind(SyntaxKind.ObjectKeyword))
-            || (type is QualifiedNameSyntax { Right.Identifier.ValueText: "Object", Left: var left } && IsSystemNamespace(left));
-
     /// <summary>Records whether the scan has found a matching local declared before the reference.</summary>
     /// <param name="node">The visited syntax node.</param>
     /// <param name="state">The current search state.</param>
@@ -607,29 +600,6 @@ internal static class FieldReferenceAnalysis
                 return true;
         }
     }
-
-    /// <summary>Returns whether a modifier list contains <c>private</c>.</summary>
-    /// <param name="modifiers">The modifier list to inspect.</param>
-    /// <returns><see langword="true"/> when the field is private.</returns>
-    private static bool HasPrivateModifier(in SyntaxTokenList modifiers)
-    {
-        for (var i = 0; i < modifiers.Count; i++)
-        {
-            if (modifiers[i].IsKind(SyntaxKind.PrivateKeyword))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a name syntax denotes the <c>System</c> namespace.</summary>
-    /// <param name="name">The syntax to inspect.</param>
-    /// <returns><see langword="true"/> when the syntax denotes <c>System</c>.</returns>
-    private static bool IsSystemNamespace(NameSyntax name) =>
-        name is IdentifierNameSyntax { Identifier.ValueText: "System" }
-            or AliasQualifiedNameSyntax { Alias.Identifier.ValueText: "global", Name.Identifier.ValueText: "System" };
 
     /// <summary>Captures the state required while searching for earlier locals.</summary>
     /// <param name="Position">The position of the field reference; only declarations starting before it can shadow it.</param>

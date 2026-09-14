@@ -82,7 +82,7 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         // enclosing type derives from the component base — no separate derivation check is needed.
         if (context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol called
             || called.Name != StateHasChangedMethodName
-            || !DerivesFromOrIs(called.ContainingType, componentBase))
+            || !TypeRelations.IsOrDerivesFrom(called.ContainingType, componentBase))
         {
             return;
         }
@@ -154,23 +154,6 @@ public sealed class Psh1602UnconditionalStateHasChangedAnalyzer : DiagnosticAnal
         }
 
         return true;
-    }
-
-    /// <summary>Returns whether a type is the component base or derives from it.</summary>
-    /// <param name="type">The candidate type.</param>
-    /// <param name="componentBase">The resolved component base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="type"/> is or derives from <paramref name="componentBase"/>.</returns>
-    private static bool DerivesFromOrIs(ITypeSymbol? type, INamedTypeSymbol componentBase)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, componentBase))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Resolves the component type on demand and caches missing references too.</summary>

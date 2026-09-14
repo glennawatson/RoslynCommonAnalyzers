@@ -96,7 +96,7 @@ internal static class BlockingWaitExemption
         if (notifyCompletion is null
             || method.Name != BlockingWait.GetResultMethodName
             || method.ContainingType is not { } type
-            || !Implements(type, notifyCompletion))
+            || !TypeRelations.Implements(type, notifyCompletion))
         {
             return false;
         }
@@ -105,24 +105,6 @@ internal static class BlockingWaitExemption
         for (var i = 0; i < candidates.Length; i++)
         {
             if (candidates[i] is IPropertySymbol)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type implements an interface.</summary>
-    /// <param name="type">The type to inspect.</param>
-    /// <param name="interfaceType">The interface sought.</param>
-    /// <returns><see langword="true"/> when the type implements it.</returns>
-    private static bool Implements(INamedTypeSymbol type, INamedTypeSymbol interfaceType)
-    {
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], interfaceType))
             {
                 return true;
             }

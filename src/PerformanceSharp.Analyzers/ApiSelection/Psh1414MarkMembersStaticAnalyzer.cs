@@ -116,8 +116,8 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             || TryGetExecutableBody(member) is not { } body
             || ReadsBackingField(member, body)
             || context.SemanticModel.GetDeclaredSymbol(member, context.CancellationToken) is not { } symbol
-            || HasAttributeFrom(symbol.GetAttributes(), markers.GetMemberMarkers())
-            || HasAttributeFrom(symbol.ContainingType.GetAttributes(), markers.GetFixtureMarkers()))
+            || SymbolFacts.HasAttributeDerivedFromAny(symbol.GetAttributes(), markers.GetMemberMarkers())
+            || SymbolFacts.HasAttributeDerivedFromAny(symbol.ContainingType.GetAttributes(), markers.GetFixtureMarkers()))
         {
             return;
         }
@@ -131,34 +131,6 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
             ApiSelectionRules.MarkMembersStatic,
             GetIdentifier(member).GetLocation(),
             symbol.Name));
-    }
-
-    /// <summary>Returns whether any of a member's or type's attributes binds to a resolved marker.</summary>
-    /// <param name="attributes">The attributes to inspect.</param>
-    /// <param name="markers">The resolved markers to match against.</param>
-    /// <returns><see langword="true"/> when an attribute equals or derives from a marker.</returns>
-    private static bool HasAttributeFrom(ImmutableArray<AttributeData> attributes, INamedTypeSymbol[] markers)
-    {
-        if (markers.Length == 0)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < attributes.Length; i++)
-        {
-            for (var current = attributes[i].AttributeClass; current is not null; current = current.BaseType)
-            {
-                for (var j = 0; j < markers.Length; j++)
-                {
-                    if (SymbolEqualityComparer.Default.Equals(current, markers[j]))
-                    {
-                        return true;
-                    }
-                }
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a property's accessors have real bodies, so it is not an auto-property.</summary>
@@ -414,41 +386,12 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         /// <returns>The resolved member markers, or an empty array.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public INamedTypeSymbol[] GetMemberMarkers() =>
-            _memberMarkers ??= ResolveMarkers(compilation, InstanceRequiringMemberAttributeNames);
+            _memberMarkers ??= MetadataTypeLookup.ResolveAll(compilation, InstanceRequiringMemberAttributeNames);
 
         /// <summary>Gets the fixture markers, allowing equivalent concurrent first resolutions.</summary>
         /// <returns>The resolved fixture markers, or an empty array.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public INamedTypeSymbol[] GetFixtureMarkers() =>
-            _fixtureMarkers ??= ResolveMarkers(compilation, FixtureTypeAttributeNames);
-
-        /// <summary>Resolves the non-null named-type symbols for a set of metadata names, right-sized.</summary>
-        /// <param name="compilation">The analyzed compilation.</param>
-        /// <param name="metadataNames">The metadata names to resolve.</param>
-        /// <returns>The resolved markers, an array no longer than <paramref name="metadataNames"/> (empty when none resolve).</returns>
-        private static INamedTypeSymbol[] ResolveMarkers(Compilation compilation, string[] metadataNames)
-        {
-            var buffer = new INamedTypeSymbol[metadataNames.Length];
-            var count = 0;
-            for (var i = 0; i < metadataNames.Length; i++)
-            {
-                if (compilation.GetTypeByMetadataName(metadataNames[i]) is not { } marker)
-                {
-                    continue;
-                }
-
-                buffer[count] = marker;
-                count++;
-            }
-
-            if (count == buffer.Length)
-            {
-                return buffer;
-            }
-
-            var result = new INamedTypeSymbol[count];
-            Array.Copy(buffer, result, count);
-            return result;
-        }
+            _fixtureMarkers ??= MetadataTypeLookup.ResolveAll(compilation, FixtureTypeAttributeNames);
     }
 }

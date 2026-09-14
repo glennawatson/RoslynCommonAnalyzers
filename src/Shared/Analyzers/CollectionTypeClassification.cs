@@ -4,16 +4,16 @@
 
 using System.Runtime.CompilerServices;
 
-namespace StyleSharp.Analyzers;
+namespace RoslynCommon.Analyzers;
 
 /// <summary>
-/// Answers the two questions the design rules ask about a type: "is this a sequence a caller would
+/// Answers the two questions rules ask about a type: "is this a sequence a caller would
 /// iterate?" and "can a caller add to and remove from it?". Both are answered structurally — by the
 /// interfaces the type carries and the namespace it lives in — so no well-known type has to be
 /// resolved, and the answer is the same on every target framework.
 /// </summary>
 /// <remarks>
-/// <b>This is not <see cref="MutableCollectionTypes"/>, and the two must not be merged.</b> That one is a
+/// <b>This is not StyleSharp's <c>MutableCollectionTypes</c>, and the two must not be merged.</b> That one is a
 /// deliberately narrow allow-list of the mutable shapes a static field must not expose, and it excludes the
 /// concurrent collections on purpose. This one is a structural test that answers for any type — including
 /// the concurrent ones, which genuinely are collections a caller can add to. Folding this generality into

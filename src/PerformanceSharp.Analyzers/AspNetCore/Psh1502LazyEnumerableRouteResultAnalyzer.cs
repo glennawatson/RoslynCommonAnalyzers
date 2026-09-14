@@ -113,7 +113,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         if (context.SemanticModel.GetDeclaredSymbol(method, context.CancellationToken) is not IMethodSymbol methodSymbol
             || methodSymbol.DeclaredAccessibility != Accessibility.Public
             || methodSymbol.IsStatic
-            || !DerivesFromControllerBase(methodSymbol.ContainingType, model.ControllerBaseType)
+            || !TypeRelations.IsOrDerivesFrom(methodSymbol.ContainingType, model.ControllerBaseType)
             || !IsLazyEnumerableReturnType(methodSymbol.ReturnType, model))
         {
             return;
@@ -279,7 +279,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             var attributes = lists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                var name = GetSimpleAttributeName(attributes[j].Name);
+                var name = SyntaxNames.GetSimpleName(attributes[j].Name);
                 if (name is "NonAction" or "NonActionAttribute")
                 {
                     return true;
@@ -290,17 +290,6 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         return false;
     }
 
-    /// <summary>Returns the rightmost identifier of a written attribute name.</summary>
-    /// <param name="name">The attribute name syntax.</param>
-    /// <returns>The simple name, or <see langword="null"/> when the syntax names no simple identifier.</returns>
-    private static string? GetSimpleAttributeName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleAttributeName(qualified.Right),
-        AliasQualifiedNameSyntax alias => GetSimpleAttributeName(alias.Name),
-        _ => null,
-    };
-
     /// <summary>Returns whether a namespace is <c>Microsoft.AspNetCore.Builder</c>.</summary>
     /// <param name="ns">The namespace to test.</param>
     /// <returns><see langword="true"/> when the namespace is the ASP.NET Core routing namespace.</returns>
@@ -309,23 +298,6 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
             && ns.ContainingNamespace is { Name: "AspNetCore" } aspNetCore
             && aspNetCore.ContainingNamespace is { Name: "Microsoft" } microsoft
             && microsoft.ContainingNamespace is { IsGlobalNamespace: true };
-
-    /// <summary>Returns whether a type derives from (or is) the MVC controller base.</summary>
-    /// <param name="type">The containing type of the analyzed method.</param>
-    /// <param name="controllerBase">The resolved controller base type, required by the action candidate gate.</param>
-    /// <returns><see langword="true"/> when the type is a controller.</returns>
-    private static bool DerivesFromControllerBase(INamedTypeSymbol? type, INamedTypeSymbol? controllerBase)
-    {
-        for (var current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, controllerBase))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>Returns whether a return type, after unwrapping a task wrapper, is exactly <c>IEnumerable&lt;T&gt;</c>.</summary>
     /// <param name="returnType">The declared or inferred return type.</param>
@@ -357,7 +329,7 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
     private static bool IsDeferredSequence(SemanticModel semanticModel, ExpressionSyntax expression, DeferredResultModel model, CancellationToken cancellationToken)
     {
         var type = semanticModel.GetTypeInfo(expression, cancellationToken).Type;
-        if (type is not null && model.QueryableMarker is not null && ImplementsQueryable(type, model.QueryableMarker))
+        if (type is not null && model.QueryableMarker is not null && TypeRelations.IsOrImplements(type, model.QueryableMarker))
         {
             return true;
         }
@@ -365,29 +337,6 @@ public sealed class Psh1502LazyEnumerableRouteResultAnalyzer : DiagnosticAnalyze
         return expression is InvocationExpressionSyntax invocation
             && semanticModel.GetSymbolInfo(invocation, cancellationToken).Symbol is IMethodSymbol method
             && IsDeferredLinqOperator(method, model);
-    }
-
-    /// <summary>Returns whether a type is, or implements, the non-generic queryable marker.</summary>
-    /// <param name="type">The value's type.</param>
-    /// <param name="queryableMarker">The resolved <c>System.Linq.IQueryable</c> marker.</param>
-    /// <returns><see langword="true"/> when the value is a queryable.</returns>
-    private static bool ImplementsQueryable(ITypeSymbol type, INamedTypeSymbol queryableMarker)
-    {
-        if (SymbolEqualityComparer.Default.Equals(type, queryableMarker))
-        {
-            return true;
-        }
-
-        var interfaces = type.AllInterfaces;
-        for (var i = 0; i < interfaces.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(interfaces[i], queryableMarker))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether a bound method is a deferred <c>System.Linq</c> operator.</summary>

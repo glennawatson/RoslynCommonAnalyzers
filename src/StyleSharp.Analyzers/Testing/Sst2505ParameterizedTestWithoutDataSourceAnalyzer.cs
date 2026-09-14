@@ -188,7 +188,7 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (IsTestAttributeSimpleName(GetSimpleName(attributes[j].Name)))
+                if (IsTestAttributeSimpleName(SyntaxNames.GetSimpleName(attributes[j].Name)))
                 {
                     return true;
                 }
@@ -237,17 +237,6 @@ public sealed class Sst2505ParameterizedTestWithoutDataSourceAnalyzer : Diagnost
 
         return false;
     }
-
-    /// <summary>Gets the rightmost identifier of a possibly qualified or aliased attribute name.</summary>
-    /// <param name="name">The attribute name.</param>
-    /// <returns>The simple name, or an empty string.</returns>
-    private static string GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
-        AliasQualifiedNameSyntax aliased => aliased.Name.Identifier.ValueText,
-        _ => string.Empty,
-    };
 
     /// <summary>The test-framework symbols resolved for a candidate method to classify attributes.</summary>
     private sealed class FrameworkSymbols

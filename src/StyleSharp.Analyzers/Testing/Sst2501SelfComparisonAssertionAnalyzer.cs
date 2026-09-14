@@ -148,7 +148,7 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
         var resolvedHosts = hosts.Value;
         if (resolvedHosts.Length == 0
             || context.SemanticModel.GetSymbolInfo(invocation, context.CancellationToken).Symbol is not IMethodSymbol method
-            || !IsAssertionHost(method.ContainingType, resolvedHosts))
+            || !TypeRelations.IsOneOf(method.ContainingType, resolvedHosts))
         {
             return;
         }
@@ -348,23 +348,6 @@ public sealed class Sst2501SelfComparisonAssertionAnalyzer : DiagnosticAnalyzer
     /// <returns>The negated tail for a negated assertion; otherwise the positive tail.</returns>
     private static string Consequence(AssertionShape shape) =>
         shape == AssertionShape.NegativeEquality ? NegativeConsequence : PositiveConsequence;
-
-    /// <summary>Returns whether a bound method's containing type is one of the resolved framework <c>Assert</c> types.</summary>
-    /// <param name="containingType">The bound method's containing type.</param>
-    /// <param name="hosts">The resolved framework <c>Assert</c> types.</param>
-    /// <returns><see langword="true"/> when the call belongs to a framework <c>Assert</c>.</returns>
-    private static bool IsAssertionHost(INamedTypeSymbol containingType, INamedTypeSymbol[] hosts)
-    {
-        for (var i = 0; i < hosts.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(containingType, hosts[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     /// <summary>The state threaded through an operand's stability scan.</summary>
     private record struct StabilityScan

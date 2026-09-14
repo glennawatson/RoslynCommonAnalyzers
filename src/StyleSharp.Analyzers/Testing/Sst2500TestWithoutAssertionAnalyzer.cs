@@ -122,7 +122,7 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
             var attributes = attributeLists[i].Attributes;
             for (var j = 0; j < attributes.Count; j++)
             {
-                if (GetSimpleName(attributes[j].Name) is { } name && IsTestAttributeName(name))
+                if (SyntaxNames.GetSimpleName(attributes[j].Name) is { } name && IsTestAttributeName(name))
                 {
                     return true;
                 }
@@ -131,17 +131,6 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Extracts the trailing simple identifier of an attribute name, ignoring any qualification.</summary>
-    /// <param name="name">The attribute's name node.</param>
-    /// <returns>The simple identifier text, or <see langword="null"/> when it cannot be read.</returns>
-    private static string? GetSimpleName(NameSyntax name) => name switch
-    {
-        SimpleNameSyntax simple => simple.Identifier.ValueText,
-        QualifiedNameSyntax qualified => GetSimpleName(qualified.Right),
-        AliasQualifiedNameSyntax alias => alias.Name.Identifier.ValueText,
-        _ => null,
-    };
 
     /// <summary>Returns whether an attribute simple name matches a supported framework's test attribute.</summary>
     /// <param name="name">The attribute's simple identifier, with or without the <c>Attribute</c> suffix.</param>
@@ -173,54 +162,20 @@ public sealed class Sst2500TestWithoutAssertionAnalyzer : DiagnosticAnalyzer
                 continue;
             }
 
-            if (!isTest && MatchesAnyMarker(attributeClass, facts.Markers))
+            if (!isTest && TypeRelations.IsOneOf(attributeClass, facts.Markers))
             {
                 isTest = true;
             }
 
             if (!hasExpectedException
                 && facts.ExpectedException is not null
-                && DerivesFromOrEquals(attributeClass, facts.ExpectedException))
+                && TypeRelations.IsOrDerivesFrom(attributeClass, facts.ExpectedException))
             {
                 hasExpectedException = true;
             }
         }
 
         return isTest;
-    }
-
-    /// <summary>Returns whether an attribute type equals one of the resolved markers.</summary>
-    /// <param name="attributeClass">The bound attribute type.</param>
-    /// <param name="markers">The resolved marker types.</param>
-    /// <returns><see langword="true"/> on an identity match.</returns>
-    private static bool MatchesAnyMarker(INamedTypeSymbol attributeClass, INamedTypeSymbol[] markers)
-    {
-        for (var i = 0; i < markers.Length; i++)
-        {
-            if (SymbolEqualityComparer.Default.Equals(attributeClass, markers[i]))
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /// <summary>Returns whether a type equals or derives from a target type.</summary>
-    /// <param name="type">The type to test.</param>
-    /// <param name="target">The target base type.</param>
-    /// <returns><see langword="true"/> when <paramref name="target"/> appears in the type's own chain.</returns>
-    private static bool DerivesFromOrEquals(INamedTypeSymbol type, INamedTypeSymbol target)
-    {
-        for (INamedTypeSymbol? current = type; current is not null; current = current.BaseType)
-        {
-            if (SymbolEqualityComparer.Default.Equals(current, target))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Walks a test body for any node the rule cannot prove is a non-verifying platform operation.</summary>

@@ -26,8 +26,10 @@ public class MarkMembersStaticAnalyzerUnitTest
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
     [Arguments("class C { private int {|PSH1414:P|} { get { return 1; } } }")]
-    [Arguments("class C { private int {|PSH1414:P|} { get => 1; set => _ = value; } }")]
-    [Arguments("class C { private int {|PSH1414:P|} { get { return 1; } set { _ = value; } } }")]
+    [Arguments("class C { private int {|PSH1414:P|} { get => 1; set => _ = 1; } }")]
+    [Arguments("class C { private int {|PSH1414:P|} { get { return 1; } set { } } }")]
+    [Arguments("class C { private int P { get => 1; set => _ = value; } }")]
+    [Arguments("class C { private int P { get { return 1; } set { _ = value; } } }")]
     [Arguments("class C { private int {|PSH1414:M|}() { int value = 1; return value; } }")]
     [Arguments("class C { private int {|PSH1414:M|}(string value) => value.Length; }")]
     [Arguments("class Other { public int field; } class C { private int {|PSH1414:P|} => new Other().field; }")]

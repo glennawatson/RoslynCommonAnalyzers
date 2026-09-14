@@ -42,9 +42,9 @@ public sealed class Sst2283FoldGuardIntoAssignedValueCodeFixProvider : CodeFixPr
         // The reported diagnostic already honored the argument-null stand-down, so re-derivation need not
         // re-check it: any reported guard passed that gate in this same compilation.
         return root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<IfStatementSyntax>()is { } ifStatement
-            && ifStatement.Parent is BlockSyntax block
+            && ifStatement.Parent is BlockSyntax
             && Sst2283FoldGuardIntoAssignedValueAnalyzer.TryGetFold(ifStatement, model, argumentNullFolded: false, CancellationToken.None, out var _, out var _, out var assignmentStatement)
-            && assignmentStatement.Expression is AssignmentExpressionSyntax assignment
+            && assignmentStatement.Expression is AssignmentExpressionSyntax
             && !DirectiveBoundaries.Separate(ifStatement, assignmentStatement);
     }
 

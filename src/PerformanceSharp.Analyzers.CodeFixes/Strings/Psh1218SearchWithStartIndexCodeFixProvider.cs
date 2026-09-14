@@ -49,7 +49,7 @@ public sealed class Psh1218SearchWithStartIndexCodeFixProvider : CodeFixProvider
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax slice
             && Psh1218SearchWithStartIndexAnalyzer.IsSubstringSliceShape(slice)
-            && ((MemberAccessExpressionSyntax)slice.Expression).Name is { } name;
+            && ((MemberAccessExpressionSyntax)slice.Expression).Name is { };
 
     /// <summary>Resolves the reported Substring slice and builds its AsSpan rename.</summary>
     /// <param name="root">The syntax root.</param>

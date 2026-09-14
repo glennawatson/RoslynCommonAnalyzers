@@ -40,7 +40,7 @@ public sealed class Sst1144PreferOrPatternCodeFixProvider : CodeFixProvider, IBa
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>()is { } section;
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<SwitchSectionSyntax>()is { };
 
     /// <summary>Resolves the reported switch section and builds its combined <c>or</c>-pattern form.</summary>
     /// <param name="root">The syntax root.</param>

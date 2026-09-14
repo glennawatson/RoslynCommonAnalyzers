@@ -68,7 +68,7 @@ public sealed class Sst2503BooleanLiteralAssertionCodeFixProvider : CodeFixProvi
         }
 
         var literalIsTrue = arguments[literalIndex].Expression.IsKind(SyntaxKind.TrueLiteralExpression);
-        return Sst2503BooleanLiteralAssertionAnalyzer.TryGetBooleanAssertion(method, literalIsTrue)is { } targetMethod;
+        return Sst2503BooleanLiteralAssertionAnalyzer.TryGetBooleanAssertion(method, literalIsTrue)is { };
     }
 
     /// <summary>Resolves the reported assertion and rewrites it to the boolean assertion.</summary>

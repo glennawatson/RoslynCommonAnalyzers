@@ -31,7 +31,7 @@ public sealed class ConditionalBooleanLiteralCodeFixProvider : CodeFixProvider, 
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is ConditionalExpressionSyntax conditional;
+        root.FindNode(diagnostic.Location.SourceSpan) is ConditionalExpressionSyntax;
 
     /// <summary>Resolves the reported node and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

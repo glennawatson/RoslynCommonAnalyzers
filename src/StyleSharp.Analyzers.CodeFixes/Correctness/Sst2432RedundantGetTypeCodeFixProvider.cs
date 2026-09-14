@@ -41,7 +41,7 @@ public sealed class Sst2432RedundantGetTypeCodeFixProvider : CodeFixProvider, IB
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
-            && invocation.Expression is MemberAccessExpressionSyntax memberAccess;
+            && invocation.Expression is MemberAccessExpressionSyntax;
 
     /// <summary>Resolves the reported invocation and replaces it with its receiver.</summary>
     /// <param name="root">The syntax root.</param>

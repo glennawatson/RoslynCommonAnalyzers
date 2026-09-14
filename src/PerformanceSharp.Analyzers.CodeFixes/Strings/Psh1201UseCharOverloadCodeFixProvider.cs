@@ -48,7 +48,7 @@ public sealed class Psh1201UseCharOverloadCodeFixProvider : CodeFixProvider, IBa
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         TryGetLiteral(root, diagnostic, out var literal)
-            && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax arguments };
+            && literal!.Parent is ArgumentSyntax { Parent: ArgumentListSyntax };
 
     /// <summary>Resolves the reported string argument and builds the char overload's argument list.</summary>
     /// <param name="root">The syntax root.</param>

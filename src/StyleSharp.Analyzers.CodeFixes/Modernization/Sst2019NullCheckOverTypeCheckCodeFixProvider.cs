@@ -41,7 +41,7 @@ public sealed class Sst2019NullCheckOverTypeCheckCodeFixProvider : CodeFixProvid
         return node switch
         {
             BinaryExpressionSyntax binary when binary.IsKind(SyntaxKind.IsExpression) => true,
-            IsPatternExpressionSyntax pattern => true,
+            IsPatternExpressionSyntax => true,
             _ => false,
         };
     }

@@ -41,7 +41,7 @@ public sealed class Sst2443LoggerCategoryCodeFixProvider : CodeFixProvider, IBat
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)is TypeSyntax category
-            && category.FirstAncestorOrSelf<TypeDeclarationSyntax>()is { } enclosing;
+            && category.FirstAncestorOrSelf<TypeDeclarationSyntax>()is { };
 
     /// <summary>Resolves the reported category syntax and replaces it with the enclosing type's name.</summary>
     /// <param name="root">The syntax root.</param>

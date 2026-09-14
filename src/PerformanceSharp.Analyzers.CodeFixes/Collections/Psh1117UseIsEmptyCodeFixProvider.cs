@@ -36,7 +36,7 @@ public sealed class Psh1117UseIsEmptyCodeFixProvider : CodeFixProvider, IBatchFi
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)is BinaryExpressionSyntax binary
-            && Psh1117UseIsEmptyAnalyzer.TryGetEmptinessShape(binary)is { } shape;
+            && Psh1117UseIsEmptyAnalyzer.TryGetEmptinessShape(binary)is { };
 
     /// <summary>Resolves the reported comparison and builds its IsEmpty replacement.</summary>
     /// <param name="root">The syntax root.</param>

@@ -128,6 +128,7 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
     /// <returns>The text with <c>{{</c>/<c>}}</c> reduced to <c>{</c>/<c>}</c>.</returns>
     private static string UnescapeBraces(string text)
     {
+        const int EscapedBraceLength = 2;
         var firstEscape = FindFirstEscapedBrace(text);
         if (firstEscape < 0)
         {
@@ -145,7 +146,7 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
                 var current = text[i];
                 buffer[written] = current;
                 written++;
-                charactersConsumed = current is '{' or '}' && i + 1 < text.Length && text[i + 1] == current ? 2 : 1;
+                charactersConsumed = current is '{' or '}' && i + 1 < text.Length && text[i + 1] == current ? EscapedBraceLength : 1;
             }
 
             return new(buffer, 0, written);

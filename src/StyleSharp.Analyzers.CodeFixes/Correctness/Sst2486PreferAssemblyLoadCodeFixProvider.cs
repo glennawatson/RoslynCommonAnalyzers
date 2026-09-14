@@ -49,7 +49,7 @@ public sealed class Sst2486PreferAssemblyLoadCodeFixProvider : CodeFixProvider, 
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { } invocation
-            && invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: LoadWithPartialNameName } name, };
+            && invocation.Expression is MemberAccessExpressionSyntax { Name: IdentifierNameSyntax { Identifier.ValueText: LoadWithPartialNameName }, };
 
     /// <summary>Resolves a reported LoadWithPartialName call and renames it to Load.</summary>
     /// <param name="root">The syntax root.</param>

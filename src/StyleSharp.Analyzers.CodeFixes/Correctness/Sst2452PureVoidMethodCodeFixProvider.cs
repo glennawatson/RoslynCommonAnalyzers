@@ -40,7 +40,7 @@ public sealed class Sst2452PureVoidMethodCodeFixProvider : CodeFixProvider, IBat
             && Sst2452PureVoidMethodAnalyzer.IsPureAttributeName(attribute.Name)
             && attribute.Parent is AttributeListSyntax list)
             && ((list.Attributes.Count > 1)
-            || (list.Parent is MethodDeclarationSyntax method));
+            || (list.Parent is MethodDeclarationSyntax));
 
     /// <summary>Resolves the reported attribute and builds the edit that removes it.</summary>
     /// <param name="root">The syntax root.</param>

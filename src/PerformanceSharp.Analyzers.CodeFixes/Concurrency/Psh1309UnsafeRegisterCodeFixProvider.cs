@@ -37,7 +37,7 @@ public sealed class Psh1309UnsafeRegisterCodeFixProvider : CodeFixProvider, IBat
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
             && Psh1309UnsafeRegisterAnalyzer.IsRegisterShape(invocation)
-            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { } name;
+            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { };
 
     /// <summary>Resolves the reported invocation's <c>Register</c> name and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

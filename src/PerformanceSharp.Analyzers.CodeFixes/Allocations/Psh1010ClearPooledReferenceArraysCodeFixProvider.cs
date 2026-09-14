@@ -35,7 +35,7 @@ public sealed class Psh1010ClearPooledReferenceArraysCodeFixProvider : CodeFixPr
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } invocation
+        root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }
             && access.Name.Identifier.ValueText == Psh1010ClearPooledReferenceArraysAnalyzer.ReturnMethodName;
 
     /// <summary>Resolves the reported return invocation and builds its cleared replacement.</summary>

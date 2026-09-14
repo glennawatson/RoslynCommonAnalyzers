@@ -45,7 +45,7 @@ public sealed class Sst1156ElementAccessExpressionArgumentMustBeOnUniqueLinesCod
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is ElementAccessExpressionSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is ElementAccessExpressionSyntax;
 
     /// <summary>Resolves the reported element access expression and builds its arguments-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

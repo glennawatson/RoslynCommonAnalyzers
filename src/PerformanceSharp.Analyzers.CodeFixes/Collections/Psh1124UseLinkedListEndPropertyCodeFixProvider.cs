@@ -53,7 +53,7 @@ public sealed class Psh1124UseLinkedListEndPropertyCodeFixProvider : CodeFixProv
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetEndInvocation(root, diagnostic)is { } invocation;
+        TryGetEndInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported call and builds its node-property replacement.</summary>
     /// <param name="root">The syntax root.</param>

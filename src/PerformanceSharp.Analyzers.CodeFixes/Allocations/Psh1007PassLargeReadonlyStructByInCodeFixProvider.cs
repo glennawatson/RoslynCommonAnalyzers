@@ -50,7 +50,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInCodeFixProvider : CodeFixP
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is ParameterSyntax { Type: not null, Modifiers.Count: 0 } parameter;
+        root.FindNode(diagnostic.Location.SourceSpan)is ParameterSyntax { Type: not null, Modifiers.Count: 0 };
 
     /// <summary>Resolves the reported parameter and builds it with the modifier added.</summary>
     /// <param name="root">The syntax root.</param>

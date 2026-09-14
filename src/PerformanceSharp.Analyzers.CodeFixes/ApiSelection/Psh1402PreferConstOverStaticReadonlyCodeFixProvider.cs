@@ -36,8 +36,8 @@ public sealed class Psh1402PreferConstOverStaticReadonlyCodeFixProvider : CodeFi
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan);
-        return (node.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>()is { } local)
-            || (node.FirstAncestorOrSelf<FieldDeclarationSyntax>()is { } field);
+        return (node.FirstAncestorOrSelf<LocalDeclarationStatementSyntax>()is { })
+            || (node.FirstAncestorOrSelf<FieldDeclarationSyntax>()is { });
     }
 
     /// <summary>Resolves the reported field or local declaration and builds its <c>const</c> replacement.</summary>

@@ -40,7 +40,7 @@ public sealed class Sst2286RedundantStringToStringCodeFixProvider : CodeFixProvi
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { Expression: MemberAccessExpressionSyntax { Expression: { } receiver } } invocation;
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<InvocationExpressionSyntax>()is { Expression: MemberAccessExpressionSyntax { Expression: { } } };
 
     /// <summary>Resolves the reported call and replaces it with its receiver.</summary>
     /// <param name="root">The syntax root.</param>

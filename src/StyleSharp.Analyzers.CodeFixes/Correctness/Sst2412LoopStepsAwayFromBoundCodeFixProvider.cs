@@ -47,7 +47,7 @@ public sealed class Sst2412LoopStepsAwayFromBoundCodeFixProvider : CodeFixProvid
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         !(root.FindNode(diagnostic.Location.SourceSpan)is not BinaryExpressionSyntax comparison
-            || Negate(comparison.Kind())is not { } negated);
+            || Negate(comparison.Kind())is not { });
 
     /// <summary>Resolves the reported comparison and negates its operator.</summary>
     /// <param name="root">The syntax root.</param>

@@ -46,7 +46,7 @@ public sealed class Psh1118TakeExtremeWithoutSortingCodeFixProvider : CodeFixPro
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetTerminalInvocation(root, diagnostic)is { } invocation;
+        TryGetTerminalInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported chain and builds its extreme-scan replacement.</summary>
     /// <param name="root">The syntax root.</param>

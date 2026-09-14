@@ -47,7 +47,7 @@ public sealed class Psh1012EqualityComparerDefaultCodeFixProvider : CodeFixProvi
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)is InvocationExpressionSyntax invocation
-            && Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, CancellationToken.None)is { } comparison;
+            && Psh1012EqualityComparerDefaultAnalyzer.TryGetBoxingComparison(model, invocation, CancellationToken.None)is { };
 
     /// <summary>Resolves the reported call and builds its comparer-based replacement.</summary>
     /// <param name="root">The syntax root.</param>

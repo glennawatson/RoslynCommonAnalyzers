@@ -44,7 +44,7 @@ public sealed class Sst2426OverrideChangesParamsCodeFixProvider : CodeFixProvide
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ParameterSyntax>()is { Type: { } type } parameter;
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<ParameterSyntax>()is { Type: { } };
 
     /// <summary>Resolves the reported parameter and toggles its <c>params</c> modifier.</summary>
     /// <param name="root">The syntax root.</param>

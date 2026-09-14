@@ -44,7 +44,7 @@ public sealed class Psh1227PreferDedicatedCallCodeFixProvider : CodeFixProvider,
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
-            && invocation.Expression is MemberAccessExpressionSyntax access)
+            && invocation.Expression is MemberAccessExpressionSyntax)
             && ((Psh1227PreferDedicatedCallAnalyzer.IsCompareOrdinalShape(invocation))
             || (Psh1227PreferDedicatedCallAnalyzer.IsDebugFailShape(invocation)));
 

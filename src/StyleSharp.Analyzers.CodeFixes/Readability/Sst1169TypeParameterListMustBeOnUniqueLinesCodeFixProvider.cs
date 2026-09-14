@@ -45,7 +45,7 @@ public sealed class Sst1169TypeParameterListMustBeOnUniqueLinesCodeFixProvider :
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is TypeParameterListSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is TypeParameterListSyntax;
 
     /// <summary>Resolves the reported type parameter list and builds its entries-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

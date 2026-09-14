@@ -36,7 +36,7 @@ public sealed class Sst2272EnumFlagValueStyleCodeFixProvider : CodeFixProvider, 
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumMemberDeclarationSyntax>()?.EqualsValue?.Value is { } value
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumMemberDeclarationSyntax>()?.EqualsValue?.Value is { }
             && diagnostic.Properties.TryGetValue(Sst2272EnumFlagValueStyleAnalyzer.ReplacementKey, out var replacementText)
             && replacementText is not null;
 

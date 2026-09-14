@@ -47,7 +47,7 @@ public sealed class Sst2422BackingFieldMismatchCodeFixProvider : CodeFixProvider
         !(!diagnostic.Properties.TryGetValue(Sst2422BackingFieldMismatchAnalyzer.SetterFieldKey, out var setterField)
             || setterField is null
             || root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<PropertyDeclarationSyntax>()is not { AccessorList: { } accessors }
-            || GetterFieldRead(accessors)is not { } read);
+            || GetterFieldRead(accessors)is not { });
 
     /// <summary>Resolves the getter's field read and repoints it at the setter's field.</summary>
     /// <param name="root">The syntax root.</param>

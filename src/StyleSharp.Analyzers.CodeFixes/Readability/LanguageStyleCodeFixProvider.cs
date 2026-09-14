@@ -11,6 +11,12 @@ namespace StyleSharp.Analyzers;
 [Shared]
 public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixableCodeFix
 {
+    /// <summary>Identifies fixes that absorb a following member assignment.</summary>
+    private const string ObjectInitializerDiagnosticId = "SST1193";
+
+    /// <summary>Identifies fixes that absorb a following collection Add call.</summary>
+    private const string CollectionInitializerDiagnosticId = "SST1194";
+
     /// <summary>The characters a conditional return adds around the expression: <c>return </c> and <c>;</c>.</summary>
     private const int ReturnWidth = 8;
 
@@ -110,7 +116,7 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     /// <returns>The trivia to retain when removing the statement.</returns>
     private static SyntaxRemoveOptions GetRemovalOptions(Diagnostic diagnostic, SyntaxNode node)
     {
-        if (diagnostic.Id is not ("SST1193" or "SST1194"))
+        if (diagnostic.Id is not (ObjectInitializerDiagnosticId or CollectionInitializerDiagnosticId))
         {
             return SyntaxRemoveOptions.KeepNoTrivia;
         }
@@ -156,8 +162,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         var span = diagnostic.Location.SourceSpan;
         return diagnostic.Id switch
         {
-            "SST1193" => CanMoveIntoInitializer(root, span, collection: false),
-            "SST1194" => CanMoveIntoInitializer(root, span, collection: true),
+            ObjectInitializerDiagnosticId => CanMoveIntoInitializer(root, span, collection: false),
+            CollectionInitializerDiagnosticId => CanMoveIntoInitializer(root, span, collection: true),
             "SST1195" => CanRewriteNullConditional(root, span, propagation: false),
             "SST1196" => CanRewriteNullConditional(root, span, propagation: true),
             "SST1197" => CanRewriteConditionalReturn(root, span),
@@ -296,8 +302,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
         removeNode = null;
         return diagnostic.Id switch
         {
-            "SST1193" => CreateObjectInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
-            "SST1194" => CreateCollectionInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
+            ObjectInitializerDiagnosticId => CreateObjectInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
+            CollectionInitializerDiagnosticId => CreateCollectionInitializerFix(root, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
             "SST1195" => CreateNullCoalescingFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST1196" => CreateNullPropagationFix(root, diagnostic.Location.SourceSpan, out oldNode),
             "SST1197" => CreateConditionalReturnFix(root, options, diagnostic.Location.SourceSpan, out oldNode, out removeNode),
@@ -861,8 +867,8 @@ public sealed class LanguageStyleCodeFixProvider : CodeFixProvider, IBatchFixabl
     private static string? GetTitle(string diagnosticId) =>
         diagnosticId switch
         {
-            "SST1193" => "Move assignment into initializer",
-            "SST1194" => "Move Add call into initializer",
+            ObjectInitializerDiagnosticId => "Move assignment into initializer",
+            CollectionInitializerDiagnosticId => "Move Add call into initializer",
             "SST1195" => "Write fallback with ??",
             "SST1196" => "Write guarded access with ?.",
             "SST1197" => "Collapse into one conditional return",

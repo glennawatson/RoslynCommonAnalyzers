@@ -44,7 +44,7 @@ public sealed class Psh1120DoNotMaterializeToEnumerateCodeFixProvider : CodeFixP
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetMaterializeInvocation(root, diagnostic)is { } invocation;
+        TryGetMaterializeInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported materialization call and builds its receiver-only replacement.</summary>
     /// <param name="root">The syntax root.</param>

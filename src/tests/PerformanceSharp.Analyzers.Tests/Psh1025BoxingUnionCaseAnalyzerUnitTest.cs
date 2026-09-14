@@ -85,6 +85,7 @@ public class Psh1025BoxingUnionCaseAnalyzerUnitTest
     [Arguments("public union Payload();")]
     [Arguments("public union Payload(Missing);")]
     [Arguments("public union Payload(,);")]
+    [Arguments("public union Payload(__arglist);")]
     public async Task IncompleteUnionCasesAreCleanAsync(string declaration, CancellationToken cancellationToken)
     {
         var diagnostics = await AnalyzeAsync(Marker + declaration, cancellationToken);

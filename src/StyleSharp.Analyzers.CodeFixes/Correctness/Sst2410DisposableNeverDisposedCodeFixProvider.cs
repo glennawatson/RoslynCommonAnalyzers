@@ -38,7 +38,7 @@ public sealed class Sst2410DisposableNeverDisposedCodeFixProvider : CodeFixProvi
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         TryGetStatement(root, diagnostic)is { } statement
-            && RequiresAwait(model, statement)is { } needsAwait;
+            && RequiresAwait(model, statement)is { };
 
     /// <summary>Resolves the reported local and builds its using-declaration replacement.</summary>
     /// <param name="root">The syntax root.</param>

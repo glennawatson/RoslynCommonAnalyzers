@@ -77,7 +77,7 @@ public sealed class Sst2491AwaitableReturnedFromTeardownCodeFixProvider : CodeFi
         }
 
         return model.GetDeclaredSymbol(function)is IMethodSymbol method
-            && method.ReturnType is INamedTypeSymbol returnType;
+            && method.ReturnType is INamedTypeSymbol;
     }
 
     /// <summary>Resolves the reported return to its function and builds the async replacement.</summary>

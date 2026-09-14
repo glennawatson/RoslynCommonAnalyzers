@@ -39,7 +39,7 @@ public sealed class Sst2260RemoveRedundantAsCastCodeFixProvider : CodeFixProvide
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         for (var current = node; current is not null; current = current.Parent)
         {
-            if (current is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression } expression)
+            if (current is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.AsExpression })
             {
                 return true;
             }

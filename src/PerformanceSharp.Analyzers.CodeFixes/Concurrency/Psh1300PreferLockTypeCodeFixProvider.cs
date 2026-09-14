@@ -46,7 +46,7 @@ public sealed class Psh1300PreferLockTypeCodeFixProvider : CodeFixProvider, IBat
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>()is { } field;
+        root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<FieldDeclarationSyntax>()is { };
 
     /// <summary>Resolves the reported lock field and builds its replacement.</summary>
     /// <param name="root">The syntax root.</param>

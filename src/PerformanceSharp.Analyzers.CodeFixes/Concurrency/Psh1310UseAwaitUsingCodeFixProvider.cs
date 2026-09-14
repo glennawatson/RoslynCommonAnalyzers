@@ -44,7 +44,7 @@ public sealed class Psh1310UseAwaitUsingCodeFixProvider : CodeFixProvider, IBatc
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetStatement(root, diagnostic)is { } statement;
+        TryGetStatement(root, diagnostic)is { };
 
     /// <summary>Resolves the reported statement and builds its awaited replacement.</summary>
     /// <param name="root">The syntax root.</param>

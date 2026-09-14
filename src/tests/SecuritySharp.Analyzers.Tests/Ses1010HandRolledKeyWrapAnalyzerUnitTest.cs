@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -16,6 +17,9 @@ namespace SecuritySharp.Analyzers.Tests;
 /// <summary>Unit tests for the hand-rolled key-wrap rule (SES1010).</summary>
 public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
 {
+    /// <summary>The cached minimal framework without cryptography types.</summary>
+    private static readonly ImmutableArray<MetadataReference> CoreReferences = [RuntimeMetadataReferences.CoreLibrary];
+
     /// <summary>Verifies typed bytes match while wrong values and nonconstant elements are ignored.</summary>
     /// <param name="elements">The eight initializer elements.</param>
     /// <param name="reported">Whether the sequence is the integrity value.</param>
@@ -53,7 +57,7 @@ public class Ses1010HandRolledKeyWrapAnalyzerUnitTest
     public async Task MissingAesAndSignedLiteralAreCleanAsync()
     {
         var tree = CSharpSyntaxTree.ParseText("class C { ulong Value = 0xA6A6A6A6A6A6A6A6; long Signed = 166L; }");
-        var compilation = CSharpCompilation.Create(nameof(Test), [tree], [RuntimeMetadataReferences.CoreLibrary], new(OutputKind.DynamicallyLinkedLibrary));
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], CoreReferences, new(OutputKind.DynamicallyLinkedLibrary));
         var diagnostics = await compilation.WithAnalyzers([new Ses1010HandRolledKeyWrapAnalyzer()]).GetAnalyzerDiagnosticsAsync();
         await Assert.That(diagnostics).IsEmpty();
     }

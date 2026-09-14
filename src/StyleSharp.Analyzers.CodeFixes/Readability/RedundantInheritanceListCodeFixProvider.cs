@@ -31,7 +31,7 @@ public sealed class RedundantInheritanceListCodeFixProvider : CodeFixProvider, I
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>()is { Parent: BaseListSyntax baseList };
+        root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BaseTypeSyntax>()is { Parent: BaseListSyntax };
 
     /// <summary>Resolves the reported base type and builds the declaration without it.</summary>
     /// <param name="root">The syntax root.</param>

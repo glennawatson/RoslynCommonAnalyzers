@@ -37,7 +37,7 @@ public sealed class Psh1212AsSpanOverSubstringCodeFixProvider : CodeFixProvider,
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is InvocationExpressionSyntax invocation
             && Psh1212AsSpanOverSubstringAnalyzer.IsSubstringArgumentShape(invocation)
-            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { } name;
+            && ((MemberAccessExpressionSyntax)invocation.Expression).Name is { };
 
     /// <summary>Resolves the reported Substring call and builds its AsSpan rename.</summary>
     /// <param name="root">The syntax root.</param>

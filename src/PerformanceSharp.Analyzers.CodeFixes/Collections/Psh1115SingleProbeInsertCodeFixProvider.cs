@@ -39,7 +39,7 @@ public sealed class Psh1115SingleProbeInsertCodeFixProvider : CodeFixProvider, I
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)is IfStatementSyntax ifStatement
             && Psh1115SingleProbeInsertAnalyzer.TryGetNegatedGuard(ifStatement, Psh1115SingleProbeInsertAnalyzer.ContainsKeyMethodName, argumentCount: 1)is { } guard
-            && Psh1115SingleProbeInsertAnalyzer.TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key)is { } value;
+            && Psh1115SingleProbeInsertAnalyzer.TryGetGuardedIndexerStore(ifStatement, guard.Receiver, guard.Key)is { };
 
     /// <summary>Resolves the reported guard and builds the TryAdd statement.</summary>
     /// <param name="root">The syntax root.</param>

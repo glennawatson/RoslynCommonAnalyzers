@@ -50,12 +50,7 @@ public sealed class Psh1311RemovePassThroughStateMachineCodeFixProvider : CodeFi
     {
         var node = root.FindNode(diagnostic.Location.SourceSpan);
         return Psh1311RemovePassThroughStateMachineAnalyzer.TryGetShape(node, out _, out _, out _)
-            && (node switch
-        {
-            MethodDeclarationSyntax method => true,
-            LocalFunctionStatementSyntax localFunction => true,
-            _ => false,
-        });
+            && node is MethodDeclarationSyntax or LocalFunctionStatementSyntax;
     }
 
     /// <summary>Resolves the reported declaration and builds its de-async'd replacement.</summary>

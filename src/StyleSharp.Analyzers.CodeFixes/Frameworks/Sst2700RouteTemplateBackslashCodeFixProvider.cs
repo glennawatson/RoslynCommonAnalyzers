@@ -44,7 +44,7 @@ public sealed class Sst2700RouteTemplateBackslashCodeFixProvider : CodeFixProvid
         // The reported span equals the literal's span, which also matches the enclosing attribute argument
         // for a positional template; take the innermost node on that tie and unwrap the argument if needed.
         var node = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true);
-        return ResolveTemplateLiteral(node)is { } literal;
+        return ResolveTemplateLiteral(node)is { };
     }
 
     /// <summary>Resolves the reported route-template literal and swaps its backslashes for forward slashes.</summary>

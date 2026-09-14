@@ -70,7 +70,7 @@ public sealed class Sst2460DefaultValueOnParameterCodeFixProvider : CodeFixProvi
 
         var argument = argumentList.Arguments[0];
         return argument is { NameEquals: null, NameColon: null }
-            && model.Compilation.GetTypeByMetadataName(Sst2460DefaultValueOnParameterAnalyzer.DefaultParameterValueMetadataName)is { } interopAttribute
+            && model.Compilation.GetTypeByMetadataName(Sst2460DefaultValueOnParameterAnalyzer.DefaultParameterValueMetadataName)is { }
             && attribute.FirstAncestorOrSelf<ParameterSyntax>()is { } parameter
             && model.GetDeclaredSymbol(parameter)is IParameterSymbol parameterSymbol
             && model.ClassifyConversion(argument.Expression, parameterSymbol.Type).IsImplicit;

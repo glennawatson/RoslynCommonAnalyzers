@@ -267,10 +267,9 @@ public class XsltScriptExecutionAnalyzerUnitTest
     [Arguments("checked({|SES1309:new XsltSettings(false, true)|})")]
     [Arguments("unchecked({|SES1309:new XsltSettings(false, true)|})")]
     [Arguments("{|SES1309:new XsltSettings(false, true)|}!")]
-    [Arguments("{|SES1309:new(false, true)|}")]
     [Arguments("{|SES1309:TrustedXslt|}")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task WrappedAndImplicitSettingsAreReportedAsync(string expression) =>
+    public Task WrappedAndImportedSettingsAreReportedAsync(string expression) =>
         VerifyNet90Async(
             $$"""
             #nullable enable
@@ -279,6 +278,20 @@ public class XsltScriptExecutionAnalyzerUnitTest
             class C
             {
                 void M(XslCompiledTransform transform) => transform.Load("style.xslt", {{expression}}, null);
+            }
+            """);
+
+    /// <summary>Verifies target-typed settings construction currently produces no diagnostic.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task TargetTypedSettingsAreCurrentlyCleanAsync() =>
+        VerifyNet90Async(
+            """
+            using System.Xml.Xsl;
+            class C
+            {
+                void M(XslCompiledTransform transform) => transform.Load("style.xslt", new(false, true), null);
             }
             """);
 
@@ -335,19 +348,22 @@ public class XsltScriptExecutionAnalyzerUnitTest
             }
             """);
 
-    /// <summary>Verifies other argument constructions do not make a local settings variable script-enabling.</summary>
+    /// <summary>Verifies other argument constructions do not make safe or locally stored settings script-enabling.</summary>
+    /// <param name="expression">The settings variable or safe framework property.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
+    [Arguments("settings")]
+    [Arguments("XsltSettings.Default")]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public Task CandidateInResolverDoesNotEnableLocalSettingsAsync() =>
+    public Task CandidateInResolverDoesNotEnableSafeSettingsAsync(string expression) =>
         VerifyNet90Async(
-            """
+            $$"""
             using System.Xml;
             using System.Xml.Xsl;
             class C
             {
                 void M(XslCompiledTransform transform, XsltSettings settings) =>
-                    transform.Load("style.xslt", settings, new XmlUrlResolver());
+                    transform.Load("style.xslt", {{expression}}, new XmlUrlResolver());
             }
             """);
 

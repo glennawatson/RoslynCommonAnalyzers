@@ -50,7 +50,7 @@ public sealed class Sst2447DifferenceComparedToZeroCodeFixProvider : CodeFixProv
         var subtractionSide = subtractionOnLeft
             ? comparison.Left
             : comparison.Right;
-        return Sst2447DifferenceComparedToZeroAnalyzer.Unwrap(subtractionSide)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression } subtraction;
+        return Sst2447DifferenceComparedToZeroAnalyzer.Unwrap(subtractionSide)is BinaryExpressionSyntax { RawKind: (int)SyntaxKind.SubtractExpression };
     }
 
     /// <summary>Resolves the reported comparison and replaces it with the direct comparison.</summary>

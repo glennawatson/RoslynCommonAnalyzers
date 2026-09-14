@@ -41,7 +41,7 @@ public sealed class Sst2431ToStringReturnsNullCodeFixProvider : CodeFixProvider,
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is ExpressionSyntax original;
+        root.FindNode(diagnostic.Location.SourceSpan) is ExpressionSyntax;
 
     /// <summary>Resolves the reported null and replaces it with <c>string.Empty</c>.</summary>
     /// <param name="root">The syntax root.</param>

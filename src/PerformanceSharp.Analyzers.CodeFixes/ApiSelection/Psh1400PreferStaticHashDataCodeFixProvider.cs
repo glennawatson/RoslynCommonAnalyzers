@@ -47,7 +47,7 @@ public sealed class Psh1400PreferStaticHashDataCodeFixProvider : CodeFixProvider
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetChainedInvocation(root, diagnostic)is { } invocation;
+        TryGetChainedInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported chained invocation and builds its static HashData replacement.</summary>
     /// <param name="root">The syntax root.</param>

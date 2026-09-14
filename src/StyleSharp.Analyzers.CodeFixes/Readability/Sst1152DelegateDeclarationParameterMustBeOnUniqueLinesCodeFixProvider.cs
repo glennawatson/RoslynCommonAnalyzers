@@ -45,7 +45,7 @@ public sealed class Sst1152DelegateDeclarationParameterMustBeOnUniqueLinesCodeFi
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is DelegateDeclarationSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is DelegateDeclarationSyntax;
 
     /// <summary>Resolves the reported delegate declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

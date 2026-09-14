@@ -42,7 +42,7 @@ public sealed class Sst2420IndexOfSkipsFirstCodeFixProvider : CodeFixProvider, I
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan)?.FirstAncestorOrSelf<BinaryExpressionSyntax>()is { } comparison
-            && GetIndexOfCall(comparison)is { Expression: MemberAccessExpressionSyntax member } invocation;
+            && GetIndexOfCall(comparison)is { Expression: MemberAccessExpressionSyntax };
 
     /// <summary>Resolves the reported comparison and rewrites it to a correct membership test.</summary>
     /// <param name="root">The syntax root.</param>

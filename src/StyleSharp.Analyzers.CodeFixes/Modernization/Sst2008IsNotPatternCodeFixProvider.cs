@@ -49,7 +49,7 @@ public sealed class Sst2008IsNotPatternCodeFixProvider : CodeFixProvider, IBatch
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is PrefixUnaryExpressionSyntax { RawKind: (int)SyntaxKind.LogicalNotExpression } notExpression
-            && Unwrap(notExpression.Operand)is IsPatternExpressionSyntax isPattern;
+            && Unwrap(notExpression.Operand) is IsPatternExpressionSyntax;
 
     /// <summary>Resolves the reported negation and builds its <c>is not</c> replacement.</summary>
     /// <param name="root">The syntax root.</param>

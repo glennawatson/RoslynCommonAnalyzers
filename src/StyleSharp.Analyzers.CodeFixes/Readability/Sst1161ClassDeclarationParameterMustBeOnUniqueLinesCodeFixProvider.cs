@@ -45,7 +45,7 @@ public sealed class Sst1161ClassDeclarationParameterMustBeOnUniqueLinesCodeFixPr
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is ClassDeclarationSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is ClassDeclarationSyntax;
 
     /// <summary>Resolves the reported class declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

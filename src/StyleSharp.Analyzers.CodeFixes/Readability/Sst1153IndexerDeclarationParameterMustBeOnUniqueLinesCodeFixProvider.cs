@@ -45,7 +45,7 @@ public sealed class Sst1153IndexerDeclarationParameterMustBeOnUniqueLinesCodeFix
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is IndexerDeclarationSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is IndexerDeclarationSyntax;
 
     /// <summary>Resolves the reported indexer declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

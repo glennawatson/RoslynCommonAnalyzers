@@ -45,7 +45,7 @@ public sealed class Sst1150ConstructorDeclarationParameterMustBeOnUniqueLinesCod
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        root.FindNode(diagnostic.Location.SourceSpan)is BaseMethodDeclarationSyntax node;
+        root.FindNode(diagnostic.Location.SourceSpan) is BaseMethodDeclarationSyntax;
 
     /// <summary>Resolves the reported constructor declaration and builds its parameters-on-unique-lines form.</summary>
     /// <param name="root">The syntax root.</param>

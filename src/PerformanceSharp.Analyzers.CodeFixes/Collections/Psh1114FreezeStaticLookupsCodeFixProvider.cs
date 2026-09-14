@@ -44,7 +44,7 @@ public sealed class Psh1114FreezeStaticLookupsCodeFixProvider : CodeFixProvider,
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
-        TryGetFixableField(root, diagnostic)is { } field;
+        TryGetFixableField(root, diagnostic)is { };
 
     /// <summary>Resolves the reported lookup field and builds its frozen replacement.</summary>
     /// <param name="root">The syntax root.</param>

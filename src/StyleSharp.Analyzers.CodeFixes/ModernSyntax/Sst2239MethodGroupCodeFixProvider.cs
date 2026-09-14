@@ -41,7 +41,7 @@ public sealed class Sst2239MethodGroupCodeFixProvider : CodeFixProvider, IBatchF
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
         !(root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true)is not AnonymousFunctionExpressionSyntax lambda
-            || lambda.Body is not InvocationExpressionSyntax invocation);
+            || lambda.Body is not InvocationExpressionSyntax);
 
     /// <summary>Resolves the reported lambda and swaps it for the invoked method group.</summary>
     /// <param name="root">The syntax root.</param>

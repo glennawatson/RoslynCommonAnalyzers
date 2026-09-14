@@ -44,7 +44,7 @@ public sealed class Sst1666DocumentationElementOrderCodeFixProvider : CodeFixPro
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic)
     {
         // A documentation comment is structured trivia, so the search has to be told to descend into it.
-        return root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()is { } documentation;
+        return root.FindNode(diagnostic.Location.SourceSpan, findInsideTrivia: true)?.FirstAncestorOrSelf<DocumentationCommentTriviaSyntax>()is { };
     }
 
     /// <summary>Resolves the reported comment and replaces it with one whose elements are in order.</summary>

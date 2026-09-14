@@ -45,10 +45,8 @@ public sealed class Sst2018RedundantNullCheckBesidePatternCodeFixProvider : Code
         return (node is BinaryExpressionSyntax binary
             && (binary.IsKind(SyntaxKind.LogicalAndExpression)
             || binary.IsKind(SyntaxKind.LogicalOrExpression)))
-            || ((node is IsPatternExpressionSyntax { Pattern: BinaryPatternSyntax { RawKind: (int)SyntaxKind.AndPattern } and } isPattern
-            && TypeArm(and)is { } typePattern)
-            && ((typePattern is TypePatternSyntax type)
-            || (true)));
+            || (node is IsPatternExpressionSyntax { Pattern: BinaryPatternSyntax { RawKind: (int)SyntaxKind.AndPattern } and }
+            && TypeArm(and) is { });
     }
 
     /// <summary>Resolves the reported expression and reduces it to the pattern test.</summary>

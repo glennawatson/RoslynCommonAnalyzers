@@ -46,7 +46,7 @@ public sealed class Psh1305NoConcurrentSnapshotEnumerationCodeFixProvider : Code
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, SemanticModel model, Diagnostic diagnostic) =>
         PairSupportsDeconstruct(model.Compilation)
-            && TryGetFixableForEach(root, diagnostic)is { } statement;
+            && TryGetFixableForEach(root, diagnostic)is { };
 
     /// <summary>Resolves the reported foreach and builds its deconstructing replacement.</summary>
     /// <param name="root">The syntax root.</param>

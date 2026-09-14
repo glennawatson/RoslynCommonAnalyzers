@@ -35,7 +35,7 @@ public sealed class Psh1122UseSortedSetExtremePropertyCodeFixProvider : CodeFixP
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetExtremeInvocation(root, diagnostic)is { } invocation;
+        TryGetExtremeInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported call and builds its property-read replacement.</summary>
     /// <param name="root">The syntax root.</param>

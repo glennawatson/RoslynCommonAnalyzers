@@ -37,7 +37,7 @@ public sealed class Psh1113UseNaturalOrderCodeFixProvider : CodeFixProvider, IBa
     /// <param name="diagnostic">The diagnostic to resolve.</param>
     /// <returns>Whether the reported shape can be rewritten.</returns>
     private static bool CanRewrite(SyntaxNode root, Diagnostic diagnostic) =>
-        TryGetSortInvocation(root, diagnostic)is { } invocation;
+        TryGetSortInvocation(root, diagnostic)is { };
 
     /// <summary>Resolves the reported identity sort and builds its natural-order replacement.</summary>
     /// <param name="root">The syntax root.</param>

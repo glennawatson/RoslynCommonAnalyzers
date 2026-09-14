@@ -8,7 +8,6 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Testing;
-using Microsoft.CodeAnalysis.Text;
 
 using VerifyPragma = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1426PragmaWarningDisableAnalyzer,
@@ -32,7 +31,7 @@ public class Sst1426PragmaWarningDisableCodeFixProviderUnitTest
         using var workspace = new AdhocWorkspace();
         var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", source);
         var root = (await document.GetSyntaxRootAsync())!;
-        var diagnostic = Diagnostic.Create(MaintainabilityRules.PreferSuppressMessageOverPragma, Location.Create(root.SyntaxTree, new TextSpan(0, 1)));
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.PreferSuppressMessageOverPragma, Location.Create(root.SyntaxTree, new(0, 1)));
         using var container = new ContainerConfiguration().WithPart<Sst1426PragmaWarningDisableCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         var actions = new List<CodeAction>();

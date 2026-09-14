@@ -139,17 +139,13 @@ public sealed class Psh1205RedundantInterpolatedStringCodeFixProvider : CodeFixP
         {
             text.CopyTo(0, buffer, 0, firstEscape);
             var written = firstEscape;
-            for (var i = firstEscape; i < text.Length; i++)
+            int charactersConsumed;
+            for (var i = firstEscape; i < text.Length; i += charactersConsumed)
             {
                 var current = text[i];
                 buffer[written] = current;
                 written++;
-                if (current is not ('{' or '}') || i + 1 >= text.Length || text[i + 1] != current)
-                {
-                    continue;
-                }
-
-                i++;
+                charactersConsumed = current is '{' or '}' && i + 1 < text.Length && text[i + 1] == current ? 2 : 1;
             }
 
             return new(buffer, 0, written);

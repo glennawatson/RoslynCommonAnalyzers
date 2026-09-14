@@ -26,7 +26,7 @@ public class UnnecessaryParenthesesAnalyzerUnitTest
             TestCode = $$"""class C { object M() => {|SST1459:({{expression}})|}; }""",
         }.RunAsync(CancellationToken.None);
 
-    /// <summary>Verifies containers that isolate simple operands allow parentheses to be removed.</summary>
+    /// <summary>Verifies only containers that isolate simple operands allow parentheses to be removed.</summary>
     /// <param name="body">The member body containing the marked operand.</param>
     /// <returns>A task representing the asynchronous test.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -47,19 +47,11 @@ public class UnnecessaryParenthesesAnalyzerUnitTest
     [Arguments("int M(int[] values) => {|SST1459:(values[0])|};")]
     [Arguments("int M(string value) => {|SST1459:(value.Length)|};")]
     [Arguments("string M() => {|SST1459:(ToString())|};")]
-    public Task IsolatedOperandsAreReportedAsync(string body) =>
-        VerifyUnnecessaryParentheses.VerifyAnalyzerAsync($$"""class C { {{body}} }""");
-
-    /// <summary>Verifies simple operands in other containers and assignment targets retain their parentheses.</summary>
-    /// <param name="body">The member body containing a near miss.</param>
-    /// <returns>A task representing the asynchronous test.</returns>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    [Test]
     [Arguments("int M(int value) => (value) + 1;")]
     [Arguments("void M(int value) { (value) = 1; }")]
     [Arguments("int M(int value) => (value + 1);")]
     [Arguments("int M(int value) => ((value));")]
-    public Task GroupingAndAssignmentTargetsAreCleanAsync(string body) =>
+    public Task ParentContextControlsDiagnosticsAsync(string body) =>
         VerifyUnnecessaryParentheses.VerifyAnalyzerAsync($$"""class C { {{body}} }""");
 
     /// <summary>Verifies a return value wrapped in non-grouping parentheses is reported.</summary>

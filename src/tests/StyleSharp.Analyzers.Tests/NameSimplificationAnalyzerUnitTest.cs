@@ -56,6 +56,25 @@ public class NameSimplificationAnalyzerUnitTest
         }
     }
 
+    /// <summary>Verifies a bound member in an incomplete script can simplify without an enclosing type declaration.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task IncompleteScriptMemberWithoutTypeDeclarationIsSimplifiedAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText(
+            "int value; _ = this.value;",
+            new(kind: SourceCodeKind.Script));
+        var compilation = CSharpCompilation.CreateScriptCompilation(
+            nameof(IncompleteScriptMemberWithoutTypeDeclarationIsSimplifiedAsync),
+            tree,
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new NameSimplificationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST1117");
+        var text = await tree.GetTextAsync();
+        await Assert.That(text.ToString(diagnostics[0].Location.SourceSpan)).IsEqualTo("this.value");
+    }
+
     /// <summary>Verifies a namespace used in an incomplete type position still binds consistently when shortened.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

@@ -4,9 +4,9 @@
 
 using System.Composition.Hosting;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using RoslynCommon.Analyzers.Tests;
 
@@ -54,6 +54,7 @@ public class Sst2416SignedRemainderTestCodeFixProviderTests
     [Arguments("n % 2 == divisor", null)]
     [Arguments("n % 2L == 1", null)]
     [Arguments("n % 2 == 1L", null)]
+    [Arguments("null % 2 == 1", "null % 2 != 0")]
     [Arguments("1 == n % 2", "int.IsOddInteger(n)")]
     [Arguments("1 != n % 2", "int.IsEvenInteger(n)")]
     public async Task ParityShapeControlsEditsAsync(string expression, string? expected)
@@ -73,12 +74,14 @@ public class Sst2416SignedRemainderTestCodeFixProviderTests
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
         var result = editor.GetChangedRoot().DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
         await Assert.That(result.ToString()).IsEqualTo(expected ?? expression);
-        if (expected is not null)
+        if (expected is null)
         {
-            var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
-            var changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
-            var changedRoot = (await changed.GetSyntaxRootAsync())!;
-            await Assert.That(changedRoot.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression.ToString()).IsEqualTo(expected);
+            return;
         }
+
+        var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
+        var changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        await Assert.That(changedRoot.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression.ToString()).IsEqualTo(expected);
     }
 }

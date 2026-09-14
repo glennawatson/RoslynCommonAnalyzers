@@ -4,9 +4,9 @@
 
 using System.Composition.Hosting;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using RoslynCommon.Analyzers.Tests;
 
@@ -66,7 +66,9 @@ public class Psh1415UseConcreteTypeCodeFixProviderTests
     public async Task NonvariableTargetsAreIgnoredAsync(bool onType)
     {
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", "class C { object M() => new object(); }");
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp)
+            .WithMetadataReferences(RuntimeMetadataReferences.Platform)
+            .AddDocument("Test.cs", "class C { object M() => new object(); }");
         var root = (await document.GetSyntaxRootAsync())!;
         var method = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single();
         var target = onType ? (SyntaxNode)method.ReturnType : method;

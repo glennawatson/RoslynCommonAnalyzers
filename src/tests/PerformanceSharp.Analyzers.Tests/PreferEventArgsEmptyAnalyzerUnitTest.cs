@@ -146,6 +146,15 @@ public class PreferEventArgsEmptyAnalyzerUnitTest
             "using S = System; class C { object M() => {|PSH1022:new S::EventArgs()|}; }",
             "using S = System; class C { object M() => S::EventArgs.Empty; }");
 
+    /// <summary>Verifies each repeated allocation retains its own diagnostic and replacement.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RepeatedAllocationsAreFlaggedAndFixedAsync() =>
+        VerifyAsync(
+            "using System; class C { EventArgs M() => {|PSH1022:new EventArgs()|}; EventArgs N() => {|PSH1022:new()|}; }",
+            "using System; class C { EventArgs M() => EventArgs.Empty; EventArgs N() => EventArgs.Empty; }");
+
     /// <summary>Verifies target-typed allocations require the framework type's simple name to be in scope.</summary>
     /// <param name="source">The allocation with an absent or shadowed simple name.</param>
     /// <returns>A task representing the asynchronous test.</returns>

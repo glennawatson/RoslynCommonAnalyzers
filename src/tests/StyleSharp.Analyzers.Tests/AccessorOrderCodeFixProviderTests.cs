@@ -15,13 +15,16 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Tests accessor reordering with attributes, modifiers, and incomplete syntax.</summary>
 public class AccessorOrderCodeFixProviderTests
 {
+    /// <summary>The document name shared by the accessor tests.</summary>
+    private const string DocumentName = "Test.cs";
+
     /// <summary>Verifies accessor attributes and visibility move with the accessor while slot trivia stays put.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
     public async Task AttributesAndModifiersRetainSlotTriviaAsync()
     {
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", "class C { int P { /* first */ private set; /* second */ [A] get; } }");
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(DocumentName, "class C { int P { /* first */ private set; /* second */ [A] get; } }");
         var root = (await document.GetSyntaxRootAsync())!;
         var list = root.DescendantNodes().OfType<AccessorListSyntax>().Single();
         var changed = await AccessorOrderCodeFixProvider.ReorderAsync(document, list, CancellationToken.None);
@@ -42,7 +45,7 @@ public class AccessorOrderCodeFixProviderTests
     public async Task IncompleteAccessorsRetainTrailingTriviaAsync(bool expressionBody)
     {
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", "class C { int P { set; get; } }");
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(DocumentName, "class C { int P { set; get; } }");
         var root = (await document.GetSyntaxRootAsync())!;
         var list = root.DescendantNodes().OfType<AccessorListSyntax>().Single();
         var getter = list.Accessors[1].WithSemicolonToken(default);
@@ -70,7 +73,7 @@ public class AccessorOrderCodeFixProviderTests
         using var workspace = new AdhocWorkspace();
         using var container = new ContainerConfiguration().WithPart<AccessorOrderCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", "class C { }");
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument(DocumentName, "class C { }");
         var root = (await document.GetSyntaxRootAsync())!;
         var diagnostic = Diagnostic.Create(new("SST1212", "Test", "Test", "Tests", DiagnosticSeverity.Warning, true), root.GetFirstToken().GetLocation());
         var actions = new List<CodeAction>();

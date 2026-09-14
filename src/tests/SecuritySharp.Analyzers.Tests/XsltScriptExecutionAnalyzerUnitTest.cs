@@ -317,6 +317,24 @@ public class XsltScriptExecutionAnalyzerUnitTest
             }
             """);
 
+    /// <summary>Verifies each script-enabling Load call is reported independently.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task RepeatedScriptEnablingCallsAreReportedAsync() =>
+        VerifyNet90Async(
+            """
+            using System.Xml.Xsl;
+            class C
+            {
+                void M(XslCompiledTransform transform)
+                {
+                    transform.Load("first.xslt", {|SES1309:new XsltSettings(false, true)|}, null);
+                    transform.Load("second.xslt", {|SES1309:XsltSettings.TrustedXslt|}, null);
+                }
+            }
+            """);
+
     /// <summary>Verifies other argument constructions do not make a local settings variable script-enabling.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

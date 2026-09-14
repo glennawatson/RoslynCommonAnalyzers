@@ -27,29 +27,13 @@ public sealed class EmbeddedStatementBraceCodeFixProvider : CodeFixProvider, ITe
     public override FixAllProvider GetFixAllProvider() => TextChangeBatchFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetUnbracedChild(root, diagnostic, out var child))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Add braces",
-                    cancellationToken => WrapAsync(context.Document, child, cancellationToken),
-                    equivalenceKey: nameof(EmbeddedStatementBraceCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<StatementSyntax>(
+            context,
+            "Add braces",
+            nameof(EmbeddedStatementBraceCodeFixProvider),
+            TryGetUnbracedChild,
+            WrapAsync);
 
     /// <inheritdoc/>
     void ITextChangeBatchableCodeFix.RegisterTextChanges(SourceText text, SyntaxNode root, Diagnostic diagnostic, List<TextChange> changes)

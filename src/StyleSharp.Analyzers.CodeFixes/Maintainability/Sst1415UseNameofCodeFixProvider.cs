@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>Replaces a parameter-naming string literal with a <c>nameof</c> expression (SST1415).</summary>
@@ -16,34 +18,18 @@ public sealed class Sst1415UseNameofCodeFixProvider : CodeFixProvider, IBatchFix
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not LiteralExpressionSyntax literal)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Use 'nameof({literal.Token.ValueText})'",
-                    cancellationToken => Task.FromResult(Replace(context.Document, root, literal)),
-                    equivalenceKey: nameof(Sst1415UseNameofCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            static literal => $"Use 'nameof({literal.Token.ValueText})'",
+            nameof(Sst1415UseNameofCodeFixProvider),
+            FindLiteral,
+            Replace);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
     {
-        if (editor.OriginalRoot.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) is not LiteralExpressionSyntax literal)
+        if (FindLiteral(editor.OriginalRoot, diagnostic) is not { } literal)
         {
             return;
         }
@@ -62,4 +48,12 @@ public sealed class Sst1415UseNameofCodeFixProvider : CodeFixProvider, IBatchFix
         var nameofExpression = SyntaxFactory.ParseExpression($"nameof({literal.Token.ValueText})").WithTriviaFrom(literal);
         return document.WithSyntaxRoot(root.ReplaceNode(literal, nameofExpression));
     }
+
+    /// <summary>Resolves the diagnostic to the parameter-name literal it was reported on.</summary>
+    /// <param name="root">The syntax root.</param>
+    /// <param name="diagnostic">The diagnostic to resolve.</param>
+    /// <returns>The literal, or <see langword="null"/> when the shape no longer matches.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static LiteralExpressionSyntax? FindLiteral(SyntaxNode root, Diagnostic diagnostic) =>
+        root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true) as LiteralExpressionSyntax;
 }

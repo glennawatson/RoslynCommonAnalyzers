@@ -47,14 +47,12 @@ public sealed class Psh1022PreferEventArgsEmptyAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var types = new EventArgsType(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeCreation(nodeContext, types),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new EventArgsType(compilation),
+            AnalyzeCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Returns whether an allocation is an argument-free <c>new</c> with nothing initialized, before any binding.</summary>

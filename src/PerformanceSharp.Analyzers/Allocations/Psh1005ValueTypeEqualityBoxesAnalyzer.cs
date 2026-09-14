@@ -30,11 +30,11 @@ public sealed class Psh1005ValueTypeEqualityBoxesAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var equatableType = new EquatableType(start.Compilation);
-            start.RegisterSymbolAction(symbolContext => AnalyzeNamedType(symbolContext, equatableType), SymbolKind.NamedType);
-        });
+        CompilationStateRegistration.RegisterSymbolAction(
+            context,
+            static compilation => new EquatableType(compilation),
+            AnalyzeNamedType,
+            SymbolKind.NamedType);
     }
 
     /// <summary>Reports PSH1005 for a boxing-prone struct that defines no equality members.</summary>

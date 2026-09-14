@@ -71,14 +71,12 @@ public sealed class Ses1310AnonymousLdapBindAnalyzer : DiagnosticAnalyzer
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
 
-        context.RegisterCompilationStartAction(static start =>
-        {
-            var types = new DirectoryBindMarkers(start.Compilation);
-            start.RegisterSyntaxNodeAction(
-                nodeContext => AnalyzeObjectCreation(nodeContext, types),
-                SyntaxKind.ObjectCreationExpression,
-                SyntaxKind.ImplicitObjectCreationExpression);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new DirectoryBindMarkers(compilation),
+            AnalyzeObjectCreation,
+            SyntaxKind.ObjectCreationExpression,
+            SyntaxKind.ImplicitObjectCreationExpression);
     }
 
     /// <summary>Reports SES1310 for a <c>DirectoryEntry</c> construction that binds anonymously.</summary>

@@ -51,14 +51,12 @@ public sealed class Sst2601LoggerMemberNamingAnalyzer : DiagnosticAnalyzer
     {
         context.EnableConcurrentExecution();
         context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
-        context.RegisterCompilationStartAction(static startContext =>
-        {
-            var types = new LoggerTypes(startContext.Compilation);
-            startContext.RegisterSyntaxNodeAction(
-                nodeContext => Analyze(nodeContext, types),
-                SyntaxKind.FieldDeclaration,
-                SyntaxKind.PropertyDeclaration);
-        });
+        CompilationStateRegistration.RegisterSyntaxNodeAction(
+            context,
+            static compilation => new LoggerTypes(compilation),
+            Analyze,
+            SyntaxKind.FieldDeclaration,
+            SyntaxKind.PropertyDeclaration);
     }
 
     /// <summary>Dispatches a field or property declaration to the matching check.</summary>

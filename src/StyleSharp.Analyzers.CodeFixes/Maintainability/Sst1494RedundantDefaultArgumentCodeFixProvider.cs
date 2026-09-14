@@ -30,30 +30,13 @@ public sealed class Sst1494RedundantDefaultArgumentCodeFixProvider : CodeFixProv
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        var model = await context.Document.GetSemanticModelAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null || model is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (!TryGetArgument(root, model, diagnostic, context.CancellationToken, out var argument))
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Omit the argument that repeats the default",
-                    _ => Task.FromResult(Apply(context.Document, root, argument!)),
-                    equivalenceKey: nameof(Sst1494RedundantDefaultArgumentCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync<ArgumentSyntax>(
+            context,
+            "Omit the argument that repeats the default",
+            nameof(Sst1494RedundantDefaultArgumentCodeFixProvider),
+            TryGetArgument,
+            Apply);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)
@@ -63,7 +46,7 @@ public sealed class Sst1494RedundantDefaultArgumentCodeFixProvider : CodeFixProv
             return;
         }
 
-        var list = (ArgumentListSyntax)argument!.Parent!;
+        var list = (ArgumentListSyntax)argument.Parent!;
         var index = list.Arguments.IndexOf(argument);
         editor.ReplaceNode(
             list,
@@ -96,7 +79,7 @@ public sealed class Sst1494RedundantDefaultArgumentCodeFixProvider : CodeFixProv
         SemanticModel model,
         Diagnostic diagnostic,
         CancellationToken cancellationToken,
-        out ArgumentSyntax? argument)
+        [NotNullWhen(true)] out ArgumentSyntax? argument)
     {
         argument = root.FindNode(diagnostic.Location.SourceSpan, getInnermostNodeForTie: true).FirstAncestorOrSelf<ArgumentSyntax>();
         if (argument?.Parent is ArgumentListSyntax list

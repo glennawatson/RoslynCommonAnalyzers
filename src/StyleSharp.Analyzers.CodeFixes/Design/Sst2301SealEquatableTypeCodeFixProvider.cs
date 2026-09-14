@@ -24,29 +24,8 @@ public sealed class Sst2301SealEquatableTypeCodeFixProvider : CodeFixProvider, I
     public override FixAllProvider GetFixAllProvider() => BatchEditFixAllProvider.Instance;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (FindDeclaration(root, diagnostic) is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Seal the type",
-                    _ => Task.FromResult(Apply(context.Document, root, declaration)),
-                    equivalenceKey: nameof(Sst2301SealEquatableTypeCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(context, "Seal the type", nameof(Sst2301SealEquatableTypeCodeFixProvider), FindDeclaration, Apply);
 
     /// <inheritdoc/>
     void IBatchFixableCodeFix.RegisterBatchEdits(DocumentEditor editor, Diagnostic diagnostic)

@@ -24,29 +24,13 @@ public sealed class Sst2331ImplicitEnumValueCodeFixProvider : CodeFixProvider
     public override FixAllProvider GetFixAllProvider() => WellKnownFixAllProviders.BatchFixer;
 
     /// <inheritdoc/>
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context)
-    {
-        var root = await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false);
-        if (root is null)
-        {
-            return;
-        }
-
-        foreach (var diagnostic in context.Diagnostics)
-        {
-            if (root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumDeclarationSyntax>() is not { } declaration)
-            {
-                continue;
-            }
-
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    "Assign explicit values",
-                    cancellationToken => AssignExplicitValuesAsync(context.Document, declaration, cancellationToken),
-                    equivalenceKey: nameof(Sst2331ImplicitEnumValueCodeFixProvider)),
-                diagnostic);
-        }
-    }
+    public override Task RegisterCodeFixesAsync(CodeFixContext context) =>
+        TargetCodeFix.RegisterAsync(
+            context,
+            "Assign explicit values",
+            nameof(Sst2331ImplicitEnumValueCodeFixProvider),
+            static (root, diagnostic) => root.FindNode(diagnostic.Location.SourceSpan).FirstAncestorOrSelf<EnumDeclarationSyntax>(),
+            AssignExplicitValuesAsync);
 
     /// <summary>Fills every member with no initializer with the value the compiler currently gives it.</summary>
     /// <param name="document">The document being fixed.</param>

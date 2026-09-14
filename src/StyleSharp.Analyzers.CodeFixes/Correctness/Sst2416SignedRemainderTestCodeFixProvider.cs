@@ -138,7 +138,10 @@ public sealed class Sst2416SignedRemainderTestCodeFixProvider : CodeFixProvider,
         var tokenKind = isOddTest ? SyntaxKind.ExclamationEqualsToken : SyntaxKind.EqualsEqualsToken;
         var operatorToken = SyntaxFactory.Token(comparison.OperatorToken.LeadingTrivia, tokenKind, comparison.OperatorToken.TrailingTrivia);
         var zero = SyntaxFactory.LiteralExpression(SyntaxKind.NumericLiteralExpression, SyntaxFactory.Literal(0));
-        return SyntaxFactory.BinaryExpression(kind, modulo, operatorToken, zero);
+
+        // The space before the operator belongs to the original left operand, which a right-hand remainder is not.
+        var left = ReferenceEquals(modulo, comparison.Left) ? modulo : modulo.WithTrailingTrivia(comparison.Left.GetTrailingTrivia());
+        return SyntaxFactory.BinaryExpression(kind, left, operatorToken, zero);
     }
 
     /// <summary>Returns whether a type declares an accessible static one-argument parity helper.</summary>

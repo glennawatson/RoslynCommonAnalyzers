@@ -90,7 +90,7 @@ public sealed class Psh1415UseConcreteTypeCodeFixProvider : CodeFixProvider, IBa
         replacement = null;
         if (declaredType.Parent is not VariableDeclarationSyntax { Variables.Count: 1 } declaration
             || declaration.Variables[0].Initializer?.Value is not ObjectCreationExpressionSyntax creation
-            || model.GetTypeInfo(creation).Type is not INamedTypeSymbol concrete)
+            || model.GetTypeInfo(creation).Type is not INamedTypeSymbol { TypeKind: not TypeKind.Error } concrete)
         {
             return false;
         }

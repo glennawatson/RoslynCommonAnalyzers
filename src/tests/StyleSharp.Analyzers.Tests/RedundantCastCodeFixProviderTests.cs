@@ -33,7 +33,7 @@ public class RedundantCastCodeFixProviderTests
         var editor = await DocumentEditor.CreateAsync(document);
         var cast = editor.OriginalRoot.DescendantNodes().OfType<CastExpressionSyntax>().Single();
         var diagnostic = Diagnostic.Create(ReadabilityRules.NoRedundantCast, cast.GetLocation());
-        editor.ReplaceNode(cast, SyntaxFactory.ParseExpression(replacement));
+        editor.ReplaceNode(cast, (current, _) => current.CopyAnnotationsTo(SyntaxFactory.ParseExpression(replacement)));
         using var container = new ContainerConfiguration().WithPart<RedundantCastCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);

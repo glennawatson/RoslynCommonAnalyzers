@@ -29,7 +29,7 @@ public class Sst2443LoggerCategoryCodeFixProviderTests
         var editor = await DocumentEditor.CreateAsync(document);
         var category = editor.OriginalRoot.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
         var diagnostic = Diagnostic.Create(CorrectnessRules.WrongLoggerCategory, category.GetLocation());
-        editor.ReplaceNode(category, SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression));
+        editor.ReplaceNode(category, static (current, _) => current.CopyAnnotationsTo(SyntaxFactory.LiteralExpression(SyntaxKind.NullLiteralExpression)));
         using var container = new ContainerConfiguration().WithPart<Sst2443LoggerCategoryCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
@@ -58,7 +58,7 @@ public class Sst2443LoggerCategoryCodeFixProviderTests
         await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(Expected);
         var operations = await actions[0].GetOperationsAsync(CancellationToken.None);
         var changed = operations.OfType<ApplyChangesOperation>().Single().ChangedSolution.GetDocument(document.Id)!;
-        await Assert.That((await changed.GetTextAsync()).ToString()).IsEqualTo(Expected);
+        await Assert.That((await changed.GetTextAsync()).ToString()).IsEqualTo("class Service<T, U> { ILogger<Service<T, U>> logger; }");
     }
 
     /// <summary>Verifies missing category syntax or enclosing types withhold both edit paths.</summary>

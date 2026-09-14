@@ -28,11 +28,12 @@ public class ReferenceEqualsNullPatternAnalyzerUnitTest
     [Arguments("ReferenceEquals(value, null)", LanguageVersion.CSharp6, false)]
     [Arguments("!ReferenceEquals(value, null)", LanguageVersion.CSharp8, false)]
     [Arguments("(callback)(value, null)", LanguageVersion.CSharp9, false)]
+    [Arguments("new[] { callback }[0](value, null)", LanguageVersion.CSharp9, false)]
     [Arguments("ReferenceEquals(value)", LanguageVersion.CSharp9, false)]
     [Arguments("ReferenceEquals(value, value)", LanguageVersion.CSharp9, false)]
     [Arguments("ReferenceEquals(missing, null)", LanguageVersion.CSharp9, false)]
     [Arguments("missing.ReferenceEquals(value, null)", LanguageVersion.CSharp9, false)]
-    [Arguments("ReferenceEquals(default, null)", LanguageVersion.CSharp9, false)]
+    [Arguments("ReferenceEquals(default, null)", LanguageVersion.CSharp9, true)]
     public async Task PatternAvailabilityControlsDiagnosticAsync(string expression, LanguageVersion version, bool reported)
     {
         var source = $"class C {{ bool M<T>(T value, System.Func<object, object, bool> callback) => {expression}; }}";

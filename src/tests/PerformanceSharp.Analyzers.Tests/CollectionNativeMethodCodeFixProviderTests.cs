@@ -34,7 +34,9 @@ public class CollectionNativeMethodCodeFixProviderTests
     [Arguments("items.Any()", null, true, null)]
     [Arguments("items.Any(predicate)", null, true, null)]
     [Arguments("items.Any(x => true)", null, true, null)]
-    [Arguments("items.Any(x => x > 2)", null, true, null)]
+    // The provider trusts the diagnostic's equality classification after the predicate changes.
+    [Arguments("items.Any(x => x > 2)", null, true, "items.Contains(2)")]
+    [Arguments("items.Any(x => 1 == 2)", null, true, null)]
     [Arguments("items.Any(x => x == 2)", null, true, "items.Contains(2)")]
     public async Task PredicateShapeControlsEditsAsync(string expression, string? target, bool membership, string? expected)
     {
@@ -46,6 +48,9 @@ public class CollectionNativeMethodCodeFixProviderTests
         var properties = ImmutableDictionary<string, string?>.Empty.Add(CollectionNativeMethodAnalyzer.TargetNameKey, target);
         var descriptor = membership ? CollectionRules.UseContainsForMembership : CollectionRules.UseCollectionNativePredicate;
         var diagnostic = Diagnostic.Create(descriptor, reported.GetLocation(), properties);
+        var expectedSource = $"class C {{ object M() => {expected ?? expression}; }}";
+        var direct = CollectionNativeMethodCodeFixProvider.Apply(document, root, diagnostic);
+        await Assert.That((await direct.GetTextAsync()).ToString()).IsEqualTo(expectedSource);
         using var container = new ContainerConfiguration().WithPart<CollectionNativeMethodCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         var actions = new List<CodeAction>();
@@ -53,10 +58,7 @@ public class CollectionNativeMethodCodeFixProviderTests
         await Assert.That(actions.Count).IsEqualTo(expected is null ? 0 : 1);
         var editor = await DocumentEditor.CreateAsync(document);
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
-        var expectedSource = $"class C {{ object M() => {expected ?? expression}; }}";
         await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(expectedSource);
-        var direct = CollectionNativeMethodCodeFixProvider.Apply(document, root, diagnostic);
-        await Assert.That((await direct.GetTextAsync()).ToString()).IsEqualTo(expectedSource);
         if (actions.Count == 0)
         {
             return;

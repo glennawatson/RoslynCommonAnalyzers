@@ -55,6 +55,7 @@ public class BooleanLiteralAssertionAnalyzerUnitTest
     [Arguments("Xunit.Assert.AreEqual(true, value)")]
     [Arguments("Other.Equal(true, value)")]
     [Arguments("(callback)(true, value)")]
+    [Arguments("new[] { callback }[0](true, value)")]
     public async Task UnboundOrUnrecognizedAssertionIsCleanAsync(string expression)
     {
         var source = $$"""

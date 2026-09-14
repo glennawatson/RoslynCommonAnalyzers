@@ -26,7 +26,7 @@ public class Sst2412LoopStepsAwayFromBoundCodeFixProviderTests
         var editor = await DocumentEditor.CreateAsync(document);
         var comparison = editor.OriginalRoot.DescendantNodes().OfType<BinaryExpressionSyntax>().Single();
         var diagnostic = Diagnostic.Create(CorrectnessRules.LoopStepsAwayFromBound, comparison.GetLocation());
-        editor.ReplaceNode(comparison, SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression));
+        editor.ReplaceNode(comparison, static (current, _) => current.CopyAnnotationsTo(SyntaxFactory.LiteralExpression(SyntaxKind.TrueLiteralExpression)));
         using var container = new ContainerConfiguration().WithPart<Sst2412LoopStepsAwayFromBoundCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);

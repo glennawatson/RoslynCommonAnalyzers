@@ -102,7 +102,7 @@ public class Sst2330FlagsCombinationLiteralCodeFixUnitTest
     [Arguments("3", ",", null)]
     [Arguments("A", "A,B", null)]
     [Arguments("3", "Access.A,Access.B", "Access.A | Access.B")]
-    [Arguments("3", "@", "@")]
+    [Arguments("3", "@", "")]
     [Arguments("3", "@class,B", "@class | B")]
     public async Task MemberPropertyControlsFixAsync(string expression, string? members, string? expected)
     {

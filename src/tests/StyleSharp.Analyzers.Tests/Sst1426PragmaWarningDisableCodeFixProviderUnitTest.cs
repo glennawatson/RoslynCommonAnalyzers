@@ -2,7 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
+using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Testing;
+using Microsoft.CodeAnalysis.Text;
 
 using VerifyPragma = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1426PragmaWarningDisableAnalyzer,
@@ -13,6 +19,49 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the SST1426 #pragma-to-[SuppressMessage] code fix.</summary>
 public class Sst1426PragmaWarningDisableCodeFixProviderUnitTest
 {
+    /// <summary>Verifies unmatched restores and directives outside members cannot become member attributes.</summary>
+    /// <param name="source">The directive region or stale diagnostic source.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("#pragma warning disable SST1309\nclass C { }")]
+    [Arguments("#pragma warning disable SST1309, SST1400\nclass C { }\n#pragma warning restore SST1309\n")]
+    [Arguments("#pragma warning disable SST1309\nusing System;\n#pragma warning restore SST1309\n")]
+    [Arguments("// stale directive\nclass C { }")]
+    public async Task UnsafeDirectiveRegionsAreNotReplacedAsync(string source)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.PreferSuppressMessageOverPragma, Location.Create(root.SyntaxTree, new TextSpan(0, 1)));
+        using var container = new ContainerConfiguration().WithPart<Sst1426PragmaWarningDisableCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+    }
+
+    /// <summary>Verifies unindented directives and intervening unrelated restores preserve the remaining trivia.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ColumnZeroDirectivePairIsReplacedAsync() =>
+        VerifyAsync(
+            """
+            {|SST1426:#pragma warning disable SST1309|}
+            class C { }
+            #region Keep
+            #pragma warning restore SST1400
+            #endregion
+            #pragma warning restore SST1309
+            """,
+            """
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "SST1309", Justification = "<Pending>")]
+            class C { }
+            #region Keep
+            #pragma warning restore SST1400
+            #endregion
+            """);
+
     /// <summary>Verifies a pair that brackets more than one member is reported but not replaced.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

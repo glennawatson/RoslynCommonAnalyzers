@@ -3,6 +3,8 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyGuard = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -17,6 +19,80 @@ namespace StyleSharp.Analyzers.Tests;
 /// </summary>
 public class PreferGuardClauseAnalyzerUnitTest
 {
+    /// <summary>Verifies declarations can be lifted when no sibling scope uses their names.</summary>
+    /// <param name="body">The guarded statements declaring names.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int.TryParse(\"1\", out var item); _ = item;")]
+    [Arguments("void Local(int item) { } Local(1);")]
+    [Arguments("foreach (var item in new[] { 1 }) { } Work();")]
+    [Arguments("try { Work(); } catch (System.Exception item) { _ = item; } Work();")]
+    [Arguments("System.Action<int> action = item => { }; action(1);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task DistinctGuardedDeclarationsAreReportedAsync(string body) =>
+        VerifyCleanAsync($$"""
+            class C
+            {
+                void M(bool ready)
+                {
+                    {|SST2273:if|} (ready) { {{body}} }
+                }
+                void Work() { }
+            }
+            """);
+
+    /// <summary>Verifies lifting declarations cannot collide with a name in a sibling block.</summary>
+    /// <param name="body">The guarded statements declaring the sibling name.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int.TryParse(\"1\", out var item); _ = item;")]
+    [Arguments("void item() { } item();")]
+    [Arguments("foreach (var item in new[] { 1 }) { } Work();")]
+    [Arguments("try { Work(); } catch (System.Exception item) { _ = item; } Work();")]
+    [Arguments("System.Action<int> action = item => { }; action(1);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ConflictingGuardedDeclarationsAreCleanAsync(string body) =>
+        VerifyCleanAsync($$"""
+            class C
+            {
+                void M(bool ready)
+                {
+                    if (ready) { int item = 1; _ = item; }
+                    if (ready) { {{body}} }
+                }
+                void Work() { }
+            }
+            """);
+
+    /// <summary>Verifies every accessor that returns no value accepts an early return guard.</summary>
+    /// <param name="member">The member containing the accessor.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("int P { init { {|SST2273:if|} (value > 0) { Work(); Work(); } } }")]
+    [Arguments("event System.Action E { add { {|SST2273:if|} (value != null) { Work(); Work(); } } remove { } }")]
+    [Arguments("event System.Action E { add { } remove { {|SST2273:if|} (value != null) { Work(); Work(); } } }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ValueFreeAccessorsAreReportedAsync(string member) =>
+        VerifyCleanAsync($"class C {{ {member} void Work() {{ }} }}");
+
+    /// <summary>Verifies a getter's value requirement prevents a bare return guard.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task GetterGuardIsCleanAsync() =>
+        VerifyCleanAsync("class C { int P { get { if (true) { return 1; } } } }");
+
+    /// <summary>Verifies declarations in a top-level block do not imply a member exit boundary.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task TopLevelBlockHasNoGuardExitAsync()
+    {
+        var root = SyntaxFactory.ParseCompilationUnit("{ if (true) { int item = 1; } }");
+        var statement = root.DescendantNodes().OfType<IfStatementSyntax>().Single();
+        await Assert.That(Sst2273PreferGuardClauseAnalyzer.TryGetGuard(statement, out var jump)).IsFalse();
+        await Assert.That(jump).IsEqualTo(SyntaxKind.None);
+    }
+
     /// <summary>Verifies a trailing wrapping <c>if</c> in a void method becomes a <c>return</c> guard.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

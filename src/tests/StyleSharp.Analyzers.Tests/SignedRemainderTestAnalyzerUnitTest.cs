@@ -15,6 +15,18 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2416 (a remainder parity test on a signed operand).</summary>
 public class SignedRemainderTestAnalyzerUnitTest
 {
+    /// <summary>Verifies the even test uses a zero comparison on frameworks without parity helpers.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    [Test]
+    public Task ReversedEvenTestFallsBackWhereHelperIsAbsentAsync() =>
+        new VerifyFix.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.NetStandard20,
+            TestCode = "class C { bool M(int n) => {|SST2416:1 != n % 2|}; }",
+            FixedCode = "class C { bool M(int n) => n % 2 == 0; }",
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>The source whose odd-parity remainder test on a signed operand is reported.</summary>
     private const string OddParityTestSource = """
                                                public sealed class C

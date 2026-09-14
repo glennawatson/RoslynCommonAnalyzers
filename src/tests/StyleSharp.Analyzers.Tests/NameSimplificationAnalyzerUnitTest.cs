@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using RoslynCommon.Analyzers.Tests;
 using VerifyNameSimplification = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -26,6 +27,34 @@ public class NameSimplificationAnalyzerUnitTest
                                                    [*.cs]
                                                    stylesharp.instance_member_qualification = require_this
                                                    """;
+
+    /// <summary>Verifies a single designation in an incomplete foreach tree only shadows the matching member name.</summary>
+    /// <param name="variableName">The variable designation in the incomplete loop.</param>
+    /// <param name="reportsSimplification">Whether the member remains safe to simplify.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("value", false)]
+    [Arguments("other", true)]
+    public async Task SingleForeachDesignationControlsThisSimplificationAsync(string variableName, bool reportsSimplification)
+    {
+        const string Source = "class C { int value; void M() { foreach (var (first, second) in new (int, int)[0]) { } _ = this.value; } }";
+        var root = SyntaxFactory.ParseCompilationUnit(Source);
+        var loop = root.DescendantNodes().OfType<ForEachVariableStatementSyntax>().Single();
+        var variable = SyntaxFactory.DeclarationExpression(
+            SyntaxFactory.IdentifierName("var"),
+            SyntaxFactory.SingleVariableDesignation(SyntaxFactory.Identifier(variableName)));
+        var changedRoot = root.ReplaceNode(loop, loop.WithVariable(variable));
+        var compilation = CSharpCompilation.Create(
+            nameof(SingleForeachDesignationControlsThisSimplificationAsync),
+            [CSharpSyntaxTree.Create(changedRoot)],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new NameSimplificationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(reportsSimplification ? 1 : 0);
+        if (reportsSimplification)
+        {
+            await Assert.That(diagnostics[0].Id).IsEqualTo("SST1117");
+        }
+    }
 
     /// <summary>Verifies a namespace used in an incomplete type position still binds consistently when shortened.</summary>
     /// <returns>A task representing the asynchronous test.</returns>

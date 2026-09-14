@@ -3,7 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyArguments = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     StyleSharp.Analyzers.Sst2106CollectionExpressionArgumentsAnalyzer>;
 
@@ -12,6 +15,41 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the collection-expression-arguments rule (SST2106).</summary>
 public class Sst2106CollectionExpressionArgumentsAnalyzerUnitTest
 {
+    /// <summary>Verifies named or by-reference arguments and missing constructors are ignored.</summary>
+    /// <param name="source">The noncandidate collection creation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { System.Collections.Generic.List<int> items = new System.Collections.Generic.List<int>(capacity: 4); }")]
+    [Arguments("class C { void M(int size) { System.Collections.Generic.List<int> items = new System.Collections.Generic.List<int>(ref size); } }")]
+    [Arguments("class C { System.Collections.Generic.List<int> items = new System.Collections.Generic.List<int>(true); }")]
+    [Arguments("class C { System.Collections.Generic.List<int> M() => new System.Collections.Generic.List<int>(4); }")]
+    [Arguments("class C { void M(System.Collections.Generic.List<int> items = new System.Collections.Generic.List<int>(4)) { } }")]
+    public async Task UnsupportedCreationContextIsCleanAsync(string source)
+    {
+        var tree = CSharpSyntaxTree.ParseText(source, new(LanguageVersion.Preview));
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2106CollectionExpressionArgumentsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies a property initializer supplies an explicit collection target.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PropertyInitializerIsReportedAsync() =>
+        RunAsync("using System.Collections.Generic; class C { List<int> Items { get; } = {|SST2106:new List<int>(4)|}; }");
+
+    /// <summary>Verifies missing collection framework types disable configuration rewrites.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task MissingCollectionFrameworkIsCleanAsync()
+    {
+        var tree = CSharpSyntaxTree.ParseText("class Items { public Items(int capacity) { } } class C { Items values = new Items(4); }", new(LanguageVersion.Preview));
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], options: new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2106CollectionExpressionArgumentsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies a comparer argument with an element initializer is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -3,7 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeStatic = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1414MarkMembersStaticAnalyzer>;
@@ -16,6 +21,60 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1414 (mark members that do not touch instance state as static) and its code fix.</summary>
 public class MarkMembersStaticAnalyzerUnitTest
 {
+    /// <summary>Verifies executable bodies qualify only when they do not depend on receiver state.</summary>
+    /// <param name="source">The source with any expected diagnostic marked.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("class C { private int {|PSH1414:P|} { get { return 1; } } }")]
+    [Arguments("class C { private int {|PSH1414:P|} { get => 1; set => _ = value; } }")]
+    [Arguments("class C { private int {|PSH1414:P|} { get { return 1; } set { _ = value; } } }")]
+    [Arguments("class C { private int {|PSH1414:M|}() { int value = 1; return value; } }")]
+    [Arguments("class C { private int {|PSH1414:M|}(string value) => value.Length; }")]
+    [Arguments("class Other { public int field; } class C { private int {|PSH1414:P|} => new Other().field; }")]
+    [Arguments("class B { protected int value; } class C : B { private int M() => value; }")]
+    [Arguments("class C { private int P { get { int @field = 1; return @field; } } }")]
+    [Arguments("class C { int @field; private int P => @field; }")]
+    [Arguments("class C { string @field = \"\"; private int P => @field.Length; }")]
+    [Arguments("class C { public event System.Action E; private void M() => E?.Invoke(); }")]
+    [Arguments("class C { private int P { get { return 1; } set; } }")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MembersAreClassifiedByReceiverDependenceAsync(string source) =>
+        VerifyReportedNet90Async(source);
+
+    /// <summary>Verifies an incomplete property with no accessors has no executable body to inspect.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task EmptyAccessorListIsCleanAsync()
+    {
+        var test = new AnalyzeStatic.Test { TestCode = "class C { private int P { } }", CompilerDiagnostics = CompilerDiagnostics.None };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies an incomplete property without either body form is left alone.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PropertyWithoutAccessorListIsCleanAsync()
+    {
+        var root = SyntaxFactory.ParseCompilationUnit("class C { private int P { get { return 1; } } }");
+        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
+        var tree = CSharpSyntaxTree.Create(root.ReplaceNode(property, property.WithAccessorList(null)));
+        var compilation = CSharpCompilation.Create(
+            nameof(PropertyWithoutAccessorListIsCleanAsync),
+            [tree],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Psh1414MarkMembersStaticAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies a detached declaration cannot qualify as a member of a containing type.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task DetachedDeclarationIsIneligibleAsync()
+    {
+        var declaration = (MethodDeclarationSyntax)SyntaxFactory.ParseMemberDeclaration("private int M() => 1;")!;
+        await Assert.That(Psh1414MarkMembersStaticAnalyzer.IsEligibleDeclaration(declaration)).IsFalse();
+    }
+
     /// <summary>Verifies a member calling an instance method unqualified is not reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

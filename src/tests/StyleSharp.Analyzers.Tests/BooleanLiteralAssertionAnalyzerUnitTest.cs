@@ -3,7 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyAssert = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2503BooleanLiteralAssertionAnalyzer>;
 using VerifyAssertFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -15,6 +19,71 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2503 (a boolean literal handed to an equality assertion).</summary>
 public class BooleanLiteralAssertionAnalyzerUnitTest
 {
+    /// <summary>Verifies only callable boolean assertion overloads justify a diagnostic.</summary>
+    /// <param name="member">The available affirmative assertion member.</param>
+    /// <param name="reported">Whether a single boolean argument can be passed.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("public static void True() { }", false)]
+    [Arguments("public static void True(string value) { }", false)]
+    [Arguments("public static void True(int? value) { }", false)]
+    [Arguments("public static bool True;", false)]
+    [Arguments("public static void True(bool value, string message) { }", false)]
+    [Arguments("public static void True(bool? value) { }", true)]
+    [Arguments("public static void True(bool value, string message = null) { }", true)]
+    public async Task BooleanOverloadControlsDiagnosticAsync(string member, bool reported)
+    {
+        var source = $$"""
+            namespace Xunit { public static class Assert { public static void Equal(bool expected, bool actual) { } {{member}} } }
+            class C { void M(bool value) { Xunit.Assert.Equal(true, value); } }
+            """;
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2503BooleanLiteralAssertionAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(reported ? 1 : 0);
+        if (reported)
+        {
+            await Assert.That(diagnostics[0].Id).IsEqualTo("SST2503");
+        }
+    }
+
+    /// <summary>Verifies unresolved calls, delegate invocation, and non-Assert owners are ignored.</summary>
+    /// <param name="expression">The candidate call.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Xunit.Assert.Equal(true, missing)")]
+    [Arguments("Xunit.Assert.AreEqual(true, value)")]
+    [Arguments("Other.Equal(true, value)")]
+    [Arguments("(callback)(true, value)")]
+    public async Task UnboundOrUnrecognizedAssertionIsCleanAsync(string expression)
+    {
+        var source = $$"""
+            namespace Xunit { public static class Assert { public static void Equal(bool expected, bool actual) { } public static void True(bool value) { } } }
+            class Other { public static void Equal(bool expected, bool actual) { } }
+            class C { void M(bool value, System.Action<bool, bool> callback) { {{expression}}; } }
+            """;
+        var tree = CSharpSyntaxTree.ParseText(source);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2503BooleanLiteralAssertionAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies short argument lists and literals beyond equality operands are handled safely.</summary>
+    /// <param name="arguments">The invocation's arguments.</param>
+    /// <param name="expected">The first boolean operand index, or minus one.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("", -1)]
+    [Arguments("true", 0)]
+    [Arguments("value", -1)]
+    [Arguments("value, other, true", -1)]
+    public async Task BooleanOperandSearchStopsAtTwoAsync(string arguments, int expected)
+    {
+        var invocation = (Microsoft.CodeAnalysis.CSharp.Syntax.InvocationExpressionSyntax)SyntaxFactory.ParseExpression($"Equal({arguments})");
+        var index = Sst2503BooleanLiteralAssertionAnalyzer.GetBooleanLiteralArgumentIndex(invocation.ArgumentList.Arguments);
+        await Assert.That(index).IsEqualTo(expected);
+    }
+
     /// <summary>Verifies an xUnit equality against <c>true</c> is reported and rewritten to the affirmative assertion.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

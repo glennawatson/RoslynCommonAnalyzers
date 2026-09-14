@@ -12,6 +12,22 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1318 (overriding parameter names) and its rename fix.</summary>
 public class ParameterNameMatchesBaseAnalyzerUnitTest
 {
+    /// <summary>Verifies an unrelated same-named interface member does not impose parameter names on an overload.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedInterfaceMembersDoNotRenameParametersAsync() =>
+        VerifyParameterName.VerifyAnalyzerAsync("""
+            interface IMethods { void Run(string text); }
+            interface IProperty { int Run { get; } }
+            class C : IMethods, IProperty
+            {
+                void IMethods.Run(string text) { }
+                int IProperty.Run => 0;
+                public void Run(int value) { }
+            }
+            """);
+
     /// <summary>Verifies an override whose parameter name differs from the base is reported and renamed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

@@ -5,6 +5,7 @@
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyModernSyntaxReadability = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.ModernSyntaxReadabilityAnalyzer,
@@ -15,6 +16,80 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for modern readability rules that mirror selected IDE language rules (SST2212-SST2217).</summary>
 public class ModernSyntaxReadabilityAnalyzerUnitTest
 {
+    /// <summary>Checks unshadowed type names and escaped discard identifiers can omit the designation.</summary>
+    /// <param name="type">The type pattern spelling.</param>
+    /// <param name="designation">The discarded identifier spelling.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("A", "_")]
+    [Arguments("global::A", "_")]
+    [Arguments("int", "@_")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnshadowedDiscardPatternsAreFixedAsync(string type, string designation) =>
+        CreateNet80Test(
+            $"class A {{ }} class C {{ bool M(object value) => value is {{|SST2213:{type} {designation}|}}; }}",
+            $"class A {{ }} class C {{ bool M(object value) => value is {type}; }}").RunAsync(CancellationToken.None);
+
+    /// <summary>Checks early syntax and semantic exits leave unrelated readability shapes alone.</summary>
+    /// <param name="member">The member containing the near miss.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("void M() { return; }")]
+    [Arguments("bool M(object value) => value is int number;")]
+    [Arguments("bool M(object value) => value is var _;")]
+    [Arguments("bool M(object value) => value is @var _;")]
+    [Arguments("object M() => System.Text.Encoding.UTF8.GetBytes(\"x\");")]
+    [Arguments("byte[] M(string value) => System.Text.Encoding.UTF8.GetBytes(value);")]
+    [Arguments("byte[] M() => System.Text.Encoding.Unicode.GetBytes(\"x\");")]
+    [Arguments("string M() => System.Convert.ToString(42);")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnsupportedReadabilityShapesAreSilentAsync(string member) =>
+        CreateNet80Test($"class @var {{ }} class C {{ {member} }}").RunAsync(CancellationToken.None);
+
+    /// <summary>Checks syntax parsed below each feature's introducing version is left alone.</summary>
+    /// <param name="version">The language version selected for analysis.</param>
+    /// <param name="member">The candidate member body.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(LanguageVersion.CSharp6, "bool M(object value) => value is int _;")]
+    [Arguments(LanguageVersion.CSharp6, "void M() { var left = 1; var right = 2; var temp = left; left = right; right = temp; }")]
+    [Arguments(LanguageVersion.CSharp10, "byte[] M() => System.Text.Encoding.UTF8.GetBytes(\"x\");")]
+    public Task ReadabilityRequiresTheIntroducingLanguageVersionAsync(LanguageVersion version, string member)
+    {
+        var test = new VerifyModernSyntaxReadability.Test { ReferenceAssemblies = AnalyzerFrameworks.Net80, CompilerDiagnostics = CompilerDiagnostics.None, TestCode = $"class C {{ {member} }}" };
+        test.SolutionTransforms.Add((solution, projectId) => solution.WithProjectParseOptions(projectId, new CSharpParseOptions(version)));
+        return test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Checks a return statement inside GetHashCode is rewritten like an expression body.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task HashReturnStatementIsFixedAsync() =>
+        CreateNet80Test(
+            "class C { int a, b; public override int GetHashCode() { return {|SST2217:(a.GetHashCode() * 31) ^ b.GetHashCode()|}; } }",
+            "class C { int a, b; public override int GetHashCode() { return System.HashCode.Combine(a, b); } }").RunAsync(CancellationToken.None);
+
+    /// <summary>Checks HashCode lookalikes must expose a static Combine method with a supported arity.</summary>
+    /// <param name="members">The source-defined HashCode members.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("")]
+    [Arguments("public static int Combine;")]
+    [Arguments("public int Combine(int a, int b) => 0;")]
+    [Arguments("public static int Combine(int a) => 0;")]
+    [Arguments("public static int Combine(int a, int b, int c, int d, int e, int f, int g, int h, int i) => 0;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task HashCombineRequiresAStaticSupportedOverloadAsync(string members) =>
+        new VerifyModernSyntaxReadability.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.NetStandard20,
+            TestCode = $$"""
+                namespace System { public class HashCode { {{members}} } }
+                class C { int a, b; public override int GetHashCode() => (a.GetHashCode() * 31) ^ b.GetHashCode(); }
+                """,
+        }.RunAsync(CancellationToken.None);
+
     /// <summary>Verifies UTF-8 encoding calls over literals are replaced with UTF-8 string literals.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]

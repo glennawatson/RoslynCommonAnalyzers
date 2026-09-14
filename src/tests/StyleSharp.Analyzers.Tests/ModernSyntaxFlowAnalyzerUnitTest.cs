@@ -3,7 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Composition.Hosting;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Testing;
@@ -18,6 +21,37 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for flow-shaped modern syntax rules (SST2207/SST2208).</summary>
 public class ModernSyntaxFlowAnalyzerUnitTest
 {
+    /// <summary>Verifies applying stale flow diagnostics preserves statements that no longer form a supported pair.</summary>
+    /// <param name="id">The diagnostic being applied.</param>
+    /// <param name="body">The method body at application time.</param>
+    /// <param name="targetClass">Whether the diagnostic has moved outside all statements.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("SST2207", "if (value == null) return value; return value;", false)]
+    [Arguments("SST2207", "return value;", false)]
+    [Arguments("SST2208", "int number;", false)]
+    [Arguments("SST2208", "int number = 1; return value;", false)]
+    [Arguments("SST2208", "return value;", false)]
+    [Arguments("SST2207", "return value;", true)]
+    [Arguments("SST2208", "return value;", true)]
+    [Arguments("SST9999", "return value;", true)]
+    public async Task StaleFlowDiagnosticLeavesDocumentUnchangedAsync(string id, string body, bool targetClass)
+    {
+        var source = $"class C {{ string M(string value) {{ {body} }} }}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        SyntaxNode target = targetClass ? root.DescendantNodes().OfType<ClassDeclarationSyntax>().Single() : root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single().Body!.Statements[0];
+        var descriptor = new DiagnosticDescriptor(id, "Flow", "Flow", "Style", DiagnosticSeverity.Info, true);
+        var diagnostic = Diagnostic.Create(descriptor, target.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxFlowCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions.Count).IsEqualTo(id == "SST9999" ? 0 : 1);
+        await Assert.That(await ModernSyntaxFlowCodeFixProvider.ApplyAsync(document, root, diagnostic, CancellationToken.None)).IsSameReferenceAs(document);
+    }
+
     /// <summary>Verifies equality guards support either null operand and redundant parentheses.</summary>
     /// <param name="condition">The supported null check.</param>
     /// <returns>A task representing the asynchronous test.</returns>

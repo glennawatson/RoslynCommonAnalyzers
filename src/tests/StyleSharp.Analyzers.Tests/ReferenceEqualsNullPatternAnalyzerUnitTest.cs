@@ -2,7 +2,11 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyReferenceEquals = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2282ReferenceEqualsNullPatternAnalyzer,
@@ -13,6 +17,35 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2282 (use an is-null pattern instead of a <c>ReferenceEquals</c> null check).</summary>
 public class ReferenceEqualsNullPatternAnalyzerUnitTest
 {
+    /// <summary>Verifies the required pattern version, generic operands, and alternate invocation shapes.</summary>
+    /// <param name="expression">The reference comparison expression.</param>
+    /// <param name="version">The parsed language version.</param>
+    /// <param name="reported">Whether the comparison has a legal pattern replacement.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("!((ReferenceEquals(value, null)))", LanguageVersion.CSharp9, true)]
+    [Arguments("((ReferenceEquals(value, null)))", LanguageVersion.CSharp7, true)]
+    [Arguments("ReferenceEquals(value, null)", LanguageVersion.CSharp6, false)]
+    [Arguments("!ReferenceEquals(value, null)", LanguageVersion.CSharp8, false)]
+    [Arguments("(callback)(value, null)", LanguageVersion.CSharp9, false)]
+    [Arguments("ReferenceEquals(value)", LanguageVersion.CSharp9, false)]
+    [Arguments("ReferenceEquals(value, value)", LanguageVersion.CSharp9, false)]
+    [Arguments("ReferenceEquals(missing, null)", LanguageVersion.CSharp9, false)]
+    [Arguments("missing.ReferenceEquals(value, null)", LanguageVersion.CSharp9, false)]
+    [Arguments("ReferenceEquals(default, null)", LanguageVersion.CSharp9, false)]
+    public async Task PatternAvailabilityControlsDiagnosticAsync(string expression, LanguageVersion version, bool reported)
+    {
+        var source = $"class C {{ bool M<T>(T value, System.Func<object, object, bool> callback) => {expression}; }}";
+        var tree = CSharpSyntaxTree.ParseText(source, new(version));
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2282ReferenceEqualsNullPatternAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(reported ? 1 : 0);
+        if (reported)
+        {
+            await Assert.That(diagnostics[0].Id).IsEqualTo("SST2282");
+        }
+    }
+
     /// <summary>Verifies <c>ReferenceEquals(value, null)</c> becomes <c>value is null</c>.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]

@@ -3,6 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Composition.Hosting;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyRawString = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2243UseRawStringLiteralAnalyzer,
     StyleSharp.Analyzers.Sst2243UseRawStringLiteralCodeFixProvider>;
@@ -12,6 +20,56 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for <see cref="Sst2243UseRawStringLiteralAnalyzer"/> and its code fix (SST2243).</summary>
 public class UseRawStringLiteralAnalyzerUnitTest
 {
+    /// <summary>Verifies multiline rewrites follow the document newline convention, including terminal line breaks.</summary>
+    /// <param name="newline">The original line break.</param>
+    /// <param name="expectedNewline">The newline produced by the existing layout helper.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("\n", "\n")]
+    [Arguments("\r\n", "\r\n")]
+    [Arguments("\r", "\n")]
+    public async Task MultilineRewriteUsesDetectedNewlineAsync(string newline, string expectedNewline)
+    {
+        var source = $"class C{newline}{{{newline}    string M() => @\"alpha{newline}omega{newline}\";{newline}}}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var literal = root.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        var diagnostic = Diagnostic.Create(ModernSyntaxRules.UseRawStringLiteral, literal.GetLocation());
+        var changed = Sst2243UseRawStringLiteralCodeFixProvider.Apply(document, root, diagnostic);
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        var replacement = changedRoot.DescendantNodes().OfType<LiteralExpressionSyntax>().Single();
+        await Assert.That(replacement.Token.IsKind(SyntaxKind.MultiLineRawStringLiteralToken)).IsTrue();
+        await Assert.That(replacement.Token.ValueText).IsEqualTo($"alpha{expectedNewline}omega{expectedNewline}");
+    }
+
+    /// <summary>Verifies stale diagnostics on expressions other than verbatim strings leave the document intact.</summary>
+    /// <param name="expression">The expression at the stale diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("42")]
+    [Arguments("\"text\"")]
+    [Arguments("nameof(C)")]
+    [Arguments("\"\"\"text\"\"\"")]
+    public async Task NonVerbatimExpressionHasNoRewriteAsync(string expression)
+    {
+        var source = $"class C {{ object M() => {expression}; }}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var target = root.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
+        var diagnostic = Diagnostic.Create(ModernSyntaxRules.UseRawStringLiteral, target.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst2243UseRawStringLiteralCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        await Assert.That(Sst2243UseRawStringLiteralCodeFixProvider.Apply(document, root, diagnostic)).IsSameReferenceAs(document);
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
+
     /// <summary>Verifies a single-line verbatim literal with doubled-quote escapes is reported and rewritten with a three-quote delimiter.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

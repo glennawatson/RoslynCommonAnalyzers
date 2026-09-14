@@ -3,7 +3,10 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyCallerInfoOrder = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2433CallerInfoParameterOrderAnalyzer>;
 
@@ -12,6 +15,43 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2433 (a misplaced or defaulted caller-info parameter).</summary>
 public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 {
+    /// <summary>Verifies ordinary and parameterless methods do not require caller-info inspection.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task MethodsWithoutAttributedParametersAreCleanAsync() =>
+        VerifyCallerInfoOrder.VerifyAnalyzerAsync("class C { public void M() { } public void N(int value, string text) { } }");
+
+    /// <summary>Verifies a compilation without caller-info attributes disables the rule.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MissingCallerInfoFrameworkIsCleanAsync()
+    {
+        var compilation = CSharpCompilation.Create(
+            nameof(MissingCallerInfoFrameworkIsCleanAsync),
+            [CSharpSyntaxTree.ParseText("class C { void M(int value) { } }")]);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2433CallerInfoParameterOrderAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies older frameworks still report misplaced member-name attributes without argument-expression support.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task OlderCallerInfoFrameworkStillReportsAsync()
+    {
+        var test = new VerifyCallerInfoOrder.Test
+        {
+            ReferenceAssemblies = AnalyzerFrameworks.NetStandard20,
+            TestCode = """
+                class C
+                {
+                    void M([System.Runtime.CompilerServices.CallerMemberName] string {|SST2433:caller|} = "", int value = 0) { }
+                }
+                """,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>A caller-info parameter with no default value, which the compiler also rejects.</summary>
     private const string MissingDefaultSource = """
         using System.Runtime.CompilerServices;

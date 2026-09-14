@@ -3,7 +3,12 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
+using RoslynCommon.Analyzers.Tests;
 using VerifyParameters = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst1472TooManyParametersAnalyzer>;
 
 namespace StyleSharp.Analyzers.Tests;
@@ -33,6 +38,7 @@ public class TooManyParametersAnalyzerUnitTest
     [Arguments("CallerFilePathAttributx")]
     [Arguments("CallerLineNumberAttributx")]
     [Arguments("CallerArgumentExpressionAttributx")]
+    [Arguments("CallerArgumentExpressionAttributes")]
     [Arguments("DallerMemberName")]
     [Arguments("DallerFilePath")]
     [Arguments("DallerLineNumber")]
@@ -109,6 +115,24 @@ public class TooManyParametersAnalyzerUnitTest
     [Arguments("partial int {|SST1472:this|}[int a, int b, int c, int d, int e, int f, int g, int h];")]
     public Task IncompletePartialSignatureUsesExistingBodyAsync(string member) =>
         new VerifyParameters.Test { TestCode = $"partial class C {{ {member} void M() {{ }} }}", CompilerDiagnostics = CompilerDiagnostics.None }.RunAsync(CancellationToken.None);
+
+    /// <summary>Verifies a partial indexer with no accessor list remains a measured definition.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task PartialIndexerWithoutAccessorListIsMeasuredAsync()
+    {
+        var root = SyntaxFactory.ParseCompilationUnit("partial class C { partial int this[int a, int b, int c, int d, int e, int f, int g, int h] { get; } }");
+        var indexer = root.DescendantNodes().OfType<IndexerDeclarationSyntax>().Single();
+        var tree = CSharpSyntaxTree.Create(root.ReplaceNode(indexer, indexer.WithAccessorList(null)));
+        var compilation = CSharpCompilation.Create(
+            nameof(PartialIndexerWithoutAccessorListIsMeasuredAsync),
+            [tree],
+            RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst1472TooManyParametersAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics.Length).IsEqualTo(1);
+        await Assert.That(diagnostics[0].Id).IsEqualTo("SST1472");
+        await Assert.That(diagnostics[0].Location.SourceSpan).IsEqualTo(indexer.ThisKeyword.Span);
+    }
 
     /// <summary>Verifies a partial primary constructor remains author-controlled.</summary>
     /// <returns>A task representing the asynchronous test.</returns>

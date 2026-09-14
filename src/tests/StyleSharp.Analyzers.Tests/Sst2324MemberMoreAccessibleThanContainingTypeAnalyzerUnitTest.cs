@@ -13,6 +13,19 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2324 (a member declared more accessible than its containing type).</summary>
 public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
 {
+    /// <summary>Verifies invalid top-level accessibility does not prevent a wider source member from being examined.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MisplacedPrivateTypeStillReportsWiderMemberAsync()
+    {
+        var test = new Verify.Test
+        {
+            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
+            TestCode = "private class C { {|SST2324:public|} void M() { } }",
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
     /// <summary>Verifies enum, delegate, constructor, and operator symbols are not ordinary method candidates.</summary>
     /// <param name="source">The declarations whose accessibility must remain unchanged.</param>
     /// <returns>A task representing the asynchronous test.</returns>

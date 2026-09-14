@@ -12,6 +12,39 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1321 (a synchronous method named '…Async') and its rename fix.</summary>
 public class AsyncSuffixWithoutAwaitableReturnAnalyzerUnitTest
 {
+    /// <summary>Verifies aliases to actual task types remain awaitable after the syntax-name gate.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task TaskAliasKeepsAsyncSuffixAsync() =>
+        VerifyAsyncMismatch.VerifyAnalyzerAsync("using Pending = System.Threading.Tasks.Task; class C { Pending LoadAsync() => null; }");
+
+    /// <summary>Verifies async-enumerable lookalikes from other namespaces are not treated as awaitable.</summary>
+    /// <param name="declaration">The lookalike type declaration.</param>
+    /// <param name="type">Its qualified name.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("class IAsyncEnumerable<T> { }", "IAsyncEnumerable<int>")]
+    [Arguments("namespace Other { class IAsyncEnumerable<T> { } }", "Other.IAsyncEnumerable<int>")]
+    [Arguments("namespace Other.Generic { class IAsyncEnumerable<T> { } }", "Other.Generic.IAsyncEnumerable<int>")]
+    [Arguments("namespace Other.Collections.Generic { class IAsyncEnumerable<T> { } }", "Other.Collections.Generic.IAsyncEnumerable<int>")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AsyncEnumerableLookalikeLosesSuffixAsync(string declaration, string type) =>
+        VerifyAsyncMismatch.VerifyAnalyzerAsync($"{declaration} class C {{ {type} {{|SST1321:LoadAsync|}}() => null; }}");
+
+    /// <summary>Verifies same-named fields and parameterized methods do not satisfy the awaiter pattern.</summary>
+    /// <param name="member">The member that does not provide a parameterless awaiter.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("public int GetAwaiter;")]
+    [Arguments("public int GetAwaiter(int value) => value;")]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AwaiterNearMissRequiresRemovingSuffixAsync(string member) =>
+        VerifyAsyncMismatch.VerifyAnalyzerAsync($$"""
+            class Awaitable { {{member}} }
+            class C { public Awaitable {|SST1321:LoadAsync|}() => null; }
+            """);
+
     /// <summary>Verifies a synchronous method with the suffix is reported and renamed to drop it.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

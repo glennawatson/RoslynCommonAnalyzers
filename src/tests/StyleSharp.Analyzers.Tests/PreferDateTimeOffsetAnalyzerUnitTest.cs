@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
 using VerifyDateTimeOffset = StyleSharp.Analyzers.Tests.CSharpAnalyzerVerifier<StyleSharp.Analyzers.Sst2016PreferDateTimeOffsetAnalyzer>;
@@ -15,6 +16,45 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2016 (expose DateTimeOffset rather than DateTime).</summary>
 public class PreferDateTimeOffsetAnalyzerUnitTest
 {
+    /// <summary>Verifies a field whose variable list is still empty is ignored during editing.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task FieldWithoutDeclaratorsIsIgnoredAsync()
+    {
+        var root = await CSharpSyntaxTree.ParseText("using System; public class C { public DateTime value; }").GetRootAsync();
+        var field = root.DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
+        root = root.ReplaceNode(field, field.WithDeclaration(field.Declaration.WithVariables(default)));
+        var tree = CSharpSyntaxTree.Create((CSharpSyntaxNode)root);
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RoslynCommon.Analyzers.Tests.RuntimeMetadataReferences.Platform);
+        var diagnostics = await compilation.WithAnalyzers([new Sst2016PreferDateTimeOffsetAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
+    /// <summary>Verifies unrelated fields and delegate returns, hidden delegates, and indexer parameters stay quiet.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task NonBoundaryAndNonDateTimeSignaturesAreCleanAsync() =>
+        VerifyNet80Async(
+            """
+            using System;
+            public class C
+            {
+                public int Count;
+                public DateTimeOffset Stamp;
+                private delegate DateTime Clock();
+                public delegate int CountClock();
+                public int this[DateTime stamp] => 0;
+            }
+            """);
+
+    /// <summary>Verifies an alias-qualified spelling still binds to the framework DateTime.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AliasQualifiedDateTimeIsReportedAsync() =>
+        VerifyNet80Async("using clock = System; public class C { public {|SST2016:clock::DateTime|} Stamp; }");
+
     /// <summary>Verifies every externally visible declaration of a DateTime is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

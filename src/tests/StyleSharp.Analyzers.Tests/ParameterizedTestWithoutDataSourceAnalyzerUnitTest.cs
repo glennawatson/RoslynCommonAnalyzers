@@ -12,6 +12,72 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2505 (a parameterized test method that declares no data source).</summary>
 public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 {
+    /// <summary>Verifies an attributed method misplaced in a namespace is ignored when its declaration cannot bind.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task MisplacedNamespaceTestIsCleanAsync()
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = "namespace N { [TUnit.Core.Test] void Run(int value) { } }" + TUnitStubs,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies incomplete attribute lists and unresolved parameter attributes do not masquerade as data.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task IncompleteAttributesDoNotSupplyDataAsync()
+    {
+        var test = new VerifyTest.Test
+        {
+            ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
+            CompilerDiagnostics = CompilerDiagnostics.None,
+            TestCode = """
+                class Tests
+                {
+                    [] public void Helper(int value) { }
+                    [TUnit.Core.Test] public void {|SST2505:Run|}([Missing] int value) { }
+                }
+                """ + TUnitStubs,
+        };
+        await test.RunAsync(CancellationToken.None);
+    }
+
+    /// <summary>Verifies aliased test markers and a complete set of framework symbols are recognized.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task AliasedTestMarkerWithAllFrameworksIsReportedAsync() =>
+        VerifyAsync("""
+            using Framework = TUnit.Core;
+            class Tests
+            {
+                [System.Obsolete, Framework::Test, System.CLSCompliant(false)]
+                public void {|SST2505:Run|}([System.ComponentModel.Description("value")] int value) { }
+                [System.Obsolete] public void Helper(int value) { }
+            }
+            """ + XunitStubs + NUnitStubs + MsTestStubs + TUnitStubs);
+
+    /// <summary>Verifies a parameter attribute with an unrelated interface does not supply test data.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task UnrelatedParameterAttributeDoesNotSupplyDataAsync() =>
+        VerifyAsync("""
+            interface IMarker { }
+            class MarkerAttribute : System.Attribute, IMarker { }
+            class Tests
+            {
+                [NUnit.Framework.Test]
+                public void {|SST2505:Run|}([Marker] int value) { }
+                [NUnit.Framework.Test]
+                public void WithData([NUnit.Framework.Values(1)] int value) { }
+            }
+            """ + XunitStubs + NUnitStubs + MsTestStubs + TUnitStubs);
+
     /// <summary>Minimal xUnit attribute stubs, including the data-attribute base its data attributes derive from.</summary>
     private const string XunitStubs = """
         namespace Xunit

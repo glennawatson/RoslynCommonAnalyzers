@@ -3,6 +3,11 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Diagnostics;
+using RoslynCommon.Analyzers.Tests;
 using VerifyInferableTypeArguments = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2251InferableTypeArgumentsAnalyzer,
     StyleSharp.Analyzers.Sst2251InferableTypeArgumentsCodeFixProvider>;
@@ -12,6 +17,32 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2251 (omit type arguments that inference supplies).</summary>
 public class InferableTypeArgumentsAnalyzerUnitTest
 {
+    /// <summary>Verifies an incomplete generic name with no argument nodes cannot be shortened.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task EmptyTypeArgumentListIsRejectedAsync()
+    {
+        var invocation = SyntaxFactory.InvocationExpression(SyntaxFactory.GenericName(SyntaxFactory.Identifier("Echo"), SyntaxFactory.TypeArgumentList()));
+        await Assert.That(Sst2251InferableTypeArgumentsAnalyzer.TryGetExplicitTypeArguments(invocation, out var name)).IsFalse();
+        await Assert.That(name).IsNull();
+    }
+
+    /// <summary>Verifies omitted arguments and unresolved or non-generic calls do not produce inference suggestions.</summary>
+    /// <param name="expression">The malformed invocation.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("Echo<>(1)")]
+    [Arguments("Echo<int,>(1)")]
+    [Arguments("Missing<int>(1)")]
+    [Arguments("Plain<int>(1)")]
+    public async Task UnboundGenericInvocationIsIgnoredAsync(string expression)
+    {
+        var tree = CSharpSyntaxTree.ParseText($"class C {{ T Echo<T>(T value) => value; int Plain(int value) => value; object M() => {expression}; }}");
+        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
+        var diagnostics = await compilation.WithAnalyzers([new Sst2251InferableTypeArgumentsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
+        await Assert.That(diagnostics).IsEmpty();
+    }
+
     /// <summary>Verifies explicit type arguments an unqualified call infers are reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

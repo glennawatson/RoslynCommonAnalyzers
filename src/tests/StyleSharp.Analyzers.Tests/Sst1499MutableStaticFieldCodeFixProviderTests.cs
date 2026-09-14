@@ -33,6 +33,9 @@ public sealed class Sst1499MutableStaticFieldCodeFixProviderTests
     [Arguments("class C { public static int Value; static void M() { Value++; } }")]
     [Arguments("class C { public static int Value; static void M() { System.Threading.Interlocked.Increment(ref Value); } }")]
     [Arguments("class C { public static int Value; } class D { static D() { C.Value = 1; } }")]
+    [Arguments("class C { public static int Value; static C() { System.Action set = () => Value = 1; set(); } }")]
+    [Arguments("class C { public static int Value; static void M() { Value--; } }")]
+    [Arguments("class C { public static int Value;\n/// <summary><see cref=\"Value\"/></summary>\nvoid M() { } }")]
     public async Task ForbiddenReadonlyRewriteHasNoFixAsync(string source)
     {
         using var workspace = new AdhocWorkspace();

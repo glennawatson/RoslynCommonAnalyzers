@@ -2,7 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Editing;
 using VerifyBaseList = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1490RedundantBaseListEntryAnalyzer,
     StyleSharp.Analyzers.Sst1490RedundantBaseListEntryCodeFixProvider>;
@@ -12,6 +19,77 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1490 (base lists should not state what is already implied) and its fix.</summary>
 public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 {
+    /// <summary>Verifies a syntax list ending in a separator preserves the separator's trailing trivia.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    public async Task TrailingBaseSeparatorKeepsTriviaAsync()
+    {
+        var list = SyntaxFactory.BaseList(SyntaxFactory.SeparatedList<BaseTypeSyntax>(new SyntaxNodeOrToken[]
+        {
+            SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName("IA")),
+            SyntaxFactory.Token(SyntaxKind.CommaToken),
+            SyntaxFactory.SimpleBaseType(SyntaxFactory.IdentifierName("IB")),
+            SyntaxFactory.Token(SyntaxKind.CommaToken).WithTrailingTrivia(SyntaxFactory.Comment("// keep"), SyntaxFactory.LineFeed),
+        }));
+        var root = SyntaxFactory.CompilationUnit().AddMembers(SyntaxFactory.ClassDeclaration("C").WithBaseList(list));
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("TrailingBase", LanguageNames.CSharp).AddDocument("Test.cs", root.ToFullString()).WithSyntaxRoot(root);
+        var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().First();
+        var changed = Sst1490RedundantBaseListEntryCodeFixProvider.Apply(document, root, entry);
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        var remaining = changedRoot.DescendantNodes().OfType<BaseListSyntax>().Single();
+        await Assert.That(remaining.Types.Count).IsEqualTo(1);
+        await Assert.That(remaining.Types.SeparatorCount).IsEqualTo(1);
+        await Assert.That(remaining.GetTrailingTrivia().ToFullString()).IsEqualTo("// keep\n");
+    }
+
+    /// <summary>Verifies a stale target cannot remove a sole base entry or edit an unrelated declaration.</summary>
+    /// <param name="source">The declaration after the original diagnostic became stale.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("class C { }")]
+    [Arguments("class C : I { }")]
+    public async Task InapplicableBaseEntryIsUnchangedAsync(string source)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("BaseTarget", LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().SingleOrDefault();
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.RedundantBaseListEntry, (entry ?? (SyntaxNode)root).GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst1490RedundantBaseListEntryCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
+
+    /// <summary>Verifies repeated batch edits remain safe after a preceding edit removed the same entry.</summary>
+    /// <param name="source">The initial list with two or three entries.</param>
+    /// <param name="expected">The list after removing the selected entry twice.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("class C : IA, IB { }", "class C : IB { }")]
+    [Arguments("class C : IA, IB, IC { }", "class C : IB, IC { }")]
+    [Arguments("class C : IA, IB, { }", "class C : IB, { }")]
+    public async Task RepeatedBatchRemovalPreservesRemainingEntriesAsync(string source, string expected)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("BaseRemoval", LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().First();
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.RedundantBaseListEntry, entry.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Sst1490RedundantBaseListEntryCodeFixProvider>().CreateContainer();
+        var provider = (IBatchFixableCodeFix)container.GetExport<CodeFixProvider>();
+        var editor = await DocumentEditor.CreateAsync(document);
+        provider.RegisterBatchEdits(editor, diagnostic);
+        provider.RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().NormalizeWhitespace().ToFullString())
+            .IsEqualTo(SyntaxFactory.ParseCompilationUnit(expected).NormalizeWhitespace().ToFullString());
+    }
+
     /// <summary>Verifies an interface another interface in the list inherits is reported and removed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

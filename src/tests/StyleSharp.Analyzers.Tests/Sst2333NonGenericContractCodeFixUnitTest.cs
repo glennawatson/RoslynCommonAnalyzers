@@ -2,7 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Collections.Immutable;
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
 using VerifyContract = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst2333NonGenericContractAnalyzer,
     StyleSharp.Analyzers.Sst2333NonGenericContractCodeFixProvider>;
@@ -136,4 +142,47 @@ public class Sst2333NonGenericContractCodeFixUnitTest
     [Test]
     public Task AddsObjectEqualsOverrideAsync() =>
         VerifyContract.VerifyCodeFixAsync(EquatableSource, EquatableFixed);
+
+    /// <summary>Verifies stale locations, directive boundaries, and missing contract metadata prevent both edit paths.</summary>
+    /// <param name="source">The document remaining when the fix is requested.</param>
+    /// <param name="contract">The requested contract, including invalid and absent values.</param>
+    /// <param name="hasContract">Whether the diagnostic carries the contract property.</param>
+    /// <param name="argument">The generic argument stored on the diagnostic.</param>
+    /// <param name="hasArgument">Whether the diagnostic carries the argument property.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("enum C { }", "IComparable", true, "global::C", true)]
+    [Arguments("class C {\n#region Members\n#endregion\n}", "IComparable", true, "global::C", true)]
+    [Arguments("class C { }", null, false, "global::C", true)]
+    [Arguments("class C { }", null, true, "global::C", true)]
+    [Arguments("class C { }", "Unknown", true, "global::C", true)]
+    [Arguments("class C { }", "IComparable", true, null, false)]
+    [Arguments("class C { }", "IComparable", true, null, true)]
+    public async Task InapplicableContractDoesNotRegisterOrEditAsync(string source, string? contract, bool hasContract, string? argument, bool hasArgument)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var identifier = root.DescendantTokens().Single(static token => token.ValueText == "C");
+        var properties = ImmutableDictionary<string, string?>.Empty;
+        if (hasContract)
+        {
+            properties = properties.Add(Sst2333NonGenericContractAnalyzer.ContractKey, contract);
+        }
+
+        if (hasArgument)
+        {
+            properties = properties.Add(Sst2333NonGenericContractAnalyzer.TypeArgumentKey, argument);
+        }
+
+        var diagnostic = Diagnostic.Create(DesignRules.MissingNonGenericContract, identifier.GetLocation(), properties);
+        using var container = new ContainerConfiguration().WithPart<Sst2333NonGenericContractCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
 }

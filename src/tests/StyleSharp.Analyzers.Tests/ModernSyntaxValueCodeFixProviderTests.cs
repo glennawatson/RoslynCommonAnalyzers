@@ -24,6 +24,44 @@ public class ModernSyntaxValueCodeFixProviderTests
     /// <summary>The source suffix shared by statement-level code-fix tests.</summary>
     private const string SourceSuffix = " } }";
 
+    /// <summary>The diagnostic for expression statements whose values are ignored.</summary>
+    private const string IgnoredValueDiagnosticId = "SST2221";
+
+    /// <summary>Verifies Fix All leaves the document intact when its context cannot register batch edits.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task FixAllWithoutBatchSupportPreservesDocumentAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        using var container = new ContainerConfiguration().WithPart<ModernSyntaxValueCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var (document, diagnostic) = CreateDocument(workspace, IgnoredValueDiagnosticId, "[|new object()|];", null, null);
+        var context = new FixAllContext(
+            document,
+            new NonBatchProvider(),
+            FixAllScope.Document,
+            IgnoredValueDiagnosticId,
+            provider.FixableDiagnosticIds,
+            new SelectedDiagnostics([diagnostic]),
+            CancellationToken.None);
+        var action = (await provider.GetFixAllProvider()!.GetFixAsync(context))!;
+        var operations = await action.GetOperationsAsync(CancellationToken.None);
+        var changed = operations.OfType<ApplyChangesOperation>().SingleOrDefault()?.ChangedSolution.GetDocument(document.Id) ?? document;
+        await Assert.That((await changed.GetTextAsync()).ToString()).IsEqualTo((await document.GetTextAsync()).ToString());
+    }
+
+    /// <summary>Verifies a standalone assignment cannot remove the syntax root from a document.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    public async Task RemovingStandaloneAssignmentPreservesDocumentAsync()
+    {
+        using var workspace = new AdhocWorkspace();
+        var (document, _) = CreateDocument(workspace, "SST2222", "[|value = 1|];", null, null);
+        var statement = SyntaxFactory.ParseStatement("value = 1;");
+        var diagnostic = Diagnostic.Create(new("SST2222", "Test", "Test", "Tests", DiagnosticSeverity.Warning, true), statement.GetLocation());
+        await Assert.That(ModernSyntaxValueCodeFixProvider.Apply(document, statement, diagnostic)).IsSameReferenceAs(document);
+    }
+
     /// <summary>Verifies Fix All coalesces duplicate edits and preserves statements with no discardable value.</summary>
     /// <param name="fixable">Whether the selected statement produces a value.</param>
     /// <returns>A task representing the asynchronous test.</returns>
@@ -36,12 +74,12 @@ public class ModernSyntaxValueCodeFixProviderTests
         using var container = new ContainerConfiguration().WithPart<ModernSyntaxValueCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         var body = fixable ? "[|new object()|];" : "[|M()|];";
-        var (document, diagnostic) = CreateDocument(workspace, "SST2221", body, null, null);
+        var (document, diagnostic) = CreateDocument(workspace, IgnoredValueDiagnosticId, body, null, null);
         var context = new FixAllContext(
             document,
             provider,
             FixAllScope.Document,
-            "SST2221",
+            IgnoredValueDiagnosticId,
             provider.FixableDiagnosticIds,
             new SelectedDiagnostics([diagnostic, diagnostic]),
             CancellationToken.None);
@@ -240,6 +278,17 @@ public class ModernSyntaxValueCodeFixProviderTests
         var descriptor = new DiagnosticDescriptor(id, id, id, "Tests", DiagnosticSeverity.Warning, isEnabledByDefault: true);
         var properties = key is null ? ImmutableDictionary<string, string?>.Empty : ImmutableDictionary<string, string?>.Empty.Add(key, value);
         return (document, Diagnostic.Create(descriptor, Location.Create("Test.cs", span, default), properties));
+    }
+
+    /// <summary>Provides a Fix All context without the batch-edit contract.</summary>
+    private sealed class NonBatchProvider : CodeFixProvider
+    {
+        /// <inheritdoc/>
+        public override ImmutableArray<string> FixableDiagnosticIds => [IgnoredValueDiagnosticId];
+
+        /// <inheritdoc/>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public override Task RegisterCodeFixesAsync(CodeFixContext context) => Task.CompletedTask;
     }
 
     /// <summary>Supplies a fixed document diagnostic set to a Fix All operation.</summary>

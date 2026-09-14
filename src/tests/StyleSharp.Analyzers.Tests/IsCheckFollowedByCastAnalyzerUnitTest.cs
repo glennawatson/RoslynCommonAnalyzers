@@ -3,7 +3,14 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
+using System.Composition.Hosting;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
+using Microsoft.CodeAnalysis.Editing;
+using RoslynCommon.Analyzers.Tests;
 
 using VerifyPatternMatching = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.PatternMatchingAnalyzer,
@@ -14,6 +21,38 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2007 (is check followed by a cast local).</summary>
 public class IsCheckFollowedByCastAnalyzerUnitTest
 {
+    /// <summary>Verifies stale pattern diagnostics decline individual and batch edits when the cast-local shape has changed.</summary>
+    /// <param name="statement">The replacement statement at the diagnostic.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments("return;")]
+    [Arguments("if (true) { var text = (string)value; }")]
+    [Arguments("if (value is string) return;")]
+    [Arguments("if (value is string) { }")]
+    [Arguments("if (value is string) { return; }")]
+    [Arguments("if (value is string) { string a = (string)value, b = (string)value; }")]
+    [Arguments("if (value is string) { var text = value; }")]
+    [Arguments("if (value is string) { string text; }")]
+    [Arguments("if (value is string) {\n#region Read\nvar text = (string)value;\n#endregion\n}")]
+    public async Task ChangedCastLocalHasNoRewriteAsync(string statement)
+    {
+        var source = $"class C {{ void M(object value) {{ {statement} }} }}";
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var root = (await document.GetSyntaxRootAsync())!;
+        var target = root.DescendantNodes().OfType<MethodDeclarationSyntax>().Single().Body!.Statements[0];
+        var diagnostic = Diagnostic.Create(ModernizationRules.UseDeclarationPatternOverIsCheckAndCast, target.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<DeclarationPatternCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        await Assert.That(DeclarationPatternCodeFixProvider.Apply(document, root, diagnostic)).IsSameReferenceAs(document);
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
+    }
+
     /// <summary>Verifies an <c>if</c> carrying a region is reported but not rewritten.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     /// <remarks>

@@ -2,6 +2,7 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis.Testing;
 
 using VerifyConcrete = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
@@ -13,6 +14,37 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1415 (hold the concrete type when the concrete type is what you have) and its code fix.</summary>
 public class UseConcreteTypeAnalyzerUnitTest
 {
+    /// <summary>Verifies foreach dispatch makes an interface local worth narrowing.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task ForeachDispatchIsReportedAsync() =>
+        VerifyConcrete.VerifyAnalyzerAsync("using System.Collections.Generic; class C { void M() { {|PSH1415:IEnumerable<int>|} items = new List<int>(); foreach (var item in items) { } } }");
+
+    /// <summary>Verifies fields in multiply declared types are not narrowed without seeing every part.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task PartialTypeFieldIsNotReportedAsync() =>
+        VerifyConcrete.VerifyAnalyzerAsync("using System.Collections.Generic; partial class C { private IList<int> items = new List<int>(); int M() => items.Count; } partial class C { }");
+
+    /// <summary>Verifies explicit event implementations pin the interface type while public events permit narrowing.</summary>
+    /// <param name="explicitImplementation">Whether the event is implemented explicitly.</param>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task EventDispatchRespectsExplicitImplementationAsync(bool explicitImplementation)
+    {
+        var declaration = explicitImplementation ? "event System.Action I.Changed" : "public event System.Action Changed";
+        var type = explicitImplementation ? "I" : "{|PSH1415:I|}";
+        await VerifyConcrete.VerifyAnalyzerAsync($$"""
+            interface I { event System.Action Changed; }
+            class D : I { {{declaration}} { add { } remove { } } }
+            class C { void M() { {{type}} value = new D(); value.Changed += () => { }; } }
+            """);
+    }
+
     /// <summary>Verifies an interface-typed local holding one concrete type is reported and narrowed.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

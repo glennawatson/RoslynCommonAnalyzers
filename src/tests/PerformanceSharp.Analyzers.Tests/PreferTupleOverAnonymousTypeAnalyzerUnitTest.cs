@@ -2,8 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Editing;
 
 using Verify = PerformanceSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     PerformanceSharp.Analyzers.Psh1023PreferTupleOverAnonymousTypeAnalyzer,
@@ -14,6 +20,39 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Unit tests for PSH1023 (a local anonymous type that could be a tuple).</summary>
 public class PreferTupleOverAnonymousTypeAnalyzerUnitTest
 {
+    /// <summary>Verifies identifier-inferred names survive conversion to tuple elements.</summary>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task IdentifierInferredMembersBecomeNamedTupleElementsAsync() =>
+        Verify.VerifyCodeFixAsync(
+            "class C { int M(int left, int right) { var pair = {|PSH1023:new { left, right }|}; return pair.left + pair.right; } }",
+            "class C { int M(int left, int right) { var pair = (left: left, right: right); return pair.left + pair.right; } }");
+
+    /// <summary>Verifies stale targets and anonymous members without inferable names offer no edit.</summary>
+    /// <param name="expression">The stale or incomplete expression.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    [Test]
+    [Arguments("42")]
+    [Arguments("new { 1, Other = 2 }")]
+    public async Task InapplicableTupleTargetIsUnchangedAsync(string expression)
+    {
+        using var workspace = new AdhocWorkspace();
+        var document = workspace.AddProject("TupleTarget", LanguageNames.CSharp)
+            .AddDocument("Test.cs", $"class C {{ void M() {{ var value = {expression}; }} }}");
+        var root = (await document.GetSyntaxRootAsync())!;
+        var initializer = root.DescendantNodes().OfType<EqualsValueClauseSyntax>().Single().Value;
+        var diagnostic = Diagnostic.Create(AllocationRules.PreferTupleOverAnonymousType, initializer.GetLocation());
+        using var container = new ContainerConfiguration().WithPart<Psh1023PreferTupleOverAnonymousTypeCodeFixProvider>().CreateContainer();
+        var provider = container.GetExport<CodeFixProvider>();
+        var actions = new List<CodeAction>();
+        await provider.RegisterCodeFixesAsync(new(document, diagnostic, (action, _) => actions.Add(action), CancellationToken.None));
+        await Assert.That(actions).IsEmpty();
+        var editor = await DocumentEditor.CreateAsync(document);
+        ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
+        await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(root.ToFullString());
+    }
+
     /// <summary>Verifies a member-read-only local is reported and rewritten as a tuple.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>
     [Test]

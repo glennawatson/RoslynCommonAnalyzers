@@ -12,16 +12,70 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2505 (a parameterized test method that declares no data source).</summary>
 public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
 {
-    /// <summary>Verifies an attributed method misplaced in a namespace is ignored when its declaration cannot bind.</summary>
+    /// <summary>Minimal xUnit attribute stubs, including the data-attribute base its data attributes derive from.</summary>
+    private const string XunitStubs = """
+        namespace Xunit
+        {
+            using System;
+            public class FactAttribute : Attribute { }
+            public class TheoryAttribute : FactAttribute { }
+            namespace Sdk { public abstract class DataAttribute : Attribute { } }
+            public sealed class InlineDataAttribute : Xunit.Sdk.DataAttribute { public InlineDataAttribute(params object[] data) { } }
+            public sealed class MemberDataAttribute : Xunit.Sdk.DataAttribute { public MemberDataAttribute(string memberName) { } }
+        }
+        """;
+
+    /// <summary>Minimal NUnit attribute stubs, including the test-builder and per-parameter data-source interfaces.</summary>
+    private const string NUnitStubs = """
+        namespace NUnit.Framework
+        {
+            using System;
+            namespace Interfaces
+            {
+                public interface ITestBuilder { }
+                public interface IParameterDataSource { }
+            }
+            public class TestAttribute : Attribute { }
+            public class TheoryAttribute : Attribute { }
+            public class TestCaseAttribute : Attribute, Interfaces.ITestBuilder { public TestCaseAttribute(params object[] args) { } }
+            public class TestCaseSourceAttribute : Attribute, Interfaces.ITestBuilder { public TestCaseSourceAttribute(string sourceName) { } }
+            public class ValuesAttribute : Attribute, Interfaces.IParameterDataSource { public ValuesAttribute(params object[] args) { } }
+        }
+        """;
+
+    /// <summary>Minimal MSTest attribute stubs, including the test-data-source interface its row attributes implement.</summary>
+    private const string MsTestStubs = """
+        namespace Microsoft.VisualStudio.TestTools.UnitTesting
+        {
+            using System;
+            public interface ITestDataSource { }
+            public class TestMethodAttribute : Attribute { }
+            public class DataTestMethodAttribute : TestMethodAttribute { }
+            public sealed class DataRowAttribute : Attribute, ITestDataSource { public DataRowAttribute(params object[] data) { } }
+        }
+        """;
+
+    /// <summary>Minimal TUnit attribute stubs, including the data-source interface its data attributes implement.</summary>
+    private const string TUnitStubs = """
+        namespace TUnit.Core
+        {
+            using System;
+            public interface IDataSourceAttribute { }
+            public sealed class TestAttribute : Attribute { }
+            public sealed class ArgumentsAttribute : Attribute, IDataSourceAttribute { public ArgumentsAttribute(params object[] values) { } }
+        }
+        """;
+
+    /// <summary>Verifies an attributed method misplaced in a namespace still binds, so its missing data source is reported.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
-    public async Task MisplacedNamespaceTestIsCleanAsync()
+    public async Task MisplacedNamespaceTestIsReportedAsync()
     {
         var test = new VerifyTest.Test
         {
             ReferenceAssemblies = RoslynCommon.Analyzers.Tests.AnalyzerFrameworks.Net90,
             CompilerDiagnostics = CompilerDiagnostics.None,
-            TestCode = "namespace N { [TUnit.Core.Test] void Run(int value) { } }" + TUnitStubs,
+            TestCode = $"namespace N {{ [TUnit.Core.Test] void {{|SST2505:Run|}}(int value) {{ }} }}{TUnitStubs}",
         };
         await test.RunAsync(CancellationToken.None);
     }
@@ -77,60 +131,6 @@ public class ParameterizedTestWithoutDataSourceAnalyzerUnitTest
                 public void WithData([NUnit.Framework.Values(1)] int value) { }
             }
             """ + XunitStubs + NUnitStubs + MsTestStubs + TUnitStubs);
-
-    /// <summary>Minimal xUnit attribute stubs, including the data-attribute base its data attributes derive from.</summary>
-    private const string XunitStubs = """
-        namespace Xunit
-        {
-            using System;
-            public class FactAttribute : Attribute { }
-            public class TheoryAttribute : FactAttribute { }
-            namespace Sdk { public abstract class DataAttribute : Attribute { } }
-            public sealed class InlineDataAttribute : Xunit.Sdk.DataAttribute { public InlineDataAttribute(params object[] data) { } }
-            public sealed class MemberDataAttribute : Xunit.Sdk.DataAttribute { public MemberDataAttribute(string memberName) { } }
-        }
-        """;
-
-    /// <summary>Minimal NUnit attribute stubs, including the test-builder and per-parameter data-source interfaces.</summary>
-    private const string NUnitStubs = """
-        namespace NUnit.Framework
-        {
-            using System;
-            namespace Interfaces
-            {
-                public interface ITestBuilder { }
-                public interface IParameterDataSource { }
-            }
-            public class TestAttribute : Attribute { }
-            public class TheoryAttribute : Attribute { }
-            public class TestCaseAttribute : Attribute, Interfaces.ITestBuilder { public TestCaseAttribute(params object[] args) { } }
-            public class TestCaseSourceAttribute : Attribute, Interfaces.ITestBuilder { public TestCaseSourceAttribute(string sourceName) { } }
-            public class ValuesAttribute : Attribute, Interfaces.IParameterDataSource { public ValuesAttribute(params object[] args) { } }
-        }
-        """;
-
-    /// <summary>Minimal MSTest attribute stubs, including the test-data-source interface its row attributes implement.</summary>
-    private const string MsTestStubs = """
-        namespace Microsoft.VisualStudio.TestTools.UnitTesting
-        {
-            using System;
-            public interface ITestDataSource { }
-            public class TestMethodAttribute : Attribute { }
-            public class DataTestMethodAttribute : TestMethodAttribute { }
-            public sealed class DataRowAttribute : Attribute, ITestDataSource { public DataRowAttribute(params object[] data) { } }
-        }
-        """;
-
-    /// <summary>Minimal TUnit attribute stubs, including the data-source interface its data attributes implement.</summary>
-    private const string TUnitStubs = """
-        namespace TUnit.Core
-        {
-            using System;
-            public interface IDataSourceAttribute { }
-            public sealed class TestAttribute : Attribute { }
-            public sealed class ArgumentsAttribute : Attribute, IDataSourceAttribute { public ArgumentsAttribute(params object[] values) { } }
-        }
-        """;
 
     /// <summary>Verifies a TUnit test whose only parameter is an injected <c>CancellationToken</c> is never reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

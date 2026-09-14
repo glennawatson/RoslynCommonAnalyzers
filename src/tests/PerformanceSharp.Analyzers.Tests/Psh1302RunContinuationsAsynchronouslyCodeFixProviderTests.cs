@@ -16,6 +16,9 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests completion-source edits with stale diagnostics and optional or named options.</summary>
 public class Psh1302RunContinuationsAsynchronouslyCodeFixProviderTests
 {
+    /// <summary>The file name given to the document under test.</summary>
+    private const string DocumentName = "Test.cs";
+
     /// <summary>Verifies unresolved constructors and non-creation expressions decline registration and batch edits.</summary>
     /// <param name="expression">The expression at the stale diagnostic.</param>
     /// <returns>A task representing the asynchronous test.</returns>
@@ -26,7 +29,7 @@ public class Psh1302RunContinuationsAsynchronouslyCodeFixProviderTests
     {
         var source = $"class C {{ object M() => {expression}; }}";
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;
         var target = root.DescendantNodes().OfType<ArrowExpressionClauseSyntax>().Single().Expression;
         var diagnostic = Diagnostic.Create(ConcurrencyRules.RunContinuationsAsynchronously, target.GetLocation());
@@ -49,7 +52,9 @@ public class Psh1302RunContinuationsAsynchronouslyCodeFixProviderTests
     [Arguments("new TaskCompletionSource<int>()", "new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously)")]
     [Arguments("new TaskCompletionSource<int>(options: TaskCreationOptions.None)", "new TaskCompletionSource<int>(options: TaskCreationOptions.RunContinuationsAsynchronously)")]
     [Arguments("new TaskCompletionSource<int>(state: null)", "new TaskCompletionSource<int>(state: null, TaskCreationOptions.RunContinuationsAsynchronously)")]
-    [Arguments("new TaskCompletionSource<int>(state: null, options: TaskCreationOptions.None)", "new TaskCompletionSource<int>(state: null, options: TaskCreationOptions.RunContinuationsAsynchronously)")]
+    [Arguments(
+        "new TaskCompletionSource<int>(state: null, options: TaskCreationOptions.None)",
+        "new TaskCompletionSource<int>(state: null, options: TaskCreationOptions.RunContinuationsAsynchronously)")]
     [Arguments("new TaskCompletionSource<int>(null, options)", "new TaskCompletionSource<int>(null, options | TaskCreationOptions.RunContinuationsAsynchronously)")]
     public async Task OptionalAndNamedOptionsAreRewrittenAsync(string creation, string expected)
     {
@@ -67,7 +72,7 @@ public class Psh1302RunContinuationsAsynchronouslyCodeFixProviderTests
             class C { object M(TaskCreationOptions options) => {{creation}}; }
             """;
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;
         var target = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Single();
         var diagnostic = Diagnostic.Create(ConcurrencyRules.RunContinuationsAsynchronously, target.GetLocation());
@@ -89,7 +94,7 @@ public class Psh1302RunContinuationsAsynchronouslyCodeFixProviderTests
     {
         var source = $"class C {{ {shadow} object M() => new System.Threading.Tasks.TaskCompletionSource<int>(); }}";
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;
         var target = root.DescendantNodes().OfType<ObjectCreationExpressionSyntax>().Single();
         var diagnostic = Diagnostic.Create(ConcurrencyRules.RunContinuationsAsynchronously, target.GetLocation());

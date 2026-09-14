@@ -49,11 +49,14 @@ public class Psh1126UseAnyAsyncOverCountAsyncCodeFixProviderTests
         ((IBatchFixableCodeFix)provider).RegisterBatchEdits(editor, diagnostic);
         var rewritten = editor.GetChangedRoot().DescendantNodes().OfType<MethodDeclarationSyntax>().Last().ExpressionBody!.Expression;
         await Assert.That(rewritten.NormalizeWhitespace().ToFullString()).IsEqualTo(SyntaxFactory.ParseExpression(expected ?? expression).NormalizeWhitespace().ToFullString());
-        if (target is BinaryExpressionSyntax binary)
+        if (target is not BinaryExpressionSyntax binary)
         {
-            var changed = Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider.Apply(document, root, model, binary);
-            var changedRoot = (await changed.GetSyntaxRootAsync())!;
-            await Assert.That(changedRoot.DescendantNodes().OfType<MethodDeclarationSyntax>().Last().ExpressionBody!.Expression.NormalizeWhitespace().ToFullString()).IsEqualTo(rewritten.NormalizeWhitespace().ToFullString());
+            return;
         }
+
+        var changed = Psh1126UseAnyAsyncOverCountAsyncCodeFixProvider.Apply(document, root, model, binary);
+        var changedRoot = (await changed.GetSyntaxRootAsync())!;
+        var changedExpression = changedRoot.DescendantNodes().OfType<MethodDeclarationSyntax>().Last().ExpressionBody!.Expression;
+        await Assert.That(changedExpression.NormalizeWhitespace().ToFullString()).IsEqualTo(rewritten.NormalizeWhitespace().ToFullString());
     }
 }

@@ -16,18 +16,14 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2016 (expose DateTimeOffset rather than DateTime).</summary>
 public class PreferDateTimeOffsetAnalyzerUnitTest
 {
-    /// <summary>Verifies a field whose variable list is still empty is ignored during editing.</summary>
+    /// <summary>Verifies a field whose variable list is still empty yields no declarator to report.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
+    /// <remarks>The compiler cannot build a symbol for this shape, so the helper is checked on the syntax alone.</remarks>
     [Test]
     public async Task FieldWithoutDeclaratorsIsIgnoredAsync()
     {
-        var root = await CSharpSyntaxTree.ParseText("using System; public class C { public DateTime value; }").GetRootAsync();
-        var field = root.DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
-        root = root.ReplaceNode(field, field.WithDeclaration(field.Declaration.WithVariables(default)));
-        var tree = CSharpSyntaxTree.Create((CSharpSyntaxNode)root);
-        var compilation = CSharpCompilation.Create(nameof(Test), [tree], RoslynCommon.Analyzers.Tests.RuntimeMetadataReferences.Platform);
-        var diagnostics = await compilation.WithAnalyzers([new Sst2016PreferDateTimeOffsetAnalyzer()]).GetAnalyzerDiagnosticsAsync();
-        await Assert.That(diagnostics).IsEmpty();
+        var field = SyntaxFactory.ParseCompilationUnit("using System; public class C { public DateTime value; }").DescendantNodes().OfType<FieldDeclarationSyntax>().Single();
+        await Assert.That(Sst2016PreferDateTimeOffsetAnalyzer.GetFirstDeclarator(field.WithDeclaration(field.Declaration.WithVariables(default)))).IsNull();
     }
 
     /// <summary>Verifies unrelated fields and delegate returns, hidden delegates, and indexer parameters stay quiet.</summary>

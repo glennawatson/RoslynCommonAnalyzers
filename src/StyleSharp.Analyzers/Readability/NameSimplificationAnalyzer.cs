@@ -31,6 +31,18 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
         context.RegisterSemanticModelAction(AnalyzeBareMemberAccesses);
     }
 
+    /// <summary>Returns whether a declaration expression introduces the requested name.</summary>
+    /// <param name="expression">The expression to inspect.</param>
+    /// <param name="name">The name to find.</param>
+    /// <returns><see langword="true"/> when the expression declares the name.</returns>
+    internal static bool PatternDeclaresName(ExpressionSyntax expression, string name) =>
+        expression switch
+        {
+            DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax designation } => designation.Identifier.ValueText == name,
+            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax designation } => DesignationDeclaresName(designation, name),
+            _ => false
+        };
+
     /// <summary>Reports qualified type or namespace names that can be shortened.</summary>
     /// <param name="context">The syntax node context.</param>
     private static void AnalyzeQualifiedName(SyntaxNodeAnalysisContext context)
@@ -415,18 +427,6 @@ public sealed class NameSimplificationAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns whether a declaration expression introduces the requested name.</summary>
-    /// <param name="expression">The expression to inspect.</param>
-    /// <param name="name">The name to find.</param>
-    /// <returns><see langword="true"/> when the expression declares the name.</returns>
-    private static bool PatternDeclaresName(ExpressionSyntax expression, string name) =>
-        expression switch
-        {
-            DeclarationExpressionSyntax { Designation: SingleVariableDesignationSyntax designation } => designation.Identifier.ValueText == name,
-            DeclarationExpressionSyntax { Designation: ParenthesizedVariableDesignationSyntax designation } => DesignationDeclaresName(designation, name),
-            _ => false
-        };
 
     /// <summary>Returns whether a variable designation contains the requested name.</summary>
     /// <param name="designation">The designation to inspect.</param>

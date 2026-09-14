@@ -13,6 +13,54 @@ namespace PerformanceSharp.Analyzers.Tests;
 /// <summary>Tests for <see cref="Psh1420FunctionClassClientFieldAnalyzer"/> (PSH1420 per-invocation client fields).</summary>
 public class FunctionClassClientFieldAnalyzerUnitTest
 {
+    /// <summary>A minimal isolated-worker function attribute declared under its real namespace, so the metadata-name gate resolves.</summary>
+    private const string FunctionAttributeStubSource = """
+        namespace Microsoft.Azure.Functions.Worker
+        {
+            [System.AttributeUsage(System.AttributeTargets.Method)]
+            public sealed class FunctionAttribute : System.Attribute
+            {
+                public FunctionAttribute(string name) => Name = name;
+
+                public string Name { get; }
+            }
+        }
+        """;
+
+    /// <summary>Minimal service-client surfaces declared under their real SDK namespaces, so the metadata-name probes resolve.</summary>
+    private const string ServiceClientStubsSource = """
+        namespace Azure.Storage.Blobs
+        {
+            public class BlobContainerClient
+            {
+                public System.Threading.Tasks.Task CreateIfNotExistsAsync() => System.Threading.Tasks.Task.CompletedTask;
+            }
+
+            public class BlobServiceClient
+            {
+                public BlobServiceClient(string connectionString)
+                {
+                }
+
+                public BlobContainerClient GetBlobContainerClient(string name) => new BlobContainerClient();
+            }
+        }
+
+        namespace Microsoft.Azure.Cosmos
+        {
+            public class CosmosClient : System.IDisposable
+            {
+                public CosmosClient(string connectionString)
+                {
+                }
+
+                public void Dispose()
+                {
+                }
+            }
+        }
+        """;
+
     /// <summary>Verifies nullable client auto-properties and aliased full attribute names retain their identity.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -118,54 +166,6 @@ public class FunctionClassClientFieldAnalyzerUnitTest
         test.TestState.Sources.Add(FunctionAttributeStubSource);
         await test.RunAsync(CancellationToken.None);
     }
-
-    /// <summary>A minimal isolated-worker function attribute declared under its real namespace, so the metadata-name gate resolves.</summary>
-    private const string FunctionAttributeStubSource = """
-        namespace Microsoft.Azure.Functions.Worker
-        {
-            [System.AttributeUsage(System.AttributeTargets.Method)]
-            public sealed class FunctionAttribute : System.Attribute
-            {
-                public FunctionAttribute(string name) => Name = name;
-
-                public string Name { get; }
-            }
-        }
-        """;
-
-    /// <summary>Minimal service-client surfaces declared under their real SDK namespaces, so the metadata-name probes resolve.</summary>
-    private const string ServiceClientStubsSource = """
-        namespace Azure.Storage.Blobs
-        {
-            public class BlobContainerClient
-            {
-                public System.Threading.Tasks.Task CreateIfNotExistsAsync() => System.Threading.Tasks.Task.CompletedTask;
-            }
-
-            public class BlobServiceClient
-            {
-                public BlobServiceClient(string connectionString)
-                {
-                }
-
-                public BlobContainerClient GetBlobContainerClient(string name) => new BlobContainerClient();
-            }
-        }
-
-        namespace Microsoft.Azure.Cosmos
-        {
-            public class CosmosClient : System.IDisposable
-            {
-                public CosmosClient(string connectionString)
-                {
-                }
-
-                public void Dispose()
-                {
-                }
-            }
-        }
-        """;
 
     /// <summary>Verifies an instance HttpClient field of a function class is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

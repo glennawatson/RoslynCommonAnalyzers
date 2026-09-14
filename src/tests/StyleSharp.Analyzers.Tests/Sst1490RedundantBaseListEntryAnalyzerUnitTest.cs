@@ -5,10 +5,10 @@
 using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
-using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.CodeActions;
+using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.Editing;
 using VerifyBaseList = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.Sst1490RedundantBaseListEntryAnalyzer,
@@ -19,6 +19,9 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1490 (base lists should not state what is already implied) and its fix.</summary>
 public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
 {
+    /// <summary>The file name given to the document under test.</summary>
+    private const string DocumentName = "Test.cs";
+
     /// <summary>Verifies a syntax list ending in a separator preserves the separator's trailing trivia.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -33,7 +36,7 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
         }));
         var root = SyntaxFactory.CompilationUnit().AddMembers(SyntaxFactory.ClassDeclaration("C").WithBaseList(list));
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject("TrailingBase", LanguageNames.CSharp).AddDocument("Test.cs", root.ToFullString()).WithSyntaxRoot(root);
+        var document = workspace.AddProject("TrailingBase", LanguageNames.CSharp).AddDocument(DocumentName, root.ToFullString()).WithSyntaxRoot(root);
         var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().First();
         var changed = Sst1490RedundantBaseListEntryCodeFixProvider.Apply(document, root, entry);
         var changedRoot = (await changed.GetSyntaxRootAsync())!;
@@ -52,10 +55,10 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     public async Task InapplicableBaseEntryIsUnchangedAsync(string source)
     {
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject("BaseTarget", LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var document = workspace.AddProject("BaseTarget", LanguageNames.CSharp).AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;
         var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().SingleOrDefault();
-        var diagnostic = Diagnostic.Create(MaintainabilityRules.RedundantBaseListEntry, (entry ?? (SyntaxNode)root).GetLocation());
+        var diagnostic = Diagnostic.Create(MaintainabilityRules.RedundantBaseListEntry, (entry ?? root).GetLocation());
         using var container = new ContainerConfiguration().WithPart<Sst1490RedundantBaseListEntryCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         var actions = new List<CodeAction>();
@@ -77,7 +80,7 @@ public class Sst1490RedundantBaseListEntryAnalyzerUnitTest
     public async Task RepeatedBatchRemovalPreservesRemainingEntriesAsync(string source, string expected)
     {
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject("BaseRemoval", LanguageNames.CSharp).AddDocument("Test.cs", source);
+        var document = workspace.AddProject("BaseRemoval", LanguageNames.CSharp).AddDocument(DocumentName, source);
         var root = (await document.GetSyntaxRootAsync())!;
         var entry = root.DescendantNodes().OfType<BaseTypeSyntax>().First();
         var diagnostic = Diagnostic.Create(MaintainabilityRules.RedundantBaseListEntry, entry.GetLocation());

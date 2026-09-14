@@ -59,6 +59,7 @@ public class Sst1426PragmaWarningDisableCodeFixProviderUnitTest
             #region Keep
             #pragma warning restore SST1400
             #endregion
+
             """);
 
     /// <summary>Verifies a pair that brackets more than one member is reported but not replaced.</summary>

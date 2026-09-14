@@ -5,9 +5,9 @@
 using System.Composition.Hosting;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using VerifyCapitalFix = StyleSharp.Analyzers.Tests.CSharpCodeFixVerifier<
     StyleSharp.Analyzers.DocumentationTextAnalyzer,
@@ -36,7 +36,7 @@ public class Sst1628TextBeginsWithCapitalCodeFixUnitTest
             .AddDocument("Test.cs", $"/// {summary}\nclass C {{ }}");
         var root = (await document.GetSyntaxRootAsync())!;
         var target = root.DescendantNodes(descendIntoTrivia: true).OfType<XmlElementSyntax>().FirstOrDefault();
-        var diagnostic = Diagnostic.Create(DocumentationRules.TextBeginsWithCapital, (target ?? (SyntaxNode)root).GetLocation());
+        var diagnostic = Diagnostic.Create(DocumentationRules.TextBeginsWithCapital, (target ?? root).GetLocation());
         using var container = new ContainerConfiguration().WithPart<Sst1628TextBeginsWithCapitalCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
         var actions = new List<CodeAction>();

@@ -18,11 +18,7 @@ public class Sst2324MemberMoreAccessibleThanContainingTypeAnalyzerUnitTest
     [Test]
     public async Task MisplacedPrivateTypeStillReportsWiderMemberAsync()
     {
-        var test = new Verify.Test
-        {
-            CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
-            TestCode = "private class C { {|SST2324:public|} void M() { } }",
-        };
+        var test = new Verify.Test { CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None, TestCode = "private class C { {|SST2324:public|} void M() { } }" };
         await test.RunAsync(CancellationToken.None);
     }
 

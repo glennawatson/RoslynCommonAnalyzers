@@ -31,7 +31,17 @@ public class RemoveRedundantDelegateCreationAnalyzerUnitTest
     [Arguments("new Action(this[null])")]
     public async Task InvalidDelegateWrapperIsIgnoredAsync(string creation)
     {
-        var tree = CSharpSyntaxTree.ParseText($"using System; class C {{ void M(int value) {{ }} void M(string value) {{ }} public Action this[string key] => null; public Action this[Type key] => null; Action Make(Action existing) => {creation}; }}");
+        var tree = CSharpSyntaxTree.ParseText($$"""
+            using System;
+            class C
+            {
+                void M(int value) { }
+                void M(string value) { }
+                public Action this[string key] => null;
+                public Action this[Type key] => null;
+                Action Make(Action existing) => {{creation}};
+            }
+            """);
         var compilation = CSharpCompilation.Create(nameof(Test), [tree], RuntimeMetadataReferences.Platform, new(OutputKind.DynamicallyLinkedLibrary));
         var diagnostics = await compilation.WithAnalyzers([new Sst2258RemoveRedundantDelegateCreationAnalyzer()]).GetAnalyzerDiagnosticsAsync();
         await Assert.That(diagnostics).IsEmpty();

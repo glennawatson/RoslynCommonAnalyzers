@@ -52,24 +52,27 @@ public sealed class Sst2016PreferDateTimeOffsetAnalyzer : DiagnosticAnalyzer
         context.RegisterSyntaxNodeAction(static nodeContext => AnalyzeParameter(nodeContext), SyntaxKind.Parameter);
     }
 
+    /// <summary>Gets the first variable a field declares.</summary>
+    /// <param name="field">The field declaration.</param>
+    /// <returns>The first declarator, or <see langword="null"/> while the variable list is still empty.</returns>
+    internal static VariableDeclaratorSyntax? GetFirstDeclarator(FieldDeclarationSyntax field)
+    {
+        var declarators = field.Declaration.Variables;
+        return declarators.Count == 0 ? null : declarators[0];
+    }
+
     /// <summary>Reports the type of an externally visible field.</summary>
     /// <param name="context">The syntax node analysis context.</param>
     private static void AnalyzeField(in SyntaxNodeAnalysisContext context)
     {
         var field = (FieldDeclarationSyntax)context.Node;
         var type = field.Declaration.Type;
-        if (!IsSpelledDateTime(type))
+        if (!IsSpelledDateTime(type) || GetFirstDeclarator(field) is not { } declarator)
         {
             return;
         }
 
-        var declarators = field.Declaration.Variables;
-        if (declarators.Count == 0)
-        {
-            return;
-        }
-
-        var symbol = context.SemanticModel.GetDeclaredSymbol(declarators[0], context.CancellationToken);
+        var symbol = context.SemanticModel.GetDeclaredSymbol(declarator, context.CancellationToken);
         if (symbol is null || !SymbolVisibility.IsExternallyVisible(symbol))
         {
             return;

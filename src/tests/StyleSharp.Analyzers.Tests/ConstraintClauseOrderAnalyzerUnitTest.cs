@@ -2,8 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
-using System.Runtime.CompilerServices;
 using System.Composition.Hosting;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -33,7 +33,7 @@ public class ConstraintClauseOrderAnalyzerUnitTest
         using var workspace = new AdhocWorkspace();
         var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", source);
         var root = (await document.GetSyntaxRootAsync())!;
-        SyntaxNode target = root.DescendantNodes().OfType<TypeParameterConstraintClauseSyntax>().FirstOrDefault() ?? (SyntaxNode)root;
+        var target = root.DescendantNodes().OfType<TypeParameterConstraintClauseSyntax>().FirstOrDefault() ?? root;
         var diagnostic = Diagnostic.Create(OrderingRules.ConstraintClauseOrder, target.GetLocation());
         using var container = new ContainerConfiguration().WithPart<Sst1221ConstraintClauseOrderCodeFixProvider>().CreateContainer();
         var provider = container.GetExport<CodeFixProvider>();
@@ -50,8 +50,9 @@ public class ConstraintClauseOrderAnalyzerUnitTest
     [Test]
     public async Task EmptyConstraintListsKeepSlotTriviaAsync()
     {
+        const string Source = "class C<T, U> where U : class where T : class { }";
         using var workspace = new AdhocWorkspace();
-        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", "class C<T, U> where U : class where T : class { }");
+        var document = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform).AddDocument("Test.cs", Source);
         var root = (await document.GetSyntaxRootAsync())!;
         var clauses = root.DescendantNodes().OfType<TypeParameterConstraintClauseSyntax>().ToArray();
         root = root.ReplaceNodes(clauses, static (original, _) => original.WithConstraints(default).WithColonToken(original.ColonToken.WithTrailingTrivia(SyntaxFactory.Space)));
@@ -62,9 +63,8 @@ public class ConstraintClauseOrderAnalyzerUnitTest
         var editor = await DocumentEditor.CreateAsync(document);
         ((IBatchFixableCodeFix)container.GetExport<CodeFixProvider>()).RegisterBatchEdits(editor, diagnostic);
         var reordered = editor.GetChangedRoot().DescendantNodes().OfType<TypeParameterConstraintClauseSyntax>().ToArray();
-        await Assert.That(reordered.Select(clause => clause.Name.Identifier.ValueText).ToArray()).IsEquivalentTo(new[] { "T", "U" });
-        await Assert.That(reordered[0].Name.Identifier.ValueText).IsEqualTo("T");
-        await Assert.That(reordered.All(clause => clause.Constraints.Count == 0 && clause.ColonToken.TrailingTrivia.ToFullString() == " ")).IsTrue();
+        await Assert.That(string.Join(',', reordered.Select(static clause => clause.Name.Identifier.ValueText))).IsEqualTo("T,U");
+        await Assert.That(Array.TrueForAll(reordered, static clause => clause.Constraints.Count == 0 && clause.ColonToken.TrailingTrivia.ToFullString() == " ")).IsTrue();
     }
 
     /// <summary>Verifies out-of-order type constraint clauses are reported and reordered.</summary>

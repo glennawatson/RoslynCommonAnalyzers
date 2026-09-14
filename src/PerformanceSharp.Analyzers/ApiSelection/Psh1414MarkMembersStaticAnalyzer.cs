@@ -81,6 +81,18 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
         return isPrivateOrInternal && !HasDisqualifyingModifier(modifiers);
     }
 
+    /// <summary>Returns the member's executable body, or nothing when it has none to inspect.</summary>
+    /// <param name="member">The member declaration.</param>
+    /// <returns>The body to scan, or <see langword="null"/> for an abstract or auto-implemented member.</returns>
+    internal static SyntaxNode? TryGetExecutableBody(MemberDeclarationSyntax member) =>
+        member switch
+        {
+            MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
+            PropertyDeclarationSyntax { ExpressionBody: { } expressionBody } => expressionBody,
+            PropertyDeclarationSyntax { AccessorList: { } accessors } => HasAccessorBody(accessors) ? accessors : null,
+            _ => null,
+        };
+
     /// <summary>Returns whether a member carries a modifier that either widens its surface or fixes its dispatch.</summary>
     /// <param name="modifiers">The declaration's modifiers.</param>
     /// <returns><see langword="true"/> when the member cannot be made static without changing a contract.</returns>
@@ -148,18 +160,6 @@ public sealed class Psh1414MarkMembersStaticAnalyzer : DiagnosticAnalyzer
 
         return false;
     }
-
-    /// <summary>Returns the member's executable body, or nothing when it has none to inspect.</summary>
-    /// <param name="member">The member declaration.</param>
-    /// <returns>The body to scan, or <see langword="null"/> for an abstract or auto-implemented member.</returns>
-    private static SyntaxNode? TryGetExecutableBody(MemberDeclarationSyntax member) =>
-        member switch
-        {
-            MethodDeclarationSyntax method => (SyntaxNode?)method.Body ?? method.ExpressionBody,
-            PropertyDeclarationSyntax { ExpressionBody: { } expressionBody } => expressionBody,
-            PropertyDeclarationSyntax { AccessorList: { } accessors } => HasAccessorBody(accessors) ? accessors : null,
-            _ => null,
-        };
 
     /// <summary>Returns whether a property's accessors have real bodies, so it is not an auto-property.</summary>
     /// <param name="accessors">The property's accessor list.</param>

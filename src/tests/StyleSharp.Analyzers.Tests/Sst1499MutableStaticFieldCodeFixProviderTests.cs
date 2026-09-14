@@ -35,7 +35,6 @@ public sealed class Sst1499MutableStaticFieldCodeFixProviderTests
     [Arguments("class C { public static int Value; } class D { static D() { C.Value = 1; } }")]
     [Arguments("class C { public static int Value; static C() { System.Action set = () => Value = 1; set(); } }")]
     [Arguments("class C { public static int Value; static void M() { Value--; } }")]
-    [Arguments("class C { public static int Value;\n/// <summary><see cref=\"Value\"/></summary>\nvoid M() { } }")]
     public async Task ForbiddenReadonlyRewriteHasNoFixAsync(string source)
     {
         using var workspace = new AdhocWorkspace();
@@ -54,13 +53,29 @@ public sealed class Sst1499MutableStaticFieldCodeFixProviderTests
         await Assert.That(editor.GetChangedRoot().ToFullString()).IsEqualTo(source);
     }
 
-    /// <summary>Verifies read references and static-constructor writes allow readonly on every declared variable.</summary>
+    /// <summary>Verifies reads, documentation references and static-constructor writes allow readonly on every declared variable.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
     [Test]
     public async Task ReadsAndQualifiedInitializationAllowOneReadonlyModifierAsync()
     {
-        const string Source = "class C { public static int First, Second; static C() { C.First = 1; Second = C.First; } int M() => -C.First + Second; }";
-        const string Expected = "class C { public static readonly int First, Second; static C() { C.First = 1; Second = C.First; } int M() => -C.First + Second; }";
+        const string Source = """
+                              class C
+                              {
+                                  public static int First, Second;
+                                  static C() { C.First = 1; Second = C.First; }
+                                  /// <summary><see cref="First"/></summary>
+                                  int M() => -C.First + Second;
+                              }
+                              """;
+        const string Expected = """
+                                class C
+                                {
+                                    public static readonly int First, Second;
+                                    static C() { C.First = 1; Second = C.First; }
+                                    /// <summary><see cref="First"/></summary>
+                                    int M() => -C.First + Second;
+                                }
+                                """;
         using var workspace = new AdhocWorkspace();
         var project = workspace.AddProject(nameof(Test), LanguageNames.CSharp).WithMetadataReferences(RuntimeMetadataReferences.Platform);
         var document = project.AddDocument("Test.cs", SourceText.From(Source));

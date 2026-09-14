@@ -47,6 +47,33 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
         context.RegisterCompilationStartAction(OnCompilationStart);
     }
 
+    /// <summary>Returns whether an indexer declares an accessor with a body.</summary>
+    /// <param name="indexer">The indexer declaration.</param>
+    /// <returns><see langword="true"/> when the indexer implements rather than declares.</returns>
+    internal static bool HasAccessorBody(IndexerDeclarationSyntax indexer)
+    {
+        if (indexer.ExpressionBody is not null)
+        {
+            return true;
+        }
+
+        if (indexer.AccessorList is not { } accessors)
+        {
+            return false;
+        }
+
+        var list = accessors.Accessors;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].Body is not null || list[i].ExpressionBody is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>Registers the per-compilation state, then analyzes every signature that declares parameters.</summary>
     /// <param name="context">The compilation start context.</param>
     /// <remarks>
@@ -261,33 +288,6 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             IndexerDeclarationSyntax indexer => HasAccessorBody(indexer),
             _ => false,
         };
-    }
-
-    /// <summary>Returns whether an indexer declares an accessor with a body.</summary>
-    /// <param name="indexer">The indexer declaration.</param>
-    /// <returns><see langword="true"/> when the indexer implements rather than declares.</returns>
-    private static bool HasAccessorBody(IndexerDeclarationSyntax indexer)
-    {
-        if (indexer.ExpressionBody is not null)
-        {
-            return true;
-        }
-
-        if (indexer.AccessorList is not { } accessors)
-        {
-            return false;
-        }
-
-        var list = accessors.Accessors;
-        for (var i = 0; i < list.Count; i++)
-        {
-            if (list[i].Body is not null || list[i].ExpressionBody is not null)
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /// <summary>Returns whether the declaration carries a P/Invoke attribute.</summary>

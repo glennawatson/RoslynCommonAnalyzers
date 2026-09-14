@@ -3,12 +3,9 @@
 // See the LICENSE file in the project root for full license information.
 
 using System.Runtime.CompilerServices;
-using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.Testing;
-using RoslynCommon.Analyzers.Tests;
 
 using AnalyzeStatic = PerformanceSharp.Analyzers.Tests.CSharpAnalyzerVerifier<
     PerformanceSharp.Analyzers.Psh1414MarkMembersStaticAnalyzer>;
@@ -52,20 +49,15 @@ public class MarkMembersStaticAnalyzerUnitTest
         await test.RunAsync(CancellationToken.None);
     }
 
-    /// <summary>Verifies an incomplete property without either body form is left alone.</summary>
+    /// <summary>Verifies an incomplete property without either body form has no executable body to inspect.</summary>
     /// <returns>A task representing the asynchronous test.</returns>
+    /// <remarks>The compiler cannot build a symbol for this shape, so the helper is checked on the syntax alone.</remarks>
     [Test]
-    public async Task PropertyWithoutAccessorListIsCleanAsync()
+    public async Task PropertyWithoutAccessorListHasNoExecutableBodyAsync()
     {
         var root = SyntaxFactory.ParseCompilationUnit("class C { private int P { get { return 1; } } }");
-        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single();
-        var tree = CSharpSyntaxTree.Create(root.ReplaceNode(property, property.WithAccessorList(null)));
-        var compilation = CSharpCompilation.Create(
-            nameof(PropertyWithoutAccessorListIsCleanAsync),
-            [tree],
-            RuntimeMetadataReferences.Platform);
-        var diagnostics = await compilation.WithAnalyzers([new Psh1414MarkMembersStaticAnalyzer()]).GetAnalyzerDiagnosticsAsync();
-        await Assert.That(diagnostics).IsEmpty();
+        var property = root.DescendantNodes().OfType<PropertyDeclarationSyntax>().Single().WithAccessorList(null);
+        await Assert.That(Psh1414MarkMembersStaticAnalyzer.TryGetExecutableBody(property)).IsNull();
     }
 
     /// <summary>Verifies a detached declaration cannot qualify as a member of a containing type.</summary>

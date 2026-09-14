@@ -14,6 +14,12 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for the record rules (SST1800 sealing and SST1801 positional-parameter casing).</summary>
 public class RecordAnalyzerUnitTest
 {
+    /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
+    private const string IsExternalInit = """
+
+        namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
+        """;
+
     /// <summary>Verifies static, constant, and readonly fields do not make a record struct mutable.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -42,10 +48,7 @@ public class RecordAnalyzerUnitTest
     [Arguments("invalid", "invalid", "int Value, int {|SST1801:other|}")]
     public async Task SpecificRecordConventionPrecedesGeneralAsync(string specific, string general, string parameters)
     {
-        var test = new VerifyRecord.Test
-        {
-            TestCode = $"public sealed record Point({parameters});{IsExternalInit}",
-        };
+        var test = new VerifyRecord.Test { TestCode = $"public sealed record Point({parameters});{IsExternalInit}" };
         test.TestState.AnalyzerConfigFiles.Add(("/.editorconfig", $$"""
             root = true
             [*.cs]
@@ -100,12 +103,6 @@ public class RecordAnalyzerUnitTest
         VerifyRecord.VerifyAnalyzerAsync($$"""
             public sealed record Point(int Étage, int {|SST1801:étage|});{{IsExternalInit}}
             """);
-
-    /// <summary>The <c>init</c>-accessor polyfill positional records require on the test reference assemblies.</summary>
-    private const string IsExternalInit = """
-
-        namespace System.Runtime.CompilerServices { internal static class IsExternalInit { } }
-        """;
 
     /// <summary>Verifies a record class that is neither sealed nor abstract is reported (SST1800, force-enabled here).</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

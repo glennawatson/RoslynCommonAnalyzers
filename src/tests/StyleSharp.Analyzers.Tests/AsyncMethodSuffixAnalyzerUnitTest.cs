@@ -12,15 +12,16 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST1317 (async method naming) and its rename fix.</summary>
 public class AsyncMethodSuffixAnalyzerUnitTest
 {
-    /// <summary>Verifies a misplaced namespace method does not cause a naming diagnostic without a declaration symbol.</summary>
+    /// <summary>Verifies a method misplaced in a namespace still binds, so its missing suffix is reported and renamed.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
-    public async Task MisplacedNamespaceMethodIsCleanAsync()
+    public async Task MisplacedNamespaceMethodIsReportedAsync()
     {
         var test = new VerifyAsyncSuffix.Test
         {
             CompilerDiagnostics = Microsoft.CodeAnalysis.Testing.CompilerDiagnostics.None,
-            TestCode = "namespace N { System.Threading.Tasks.Task Load() => null; }",
+            TestCode = "namespace N { System.Threading.Tasks.Task {|SST1317:Load|}() => null; }",
+            FixedCode = "namespace N { System.Threading.Tasks.Task LoadAsync() => null; }",
         };
         await test.RunAsync(CancellationToken.None);
     }

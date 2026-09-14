@@ -36,7 +36,6 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
     [Test]
     [Arguments("void M() { return; }")]
     [Arguments("bool M(object value) => value is int number;")]
-    [Arguments("bool M(object value) => value is var _;")]
     [Arguments("bool M(object value) => value is @var _;")]
     [Arguments("object M() => System.Text.Encoding.UTF8.GetBytes(\"x\");")]
     [Arguments("byte[] M(string value) => System.Text.Encoding.UTF8.GetBytes(value);")]
@@ -45,6 +44,13 @@ public class ModernSyntaxReadabilityAnalyzerUnitTest
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public Task UnsupportedReadabilityShapesAreSilentAsync(string member) =>
         CreateNet80Test($"class @var {{ }} class C {{ {member} }}").RunAsync(CancellationToken.None);
+
+    /// <summary>Checks a <c>var</c> pattern keeps its discard, because <c>value is var</c> is not valid C#.</summary>
+    /// <returns>A task representing the asynchronous test.</returns>
+    [Test]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public Task VarPatternDiscardIsSilentAsync() =>
+        CreateNet80Test("class C { bool M(object value) => value is var _; }").RunAsync(CancellationToken.None);
 
     /// <summary>Checks syntax parsed below each feature's introducing version is left alone.</summary>
     /// <param name="version">The language version selected for analysis.</param>

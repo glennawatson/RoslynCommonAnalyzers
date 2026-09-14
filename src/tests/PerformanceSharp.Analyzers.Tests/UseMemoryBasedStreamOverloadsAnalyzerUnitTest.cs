@@ -150,7 +150,7 @@ public class UseMemoryBasedStreamOverloadsAnalyzerUnitTest
     {
         var compilation = CSharpCompilation.Create(
             nameof(MissingFrameworkTypesAreCleanAsync),
-            [CSharpSyntaxTree.ParseText(types + "class C { async void M(dynamic stream) { await stream.ReadAsync(null, 0, 1); } }")]);
+            [CSharpSyntaxTree.ParseText($"{types}class C {{ async void M(dynamic stream) {{ await stream.ReadAsync(null, 0, 1); }} }}")]);
         var diagnostics = await compilation.WithAnalyzers([new Psh1314UseMemoryBasedStreamOverloadsAnalyzer()]).GetAnalyzerDiagnosticsAsync();
         await Assert.That(diagnostics).IsEmpty();
     }

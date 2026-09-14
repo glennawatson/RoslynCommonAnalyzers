@@ -15,6 +15,18 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2433 (a misplaced or defaulted caller-info parameter).</summary>
 public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
 {
+    /// <summary>A caller-info parameter with no default value, which the compiler also rejects.</summary>
+    private const string MissingDefaultSource = """
+        using System.Runtime.CompilerServices;
+
+        public sealed class Logger
+        {
+            public void Log([CallerMemberName] string {|SST2433:caller|})
+            {
+            }
+        }
+        """;
+
     /// <summary>Verifies ordinary and parameterless methods do not require caller-info inspection.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -51,18 +63,6 @@ public class Sst2433CallerInfoParameterOrderAnalyzerUnitTest
         };
         await test.RunAsync(CancellationToken.None);
     }
-
-    /// <summary>A caller-info parameter with no default value, which the compiler also rejects.</summary>
-    private const string MissingDefaultSource = """
-        using System.Runtime.CompilerServices;
-
-        public sealed class Logger
-        {
-            public void Log([CallerMemberName] string {|SST2433:caller|})
-            {
-            }
-        }
-        """;
 
     /// <summary>Verifies a caller-info parameter followed by an ordinary parameter is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

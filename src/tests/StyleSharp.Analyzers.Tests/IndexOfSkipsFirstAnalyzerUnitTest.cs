@@ -16,6 +16,14 @@ namespace StyleSharp.Analyzers.Tests;
 /// <summary>Unit tests for SST2420 (an index-of test that skips the first position).</summary>
 public class IndexOfSkipsFirstAnalyzerUnitTest
 {
+    /// <summary>A string index-of tested with greater-than-zero, the shape the rule reports.</summary>
+    private const string IndexOfGreaterThanZeroSource = """
+        public sealed class C
+        {
+            public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
+        }
+        """;
+
     /// <summary>Verifies a custom search is ignored when the target library provides no generic list interface.</summary>
     /// <returns>A task representing the asynchronous operation.</returns>
     [Test]
@@ -97,21 +105,9 @@ public class IndexOfSkipsFirstAnalyzerUnitTest
     [Test]
     public async Task UnresolvedIndexSearchIsCleanAsync()
     {
-        var test = new VerifyIndexOf.Test
-        {
-            TestCode = "class C { bool M(string s) => s.IndexOf(new object()) > 0; }",
-            CompilerDiagnostics = CompilerDiagnostics.None,
-        };
+        var test = new VerifyIndexOf.Test { TestCode = "class C { bool M(string s) => s.IndexOf(new object()) > 0; }", CompilerDiagnostics = CompilerDiagnostics.None };
         await test.RunAsync(CancellationToken.None);
     }
-
-    /// <summary>A string index-of tested with greater-than-zero, the shape the rule reports.</summary>
-    private const string IndexOfGreaterThanZeroSource = """
-        public sealed class C
-        {
-            public bool M(string s) => {|SST2420:s.IndexOf('a') > 0|};
-        }
-        """;
 
     /// <summary>Verifies a string index-of tested with greater-than-zero is reported.</summary>
     /// <returns>A task that represents the asynchronous test operation.</returns>

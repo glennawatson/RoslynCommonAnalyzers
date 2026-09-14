@@ -79,7 +79,7 @@ public sealed class Sst1499MutableStaticFieldAnalyzer : DiagnosticAnalyzer
 
         var variables = declaration.Declaration.Variables;
         if (context.SemanticModel.GetDeclaredSymbol(variables[0], context.CancellationToken) is not IFieldSymbol field
-            || !IsVisibleOutsideItsType(field, TreeOptionsCache.GetOrRead(state.GetOptionsByTree(), context, MutableStaticFieldOptions.Read))
+            || !IsVisibleOutsideItsType(field, TreeOptionsCache.GetOrRead(state.GetOptionsByTree(), context))
             || (ModifierListHelper.Contains(declaration.Modifiers, SyntaxKind.ReadOnlyKeyword)
                 && !state.GetMutableTypes().IsMutable(field.Type)))
         {

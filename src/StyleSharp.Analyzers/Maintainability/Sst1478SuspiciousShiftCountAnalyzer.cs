@@ -340,7 +340,6 @@ public sealed class Sst1478SuspiciousShiftCountAnalyzer : DiagnosticAnalyzer
         public ShiftCountOptions Get(in SyntaxNodeAnalysisContext context) =>
             TreeOptionsCache.GetOrRead(
                 _optionsByTree ??= new ConcurrentDictionary<SyntaxTree, ShiftCountOptions>(concurrencyLevel: 1, capacity: InitialTreeCapacity),
-                context,
-                ShiftCountOptions.Read);
+                context);
     }
 }

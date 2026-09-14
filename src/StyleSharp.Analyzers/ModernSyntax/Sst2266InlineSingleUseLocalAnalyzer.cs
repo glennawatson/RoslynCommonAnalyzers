@@ -376,7 +376,7 @@ public sealed class Sst2266InlineSingleUseLocalAnalyzer : DiagnosticAnalyzer
         }
 
         // Width is the cheapest of the remaining tests, and the only one that needs neither the model nor a scan.
-        if (value.Span.Length > TreeOptionsCache.GetOrRead(optionsByTree, context, InlineSingleUseLocalOptions.Read).MaxInitializerLength)
+        if (value.Span.Length > TreeOptionsCache.GetOrRead(optionsByTree, context).MaxInitializerLength)
         {
             return;
         }

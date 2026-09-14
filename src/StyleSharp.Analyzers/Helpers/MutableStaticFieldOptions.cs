@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1499 settings for one syntax tree.</summary>
 /// <param name="IncludeInternal">Whether a field visible only inside the assembly is reported.</param>
-internal readonly record struct MutableStaticFieldOptions(bool IncludeInternal)
+internal readonly record struct MutableStaticFieldOptions(bool IncludeInternal) : ITreeOptions<MutableStaticFieldOptions>
 {
     /// <summary>Whether an assembly-visible field is reported by default.</summary>
     public const bool DefaultIncludeInternal = true;
@@ -27,4 +29,8 @@ internal readonly record struct MutableStaticFieldOptions(bool IncludeInternal)
     /// </remarks>
     internal static MutableStaticFieldOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadBool(options, IncludeInternalRuleKey, IncludeInternalGeneralKey, DefaultIncludeInternal));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    MutableStaticFieldOptions ITreeOptions<MutableStaticFieldOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

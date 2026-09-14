@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1476 settings for one syntax tree.</summary>
 /// <param name="MinimumStatements">The smallest branch body, in statements, that counts as a duplicate.</param>
-internal readonly record struct IdenticalBranchesOptions(int MinimumStatements)
+internal readonly record struct IdenticalBranchesOptions(int MinimumStatements) : ITreeOptions<IdenticalBranchesOptions>
 {
     /// <summary>The default smallest body size, which counts even a single statement.</summary>
     public const int DefaultMinimumStatements = 1;
@@ -28,4 +30,8 @@ internal readonly record struct IdenticalBranchesOptions(int MinimumStatements)
     /// </remarks>
     internal static IdenticalBranchesOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadPositiveInt(options, MinimumStatementsRuleKey, MinimumStatementsGeneralKey, DefaultMinimumStatements));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    IdenticalBranchesOptions ITreeOptions<IdenticalBranchesOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST2438 level floor for one syntax tree.</summary>
@@ -11,7 +13,7 @@ namespace StyleSharp.Analyzers;
 /// higher ordinal is a more severe level. The floor defaults to error, the level at which a lost stack trace
 /// is a real operational problem; lowering it opts the noisier levels in.
 /// </remarks>
-internal readonly record struct LogLevelFloorOptions(int Floor)
+internal readonly record struct LogLevelFloorOptions(int Floor) : ITreeOptions<LogLevelFloorOptions>
 {
     /// <summary>The Trace ordinal.</summary>
     public const int Trace = 0;
@@ -42,6 +44,10 @@ internal readonly record struct LogLevelFloorOptions(int Floor)
     /// <returns>The resolved floor.</returns>
     internal static LogLevelFloorOptions Read(AnalyzerConfigOptions options) =>
         new(options.TryGetValue(MinimumLevelRuleKey, out var value) && TryParseLevel(value, out var level) ? level : Error);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    LogLevelFloorOptions ITreeOptions<LogLevelFloorOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 
     /// <summary>Returns whether a call's level is at or above the floor and within the reportable range.</summary>
     /// <param name="level">The call's level ordinal.</param>

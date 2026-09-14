@@ -459,7 +459,7 @@ public sealed class Psh1411SealNonDerivedTypeAnalyzer : DiagnosticAnalyzer
         /// <returns>The resolved settings.</returns>
         public SealNonDerivedTypeOptions GetOptions(INamedTypeSymbol symbol, in SymbolAnalysisContext context) =>
             symbol.Locations[0].SourceTree is { } tree
-                ? TreeOptionsCache.GetOrRead(_optionsByTree, tree, context.Options, SealNonDerivedTypeOptions.Read)
+                ? TreeOptionsCache.GetOrRead(_optionsByTree, tree, context.Options)
                 : default;
 
         /// <summary>Returns whether the assembly lets another assembly see its internal types.</summary>

@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>The resolved PSH1411 settings for one syntax tree.</summary>
 /// <param name="IncludePublic">Whether externally visible classes are reported.</param>
-internal readonly record struct SealNonDerivedTypeOptions(bool IncludePublic)
+internal readonly record struct SealNonDerivedTypeOptions(bool IncludePublic) : ITreeOptions<SealNonDerivedTypeOptions>
 {
     /// <summary>The rule-specific public-API key.</summary>
     private const string IncludePublicRuleKey = "performancesharp.PSH1411.include_public";
@@ -25,4 +27,8 @@ internal readonly record struct SealNonDerivedTypeOptions(bool IncludePublic)
     /// </remarks>
     internal static SealNonDerivedTypeOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadBool(options, IncludePublicRuleKey, IncludePublicGeneralKey));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    SealNonDerivedTypeOptions ITreeOptions<SealNonDerivedTypeOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

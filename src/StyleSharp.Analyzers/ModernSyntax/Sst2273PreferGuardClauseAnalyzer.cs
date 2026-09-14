@@ -215,7 +215,7 @@ public sealed class Sst2273PreferGuardClauseAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var minimum = TreeOptionsCache.GetOrRead(optionsByTree, context, TrailingGuardOptions.Read).MinWrappedStatements;
+        var minimum = TreeOptionsCache.GetOrRead(optionsByTree, context).MinWrappedStatements;
         if (WrappedStatementCount(ifStatement) < minimum)
         {
             return;

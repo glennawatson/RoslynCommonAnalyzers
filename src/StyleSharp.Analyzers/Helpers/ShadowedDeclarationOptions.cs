@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1484 settings for one syntax tree.</summary>
 /// <param name="CheckBaseTypes">Whether a field that hides an inherited field of the same name is reported.</param>
-internal readonly record struct ShadowedDeclarationOptions(bool CheckBaseTypes)
+internal readonly record struct ShadowedDeclarationOptions(bool CheckBaseTypes) : ITreeOptions<ShadowedDeclarationOptions>
 {
     /// <summary>The rule-specific base-type key.</summary>
     private const string CheckBaseTypesRuleKey = "stylesharp.SST1484.check_base_types";
@@ -24,4 +26,8 @@ internal readonly record struct ShadowedDeclarationOptions(bool CheckBaseTypes)
     /// </remarks>
     internal static ShadowedDeclarationOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadBool(options, CheckBaseTypesRuleKey, CheckBaseTypesGeneralKey, fallback: false));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    ShadowedDeclarationOptions ITreeOptions<ShadowedDeclarationOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

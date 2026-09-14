@@ -101,7 +101,7 @@ public sealed class Psh1017PropertyCopiesCollectionAnalyzer : DiagnosticAnalyzer
         }
 
         var name = property.Identifier.ValueText;
-        if (TreeOptionsCache.GetOrRead(optionsByTree, context, PropertyCopyOptions.Read).IsExcluded(name))
+        if (TreeOptionsCache.GetOrRead(optionsByTree, context).IsExcluded(name))
         {
             return;
         }

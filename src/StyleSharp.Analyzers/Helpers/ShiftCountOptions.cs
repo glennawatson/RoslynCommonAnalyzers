@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1478 settings for one syntax tree.</summary>
 /// <param name="AllowZeroShift">Whether a shift by a constant zero is allowed.</param>
-internal readonly record struct ShiftCountOptions(bool AllowZeroShift)
+internal readonly record struct ShiftCountOptions(bool AllowZeroShift) : ITreeOptions<ShiftCountOptions>
 {
     /// <summary>The rule-specific zero-shift key.</summary>
     private const string AllowZeroShiftRuleKey = "stylesharp.SST1478.allow_zero_shift";
@@ -25,4 +27,8 @@ internal readonly record struct ShiftCountOptions(bool AllowZeroShift)
     /// </remarks>
     internal static ShiftCountOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadBool(options, AllowZeroShiftRuleKey, AllowZeroShiftGeneralKey, fallback: false));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    ShiftCountOptions ITreeOptions<ShiftCountOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

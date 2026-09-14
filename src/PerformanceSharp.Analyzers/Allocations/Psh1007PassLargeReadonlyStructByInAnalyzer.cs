@@ -145,7 +145,7 @@ public sealed class Psh1007PassLargeReadonlyStructByInAnalyzer : DiagnosticAnaly
         INamedTypeSymbol type,
         ParameterCaches caches)
     {
-        var options = TreeOptionsCache.GetOrRead(caches.OptionsByTree, context, InParameterOptions.Read);
+        var options = TreeOptionsCache.GetOrRead(caches.OptionsByTree, context);
         if (InParameterOptions.IsExcluded(type, options.ExcludedTypes))
         {
             return StructSizeEstimator.Unknown;

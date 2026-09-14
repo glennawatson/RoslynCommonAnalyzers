@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST2273 settings for one syntax tree.</summary>
 /// <param name="MinWrappedStatements">The fewest statements a trailing <c>if</c> must wrap to be reported.</param>
-internal readonly record struct TrailingGuardOptions(int MinWrappedStatements)
+internal readonly record struct TrailingGuardOptions(int MinWrappedStatements) : ITreeOptions<TrailingGuardOptions>
 {
     /// <summary>The default minimum wrapped-statement count.</summary>
     public const int DefaultMinWrappedStatements = 2;
@@ -28,4 +30,8 @@ internal readonly record struct TrailingGuardOptions(int MinWrappedStatements)
     /// </remarks>
     internal static TrailingGuardOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadPositiveInt(options, MinRuleKey, MinGeneralKey, DefaultMinWrappedStatements));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    TrailingGuardOptions ITreeOptions<TrailingGuardOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

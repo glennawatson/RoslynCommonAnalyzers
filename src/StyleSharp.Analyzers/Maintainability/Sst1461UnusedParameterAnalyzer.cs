@@ -91,7 +91,7 @@ public sealed class Sst1461UnusedParameterAnalyzer : DiagnosticAnalyzer
         }
 
         if (context.ContainingSymbol is not IMethodSymbol method
-            || (!TreeOptionsCache.GetOrRead(optionsByTree, context, UnreadParameterOptions.Read).IncludePublicApi && SymbolVisibility.IsExternallyVisible(method))
+            || (!TreeOptionsCache.GetOrRead(optionsByTree, context).IncludePublicApi && SymbolVisibility.IsExternallyVisible(method))
             || IsEventHandler(member, context))
         {
             return;

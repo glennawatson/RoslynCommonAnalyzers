@@ -2,12 +2,14 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1473 settings for one syntax tree.</summary>
 /// <param name="AllowZeroComparison">Whether a comparison against a literal zero is left alone.</param>
 /// <param name="AllowEqualityMemberComparison">Whether a comparison inside an equality member is left alone.</param>
-internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroComparison, bool AllowEqualityMemberComparison)
+internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroComparison, bool AllowEqualityMemberComparison) : ITreeOptions<FloatingPointComparisonOptions>
 {
     /// <summary>Zero comparisons are allowed unless the configuration says otherwise.</summary>
     public const bool DefaultAllowZeroComparison = true;
@@ -36,4 +38,8 @@ internal readonly record struct FloatingPointComparisonOptions(bool AllowZeroCom
         new(
             AnalyzerOptionReader.ReadBool(options, AllowZeroRuleKey, AllowZeroGeneralKey, DefaultAllowZeroComparison),
             AnalyzerOptionReader.ReadBool(options, AllowEqualityMemberRuleKey, AllowEqualityMemberGeneralKey, fallback: false));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    FloatingPointComparisonOptions ITreeOptions<FloatingPointComparisonOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

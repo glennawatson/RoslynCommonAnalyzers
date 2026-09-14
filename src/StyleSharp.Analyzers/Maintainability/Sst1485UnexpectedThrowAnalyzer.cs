@@ -150,7 +150,7 @@ public sealed class Sst1485UnexpectedThrowAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, UnexpectedThrowOptions> optionsByTree) => member switch
         {
             MethodDeclarationSyntax method => IsImplicitlyInvoked(method)
-                || TreeOptionsCache.GetOrRead(optionsByTree, context, UnexpectedThrowOptions.Read).Contains(method.Identifier.ValueText),
+                || TreeOptionsCache.GetOrRead(optionsByTree, context).Contains(method.Identifier.ValueText),
             ConstructorDeclarationSyntax constructor => ModifierListHelper.Contains(constructor.Modifiers, SyntaxKind.StaticKeyword),
             DestructorDeclarationSyntax => true,
             OperatorDeclarationSyntax @operator => IsComparisonOperator(@operator.OperatorToken),

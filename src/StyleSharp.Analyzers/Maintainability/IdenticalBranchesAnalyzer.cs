@@ -526,7 +526,7 @@ public sealed class IdenticalBranchesAnalyzer : DiagnosticAnalyzer
         in SyntaxNodeAnalysisContext context,
         ConcurrentDictionary<SyntaxTree, IdenticalBranchesOptions> optionsByTree,
         int statements) =>
-        statements >= TreeOptionsCache.GetOrRead(optionsByTree, context, IdenticalBranchesOptions.Read).MinimumStatements;
+        statements >= TreeOptionsCache.GetOrRead(optionsByTree, context).MinimumStatements;
 
     /// <summary>Returns whether two branch bodies run the same statements in the same order.</summary>
     /// <param name="first">The first branch's body.</param>

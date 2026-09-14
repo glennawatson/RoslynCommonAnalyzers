@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1461 settings for one syntax tree.</summary>
 /// <param name="IncludePublicApi">Whether externally visible members are reported.</param>
-internal readonly record struct UnreadParameterOptions(bool IncludePublicApi)
+internal readonly record struct UnreadParameterOptions(bool IncludePublicApi) : ITreeOptions<UnreadParameterOptions>
 {
     /// <summary>The rule-specific public-API key.</summary>
     private const string IncludePublicApiRuleKey = "stylesharp.SST1461.unread_parameter_include_public_api";
@@ -24,4 +26,8 @@ internal readonly record struct UnreadParameterOptions(bool IncludePublicApi)
     /// </remarks>
     internal static UnreadParameterOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadBool(options, IncludePublicApiRuleKey, IncludePublicApiGeneralKey, fallback: false));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    UnreadParameterOptions ITreeOptions<UnreadParameterOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

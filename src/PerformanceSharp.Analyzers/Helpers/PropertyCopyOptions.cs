@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>The resolved PSH1017 settings for one syntax tree.</summary>
 /// <param name="ExcludedProperties">Property names the rule leaves alone, or an empty array.</param>
-internal readonly record struct PropertyCopyOptions(string[] ExcludedProperties)
+internal readonly record struct PropertyCopyOptions(string[] ExcludedProperties) : ITreeOptions<PropertyCopyOptions>
 {
     /// <summary>The rule-specific excluded-properties key.</summary>
     private const string ExcludedRuleKey = "performancesharp.PSH1017.excluded_properties";
@@ -19,6 +21,10 @@ internal readonly record struct PropertyCopyOptions(string[] ExcludedProperties)
     /// <returns>The resolved settings.</returns>
     internal static PropertyCopyOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadCommaSeparatedList(options, ExcludedRuleKey, ExcludedGeneralKey));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    PropertyCopyOptions ITreeOptions<PropertyCopyOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 
     /// <summary>Returns whether a property name was configured away.</summary>
     /// <param name="name">The declared property name.</param>

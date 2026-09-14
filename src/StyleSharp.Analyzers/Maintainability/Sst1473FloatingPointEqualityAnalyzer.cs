@@ -514,7 +514,7 @@ public sealed class Sst1473FloatingPointEqualityAnalyzer : DiagnosticAnalyzer
     private static FloatingPointComparisonOptions GetOptions(
         in SyntaxNodeAnalysisContext context,
         Lazy<ConcurrentDictionary<SyntaxTree, FloatingPointComparisonOptions>> optionsByTree) =>
-        TreeOptionsCache.GetOrRead(optionsByTree.Value, context, FloatingPointComparisonOptions.Read);
+        TreeOptionsCache.GetOrRead(optionsByTree.Value, context);
 
     /// <summary>Returns whether an operand is a literal zero.</summary>
     /// <param name="expression">The operand.</param>

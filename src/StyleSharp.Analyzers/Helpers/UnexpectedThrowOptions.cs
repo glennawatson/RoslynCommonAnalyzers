@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1485 settings for one syntax tree.</summary>
@@ -10,7 +12,7 @@ namespace StyleSharp.Analyzers;
 /// The list is kept as the raw configured text and scanned in place. It is empty in almost every tree, and
 /// an empty scan neither allocates nor compares anything.
 /// </remarks>
-internal readonly record struct UnexpectedThrowOptions(string AdditionalMembers)
+internal readonly record struct UnexpectedThrowOptions(string AdditionalMembers) : ITreeOptions<UnexpectedThrowOptions>
 {
     /// <summary>The rule-specific additional-members key.</summary>
     private const string AdditionalMembersRuleKey = "stylesharp.SST1485.additional_members";
@@ -26,6 +28,10 @@ internal readonly record struct UnexpectedThrowOptions(string AdditionalMembers)
     /// <returns>The resolved settings.</returns>
     internal static UnexpectedThrowOptions Read(AnalyzerConfigOptions options) => !options.TryGetValue(AdditionalMembersRuleKey, out var value)
             && !options.TryGetValue(AdditionalMembersGeneralKey, out value) ? Default : new UnexpectedThrowOptions(value);
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    UnexpectedThrowOptions ITreeOptions<UnexpectedThrowOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 
     /// <summary>Returns whether a member name was added to the must-not-throw list.</summary>
     /// <param name="name">The member's name.</param>

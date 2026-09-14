@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST1472 settings for one syntax tree.</summary>
@@ -11,7 +13,7 @@ namespace StyleSharp.Analyzers;
 internal readonly record struct ParameterCountOptions(
     int Maximum,
     bool CheckPositionalRecords,
-    bool CountOptionalParameters)
+    bool CountOptionalParameters) : ITreeOptions<ParameterCountOptions>
 {
     /// <summary>The default maximum parameter count.</summary>
     public const int DefaultMaximum = 7;
@@ -45,4 +47,8 @@ internal readonly record struct ParameterCountOptions(
         AnalyzerOptionReader.ReadPositiveInt(options, MaximumRuleKey, MaximumGeneralKey, DefaultMaximum),
         AnalyzerOptionReader.ReadBool(options, CheckRecordsRuleKey, CheckRecordsGeneralKey, fallback: false),
         AnalyzerOptionReader.ReadBool(options, CountOptionalRuleKey, CountOptionalGeneralKey, fallback: true));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    ParameterCountOptions ITreeOptions<ParameterCountOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

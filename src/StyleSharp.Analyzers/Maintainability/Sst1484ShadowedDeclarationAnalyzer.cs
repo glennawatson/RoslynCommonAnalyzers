@@ -213,7 +213,7 @@ public sealed class Sst1484ShadowedDeclarationAnalyzer : DiagnosticAnalyzer
         }
 
         if (ModifierListHelper.Contains(field.Modifiers, SyntaxKind.NewKeyword)
-            || !TreeOptionsCache.GetOrRead(optionsByTree.Value, context, ShadowedDeclarationOptions.Read).CheckBaseTypes)
+            || !TreeOptionsCache.GetOrRead(optionsByTree.Value, context).CheckBaseTypes)
         {
             return;
         }

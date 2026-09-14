@@ -121,7 +121,7 @@ public sealed class Sst1472TooManyParametersAnalyzer : DiagnosticAnalyzer
             return;
         }
 
-        var options = TreeOptionsCache.GetOrRead(optionsByTree, context, ParameterCountOptions.Read);
+        var options = TreeOptionsCache.GetOrRead(optionsByTree, context);
         if (declared <= options.Maximum)
         {
             return;

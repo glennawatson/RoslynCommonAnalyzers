@@ -2,6 +2,8 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace PerformanceSharp.Analyzers;
 
 /// <summary>The resolved PSH1007 settings for one syntax tree.</summary>
@@ -11,7 +13,7 @@ namespace PerformanceSharp.Analyzers;
 internal readonly record struct InParameterOptions(
     int MinimumSize,
     string[] ExcludedTypes,
-    bool IncludePublicApi)
+    bool IncludePublicApi) : ITreeOptions<InParameterOptions>
 {
     /// <summary>The default minimum size, which is Microsoft's "three words or less is negligible" guidance.</summary>
     public const int DefaultMinimumSize = 32;
@@ -86,6 +88,10 @@ internal readonly record struct InParameterOptions(
         ReadSize(options),
         AnalyzerOptionReader.ReadCommaSeparatedList(options, ExcludedRuleKey, ExcludedGeneralKey),
         AnalyzerOptionReader.ReadBool(options, PublicApiRuleKey, PublicApiGeneralKey));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    InParameterOptions ITreeOptions<InParameterOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 
     /// <summary>Returns whether a type is one the rule never suggests <c>in</c> for.</summary>
     /// <param name="type">The parameter's type.</param>

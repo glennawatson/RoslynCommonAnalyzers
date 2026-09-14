@@ -329,7 +329,7 @@ public sealed class LoggerCallAnalyzer : DiagnosticAnalyzer
         ConcurrentDictionary<SyntaxTree, LogLevelFloorOptions> floors)
     {
         var level = LevelOf(context, call.MethodName, call.Arguments);
-        if (level < 0 || !TreeOptionsCache.GetOrRead(floors, context, LogLevelFloorOptions.Read).Includes(level) || !state.HasExceptionOverload(call.MethodName))
+        if (level < 0 || !TreeOptionsCache.GetOrRead(floors, context).Includes(level) || !state.HasExceptionOverload(call.MethodName))
         {
             return;
         }

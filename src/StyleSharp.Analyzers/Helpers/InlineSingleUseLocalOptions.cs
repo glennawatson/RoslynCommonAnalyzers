@@ -2,11 +2,13 @@
 // Glenn Watson and Contributors licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for full license information.
 
+using System.Runtime.CompilerServices;
+
 namespace StyleSharp.Analyzers;
 
 /// <summary>The resolved SST2266 settings for one syntax tree.</summary>
 /// <param name="MaxInitializerLength">The widest initializer, in characters, still worth inlining.</param>
-internal readonly record struct InlineSingleUseLocalOptions(int MaxInitializerLength)
+internal readonly record struct InlineSingleUseLocalOptions(int MaxInitializerLength) : ITreeOptions<InlineSingleUseLocalOptions>
 {
     /// <summary>The default maximum initializer width, in characters.</summary>
     public const int DefaultMaxInitializerLength = 40;
@@ -30,4 +32,8 @@ internal readonly record struct InlineSingleUseLocalOptions(int MaxInitializerLe
     /// </remarks>
     internal static InlineSingleUseLocalOptions Read(AnalyzerConfigOptions options) =>
         new(AnalyzerOptionReader.ReadPositiveInt(options, MaxRuleKey, MaxGeneralKey, DefaultMaxInitializerLength));
+
+    /// <inheritdoc/>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    InlineSingleUseLocalOptions ITreeOptions<InlineSingleUseLocalOptions>.ReadFrom(AnalyzerConfigOptions options) => Read(options);
 }

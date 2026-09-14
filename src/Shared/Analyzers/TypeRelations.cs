@@ -97,7 +97,7 @@ internal static class TypeRelations
         return false;
     }
 
-    /// <summary>Returns whether something outside a method fixes its signature: an interface it implements, or the attribute it constructs.</summary>
+    /// <summary>Returns whether something outside a method fixes its signature: an interface member it implicitly implements, or the attribute it constructs.</summary>
     /// <param name="method">The method whose signature a rule wants to change.</param>
     /// <returns><see langword="true"/> when changing a parameter would break a contract the method's own declaration does not show.</returns>
     /// <remarks>
@@ -124,10 +124,11 @@ internal static class TypeRelations
         return false;
     }
 
-    /// <summary>Returns whether a method implicitly or explicitly implements a member of an interface its type carries.</summary>
+    /// <summary>Returns whether a method implicitly implements a member of an interface its type carries.</summary>
     /// <param name="method">The method to test.</param>
     /// <param name="containingType">The method's containing type.</param>
-    /// <returns><see langword="true"/> when an interface member maps to <paramref name="method"/>.</returns>
+    /// <returns><see langword="true"/> when a same-named interface member maps to <paramref name="method"/>.</returns>
+    /// <remarks>An explicit implementation is named for its interface (<c>IShape.Draw</c>), so it is not matched here.</remarks>
     internal static bool ImplementsInterfaceMember(IMethodSymbol method, INamedTypeSymbol containingType)
     {
         var interfaces = containingType.AllInterfaces;
